@@ -18,8 +18,10 @@ export function createHaptics(): Haptics {
       }
     },
     setEnabled(on) {
+      const wasEnabled = enabled;
       enabled = on;
-      if (!on && supported) {
+      // only cancel a running vibration when switching off (startup calls would warn pre-gesture)
+      if (wasEnabled && !on && supported && navigator.userActivation?.hasBeenActive) {
         try {
           navigator.vibrate(0);
         } catch {
