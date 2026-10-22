@@ -1,0 +1,10 @@
+{
+  "appId": "com.heesookyang.taprope",
+  "appName": "탭탭 줄넘기",
+  "webDir": "dist",
+  "backgroundColor": "#1b1446",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false
+  }
+}
