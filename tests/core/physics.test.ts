@@ -52,7 +52,7 @@ describe('initialPlayer', () => {
   it('is grounded at rest in the centre lane', () => {
     expect(initialPlayer()).toEqual({
       height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, buffer: 0,
-      lane: 0, laneX: 0, tumble: false, cross: false, backward: false, lastTap: 'none',
+      lane: 0, laneX: 0, tumble: false, cross: false, backward: false, lastTap: 'none', pendingSwipe: null,
     });
   });
 });
@@ -105,7 +105,7 @@ describe('swipePlayer', () => {
     const r = swipePlayer(p, 'up', cfg, 'long');
     expect(r.action).toBe('tumble');
     expect(r.player.tumble).toBe(true);
-    expect(r.player.vy).toBeCloseTo(cfg.tumbleV - cfg.gravity * p.airTime);
+    expect(r.player.vy).toBeCloseTo(Math.sqrt(cfg.tumbleV ** 2 - 2 * cfg.gravity * p.height), 6);
     expect(swipePlayer(r.player, 'up', cfg, 'long').action).toBe('none');
   });
 
@@ -278,5 +278,62 @@ describe('physicsForWorld', () => {
     expect(apex(moon, moon.tumbleV)).toBeCloseTo(apex(DEFAULT_PHYSICS, DEFAULT_PHYSICS.tumbleV), 6);
     expect(airtimeForLevel(1, moon)).toBeGreaterThan(airtimeForLevel(1, DEFAULT_PHYSICS));
     expect(airtimeTumble(moon)).toBeGreaterThan(airtimeTumble(DEFAULT_PHYSICS));
+  });
+});
+
+
+describe('v2 review fixes', () => {
+  const cfg = DEFAULT_PHYSICS;
+  const airborneJump = (airTime: number): PlayerState => {
+    let p = tapPlayer(initialPlayer(), cfg).player;
+    p = stepPlayer(p, airTime, cfg).player;
+    return p;
+  };
+
+  it('a swipe during a buffered (pre-landing) tap is kept for the auto-jump', () => {
+    let p = tapPlayer(initialPlayer(), cfg).player;
+    while (!(p.vy < 0 && p.height < 20)) p = stepPlayer(p, 1 / 240, cfg).player;
+    p = tapPlayer(p, cfg).player;
+    expect(p.buffer).toBeGreaterThan(0);
+    const swiped = swipePlayer(p, 'left', cfg, 'long');
+    expect(swiped.action).toBe('none');
+    expect(swiped.player.pendingSwipe).toBe('left');
+    const landed = stepPlayer(swiped.player, 0.05, cfg);
+    expect(landed.autoJumped).toBe(true);
+    expect(landed.player.pendingSwipe).toBe('left'); // the session applies it to the new jump
+  });
+
+  it('a pending swipe is dropped when the buffer expires without a jump', () => {
+    const p: PlayerState = { ...airborneJump(0.3), pendingSwipe: 'up', buffer: 0 };
+    let q = p;
+    for (let i = 0; i < 60 && !q.grounded; i++) q = stepPlayer(q, 1 / 60, cfg).player;
+    expect(q.grounded).toBe(true);
+    expect(q.pendingSwipe).toBeNull();
+  });
+
+  it('every swipe is ignored while tumbling', () => {
+    const t = swipePlayer(airborneJump(0.02), 'up', cfg, 'solo').player;
+    for (const dir of ['up', 'down', 'left', 'right'] as const) {
+      expect(swipePlayer(t, dir, cfg, 'solo').action).toBe('none');
+    }
+  });
+
+  it('a late swipe still reaches the full tumble apex', () => {
+    const apex = (start: number): number => {
+      let p = swipePlayer(airborneJump(start), 'up', cfg, 'long').player;
+      let top = p.height;
+      while (!p.grounded) {
+        p = stepPlayer(p, 1 / 240, cfg).player;
+        top = Math.max(top, p.height);
+      }
+      return top;
+    };
+    const full = (cfg.tumbleV * cfg.tumbleV) / (2 * cfg.gravity);
+    for (const start of [0, 0.1, 0.2]) expect(apex(start)).toBeCloseTo(full, -1);
+  });
+
+  it('a swipe exactly at the window edge still counts', () => {
+    const p = { ...airborneJump(0.1), airTime: SWIPE_WINDOW };
+    expect(swipePlayer(p, 'right', cfg, 'long').action).toBe('side');
   });
 });

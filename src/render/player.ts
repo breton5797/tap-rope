@@ -1,24 +1,26 @@
-// The chibi jumper seen from above-front: foreshortened body, big head showing the crown,
-// squash & stretch, 3단 spin, 덤블링 somersault, 엇걸어 crossed arms, solo rope handles.
+// The chibi jumper seen from above (~60° down): crown-dominant head with the face as a
+// lower band, wide shoulders, feet peeking out. Squash & stretch, 3단 spin, 덤블링
+// somersault, 엇걸어 crossed arms and solo rope handles.
 import { LANE_W, type RenderSnapshot, type SkinId } from '../types';
+import { drawArm, drawLower, drawShoulders, HEAD_CY, OUTLINE, SHOULDER_X, SHOULDER_Y } from './chibi';
 import { drawMoodFx } from './face';
-import { drawHead, drawHeadBack, HEAD_Y } from './heads';
-import { groundRy, groundY, HEIGHT_K, project, screenX } from './projection';
-import { drawBodyBack, drawChest, lookFor, type SkinLook } from './skins';
-import { circle, clamp, oval, radGrad, roundRect, TAU, vGrad, type Ctx } from './util';
+import { drawHead, drawHeadBack } from './heads';
+import { groundRy, groundY, project, screenX } from './projection';
+import { drawTail, lookFor, type SkinLook } from './skins';
+import { circle, clamp, oval, radGrad, roundRect, TAU, type Ctx } from './util';
 
-const OUTLINE = 'rgba(40,22,55,0.6)';
-const BODY_CY = -24;
+const BODY_CY = -20;
 const FLIP_TIME = 0.5;
 const TUMBLE_TIME = 0.62;
-const K = HEIGHT_K;
 
 interface Pose {
   sx: number;
   sy: number;
   rot: number;
   tuck: number;
-  arm: number;
+  /** local hand position of the right hand; the left mirrors it */
+  hx: number;
+  hy: number;
 }
 
 function smoothstep(t: number): number {
@@ -30,9 +32,9 @@ export class PlayerPainter {
   feetX = 180;
   feetY = 454;
   private prevLevel = 0;
+  private crossed = false;
   private flipStart = -1;
-  private readonly pose: Pose = { sx: 1, sy: 1, rot: 0, tuck: 0, arm: 0 };
-  private readonly torsoGrad = new Map<SkinId, CanvasGradient>();
+  private readonly pose: Pose = { sx: 1, sy: 1, rot: 0, tuck: 0, hx: 17, hy: -6 };
   private shieldGrad: CanvasGradient | null = null;
   private readonly pt = new Float32Array(3);
   /** solo rope: screen positions of the two hands (set by the renderer), NaN = free */
@@ -40,8 +42,8 @@ export class PlayerPainter {
 
   drawShadow(ctx: Ctx, laneX: number, height: number): void {
     const f = 1 / (1 + height / 60);
-    ctx.fillStyle = `rgba(20,12,40,${(0.26 * f).toFixed(3)})`;
-    oval(ctx, screenX(laneX * LANE_W, 0), groundY(0), 19 * f, groundRy(0, 15) * f);
+    ctx.fillStyle = `rgba(20,12,40,${(0.28 * f).toFixed(3)})`;
+    oval(ctx, screenX(laneX * LANE_W, 0), groundY(0) - 1, 20 * f, groundRy(0, 16) * f);
     ctx.fill();
   }
 
@@ -52,6 +54,7 @@ export class PlayerPainter {
     this.feetX = this.pt[0];
     this.feetY = this.pt[1];
     this.trackFlip(p.level, p.grounded, t, snap.rope.mode === 'solo');
+    this.crossed = p.cross;
     this.computePose(snap);
     const pose = this.pose;
     const look = lookFor(snap.skin);
@@ -64,18 +67,13 @@ export class PlayerPainter {
       ctx.rotate(pose.rot);
       ctx.translate(0, -BODY_CY);
     }
-    ctx.save();
-    ctx.scale(1, K);
-    drawBodyBack(ctx, snap.skin, t, !p.grounded);
-    this.legs(ctx, look, pose.tuck);
-    this.torso(ctx, snap.skin, look);
-    drawChest(ctx, snap.skin, t);
-    ctx.restore();
-    this.arms(ctx, look, snap);
-    ctx.translate(0, HEAD_Y * (K - 1) + 3);
+    drawTail(ctx, snap.skin, t, !p.grounded);
+    drawLower(ctx, look, pose.tuck);
     drawHeadBack(ctx, snap.skin, t, p.vy);
+    drawShoulders(ctx, look);
+    this.arms(ctx, look);
     drawHead(ctx, snap.skin, snap.mood, t);
-    drawMoodFx(ctx, snap.mood, t, 0, HEAD_Y);
+    drawMoodFx(ctx, snap.mood, t, 0, HEAD_CY + 4);
     ctx.restore();
     if (!p.grounded && p.level === 3 && snap.rope.mode === 'solo') this.spinCue(ctx, t);
     if (snap.shield) this.shield(ctx, t);
@@ -101,7 +99,7 @@ export class PlayerPainter {
         const hy = this.hands[i * 2 + 1];
         const ex = this.feetX + (hx < this.feetX ? 15 : -15);
         ctx.moveTo(hx, hy);
-        ctx.quadraticCurveTo((hx + ex) / 2, hy + 4, ex, this.feetY - 3);
+        ctx.quadraticCurveTo((hx + ex) / 2, hy + 4, ex, this.feetY - 2);
       }
       ctx.stroke();
     }
@@ -132,21 +130,29 @@ export class PlayerPainter {
     pose.rot = 0;
     if (p.grounded) {
       const q = p.landTimer < 0.16 ? 1 - p.landTimer / 0.16 : 0;
-      pose.sx = 1 + 0.2 * q;
-      pose.sy = 1 - 0.24 * q + 0.015 * Math.sin(t * 3.2);
-      pose.tuck = 0.35 * q;
-      pose.arm = snap.mood === 'cheer' ? 2.6 + Math.sin(t * 12) * 0.25 : 0.32 + 0.05 * Math.sin(t * 3) + q * 0.6;
+      pose.sx = 1 + 0.18 * q;
+      pose.sy = 1 - 0.2 * q + 0.015 * Math.sin(t * 3.2);
+      pose.tuck = 0.3 * q;
+      this.setHands(17 + q * 3, -6 + Math.sin(t * 3) * 0.6);
+      if (snap.mood === 'cheer') this.setHands(20, -32 + Math.sin(t * 12) * 3);
     } else {
       const st = clamp(p.vy / 700, -1, 1);
-      const stretch = st > 0 ? 0.13 * st : 0.06 * -st;
+      const stretch = st > 0 ? 0.12 * st : 0.05 * -st;
       pose.sy = 1 + stretch;
       pose.sx = 1 - stretch * 0.6;
       const apex = clamp(1 - Math.abs(p.vy) / 650, 0, 1);
-      pose.tuck = p.level >= 2 || p.tumble ? 0.45 + 0.55 * apex : 0.18 + 0.15 * apex;
-      pose.arm = p.level === 1 ? 2.45 : p.level === 2 ? 1.55 : 2.85;
+      pose.tuck = p.level >= 2 || p.tumble ? 0.5 + 0.5 * apex : 0.2 + 0.15 * apex;
+      if (p.level === 1) this.setHands(21, -24);
+      else if (p.level === 2) this.setHands(9, -5);
+      else this.setHands(18, -40);
       this.airSpin(snap);
     }
-    if (snap.mood === 'hurt') pose.arm = 1.3 + Math.sin(t * 22) * 0.5;
+    if (snap.mood === 'hurt') this.setHands(21, -18 + Math.sin(t * 22) * 5);
+  }
+
+  private setHands(hx: number, hy: number): void {
+    this.pose.hx = hx;
+    this.pose.hy = hy;
   }
 
   private airSpin(snap: RenderSnapshot): void {
@@ -155,121 +161,44 @@ export class PlayerPainter {
     if (p.tumble) {
       const f = clamp(p.airTime / TUMBLE_TIME, 0, 1);
       pose.rot = -smoothstep(f) * TAU;
-      pose.sy *= 1 - 0.16 * Math.sin(f * Math.PI);
+      pose.sy *= 1 - 0.18 * Math.sin(f * Math.PI);
       pose.tuck = 1;
-      pose.arm = 1.4;
+      this.setHands(8, -6);
     } else if (this.flipStart >= 0) {
       const f = clamp((snap.realTime - this.flipStart) / FLIP_TIME, 0, 1);
       pose.rot = f < 1 ? -smoothstep(f) * TAU : 0;
     }
   }
 
-  private legs(ctx: Ctx, look: SkinLook, tuck: number): void {
-    ctx.lineCap = 'round';
-    for (const s of [-1, 1]) {
-      const hx = s * 4.2;
-      const fx = s * (4 + tuck * 1.5);
-      const fy = -1.5 - tuck * 9;
-      const kx = s * (5.5 + tuck * 6);
-      const ky = -7.5 - tuck * 7;
-      ctx.beginPath();
-      ctx.moveTo(hx, -12);
-      ctx.quadraticCurveTo(kx, ky, fx, fy);
-      ctx.strokeStyle = OUTLINE;
-      ctx.lineWidth = 6.4;
-      ctx.stroke();
-      ctx.strokeStyle = look.limb;
-      ctx.lineWidth = 4.8;
-      ctx.stroke();
-      ctx.fillStyle = look.shoe;
-      oval(ctx, fx + s * 1.2, fy + 0.6, 4.4, 3.4);
-      ctx.fill();
-      ctx.strokeStyle = OUTLINE;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-    }
-    ctx.fillStyle = look.pants;
-    roundRect(ctx, -9, -16, 18, 7, 3);
-    ctx.fill();
-  }
-
-  private torso(ctx: Ctx, id: SkinId, look: SkinLook): void {
-    let g = this.torsoGrad.get(id);
-    if (!g) {
-      g = vGrad(ctx, -31, -10, [[0, look.shirt], [1, look.shirtDark]]);
-      this.torsoGrad.set(id, g);
-    }
-    ctx.fillStyle = g;
-    roundRect(ctx, -10, -31, 20, 20, 8);
-    ctx.fill();
-    ctx.strokeStyle = OUTLINE;
-    ctx.lineWidth = 1.3;
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    roundRect(ctx, -7.5, -28.5, 4, 11, 2);
-    ctx.fill();
-  }
-
-  private arms(ctx: Ctx, look: SkinLook, snap: RenderSnapshot): void {
-    const sy = -27 * K;
+  private arms(ctx: Ctx, look: SkinLook): void {
     const solo = !Number.isNaN(this.hands[0]) && this.pose.rot === 0;
     for (let i = 0; i < 2; i++) {
       const s = i === 0 ? -1 : 1;
-      const sx = s * 8.6;
-      let hx: number;
-      let hy: number;
+      const sx = s * SHOULDER_X;
+      let hx = s * this.pose.hx;
+      let hy = this.pose.hy;
       if (solo) {
         hx = (this.hands[i * 2] - this.feetX) / this.pose.sx;
         hy = (this.hands[i * 2 + 1] - this.feetY) / this.pose.sy;
-      } else if (snap.player.cross) {
-        hx = -s * 7;
-        hy = sy + 7;
-      } else {
-        const a = this.pose.arm;
-        hx = sx + s * Math.sin(a) * 11.5;
-        hy = sy + Math.cos(a) * 11.5 * K;
+      } else if (this.crossed) {
+        hx = -s * 8;
+        hy = -8;
       }
-      this.limb(ctx, look, sx, sy, hx, hy, !solo);
+      drawArm(ctx, look, sx, SHOULDER_Y + 1, hx, hy, !solo);
     }
-  }
-
-  private limb(ctx: Ctx, look: SkinLook, sx: number, sy: number, hx: number, hy: number, fist: boolean): void {
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(hx, hy);
-    ctx.strokeStyle = OUTLINE;
-    ctx.lineWidth = 6.2;
-    ctx.stroke();
-    ctx.strokeStyle = look.limb;
-    ctx.lineWidth = 4.6;
-    ctx.stroke();
-    ctx.strokeStyle = look.shirt;
-    ctx.lineWidth = 5.4;
-    ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sx + (hx - sx) * 0.3, sy + (hy - sy) * 0.3);
-    ctx.stroke();
-    if (!fist) return;
-    ctx.fillStyle = look.limb;
-    circle(ctx, hx, hy, 3);
-    ctx.fill();
-    ctx.strokeStyle = OUTLINE;
-    ctx.lineWidth = 1;
-    ctx.stroke();
   }
 
   /** 3단 on a solo rope: a whoosh ring around the kid instead of a flip. */
   private spinCue(ctx: Ctx, t: number): void {
     ctx.save();
-    ctx.translate(this.feetX, this.feetY - 24);
+    ctx.translate(this.feetX, this.feetY - 20);
     ctx.strokeStyle = 'rgba(255,255,255,0.75)';
     ctx.lineWidth = 2.2;
     ctx.lineCap = 'round';
     for (let i = 0; i < 2; i++) {
       const a = t * 14 + i * Math.PI;
       ctx.beginPath();
-      ctx.ellipse(0, 0, 30, 10, 0, a, a + 1.6);
+      ctx.ellipse(0, 0, 30, 11, 0, a, a + 1.6);
       ctx.stroke();
     }
     ctx.restore();
@@ -279,9 +208,9 @@ export class PlayerPainter {
     if (!this.shieldGrad) {
       this.shieldGrad = radGrad(ctx, -8, -10, 4, 38, [[0, 'rgba(160,240,255,0.05)'], [0.7, 'rgba(90,200,255,0.18)'], [1, 'rgba(90,200,255,0.45)']]);
     }
-    const r = 33 + Math.sin(t * 4) * 1.2;
+    const r = 31 + Math.sin(t * 4) * 1.2;
     ctx.save();
-    ctx.translate(this.feetX, this.feetY - 25);
+    ctx.translate(this.feetX, this.feetY - 22);
     ctx.fillStyle = this.shieldGrad;
     circle(ctx, 0, 0, r);
     ctx.fill();
@@ -297,4 +226,3 @@ export class PlayerPainter {
     ctx.restore();
   }
 }
-

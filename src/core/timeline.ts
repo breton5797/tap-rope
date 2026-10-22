@@ -115,15 +115,34 @@ export function visibleObstacles(beats: readonly Beat[], t: number): VisibleObst
   });
 }
 
+const ropeBack = (b: Beat): boolean | null => {
+  const rope = b.obstacles.find((o) => o.kind === 'rope');
+  return rope ? (rope.back ?? false) : null;
+};
+
+/** True when this rope beat turns the other way from the previous rope beat (needs a ↓ swipe). */
+function flipsDirection(beats: readonly Beat[], index: number): boolean {
+  const back = ropeBack(beats[index]);
+  if (back === null) return false;
+  for (let i = index - 1; i >= 0; i--) {
+    const prev = ropeBack(beats[i]);
+    if (prev !== null) return prev !== back;
+  }
+  return back; // the first rope beat only needs ↓ if it starts backwards
+}
+
 export function laneItems(beats: readonly Beat[], t: number): LaneItem[] {
-  return beats
-    .filter((b) => b.time - t >= -LANE_PAST && b.time - t <= LANE_LEAD)
-    .map((b) => ({
+  const items: LaneItem[] = [];
+  beats.forEach((b, i) => {
+    if (b.time - t < -LANE_PAST || b.time - t > LANE_LEAD) return;
+    items.push({
       beatId: b.id,
       timeUntil: b.time - t,
       kinds: b.obstacles.map((o) => o.kind),
       level: b.requiredLevel,
-      move: moveForBeat(b),
+      move: flipsDirection(beats, i) ? 'back' : moveForBeat(b),
       ballLanes: b.obstacles.filter((o) => o.kind === 'ball').map((o): Lane => o.lane ?? 0),
-    }));
+    });
+  });
+  return items;
 }

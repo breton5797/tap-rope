@@ -38,7 +38,7 @@ export function physicsForWorld(world: WorldId): PhysicsConfig {
 export function initialPlayer(): PlayerState {
   return {
     height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, buffer: 0,
-    lane: 0, laneX: 0, tumble: false, cross: false, backward: false, lastTap: 'none',
+    lane: 0, laneX: 0, tumble: false, cross: false, backward: false, lastTap: 'none', pendingSwipe: null,
   };
 }
 
@@ -70,7 +70,9 @@ function groundSwipe(p: PlayerState, dir: Swipe, cfg: PhysicsConfig, mode: RopeM
   const none = { player: p, action: 'none' as const };
   if (dir === 'up') {
     if (p.tumble) return none;
-    return { player: { ...p, tumble: true, vy: cfg.tumbleV - cfg.gravity * p.airTime }, action: 'tumble' };
+    // re-launch so the apex matches a tumble taken straight from the ground, however late the swipe
+    const vy = Math.sqrt(Math.max(0, cfg.tumbleV * cfg.tumbleV - 2 * cfg.gravity * p.height));
+    return { player: { ...p, tumble: true, vy }, action: 'tumble' };
   }
   if (dir === 'down') {
     return mode === 'solo' ? { player: { ...p, backward: !p.backward }, action: 'reverse' } : none;
@@ -85,8 +87,9 @@ export function swipePlayer(
   cfg: PhysicsConfig,
   mode: RopeMode,
 ): { player: PlayerState; action: SwipeAction } {
-  if (p.grounded) return { player: p, action: 'none' };
-  if (p.lastTap === 'jump' && p.airTime <= SWIPE_WINDOW) return groundSwipe(p, dir, cfg, mode);
+  if (p.grounded || p.tumble) return { player: p, action: 'none' };
+  if (p.buffer > 0) return { player: { ...p, pendingSwipe: dir }, action: 'none' };
+  if (p.lastTap === 'jump' && p.airTime <= SWIPE_WINDOW + 1e-6) return groundSwipe(p, dir, cfg, mode);
   if (p.lastTap === 'boost' && (dir === 'left' || dir === 'right')) {
     return { player: { ...p, cross: true }, action: 'cross' };
   }
@@ -102,9 +105,11 @@ interface StepResult {
 function land(p: PlayerState, cfg: PhysicsConfig): StepResult {
   const grounded: PlayerState = {
     ...p, height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, buffer: 0,
-    tumble: false, cross: false, lastTap: 'none',
+    tumble: false, cross: false, lastTap: 'none', pendingSwipe: null,
   };
-  if (p.buffer > 0) return { player: takeoff(grounded, cfg), landed: true, autoJumped: true };
+  if (p.buffer > 0) {
+    return { player: takeoff({ ...grounded, pendingSwipe: p.pendingSwipe }, cfg), landed: true, autoJumped: true };
+  }
   return { player: grounded, landed: true, autoJumped: false };
 }
 

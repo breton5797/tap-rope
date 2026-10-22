@@ -73,6 +73,8 @@ export interface PlayerState {
   readonly backward: boolean; // 뒤로넘기 mode (solo rope turns backwards); persists until toggled
   /** what the most recent tap did; a swipe modifies that jump ('jump' = started from the ground) */
   readonly lastTap: 'jump' | 'boost' | 'none';
+  /** a swipe made during a buffered (pre-landing) tap; the session applies it to the auto-jump */
+  readonly pendingSwipe: Swipe | null;
 }
 
 export interface PhysicsConfig {

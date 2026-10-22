@@ -1,174 +1,35 @@
-// The two friends turning the rope. Body is drawn behind the rope, hands after it.
-import { groundY, HEIGHT_K, project, screenX } from './projection';
+// The two friends turning the long rope, seen from above (~60° down) with the same chibi
+// kit as the kid, a little bigger. Faces turn inward toward the jumper. Bodies + arms are
+// drawn behind the rope; fists + handles after it.
+import {
+  drawArm, drawLower, drawShoulders, faceBand, HEAD_CY, HEAD_R, headBall, OUTLINE, SHOULDER_X, SHOULDER_Y,
+  strands, type BodyStyle,
+} from './chibi';
+import { drawFace, type FaceStyle } from './face';
+import { groundRy, groundY, project, screenX } from './projection';
 import { handPos, RopeRig, setLongRig, TURNER_X } from './rope';
-import { circle, clamp, oval, radGrad, roundRect, vGrad, type Ctx } from './util';
+import { circle, clamp, oval, roundRect, type Ctx } from './util';
 
-interface TurnerLook {
-  readonly shirt: string;
-  readonly shirtDark: string;
-  readonly pants: string;
+interface TurnerLook extends BodyStyle {
   readonly hair: string;
+  readonly hairLight: string;
   readonly hairDark: string;
   readonly accent: string;
   readonly girl: boolean;
 }
 
-const LEFT: TurnerLook = {
-  shirt: '#2EC4B6', shirtDark: '#1A8F86', pants: '#FF7AA2', hair: '#3B2A4A', hairDark: '#22172D', accent: '#FF5E8E', girl: true,
-};
-const RIGHT: TurnerLook = {
-  shirt: '#8E6CFF', shirtDark: '#5F43CC', pants: '#2F3B66', hair: '#6B3E22', hairDark: '#43240F', accent: '#FFB627', girl: false,
-};
 const SKIN = '#FFD8B8';
 const SKIN_SHADE = '#F2B48F';
-const OUTLINE = 'rgba(45,25,60,0.55)';
-const HEAD_Y = -74;
-const HEAD_R = 19;
-
-function bob(phase: number): number {
-  return -1.6 * Math.abs(Math.sin(phase));
-}
-
-function legs(ctx: Ctx, look: TurnerLook): void {
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = look.pants;
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(-5, -26);
-  ctx.lineTo(-6, -5);
-  ctx.moveTo(5, -26);
-  ctx.lineTo(6, -5);
-  ctx.stroke();
-  ctx.fillStyle = '#FFFFFF';
-  for (const sx of [-6, 6]) {
-    oval(ctx, sx + 2, -3, 6.5, 3.6);
-    ctx.fill();
-    ctx.strokeStyle = OUTLINE;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-}
-
-function torso(ctx: Ctx, look: TurnerLook): void {
-  ctx.fillStyle = vGrad(ctx, -56, -22, [[0, look.shirt], [1, look.shirtDark]]);
-  if (look.girl) {
-    ctx.beginPath();
-    ctx.moveTo(-11, -56);
-    ctx.lineTo(11, -56);
-    ctx.quadraticCurveTo(13, -40, 18, -22);
-    ctx.lineTo(-18, -22);
-    ctx.quadraticCurveTo(-13, -40, -11, -56);
-    ctx.closePath();
-  } else {
-    roundRect(ctx, -13, -57, 26, 33, 10);
-  }
-  ctx.fill();
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  roundRect(ctx, -8, -53, 5, 18, 2.5);
-  ctx.fill();
-  ctx.fillStyle = look.accent;
-  circle(ctx, 3, -44, 3.2);
-  ctx.fill();
-}
-
-function hairBack(ctx: Ctx, look: TurnerLook, t: number): void {
-  if (!look.girl) return;
-  ctx.fillStyle = look.hair;
-  const sw = Math.sin(t * 6) * 1.5;
-  for (const sx of [-1, 1]) {
-    oval(ctx, sx * 19, HEAD_Y + 6 + sw * sx, 6, 10, sx * 0.4);
-    ctx.fill();
-  }
-  ctx.fillStyle = look.accent;
-  for (const sx of [-1, 1]) {
-    circle(ctx, sx * 16, HEAD_Y - 2, 3.2);
-    ctx.fill();
-  }
-}
-
-function head(ctx: Ctx, look: TurnerLook, lookUp: number, t: number): void {
-  hairBack(ctx, look, t);
-  ctx.fillStyle = radGrad(ctx, -6, HEAD_Y - 7, 3, HEAD_R + 3, [[0, '#FFE9D6'], [0.7, SKIN], [1, SKIN_SHADE]]);
-  circle(ctx, 0, HEAD_Y, HEAD_R);
-  ctx.fill();
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 1.3;
-  ctx.stroke();
-  ctx.fillStyle = vGrad(ctx, HEAD_Y - HEAD_R, HEAD_Y, [[0, look.hair], [1, look.hairDark]]);
-  ctx.beginPath();
-  ctx.arc(0, HEAD_Y, HEAD_R + 1, Math.PI * 1.02, Math.PI * 1.98);
-  ctx.quadraticCurveTo(10, HEAD_Y - 12, 2, HEAD_Y - 9);
-  ctx.quadraticCurveTo(-8, HEAD_Y - 13, -HEAD_R - 1, HEAD_Y - 1);
-  ctx.fill();
-  if (!look.girl) {
-    ctx.fillStyle = look.accent;
-    ctx.beginPath();
-    ctx.arc(0, HEAD_Y - 6, HEAD_R + 1, Math.PI * 1.05, Math.PI * 1.95);
-    ctx.closePath();
-    ctx.fill();
-    roundRect(ctx, -HEAD_R - 9, HEAD_Y - 9, 14, 5, 2.5);
-    ctx.fill();
-  }
-  face(ctx, lookUp, t);
-}
-
-function face(ctx: Ctx, lookUp: number, t: number): void {
-  const blink = (t + 0.7) % 3.7 < 0.12;
-  const ey = HEAD_Y + 2 - lookUp;
-  ctx.fillStyle = '#2B2140';
-  ctx.strokeStyle = '#2B2140';
-  for (const ex of [2, 12]) {
-    if (blink) {
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.moveTo(ex - 2.4, ey);
-      ctx.lineTo(ex + 2.4, ey);
-      ctx.stroke();
-    } else {
-      oval(ctx, ex, ey, 2.4, 3.2);
-      ctx.fill();
-    }
-  }
-  if (!blink) {
-    ctx.fillStyle = '#FFFFFF';
-    for (const ex of [2, 12]) {
-      circle(ctx, ex + 0.8, ey - 1.2, 0.9);
-      ctx.fill();
-    }
-  }
-  ctx.fillStyle = 'rgba(255,120,140,0.45)';
-  oval(ctx, 15, HEAD_Y + 8, 3.4, 2);
-  ctx.fill();
-  ctx.strokeStyle = '#7A3044';
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.arc(8, HEAD_Y + 8, 3.2, 0.2, Math.PI - 0.2);
-  ctx.stroke();
-}
-
-function arm(ctx: Ctx, look: TurnerLook, hx: number, hy: number): void {
-  const sx = 7;
-  const sy = -50 * HEIGHT_K;
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = 8.4;
-  ctx.beginPath();
-  ctx.moveTo(sx, sy);
-  ctx.quadraticCurveTo((sx + hx) / 2 + 2, Math.max(sy, hy) + 4, hx, hy);
-  ctx.stroke();
-  ctx.strokeStyle = SKIN;
-  ctx.lineWidth = 6;
-  ctx.stroke();
-  ctx.strokeStyle = look.shirt;
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(sx - 1, sy);
-  ctx.lineTo(sx + 4, sy - 2);
-  ctx.stroke();
-}
+const LEFT: TurnerLook = {
+  shirt: '#2EC4B6', shirtDark: '#1A8F86', pants: '#FF7AA2', limb: SKIN, shoe: '#FFFFFF',
+  hair: '#3B2A4A', hairLight: '#6A5080', hairDark: '#22172D', accent: '#FF5E8E', girl: true,
+};
+const RIGHT: TurnerLook = {
+  shirt: '#8E6CFF', shirtDark: '#5F43CC', pants: '#2F3B66', limb: SKIN, shoe: '#FFFFFF',
+  hair: '#6B3E22', hairLight: '#9A6440', hairDark: '#43240F', accent: '#FFB627', girl: false,
+};
+const FACE: FaceStyle = { eye: '#2B2140', mouth: '#7A3044', blush: true };
+const SCALE = 1.28;
 
 const rig = setLongRig(new RopeRig());
 const hp = new Float32Array(3);
@@ -180,28 +41,90 @@ function handScreen(phase: number, side: number): void {
   project(hp[0], hp[1], hp[2], sp);
 }
 
-function drawOne(ctx: Ctx, side: number, look: TurnerLook, phase: number, t: number, lookUp: number): void {
-  const facing = -side;
-  const b = bob(phase);
-  const fx = screenX(side * TURNER_X, 0);
-  const fy = groundY(0);
-  handScreen(phase, side);
+function pigtails(ctx: Ctx, look: TurnerLook, t: number): void {
+  const sw = Math.sin(t * 6) * 1.2;
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = look.hair;
+    oval(ctx, s * (HEAD_R + 3), HEAD_CY - 2 + sw * s, 5.5, 8, s * 0.5);
+    ctx.fill();
+    ctx.fillStyle = look.accent;
+    circle(ctx, s * (HEAD_R - 1), HEAD_CY - 6, 3);
+    ctx.fill();
+  }
+}
+
+function girlHead(ctx: Ctx, look: TurnerLook, dx: number): void {
+  headBall(ctx, look.hairLight, look.hair, look.hairDark);
+  faceBand(ctx, SKIN, SKIN_SHADE, dx);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(0, HEAD_CY - HEAD_R + 1);
+  ctx.quadraticCurveTo(1, HEAD_CY - 6, dx * 0.6, HEAD_CY + 3);
+  ctx.stroke();
+  strands(ctx, -4, HEAD_CY - 8, 'rgba(20,10,30,0.35)', 4);
+  strands(ctx, 4, HEAD_CY - 8, 'rgba(20,10,30,0.35)', 4);
+}
+
+/** Backwards cap from above: a dome with the brim pointing away (up on screen). */
+function boyHead(ctx: Ctx, look: TurnerLook, dx: number): void {
+  headBall(ctx, look.hairLight, look.hair, look.hairDark);
+  faceBand(ctx, SKIN, SKIN_SHADE, dx);
+  ctx.fillStyle = '#F2A20E';
+  roundRect(ctx, -8, HEAD_CY - HEAD_R - 6, 16, 9, 4);
+  ctx.fill();
+  ctx.fillStyle = look.accent;
+  ctx.beginPath();
+  ctx.ellipse(0, HEAD_CY - 3, HEAD_R + 0.5, HEAD_R - 3, 0, Math.PI * 0.96, Math.PI * 2.04);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(160,90,0,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const a of [-0.9, 0, 0.9]) {
+    ctx.moveTo(0, HEAD_CY - 9);
+    ctx.lineTo(Math.sin(a) * HEAD_R, HEAD_CY - 3 - Math.cos(a) * (HEAD_R - 4));
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#FFFFFF';
+  circle(ctx, 0, HEAD_CY - 9, 1.8);
+  ctx.fill();
+}
+
+function face(ctx: Ctx, dx: number, lookUp: number, t: number): void {
   ctx.save();
-  ctx.translate(fx, fy + b);
-  ctx.scale(facing, 1);
-  ctx.fillStyle = 'rgba(30,20,50,0.22)';
-  oval(ctx, 0, -b + 1, 22, 7);
+  ctx.translate(dx, HEAD_CY + 8 - lookUp);
+  ctx.scale(0.72, 0.72);
+  drawFace(ctx, lookUp > 1.2 ? 'happy' : 'idle', t, 0, 0, FACE);
+  ctx.restore();
+}
+
+function drawOne(ctx: Ctx, side: number, look: TurnerLook, phase: number, t: number, lookUp: number): void {
+  const fx = screenX(side * TURNER_X, 0);
+  const fy = groundY(0) - 1.6 * Math.abs(Math.sin(phase));
+  const dx = -side * 3.5;
+  handScreen(phase, side);
+  ctx.fillStyle = 'rgba(30,20,50,0.24)';
+  oval(ctx, fx, groundY(0) - 1, 22 * SCALE, groundRy(0, 17) * SCALE);
   ctx.fill();
   ctx.save();
-  ctx.scale(1, HEIGHT_K);
-  legs(ctx, look);
-  torso(ctx, look);
-  ctx.restore();
-  ctx.save();
-  ctx.translate(0, HEAD_Y * (HEIGHT_K - 1) + 4);
-  head(ctx, look, lookUp, t);
-  ctx.restore();
-  arm(ctx, look, (sp[0] - fx) * facing, sp[1] - (fy + b));
+  ctx.translate(fx, fy);
+  ctx.scale(SCALE, SCALE);
+  drawLower(ctx, look, 0);
+  if (look.girl) pigtails(ctx, look, t);
+  drawShoulders(ctx, look);
+  const hx = (sp[0] - fx) / SCALE;
+  const hy = (sp[1] - fy) / SCALE;
+  drawArm(ctx, look, -side * SHOULDER_X, SHOULDER_Y + 1, hx, hy, false);
+  ctx.fillStyle = look.limb;
+  circle(ctx, side * SHOULDER_X * 1.05, SHOULDER_Y + 6, 2.8);
+  ctx.fill();
+  if (look.girl) girlHead(ctx, look, dx);
+  else boyHead(ctx, look, dx);
+  face(ctx, dx, lookUp, t);
   ctx.restore();
 }
 

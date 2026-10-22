@@ -130,7 +130,12 @@ function applyTempo(s: Session): Session {
   const due = s.tempoQueue.filter((c) => c.at <= s.time);
   if (due.length === 0) return s;
   const latest = due[due.length - 1];
-  return { ...s, bpm: latest.bpm, world: latest.world, ropeMode: latest.ropeMode, tempoQueue: s.tempoQueue.filter((c) => c.at > s.time) };
+  // 뒤로넘기 only exists on a solo rope: a mode switch starts the new chunk turning forwards
+  const player = latest.ropeMode === s.ropeMode ? s.player : { ...s.player, backward: false };
+  return {
+    ...s, player, bpm: latest.bpm, world: latest.world, ropeMode: latest.ropeMode,
+    tempoQueue: s.tempoQueue.filter((c) => c.at > s.time),
+  };
 }
 
 interface Applied { readonly s: Session; readonly events: GameEvent[] }
@@ -189,9 +194,18 @@ function judgeNext(s0: Session): Applied {
   return { s, events };
 }
 
+/** A swipe made during a buffered tap modifies the jump that fires on landing. */
+function applyPendingSwipe(player: PlayerState, s: Session): { player: PlayerState; events: GameEvent[] } {
+  if (!player.pendingSwipe || player.grounded) return { player, events: [] };
+  const out = swipePlayer({ ...player, pendingSwipe: null }, player.pendingSwipe, s.cfg, s.ropeMode);
+  return { player: out.player, events: [{ type: 'swipe', action: out.action }] };
+}
+
 function advance(s: Session, dt: number): Applied {
-  const { player, landed } = stepPlayer(s.player, dt, s.cfg);
-  const events: GameEvent[] = landed ? [{ type: 'land' }] : [];
+  const stepped = stepPlayer(s.player, dt, s.cfg);
+  const pending = stepped.autoJumped ? applyPendingSwipe(stepped.player, s) : { player: stepped.player, events: [] };
+  const player = pending.player;
+  const events: GameEvent[] = stepped.landed ? [{ type: 'land' }, ...pending.events] : pending.events;
   const moodTime = Math.max(0, s.moodTime - dt);
   return {
     s: {

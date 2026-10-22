@@ -15,10 +15,10 @@ v1 문서(`GDD.md`)의 모든 규칙은 유지하고, 아래 항목만 바뀌거
 | 입력 | 터치가 땅에서 시작 (`lastTap==='jump'`, airTime ≤ SWIPE_WINDOW 0.25s) | 터치가 공중에서 시작 (`lastTap==='boost'`) |
 |---|---|---|
 | 탭 | 점프 (level 1) | 한 단 더 (level+1, 최대 3) |
-| ↑ 스와이프 | **덤블링**: vy = tumbleV − g·airTime, tumble=true, 유효 level 2 | — |
+| ↑ 스와이프 | **덤블링**: vy = √(tumbleV² − 2g·height) (스와이프가 늦어도 같은 최고점), tumble=true, 유효 level 2 | — |
 | ←/→ 스와이프 | **옆 이동**: lane ±1 (점프하며 옆 칸으로) | **엇걸어**: cross = true |
 | ↓ 스와이프 | **뒤로넘기 전환** (solo만): backward = !backward | — |
-- 덤블링 중 탭은 무시('none'). 착지 시 tumble/cross 초기화, lastTap='none'. backward는 다시 ↓ 할 때까지 유지.
+- 덤블링 중 탭·스와이프는 모두 무시('none'). 착지 직전 버퍼된 탭 중의 스와이프는 `pendingSwipe`로 보관했다가 자동 점프에 적용. 착지 시 tumble/cross 초기화, lastTap='none'. backward는 다시 ↓ 할 때까지 유지.
 - 키보드: Space=탭, ↑/←/→/↓ = 탭 + 해당 스와이프.
 
 ## 10. Judge v2 — `judgeBeat(beat, player, mode)`

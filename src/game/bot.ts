@@ -12,6 +12,8 @@ const LEAD = 0.2;
 const BOOST_GAP = 0.08;
 /** a second side hop needs one more jump's worth of time */
 const HOP_GAP = 0.55;
+/** air tap for 엇걸어 this long after takeoff (must be airborne so the tap is a boost) */
+const CROSS_AFTER = 0.04;
 
 export interface BotAction {
   readonly swipe: Swipe | null;
@@ -70,7 +72,11 @@ function airPlan(s: Session, b: Beat, until: number): BotAction | null {
   if (p.tumble || until <= 0) return null;
   const blocked = ballLanes(b);
   if (blocked.includes(p.lane)) return null; // finish this hop, the next one happens after landing
-  if (ropeOf(b)?.cross && !p.cross) return until <= LEAD - BOOST_GAP ? { swipe: 'left' } : null;
+  // 엇걸어 has no time limit after the air tap, so do it right after takeoff (leaves room for swipe latency)
+  if (ropeOf(b)?.cross && !p.cross) {
+    const jumpIsForThisBeat = until + p.airTime <= LEAD + 0.02; // not still riding the previous beat's jump
+    return jumpIsForThisBeat && p.airTime >= CROSS_AFTER ? { swipe: 'left' } : null;
+  }
   if (p.level >= wantedLevel(b)) return null;
   return until <= LEAD - p.level * BOOST_GAP ? { swipe: null } : null;
 }

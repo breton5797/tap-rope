@@ -105,7 +105,7 @@ const sim: Sim = {
   t: 0,
   player: {
     height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 1, buffer: 0,
-    lane: 0, laneX: 0, tumble: false, cross: false, backward: scene.backward ?? false, lastTap: 'none',
+    lane: 0, laneX: 0, tumble: false, cross: false, backward: scene.backward ?? false, lastTap: 'none', pendingSwipe: null,
   },
   lastJumpBeat: -1, judged: -1, combo: 0, hurtUntil: 0, invulnUntil: 0, nextHit: 1.6,
 };

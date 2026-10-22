@@ -162,3 +162,15 @@ describe('laneItems', () => {
     expect(laneItems(beats, 10 - LANE_LEAD + 0.01).map((i) => i.beatId)).toEqual([2]);
   });
 });
+
+
+describe('laneItems direction-change cue', () => {
+  it('marks the first forward rope after a back section as a ↓ (back) cue', () => {
+    const rope = (id: number, time: number, back: boolean): Beat => ({
+      id, time, obstacles: [{ kind: 'rope', level: 1, ...(back ? { back: true } : {}) }], requiredLevel: 1, doubleDutch: false,
+    });
+    const beats = [rope(0, 1, false), rope(1, 1.6, true), rope(2, 2.2, true), rope(3, 2.8, false), rope(4, 3.4, false)];
+    const moves = laneItems(beats, 1).map((i) => i.move);
+    expect(moves).toEqual(['jump', 'back', 'back', 'back', 'jump']);
+  });
+});

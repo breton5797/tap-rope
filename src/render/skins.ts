@@ -1,7 +1,7 @@
 // Per-skin colors and body accessories (tails, backpacks, chest emblems).
 import type { SkinId } from '../types';
 import type { FaceStyle } from './face';
-import { circle, roundRect, starPath, type Ctx } from './util';
+import type { Ctx } from './util';
 
 export interface SkinLook {
   readonly head: string;
@@ -50,84 +50,18 @@ export function lookFor(id: SkinId): SkinLook {
   return LOOKS[id] ?? LOOKS.kid;
 }
 
-/** Accessories drawn behind the body (local player coords, feet at origin). */
-export function drawBodyBack(ctx: Ctx, id: SkinId, t: number, air: boolean): void {
-  if (id === 'cat') {
-    const sw = Math.sin(t * (air ? 9 : 4)) * 4;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#B86A1C';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(6, -14);
-    ctx.bezierCurveTo(18, -14, 20 + sw, -24, 15 + sw, -32);
-    ctx.stroke();
-    ctx.strokeStyle = '#FFAE52';
-    ctx.lineWidth = 4.2;
-    ctx.stroke();
-  } else if (id === 'astro') {
-    ctx.fillStyle = '#C9D3E2';
-    roundRect(ctx, -14, -33, 28, 20, 6);
-    ctx.fill();
-    ctx.fillStyle = '#FF8A3D';
-    roundRect(ctx, -15, -30, 4, 12, 2);
-    ctx.fill();
-    roundRect(ctx, 11, -30, 4, 12, 2);
-    ctx.fill();
-  }
-}
-
-/** Emblems drawn over the torso. */
-export function drawChest(ctx: Ctx, id: SkinId, t: number): void {
-  switch (id) {
-    case 'kid':
-      ctx.fillStyle = '#FFFFFF';
-      starPath(ctx, 0, -21, 4.2, 1.9, 5);
-      ctx.fill();
-      break;
-    case 'cat':
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      circle(ctx, 0, -20, 2.4);
-      ctx.fill();
-      for (const [x, y] of [[-3, -24], [0, -25.4], [3, -24]] as const) {
-        circle(ctx, x, y, 1.1);
-        ctx.fill();
-      }
-      break;
-    case 'bunny':
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.moveTo(0, -17.5);
-      ctx.bezierCurveTo(-5, -21, -3, -26, 0, -23);
-      ctx.bezierCurveTo(3, -26, 5, -21, 0, -17.5);
-      ctx.fill();
-      break;
-    case 'ninja':
-      ctx.fillStyle = '#E63946';
-      ctx.fillRect(-10, -16.5, 20, 3.4);
-      ctx.fillStyle = '#FFD166';
-      roundRect(ctx, -2.5, -17.3, 5, 5, 1.2);
-      ctx.fill();
-      break;
-    case 'robot':
-      ctx.fillStyle = '#25324D';
-      roundRect(ctx, -6, -26, 12, 9, 2.5);
-      ctx.fill();
-      for (let i = 0; i < 3; i++) {
-        const on = Math.floor(t * 4 + i) % 3 === 0;
-        ctx.fillStyle = on ? ['#3DDC97', '#FFB627', '#FF5E5B'][i] : '#3D4A66';
-        circle(ctx, -3.5 + i * 3.5, -21.5, 1.3);
-        ctx.fill();
-      }
-      break;
-    case 'astro':
-      ctx.fillStyle = '#FF8A3D';
-      roundRect(ctx, -7, -26, 6, 5, 1.5);
-      ctx.fill();
-      ctx.fillStyle = '#4D96FF';
-      roundRect(ctx, 1.5, -26, 5, 5, 2.5);
-      ctx.fill();
-      ctx.fillStyle = '#9AA7BD';
-      ctx.fillRect(-9, -17, 18, 2);
-      break;
-  }
+/** Cat tail curling out from behind the hips (seen from above). */
+export function drawTail(ctx: Ctx, id: SkinId, t: number, air: boolean): void {
+  if (id !== 'cat') return;
+  const sw = Math.sin(t * (air ? 9 : 4)) * 3;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#B86A1C';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(5, -10);
+  ctx.bezierCurveTo(16, -10, 20 + sw, -18, 15 + sw, -24);
+  ctx.stroke();
+  ctx.strokeStyle = '#FFAE52';
+  ctx.lineWidth = 4.2;
+  ctx.stroke();
 }

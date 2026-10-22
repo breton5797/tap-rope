@@ -1,39 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import type { Beat, MoveId, Obstacle } from '../../src/types';
+import type { Beat, MoveId, Obstacle, Swipe } from '../../src/types';
 import { STAGES } from '../../src/core/content';
 import { endlessStage } from '../../src/core/levels';
 import {
   createSession, MAX_HEARTS, sessionProgress, sessionStars, step, swipe, tap, type GameEvent, type Session,
 } from '../../src/game/session';
-import { botAction } from '../../src/game/bot';
+import { botAction, type BotAction } from '../../src/game/bot';
 
 const DT = 1 / 60;
 
 interface BotRun { readonly s: Session; readonly performed: ReadonlySet<string> }
 
-/** Plays like a finger: tap, then the optional swipe. Records which move actions really happened. */
-function playBot(s0: Session, maxSeconds: number): BotRun {
+/**
+ * Plays like a finger: tap, then the optional swipe `swipeDelay` seconds later (real swipes are
+ * recognized 60–150 ms after the touch). Records which move actions really happened.
+ */
+function playBot(s0: Session, maxSeconds: number, swipeDelay = 0): BotRun {
   let s = s0;
   const performed = new Set<string>();
+  let pending: { dir: Swipe; at: number } | null = null;
   const note = (events: readonly GameEvent[]): void => {
     for (const e of events) {
       if (e.type === 'swipe' && e.action !== 'none') performed.add(e.action);
       if (e.type === 'tap' && e.action === 'boost') performed.add(`level${e.level}`);
     }
   };
+  const doSwipe = (dir: Swipe): void => {
+    const swiped = swipe(s, dir);
+    note(swiped.events);
+    s = swiped.session;
+  };
   for (let t = 0; t < maxSeconds && s.status === 'playing'; t += DT) {
-    const a = botAction(s);
+    if (pending && t >= pending.at) {
+      doSwipe(pending.dir);
+      pending = null;
+    }
+    const a: BotAction | null = pending ? null : botAction(s);
     if (a) {
       const tapped = tap(s);
       note(tapped.events);
       s = tapped.session;
-      if (a.swipe) {
-        const swiped = swipe(s, a.swipe);
-        note(swiped.events);
-        s = swiped.session;
-      }
+      if (a.swipe && swipeDelay <= 0) doSwipe(a.swipe);
+      else if (a.swipe) pending = { dir: a.swipe, at: t + swipeDelay };
     }
-    s = step(s, DT).session;
+    const stepped = step(s, DT);
+    note(stepped.events);
+    s = stepped.session;
   }
   return { s, performed };
 }
@@ -84,6 +96,14 @@ describe('bot clears every stage (all generated content is beatable)', () => {
       expect(sessionProgress(end)).toBe(1);
     });
   }
+
+  it('every stage stays beatable when swipes land 0.1s after their tap (real finger latency)', () => {
+    for (const stage of STAGES) {
+      const { s: end } = playBot(createSession('stage', stage), 400, 0.1);
+      expect(end.status, stage.id).toBe('cleared');
+      expect(end.hitsTaken, stage.id).toBe(0);
+    }
+  });
 
   it('daily challenge for several dates', () => {
     for (const date of ['2026-10-23', '2026-12-31', '2027-02-28']) {
@@ -208,6 +228,33 @@ describe('session rules', () => {
     const reversed = swipe(tap(advance(backS, 0.4)).session, 'down').session;
     expect(reversed.player.backward).toBe(true);
     expect(runIdle(reversed, 1).s.hearts).toBe(MAX_HEARTS);
+  });
+
+  it('뒤로넘기 resets when an endless chunk switches rope mode', () => {
+    const base = createSession('endless', null, { seed: 5 });
+    const s0: Session = {
+      ...base,
+      ropeMode: 'solo',
+      player: { ...base.player, backward: true },
+      tempoQueue: [{ at: 0.05, bpm: base.bpm, world: base.world, ropeMode: 'long' }],
+    };
+    const s = advance(s0, 0.1);
+    expect(s.ropeMode).toBe('long');
+    expect(s.player.backward).toBe(false);
+  });
+
+  it('a swipe made during a buffered tap is applied to the auto-jump on landing', () => {
+    const base = createSession('stage', longStage);
+    const s0: Session = {
+      ...base,
+      beats: [],
+      hazardTotal: 0,
+      player: { ...base.player, grounded: false, height: 4, vy: -300, level: 1, airTime: 0.4, buffer: 0.1, pendingSwipe: 'right' },
+    };
+    const out = step(s0, 0.05);
+    expect(out.session.player.lane).toBe(1);
+    expect(out.session.player.pendingSwipe).toBeNull();
+    expect(out.events).toContainEqual({ type: 'swipe', action: 'side' });
   });
 
   it('slow-mo pickup scales stage time', () => {

@@ -101,34 +101,53 @@ function seedOf(id: string): number {
 
 const BALL_COLS = ['#FF5E5B', '#FFFFFF', '#FFD23F', '#FFFFFF', '#3BB8FF', '#FFFFFF'];
 
-function ball(ctx: Ctx, x: number, y: number, r: number, roll: number): void {
-  ctx.save();
-  circle(ctx, x, y, r);
-  ctx.clip();
+/** Stripes only — rotated per frame to show the roll. */
+function ballBodySprite(ctx: Ctx): void {
+  const r = BALL_R;
   for (let i = 0; i < 6; i++) {
-    const a = roll + (i / 6) * Math.PI * 2;
+    const a = (i / 6) * Math.PI * 2;
     ctx.fillStyle = BALL_COLS[i];
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.arc(x, y, r, a, a + Math.PI / 3 + 0.02);
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r, a, a + Math.PI / 3 + 0.02);
     ctx.closePath();
     ctx.fill();
   }
-  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r * 1.05);
+}
+
+/** Fixed lighting (highlight + shadow side), cap and outline — never rotates. */
+function ballShadeSprite(ctx: Ctx): void {
+  const r = BALL_R;
+  const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r * 1.05);
   g.addColorStop(0, 'rgba(255,255,255,0.55)');
   g.addColorStop(0.5, 'rgba(255,255,255,0)');
   g.addColorStop(1, 'rgba(40,20,80,0.45)');
   ctx.fillStyle = g;
-  ctx.fillRect(x - r, y - r, r * 2, r * 2);
-  ctx.restore();
+  circle(ctx, 0, 0, r);
+  ctx.fill();
   ctx.fillStyle = '#FFFFFF';
-  circle(ctx, x, y, r * 0.16);
+  circle(ctx, 0, 0, r * 0.16);
   ctx.fill();
   ctx.strokeStyle = 'rgba(60,30,80,0.55)';
   ctx.lineWidth = 1.2;
-  circle(ctx, x, y, r);
+  circle(ctx, 0, 0, r);
   ctx.stroke();
 }
+
+const BALL_BOX = BALL_R * 2 + 4;
+
+function ball(ctx: Ctx, sprites: SpriteCache, x: number, y: number, s: number, roll: number): void {
+  const half = BALL_BOX / 2;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(roll);
+  blitScaled(ctx, sprites.get('ballBody', BALL_BOX, BALL_BOX, half, half, ballBodySprite), 0, 0, s, s);
+  ctx.restore();
+  blitScaled(ctx, sprites.get('ballShade', BALL_BOX, BALL_BOX, half, half, ballShadeSprite), x, y, s, s);
+}
+
+/** body gradient in the bird's local coords — built once, reused every frame */
+let birdGrad: CanvasGradient | null = null;
 
 /** Front-facing bird flying toward the camera, wings flapping. */
 function bird(ctx: Ctx, x: number, y: number, s: number, t: number, seed: number): void {
@@ -148,7 +167,8 @@ function bird(ctx: Ctx, x: number, y: number, s: number, t: number, seed: number
     ctx.fill();
     ctx.stroke();
   }
-  ctx.fillStyle = vGrad(ctx, -12, 12, [[0, '#8EC5FF'], [1, '#3B6FD8']]);
+  birdGrad ??= vGrad(ctx, -12, 12, [[0, '#8EC5FF'], [1, '#3B6FD8']]);
+  ctx.fillStyle = birdGrad;
   circle(ctx, 0, 0, 11);
   ctx.fill();
   ctx.stroke();
@@ -223,7 +243,7 @@ function drawOne(ctx: Ctx, o: VisibleObstacle, t: number, sprites: SpriteCache):
   const seed = seedOf(o.id);
   if (o.kind === 'ball') {
     const bounce = Math.abs(Math.sin(t * 7 + seed)) * 4;
-    ball(ctx, x, screenY(o.z, BALL_R + bounce), BALL_R * s, -o.z / BALL_R);
+    ball(ctx, sprites, x, screenY(o.z, BALL_R + bounce), s, -o.z / BALL_R);
     return;
   }
   if (o.kind === 'bird') {
