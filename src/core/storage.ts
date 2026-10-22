@@ -88,15 +88,22 @@ export function writeSave(data: SaveData, store: Pick<Storage, 'setItem'> | unde
   }
 }
 
+const DAILY_PREFIX = 'daily:';
+
 export function recordResult(
   save: SaveData, key: string, stars: number, score: number, coins: number,
 ): SaveData {
   const prevStars = save.stars[key] ?? 0;
   const prevBest = save.bestScores[key] ?? 0;
+  const isStage = STAGES.some((s) => s.id === key);
+  // only today's daily best is worth keeping; older daily keys would grow the save forever
+  const kept = key.startsWith(DAILY_PREFIX)
+    ? Object.fromEntries(Object.entries(save.bestScores).filter(([k]) => !k.startsWith(DAILY_PREFIX)))
+    : save.bestScores;
   return {
     ...save,
-    stars: { ...save.stars, [key]: Math.max(prevStars, clampStars(stars)) },
-    bestScores: { ...save.bestScores, [key]: Math.max(prevBest, Math.floor(score)) },
+    stars: isStage ? { ...save.stars, [key]: Math.max(prevStars, clampStars(stars)) } : save.stars,
+    bestScores: { ...kept, [key]: Math.max(prevBest, Math.floor(score)) },
     coins: save.coins + Math.max(0, Math.floor(coins)),
   };
 }

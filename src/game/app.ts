@@ -53,7 +53,21 @@ export function startApp(): void {
   let endTimer = -1;
   let hintTimer = 0;
   let pendingTaps = 0;
+  let hintsSkipped = false;
+  let goTimer = 0;
+  let music = { bpm: 0, world: -1 };
   const seenHints = new Set<number>();
+  const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
+
+  const startMusic = (): void => {
+    music = { bpm: session.bpm, world: session.world };
+    audio.startMusic(session.bpm, session.world, session.time);
+  };
+  const clearGoTimer = (): void => {
+    window.clearTimeout(goTimer);
+    goTimer = 0;
+  };
 
   const persist = (next: SaveData): void => {
     save = next;
@@ -94,6 +108,7 @@ export function startApp(): void {
 
   const beginCountdown = (): void => {
     screen = 'countdown';
+    clearGoTimer();
     countdown = 3 * COUNT_STEP;
     endTimer = -1;
     pendingTaps = 0;
@@ -103,7 +118,9 @@ export function startApp(): void {
 
   const pause = (): void => {
     if (screen !== 'play' && screen !== 'countdown') return;
+    if (session.status !== 'playing') return; // run already over: the result card is on its way
     screen = 'paused';
+    clearGoTimer();
     audio.stopMusic();
     ui.showCountdown(null);
     ui.showPause();
@@ -182,7 +199,12 @@ export function startApp(): void {
       persist({ ...save, settings: s });
       applySettings(s);
     },
-    onTutorialDone: () => persist({ ...save, tutorialDone: true }),
+    onTutorialDone: () => {
+      hintsSkipped = true;
+      hintTimer = 0;
+      ui.showTutorial(null);
+      persist({ ...save, tutorialDone: true });
+    },
     onUiClick: () => {
       audio.unlock();
       audio.sfx('click');
@@ -197,9 +219,9 @@ export function startApp(): void {
       screen = 'play';
       ui.showCountdown(0);
       audio.sfx('count', 0);
-      audio.startMusic(session.stage.bpm, session.world, session.time);
+      startMusic();
       if (session.score.feverTime > 0) audio.setFever(true);
-      window.setTimeout(() => ui.showCountdown(null), 550);
+      goTimer = window.setTimeout(() => ui.showCountdown(null), 550);
     } else if (after !== before) {
       ui.showCountdown(after);
       audio.sfx('count', after);
@@ -213,7 +235,7 @@ export function startApp(): void {
       return;
     }
     const inEarlyWorlds = run.mode === 'stage' && (run.stage?.world ?? 9) <= 1;
-    if (!inEarlyWorlds) return;
+    if (!inEarlyWorlds || hintsSkipped) return;
     const h = upcomingHint(session, seenHints);
     if (h === null) return;
     seenHints.add(h);
@@ -233,6 +255,7 @@ export function startApp(): void {
     session = out.session;
     playFeedback(deps, out.events);
     if (wasFever && session.score.feverTime <= 0) audio.setFever(false);
+    if (session.status === 'playing' && (session.bpm !== music.bpm || session.world !== music.world)) startMusic();
     ui.updateHud(toHud(session));
     tickHints(dt);
     if (session.status !== 'playing') {
@@ -285,7 +308,7 @@ export function startApp(): void {
     else if (screen === 'play') tickPlay(dt);
     else if (screen === 'result') tickResult(dt);
     renderer.fx.update(dt);
-    renderer.render(toSnapshot(session, save.skin, now / 1000, save.settings.reducedMotion));
+    renderer.render(toSnapshot(session, save.skin, now / 1000, reducedMotion()));
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

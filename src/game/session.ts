@@ -21,12 +21,20 @@ const END_GRACE = 0.7;
 const ENDLESS_LOOKAHEAD = 8;
 const MAX_STEP = 1 / 30;
 
+export interface TempoChange {
+  readonly at: number;
+  readonly bpm: number;
+  readonly world: WorldId;
+}
+
 export type SessionStatus = 'playing' | 'cleared' | 'failed';
 
 export interface Session {
   readonly mode: GameMode;
   readonly stage: StageDef;
   readonly world: WorldId;
+  readonly bpm: number; // current music tempo (changes per endless chunk)
+  readonly tempoQueue: readonly TempoChange[]; // pending endless tempo/world switches
   readonly cfg: PhysicsConfig;
   readonly beats: readonly Beat[];
   readonly cursor: number; // index of the next beat to judge
@@ -65,8 +73,10 @@ export interface StepOutput {
 const isHazardBeat = (b: Beat): boolean =>
   b.obstacles.some((o) => o.kind === 'rope' || o.kind === 'hurdle' || o.kind === 'bird');
 
-function endlessWorld(chunk: number): WorldId {
-  return (Math.floor(chunk / 2) % 3) as WorldId;
+/** First downbeat at or after t, so beats line up with the music grid anchored at stage time 0. */
+function snapToBeat(t: number, bpm: number): number {
+  const beat = 60 / bpm;
+  return Math.ceil(t / beat - 1e-9) * beat;
 }
 
 export function createSession(mode: GameMode, stage: StageDef | null, opts: { date?: string; seed?: number } = {}): Session {
@@ -75,11 +85,11 @@ export function createSession(mode: GameMode, stage: StageDef | null, opts: { da
     mode === 'stage' && stage ? stage
       : mode === 'daily' ? dailyStage(opts.date ?? '2026-01-01')
         : endlessStage(0, seed);
-  const world: WorldId = mode === 'endless' ? endlessWorld(0) : def.world;
+  const world: WorldId = def.world;
   const cfg = physicsForWorld(world);
-  const beats = generateBeats(def, cfg, LEAD_IN);
+  const beats = generateBeats(def, cfg, snapToBeat(LEAD_IN, def.bpm));
   return {
-    mode, stage: def, world, cfg, beats, cursor: 0, time: 0,
+    mode, stage: def, world, bpm: def.bpm, tempoQueue: [], cfg, beats, cursor: 0, time: 0,
     player: initialPlayer(), score: initialScore(), hearts: MAX_HEARTS, hitsTaken: 0,
     shield: false, slowTime: 0, invulnTime: 0, mood: 'idle', moodTime: 0, status: 'playing',
     hazardTotal: mode === 'endless' ? Infinity : beats.filter(isHazardBeat).length,
@@ -97,10 +107,20 @@ function extendEndless(s: Session): Session {
   const last = s.beats[s.beats.length - 1];
   if (s.mode !== 'endless' || !last || last.time - s.time > ENDLESS_LOOKAHEAD) return s;
   const chunk = s.endlessChunk + 1;
-  const fresh = generateBeats(endlessStage(chunk, s.seed), s.cfg, last.time + 1.2);
+  const def = endlessStage(chunk, s.seed);
+  const fresh = generateBeats(def, s.cfg, snapToBeat(last.time + 1.2, def.bpm));
   const offset = s.beats.length;
   const reIded = fresh.map((b, i) => ({ ...b, id: offset + i }));
-  return { ...s, beats: [...s.beats, ...reIded], endlessChunk: chunk, world: endlessWorld(chunk) };
+  // switch tempo/world in the quiet gap after the previous chunk's last beat, not at generation time
+  const change: TempoChange = { at: last.time + 0.3, bpm: def.bpm, world: def.world };
+  return { ...s, beats: [...s.beats, ...reIded], endlessChunk: chunk, tempoQueue: [...s.tempoQueue, change] };
+}
+
+function applyTempo(s: Session): Session {
+  const due = s.tempoQueue.filter((c) => c.at <= s.time);
+  if (due.length === 0) return s;
+  const latest = due[due.length - 1];
+  return { ...s, bpm: latest.bpm, world: latest.world, tempoQueue: s.tempoQueue.filter((c) => c.at > s.time) };
 }
 
 interface Applied { readonly s: Session; readonly events: GameEvent[] }
@@ -199,7 +219,7 @@ export function step(s0: Session, realDt: number): StepOutput {
     const until = beat ? Math.min(target, beat.time) : target;
     const dt = Math.min(MAX_STEP, Math.max(0, until - s.time));
     const adv = advance(s, dt > 0 ? dt : 0);
-    s = dt > 0 ? adv.s : s;
+    s = dt > 0 ? applyTempo(adv.s) : s;
     events.push(...(dt > 0 ? adv.events : []));
     if (beat && s.time >= beat.time - 1e-9) {
       const j = judgeNext(s);

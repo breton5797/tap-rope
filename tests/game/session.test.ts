@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Beat } from '../../src/types';
 import { STAGES } from '../../src/core/content';
+import { endlessStage } from '../../src/core/levels';
 import {
   createSession, MAX_HEARTS, sessionProgress, sessionStars, step, tap, type Session,
 } from '../../src/game/session';
@@ -58,6 +59,33 @@ describe('bot clears every stage (all generated content is beatable)', () => {
     expect(end.endlessChunk).toBeGreaterThan(3);
     const ids = end.beats.map((b) => b.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+const onHalfBeatGrid = (time: number, bpm: number): boolean => {
+  const k = time / (30 / bpm);
+  return Math.abs(k - Math.round(k)) < 1e-6;
+};
+
+describe('music sync', () => {
+  it('every stage beat sits on the music half-beat grid anchored at t=0', () => {
+    for (const stage of STAGES) {
+      const s = createSession('stage', stage);
+      expect(s.bpm).toBe(stage.bpm);
+      for (const b of s.beats) expect(onHalfBeatGrid(b.time, stage.bpm)).toBe(true);
+    }
+  });
+
+  it('endless follows each chunk bpm/world and stays on that chunk grid', () => {
+    const end = runBot(createSession('endless', null, { seed: 11 }), 150);
+    expect(end.endlessChunk).toBeGreaterThan(3);
+    // tempo switches wait until the newly generated chunk is about to play
+    const active = endlessStage(end.endlessChunk - end.tempoQueue.length, 11);
+    expect(end.bpm).toBe(active.bpm);
+    expect(end.world).toBe(active.world);
+    for (const c of end.tempoQueue) expect(c.at).toBeGreaterThan(end.time);
+    const newest = endlessStage(end.endlessChunk, 11);
+    for (const b of end.beats.slice(-newest.hazardBeats)) expect(onHalfBeatGrid(b.time, newest.bpm)).toBe(true);
   });
 });
 

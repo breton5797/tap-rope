@@ -109,7 +109,20 @@ describe('recordResult', () => {
   });
 
   it('clamps stars', () => {
-    expect(recordResult(defaultSave(), 'x', 9, 0, 0).stars.x).toBe(3);
+    expect(recordResult(defaultSave(), 'w1-s2', 9, 0, 0).stars['w1-s2']).toBe(3);
+  });
+
+  it('only records stars for real stage ids', () => {
+    const s = recordResult(recordResult(defaultSave(), 'endless', 0, 500, 0), 'daily:2026-10-23', 0, 900, 0);
+    expect(Object.keys(s.stars)).toEqual([]);
+    expect(s.bestScores.endless).toBe(500);
+    expect(s.bestScores['daily:2026-10-23']).toBe(900);
+  });
+
+  it('keeps only the latest daily best so saves do not grow every day', () => {
+    const d1 = recordResult(defaultSave(), 'daily:2026-10-22', 0, 700, 0);
+    const d2 = recordResult(d1, 'daily:2026-10-23', 0, 300, 0);
+    expect(d2.bestScores).toEqual({ 'daily:2026-10-23': 300 });
   });
 });
 
