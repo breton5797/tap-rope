@@ -5,7 +5,8 @@
   position: absolute;
   left: calc(var(--safe-l) + var(--gutter));
   right: calc(var(--safe-r) + var(--gutter));
-  bottom: calc(var(--safe-b) + 20px);
+  /* sits in the open sky between the HUD and the rope arc, clear of the rhythm lane */
+  top: calc(var(--safe-t) + 168px);
   max-width: 420px;
   margin: 0 auto;
   pointer-events: none;
@@ -111,7 +112,7 @@
 .tut__skip {
   position: absolute;
   right: 4px;
-  top: -44px;
+  bottom: -44px;
   pointer-events: auto;
   height: 34px;
   padding: 0 14px;

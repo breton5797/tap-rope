@@ -10,12 +10,13 @@ const beat = (time: number, obstacles: Beat['obstacles'], requiredLevel: Beat['r
   id: 0, time, obstacles, requiredLevel, doubleDutch: false,
 });
 
-function mocks(): { fx: EffectsApi; audio: AudioApi; haptics: { vibrate: ReturnType<typeof vi.fn>; setEnabled: ReturnType<typeof vi.fn> } } {
-  return {
-    fx: { burst: vi.fn(), popup: vi.fn(), shake: vi.fn(), flash: vi.fn(), update: vi.fn() },
-    audio: { unlock: vi.fn(), setEnabled: vi.fn(), startMusic: vi.fn(), stopMusic: vi.fn(), setFever: vi.fn(), sfx: vi.fn() },
-    haptics: { vibrate: vi.fn(), setEnabled: vi.fn() },
+function mocks() {
+  const fx: EffectsApi = { burst: vi.fn(), popup: vi.fn(), shake: vi.fn(), flash: vi.fn(), update: vi.fn() };
+  const audio: AudioApi = {
+    unlock: vi.fn(), setEnabled: vi.fn(), startMusic: vi.fn(), stopMusic: vi.fn(), setFever: vi.fn(), sfx: vi.fn(),
   };
+  const haptics = { vibrate: vi.fn<(p: number | number[]) => void>(), setEnabled: vi.fn<(on: boolean) => void>() };
+  return { fx, audio, haptics };
 }
 
 const judged = (grade: JudgeResult['grade'], reason: JudgeResult['reason'] = null): GameEvent => ({
