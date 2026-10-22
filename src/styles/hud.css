@@ -91,6 +91,31 @@
   min-height: 30px;
 }
 
+.hud__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud__mode {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  line-height: 24px;
+  white-space: nowrap;
+  background: rgba(24, 14, 72, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.hud__mode:empty {
+  display: none;
+}
+
+.hud__mode[data-mode='solo'] {
+  background: rgba(123, 92, 255, 0.55);
+}
+
 .hud__hearts {
   display: flex;
   gap: 3px;
@@ -123,9 +148,7 @@
   border-radius: 999px;
   font-size: 14px;
   color: #fff;
-  opacity: 0;
-  scale: 0.6;
-  transition: opacity 0.2s, scale 0.3s var(--ease-pop);
+  display: none;
 }
 
 .status .ico {
@@ -133,13 +156,30 @@
 }
 
 .status.is-on {
-  opacity: 1;
-  scale: 1;
+  display: inline-flex;
+  animation: chip-pop 0.35s var(--ease-pop) both;
+}
+
+@keyframes chip-pop {
+  from { opacity: 0; scale: 0.5; }
 }
 
 .status--shield {
   background: linear-gradient(180deg, #6fcbff, #2f8fff);
   box-shadow: 0 0 14px rgba(79, 184, 255, 0.8);
+}
+
+.status--back {
+  background: linear-gradient(180deg, #ff8cc0, #c04bff);
+  box-shadow: 0 0 16px rgba(255, 93, 162, 0.9);
+}
+
+.status--back.is-on {
+  animation: chip-pop 0.35s var(--ease-pop) both, back-glow 0.9s ease-in-out 0.35s infinite alternate;
+}
+
+@keyframes back-glow {
+  to { box-shadow: 0 0 26px 4px rgba(255, 93, 162, 0.95); }
 }
 
 .status--slow {

@@ -1,0 +1,172 @@
+/* 기술 도감 bottom sheet. */
+.screen--sheet {
+  padding: 0;
+  justify-content: flex-end;
+  animation: none;
+}
+
+.sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(18, 10, 56, 0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.3s ease-out both;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+.sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - var(--safe-t) - 36px);
+  padding: 8px calc(var(--safe-r) + var(--gutter)) 0 calc(var(--safe-l) + var(--gutter));
+  border-radius: 32px 32px 0 0;
+  background: linear-gradient(180deg, #ffffff, #f3f0ff);
+  box-shadow: 0 -20px 50px -10px rgba(10, 4, 40, 0.55);
+  animation: sheet-up 0.45s var(--ease-out) both;
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+}
+
+.sheet__grip {
+  width: 44px;
+  height: 5px;
+  margin: 0 auto 10px;
+  border-radius: 3px;
+  background: #d9d4f0;
+}
+
+.sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sheet__kicker {
+  color: var(--violet);
+  font-size: 12px;
+  letter-spacing: 0.24em;
+}
+
+.sheet__title {
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.sheet__lead {
+  margin: 6px 0 12px;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  word-break: keep-all;
+}
+
+.sheet__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 4px var(--gutter) calc(var(--safe-b) + 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  touch-action: pan-y;
+}
+
+.sheet__list::-webkit-scrollbar {
+  display: none;
+}
+
+.guide__item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1.5px solid #ece8fb;
+  box-shadow: 0 8px 18px -12px rgba(36, 29, 92, 0.45);
+  animation: pop-in 0.45s var(--ease-pop) both;
+}
+
+.guide__item .tut__art {
+  flex: none;
+  width: 76px;
+  height: 76px;
+}
+
+.guide__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.guide__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.guide__name {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 400;
+}
+
+.guide__gesture {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  padding: 0 8px 0 5px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  background: linear-gradient(180deg, var(--t1), var(--t2));
+  box-shadow: 0 2px 0 var(--t3);
+}
+
+.guide__gesture .ico {
+  font-size: 16px;
+}
+
+.guide__hint {
+  margin-top: 5px;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.guide__modes {
+  display: flex;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+.pill--long {
+  background: #3a8dff;
+}
+
+.pill--solo {
+  background: #8a5cff;
+}

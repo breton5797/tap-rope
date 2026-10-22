@@ -2,6 +2,7 @@
 import type { HudState, ResultInfo, SaveData, Settings, Ui, UiCallbacks } from '../types';
 import { h, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
+import { buildGuide } from './guide';
 import { buildPause, renderCountdown, renderTutorial, showToast } from './overlays';
 import { buildResult } from './result';
 import { buildSettings } from './settings';
@@ -45,7 +46,7 @@ interface Shared {
 type MenuUi = Pick<Ui, 'showTitle' | 'showStageSelect' | 'showShop' | 'showSettings'>;
 type GameUi = Omit<Ui, keyof MenuUi>;
 
-function menuScreens({ ctx, mount, setHud }: Shared): MenuUi {
+function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
   let save: SaveData | null = null;
   const remember = (s: SaveData): SaveData => {
     save = s;
@@ -62,6 +63,11 @@ function menuScreens({ ctx, mount, setHud }: Shared): MenuUi {
     toStages: () => save && menu.showStageSelect(save),
     toShop: () => save && menu.showShop(save),
     toSettings: () => save && menu.showSettings(save),
+    toGuide: () => {
+      // overlays the title instead of replacing it, so closing needs no rebuild
+      const sheet = buildGuide(ctx, () => sheet.remove());
+      layers.screen.appendChild(sheet);
+    },
   };
   const menu: MenuUi = {
     showTitle: (s) => mount(buildTitle(ctx, remember(s), nav), 'title'),

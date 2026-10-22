@@ -65,6 +65,26 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
   click: (ctx, out, t) => {
     tone(ctx, out, { type: 'sine', freq: 1500, freqEnd: 900, start: t, dur: 0.035, gain: 0.16 });
   },
+  tumble: (ctx, out, t) => {
+    noise(ctx, out, { start: t, dur: 0.42, gain: 0.16, type: 'bandpass', freq: 500, freqEnd: 6500, q: 1.4 });
+    tone(ctx, out, { type: 'triangle', freq: 300, freqEnd: 1100, start: t, dur: 0.3, gain: 0.18 });
+    notes(ctx, out, t + 0.18, [91, 95, 98, 103], 0.04, 'sine', 0.1);
+  },
+  side: (ctx, out, t) => {
+    noise(ctx, out, { start: t, dur: 0.12, gain: 0.14, type: 'bandpass', freq: 2600, freqEnd: 900, q: 1.6 });
+    tone(ctx, out, { type: 'sine', freq: 700, freqEnd: 480, start: t, dur: 0.08, gain: 0.08 });
+  },
+  cross: (ctx, out, t) => {
+    [0, 0.055].forEach((dt, i) => {
+      tone(ctx, out, { type: 'square', freq: i ? 2100 : 1700, freqEnd: 1200, start: t + dt, dur: 0.03, gain: 0.115, filter: 5000 });
+      noise(ctx, out, { start: t + dt, dur: 0.02, gain: 0.1, type: 'highpass', freq: 5000 });
+    });
+  },
+  reverse: (ctx, out, t) => {
+    tone(ctx, out, { type: 'triangle', freq: 1300, freqEnd: 380, start: t, dur: 0.18, gain: 0.16 });
+    tone(ctx, out, { type: 'square', freq: 650, freqEnd: 190, start: t + 0.03, dur: 0.16, gain: 0.04, filter: 2200 });
+    tone(ctx, out, { type: 'sine', freq: midiToFreq(79), start: t + 0.2, dur: 0.1, gain: 0.12 });
+  },
   count: (ctx, out, t, level) => {
     const go = level <= 0;
     tone(ctx, out, { type: 'square', freq: midiToFreq(go ? 84 : 72), start: t, dur: go ? 0.4 : 0.14, gain: 0.08, filter: 4000 });

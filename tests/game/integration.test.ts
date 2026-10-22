@@ -24,19 +24,23 @@ const judged = (grade: JudgeResult['grade'], reason: JudgeResult['reason'] = nul
 });
 
 describe('hints', () => {
-  it('maps beats to hint cards', () => {
-    expect(hintForBeat(beat(1, [{ kind: 'bird', level: 1 }], 0))).toBe(3);
-    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 3 }], 3))).toBe(2);
-    expect(hintForBeat(beat(1, [{ kind: 'hurdle', level: 2 }], 2))).toBe(1);
+  it('maps beats to move cards', () => {
+    expect(hintForBeat(beat(1, [{ kind: 'bird', level: 1 }], 0))).toBe('bird');
+    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 3 }], 3))).toBe('triple');
+    expect(hintForBeat(beat(1, [{ kind: 'hurdle', level: 2 }], 2))).toBe('double');
+    expect(hintForBeat(beat(1, [{ kind: 'ring', level: 1 }], 0))).toBe('tumble');
+    expect(hintForBeat(beat(1, [{ kind: 'ball', level: 1, lane: 1 }], 0))).toBe('side');
+    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 1, cross: true }], 1))).toBe('cross');
+    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 1, back: true }], 1))).toBe('back');
     expect(hintForBeat(beat(1, [{ kind: 'rope', level: 1 }], 1))).toBeNull();
   });
 
   it('finds the next unseen hint inside the lookahead only', () => {
     const base = createSession('stage', STAGES[0]);
     const s: Session = { ...base, beats: [beat(1, [{ kind: 'rope', level: 2 }], 2), beat(1.5, [{ kind: 'bird', level: 1 }], 0), beat(9, [{ kind: 'rope', level: 3 }], 3)] };
-    expect(upcomingHint(s, new Set())).toBe(1);
-    expect(upcomingHint(s, new Set([1]))).toBe(3);
-    expect(upcomingHint(s, new Set([1, 3]))).toBeNull();
+    expect(upcomingHint(s, new Set())).toBe('double');
+    expect(upcomingHint(s, new Set(['double'] as const))).toBe('bird');
+    expect(upcomingHint(s, new Set(['double', 'bird'] as const))).toBeNull();
   });
 });
 
@@ -51,12 +55,13 @@ describe('feedback', () => {
 
   it('plays grade popups and miss reasons', () => {
     const d = mocks();
-    playFeedback(d, [judged('perfect'), judged('good'), judged('miss', 'bird'), judged('miss', 'level'), judged('none')]);
+    playFeedback(d, [judged('perfect'), judged('good'), judged('miss', 'bird'), judged('miss', 'level'), judged('none'), judged('miss', 'ball')]);
     expect(d.fx.popup).toHaveBeenNthCalledWith(1, 'PERFECT!', 'perfect');
     expect(d.fx.popup).toHaveBeenNthCalledWith(2, 'GOOD', 'good');
     expect(d.fx.popup).toHaveBeenNthCalledWith(3, '너무 높아요!', 'miss');
     expect(d.fx.popup).toHaveBeenNthCalledWith(4, '더 높이!', 'miss');
-    expect(d.fx.popup).toHaveBeenCalledTimes(4);
+    expect(d.fx.popup).toHaveBeenNthCalledWith(5, '공을 피해요!', 'miss');
+    expect(d.fx.popup).toHaveBeenCalledTimes(5);
   });
 
   it('hits shake + vibrate, shielded hits do not shake', () => {
@@ -74,11 +79,14 @@ describe('feedback', () => {
       { type: 'tap', action: 'jump', level: 1 }, { type: 'tap', action: 'boost', level: 2 },
       { type: 'tap', action: 'buffered', level: 0 },
       { type: 'pickup', kind: 'coin' }, { type: 'pickup', kind: 'shield' },
+      { type: 'swipe', action: 'tumble' }, { type: 'swipe', action: 'reverse' }, { type: 'swipe', action: 'none' },
       { type: 'fever' }, { type: 'combo', combo: 20 }, { type: 'end', cleared: true }, { type: 'end', cleared: false },
     ]);
     expect(d.audio.sfx).toHaveBeenCalledWith('jump', 1);
     expect(d.audio.sfx).toHaveBeenCalledWith('boost', 2);
     expect(d.audio.sfx).toHaveBeenCalledWith('coin');
+    expect(d.audio.sfx).toHaveBeenCalledWith('tumble');
+    expect(d.audio.sfx).toHaveBeenCalledWith('reverse');
     expect(d.fx.popup).toHaveBeenCalledWith('실드 장착!', 'info');
     expect(d.audio.setFever).toHaveBeenCalledWith(true);
     expect(d.fx.popup).toHaveBeenCalledWith('20 COMBO!', 'combo');

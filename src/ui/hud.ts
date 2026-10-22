@@ -2,6 +2,7 @@
 import type { HudState } from '../types';
 import { animate, formatNumber, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
+import { moveGlyph, ROPE_MODE_LABEL } from './moves';
 
 export interface Hud {
   readonly el: HTMLElement;
@@ -22,6 +23,8 @@ interface Refs {
   readonly comboNum: HTMLElement;
   readonly shield: HTMLElement;
   readonly slow: HTMLElement;
+  readonly mode: HTMLElement;
+  readonly back: HTMLElement;
 }
 
 type Prev = { -readonly [K in keyof HudState]?: HudState[K] };
@@ -52,6 +55,8 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     comboNum: h('span', { cls: 'combo__num' }),
     shield: statusChip('status--shield', icons.shield(), '실드'),
     slow: statusChip('status--slow', icons.clock(), '슬로우'),
+    mode: h('span', { cls: 'hud__mode' }),
+    back: statusChip('status--back', moveGlyph('back'), '뒤로'),
   };
   refs.feverBar.append(refs.feverFill, refs.feverLabel, icons.fire());
   refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'COMBO' }));
@@ -61,7 +66,10 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
       h('div', { cls: 'hud__center' }, [refs.title, refs.score]),
       h('div', { cls: 'chip chip--coin chip--sm' }, [icons.coin(), refs.coins]),
     ]),
-    h('div', { cls: 'hud__mid' }, [refs.hearts, h('div', { cls: 'hud__status' }, [refs.shield, refs.slow])]),
+    h('div', { cls: 'hud__mid' }, [
+      h('div', { cls: 'hud__left' }, [refs.hearts, refs.mode]),
+      h('div', { cls: 'hud__status' }, [refs.back, refs.shield, refs.slow]),
+    ]),
     h('div', { cls: 'hud__bars' }, [h('div', { cls: 'bar bar--progress' }, [refs.progress]), refs.feverBar]),
     refs.combo,
   ]);
@@ -126,6 +134,14 @@ function renderValues(refs: Refs, s: HudState, prev: Prev, reduced: boolean): vo
   if (prev.progress !== p) refs.progress.style.transform = `scaleX(${p})`;
   if (prev.shield !== s.shield) refs.shield.classList.toggle('is-on', s.shield);
   if (prev.slowMo !== s.slowMo) refs.slow.classList.toggle('is-on', s.slowMo);
+  if (prev.ropeMode !== s.ropeMode) {
+    refs.mode.textContent = ROPE_MODE_LABEL[s.ropeMode] ?? '';
+    refs.mode.dataset.mode = s.ropeMode;
+  }
+  if (prev.backward !== s.backward) {
+    refs.back.classList.toggle('is-on', s.backward);
+    if (prev.backward !== undefined) animate(refs.back, [{ transform: 'rotate(-20deg) scale(1.3)' }, { transform: 'none' }], POP, reduced);
+  }
 }
 
 export function createHud(ctx: Ctx): Hud {

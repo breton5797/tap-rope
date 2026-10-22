@@ -2,7 +2,7 @@
  * App controller: wires renderer, UI, audio and the pure Session together and
  * owns the screen flow (menu demo → countdown → play ⇄ pause → result).
  */
-import type { GameMode, ResultInfo, SaveData, Settings, SkinId, StageDef } from '../types';
+import type { GameMode, MoveId, ResultInfo, SaveData, Settings, SkinId, StageDef, Swipe } from '../types';
 import { createRenderer } from '../render/index';
 import { createUi } from '../ui/index';
 import { createAudio } from '../audio/index';
@@ -11,8 +11,8 @@ import { registerServiceWorker } from '../platform/pwa';
 import { nextStageId, stageById } from '../core/content';
 import { buySkin, loadSave, recordResult, writeSave } from '../core/storage';
 import { stepPlayer } from '../core/physics';
-import { createSession, sessionStars, step, tap, type Session } from './session';
-import { botShouldTap } from './bot';
+import { createSession, sessionStars, step, swipe, tap, type Session } from './session';
+import { botAction, type BotAction } from './bot';
 import { toHud, toSnapshot } from './snapshot';
 import { playFeedback } from './feedback';
 import { HINT_DURATION, upcomingHint } from './hints';
@@ -29,6 +29,11 @@ function todayIso(): string {
   const d = new Date();
   const p = (n: number): string => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function botInput(a: BotAction | null): Array<'tap' | Swipe> {
+  if (!a) return [];
+  return a.swipe ? ['tap', a.swipe] : ['tap'];
 }
 
 function demoSession(): Session {
@@ -52,11 +57,12 @@ export function startApp(): void {
   let countdown = 0;
   let endTimer = -1;
   let hintTimer = 0;
-  let pendingTaps = 0;
+  /** touches since the last frame, in order: a tap, optionally followed by its swipe */
+  let pendingInput: Array<'tap' | Swipe> = [];
   let hintsSkipped = false;
   let goTimer = 0;
   let music = { bpm: 0, world: -1 };
-  const seenHints = new Set<number>();
+  const seenHints = new Set<MoveId>();
   const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
 
@@ -100,7 +106,7 @@ export function startApp(): void {
     ui.updateHud(toHud(session));
     beginCountdown();
     if (!save.tutorialDone && mode === 'stage') {
-      ui.showTutorial(0);
+      ui.showTutorial('jump');
       hintTimer = HINT_DURATION + 1.8;
       persist({ ...save, tutorialDone: true });
     }
@@ -111,7 +117,7 @@ export function startApp(): void {
     clearGoTimer();
     countdown = 3 * COUNT_STEP;
     endTimer = -1;
-    pendingTaps = 0;
+    pendingInput = [];
     ui.showCountdown(3);
     audio.sfx('count', 3);
   };
@@ -234,8 +240,7 @@ export function startApp(): void {
       if (hintTimer <= 0) ui.showTutorial(null);
       return;
     }
-    const inEarlyWorlds = run.mode === 'stage' && (run.stage?.world ?? 9) <= 1;
-    if (!inEarlyWorlds || hintsSkipped) return;
+    if (run.mode !== 'stage' || hintsSkipped) return;
     const h = upcomingHint(session, seenHints);
     if (h === null) return;
     seenHints.add(h);
@@ -245,11 +250,13 @@ export function startApp(): void {
 
   const tickPlay = (dt: number): void => {
     const wasFever = session.score.feverTime > 0;
-    if (AUTOPLAY && botShouldTap(session)) pendingTaps++;
-    for (; pendingTaps > 0; pendingTaps--) {
-      const out = tap(session);
+    if (AUTOPLAY) pendingInput = [...pendingInput, ...botInput(botAction(session))];
+    const queued = pendingInput;
+    pendingInput = [];
+    for (const input of queued) {
+      const out = input === 'tap' ? tap(session) : swipe(session, input);
       session = out.session;
-      playFeedback(deps, out.events);
+      playFeedback(deps, out.events, false, session.player.backward);
     }
     const out = step(session, dt);
     session = out.session;
@@ -265,7 +272,9 @@ export function startApp(): void {
   };
 
   const tickMenu = (dt: number): void => {
-    if (botShouldTap(session)) session = tap(session).session;
+    for (const input of botInput(botAction(session))) {
+      session = (input === 'tap' ? tap(session) : swipe(session, input)).session;
+    }
     const out = step(session, dt);
     session = out.session;
     playFeedback(deps, out.events, true);
@@ -280,7 +289,10 @@ export function startApp(): void {
   bindInput(canvas, {
     onTap: () => {
       audio.unlock();
-      if (screen === 'play') pendingTaps = Math.min(pendingTaps + 1, 3);
+      if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, 'tap'];
+    },
+    onSwipe: (dir: Swipe) => {
+      if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, dir];
     },
     onPauseKey: () => (screen === 'paused' ? undefined : pause()),
   });

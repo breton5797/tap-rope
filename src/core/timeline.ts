@@ -4,20 +4,25 @@
  *   sweeps under the player), so phase ≡ 0 (mod 2π) exactly at each pass.
  *   Multi-under beats spin L times (passes 0.12s apart); Double-Dutch sections
  *   alternate passes between rope A (even) and rope B (odd).
- * - visibleObstacles: scrolling hurdles/birds/pickups in screen space.
- * - laneItems: rhythm-lane preview entries.
+ * - visibleObstacles: approaching hurdles/rings/balls/birds/pickups in world space
+ *   (lane, z ahead of the player, height); the renderer projects them.
+ * - laneItems: rhythm-lane preview entries with the move badge and ball lanes.
  */
-import type { Beat, LaneItem, RopeState, VisibleObstacle } from '../types';
-import { LANE_LEAD, LOGICAL_W, PLAYER_X, SCROLL_SPEED } from '../types';
+import type { Beat, Lane, LaneItem, RopeMode, RopeState, VisibleObstacle } from '../types';
+import { LANE_LEAD, SCROLL_SPEED } from '../types';
+import { moveForBeat } from './moves';
+
+export { moveForBeat } from './moves';
 
 const TAU = Math.PI * 2;
 const IDLE_PERIOD = 1.2;
 const MULTI_SPACING = 0.12;
 const DD_LEAD = 1;
 const DD_TAIL = 0.5;
-const CULL_MARGIN = 60;
+const Z_MIN = -80;
+const Z_MAX = 900;
 const LANE_PAST = 0.25;
-const BIRD_HEIGHT = 92;
+const BIRD_HEIGHT = 110;
 const PICKUP_HEIGHT = { 1: 50, 2: 120, 3: 185 } as const;
 
 interface Phase {
@@ -74,7 +79,7 @@ function ddSections(ropeBeats: readonly Beat[]): Beat[][] {
   }, []);
 }
 
-export function ropeState(beats: readonly Beat[], t: number): RopeState {
+export function ropeState(beats: readonly Beat[], t: number, mode: RopeMode): RopeState {
   const ropeBeats = beats.filter(hasRope);
   const sections = ddSections(ropeBeats);
   const bBeats = new Set(sections.flatMap((s) => s.filter((_, k) => k % 2 === 1)));
@@ -88,23 +93,24 @@ export function ropeState(beats: readonly Beat[], t: number): RopeState {
   );
   const passesB = active ? active.filter((_, k) => k % 2 === 1).map((b) => b.time) : [];
   const phaseB = active && passesB.length > 0 ? phaseAt(passesB, t).phase : null;
-  return { phaseA: a.phase, phaseB, speed: a.speed };
+  return { phaseA: a.phase, phaseB, speed: a.speed, mode };
 }
 
 function obstacleHeight(kind: VisibleObstacle['kind'], level: 1 | 2 | 3): number {
-  if (kind === 'hurdle') return 0;
+  if (kind === 'hurdle' || kind === 'ring' || kind === 'ball') return 0;
   if (kind === 'bird') return BIRD_HEIGHT;
   return PICKUP_HEIGHT[level];
 }
 
 export function visibleObstacles(beats: readonly Beat[], t: number): VisibleObstacle[] {
   return beats.flatMap((beat) => {
-    const x = PLAYER_X + (beat.time - t) * SCROLL_SPEED;
-    if (x < -CULL_MARGIN || x > LOGICAL_W + CULL_MARGIN) return [];
+    const z = (beat.time - t) * SCROLL_SPEED;
+    if (z < Z_MIN || z > Z_MAX) return [];
     return beat.obstacles.flatMap((o, index): VisibleObstacle[] => {
       if (o.kind === 'rope') return [];
       const kind = o.kind;
-      return [{ id: `${beat.id}-${index}`, kind, level: o.level, x, height: obstacleHeight(kind, o.level) }];
+      const lane: Lane = o.lane ?? 0;
+      return [{ id: `${beat.id}-${index}`, kind, level: o.level, lane, z, height: obstacleHeight(kind, o.level) }];
     });
   });
 }
@@ -117,5 +123,7 @@ export function laneItems(beats: readonly Beat[], t: number): LaneItem[] {
       timeUntil: b.time - t,
       kinds: b.obstacles.map((o) => o.kind),
       level: b.requiredLevel,
+      move: moveForBeat(b),
+      ballLanes: b.obstacles.filter((o) => o.kind === 'ball').map((o): Lane => o.lane ?? 0),
     }));
 }

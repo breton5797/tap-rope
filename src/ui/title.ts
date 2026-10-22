@@ -7,6 +7,7 @@ export interface TitleNav {
   readonly toStages: () => void;
   readonly toShop: () => void;
   readonly toSettings: () => void;
+  readonly toGuide: () => void;
 }
 
 export function coinChip(coins: number, extraCls = ''): HTMLElement {
@@ -70,7 +71,10 @@ function modeButtons(ctx: Ctx, save: SaveData): HTMLElement {
 
 export function buildTitle(ctx: Ctx, save: SaveData, nav: TitleNav): HTMLElement {
   return h('section', { cls: 'screen screen--title', attrs: { 'aria-label': '타이틀' } }, [
-    h('div', { cls: 'title__top' }, [h('span', { cls: 'title__ver', text: 'v1.0' }), coinChip(save.coins)]),
+    h('div', { cls: 'title__top' }, [
+      button({ label: '기술 도감', variant: 'glass', size: 'sm', icon: icons.book(), cls: 'btn--guide', onPress: ctx.tap(nav.toGuide) }),
+      coinChip(save.coins),
+    ]),
     h('div', { cls: 'title__hero' }, [logo()]),
     h('div', { cls: 'title__menu scrim' }, [
       button({ label: '시작하기', variant: 'sun', size: 'lg', icon: icons.play(), cls: 'btn--start', onPress: ctx.tap(nav.toStages) }),

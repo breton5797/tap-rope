@@ -10,10 +10,14 @@
   justify-content: space-between;
 }
 
-.title__ver {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 14px;
-  letter-spacing: 0.1em;
+.btn--guide {
+  height: 38px;
+  padding: 0 14px 0 11px;
+  font-size: 16px;
+}
+
+.btn--guide .btn__icon {
+  color: var(--violet);
 }
 
 .title__hero {

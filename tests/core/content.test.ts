@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { nextStageId, SKINS, stageById, STAGES, WORLDS } from '../../src/core/content';
+import { movesForMix, nextStageId, SKINS, stageById, STAGES, WORLDS } from '../../src/core/content';
+import type { MoveId } from '../../src/types';
 
 describe('WORLDS', () => {
   it('has 4 worlds with moon low gravity', () => {
@@ -27,25 +28,56 @@ describe('STAGES', () => {
       expect(s.id).toBe(`w${s.world + 1}-s${s.index + 1}`);
       expect(s.name.length).toBeGreaterThan(0);
     });
+    expect(new Set(STAGES.map((s) => s.name)).size).toBe(20);
   });
 
-  it('W1-S1 is a gentle 1단-only tutorial', () => {
+  it('follows the GDD v2 §12 rope-mode table', () => {
+    expect(STAGES.map((s) => s.ropeMode.charAt(0)).join('')).toBe('llsll' + 'lslsl' + 'slsls' + 'lslsl');
+  });
+
+  it('introduces each move on the §12 schedule', () => {
+    const intro = (m: MoveId) => STAGES.find((s) => s.moves.includes(m))?.id;
+    expect(intro('jump')).toBe('w1-s1');
+    expect(intro('double')).toBe('w1-s3');
+    expect(intro('side')).toBe('w1-s4');
+    expect(intro('tumble')).toBe('w2-s1');
+    expect(intro('bird')).toBe('w2-s1');
+    expect(intro('cross')).toBe('w2-s2');
+    expect(intro('triple')).toBe('w2-s3');
+    expect(intro('back')).toBe('w3-s1');
+    expect(intro('dd')).toBe('w3-s2');
+    expect(STAGES[1].mix.hurdle).toBeGreaterThan(0);
+  });
+
+  it('W4 uses every move of its rope mode', () => {
+    for (const s of STAGES.filter((x) => x.world === 3)) {
+      const all = s.ropeMode === 'long' ? ['tumble', 'dd'] : ['cross', 'back'];
+      for (const m of ['jump', 'double', 'triple', 'side', 'bird', ...all]) expect(s.moves).toContain(m);
+    }
+  });
+
+  it('keeps long-only and solo-only features in their modes', () => {
+    for (const s of STAGES) {
+      if (s.ropeMode === 'solo') {
+        expect([s.mix.hurdle, s.mix.doubleDutch, s.mix.ring]).toEqual([0, 0, 0]);
+      } else {
+        expect([s.mix.cross, s.mix.back]).toEqual([0, 0]);
+      }
+    }
+  });
+
+  it('lists exactly the moves its mix can produce', () => {
+    for (const s of STAGES) expect([...s.moves].sort()).toEqual(movesForMix(s.ropeMode, s.levelWeights, s.mix).sort());
+  });
+
+  it('W1-S1 is a gentle 1단-only long-rope tutorial', () => {
     const s = STAGES[0];
+    expect(s.ropeMode).toBe('long');
+    expect(s.moves).toEqual(['jump']);
     expect(s.levelWeights).toEqual([1, 0, 0]);
-    expect(s.mix).toEqual({ hurdle: 0, bird: 0, combo: 0, doubleDutch: 0 });
+    expect(Object.values(s.mix).every((v) => v === 0)).toBe(true);
     expect(s.bpm).toBeLessThanOrEqual(95);
     expect(s.hazardBeats).toBeLessThanOrEqual(16);
-  });
-
-  it('introduces features on schedule', () => {
-    const w = (i: number) => STAGES.filter((s) => s.world === i);
-    expect(w(0).some((s) => s.mix.hurdle > 0)).toBe(true);
-    expect(STAGES[2].levelWeights[1]).toBeGreaterThan(0);
-    expect(w(0).every((s) => s.mix.bird === 0 && s.levelWeights[2] === 0)).toBe(true);
-    expect(w(1).some((s) => s.mix.bird > 0)).toBe(true);
-    expect(w(1).some((s) => s.levelWeights[2] > 0)).toBe(true);
-    expect(STAGES.slice(0, 10).every((s) => s.mix.doubleDutch === 0)).toBe(true);
-    expect(w(2).every((s) => s.mix.doubleDutch > 0)).toBe(true);
   });
 
   it('ramps bpm and hazard beats (small breather allowed at a new world)', () => {
@@ -59,8 +91,19 @@ describe('STAGES', () => {
     expect(STAGES[19].hazardBeats).toBeGreaterThanOrEqual(36);
   });
 
-  it('has unique seeds', () => {
+  it('has unique seeds and mix values in 0..1', () => {
     expect(new Set(STAGES.map((s) => s.seed)).size).toBe(20);
+    for (const s of STAGES) for (const v of Object.values(s.mix)) expect(v >= 0 && v <= 1).toBe(true);
+  });
+});
+
+describe('movesForMix', () => {
+  const none = { hurdle: 0, bird: 0, combo: 0, doubleDutch: 0, ball: 0, ring: 0, cross: 0, back: 0 };
+  it('ignores features that do not exist in the rope mode', () => {
+    const all = { ...none, bird: 1, doubleDutch: 1, ball: 1, ring: 1, cross: 1, back: 1 };
+    expect(movesForMix('long', [1, 1, 1], all)).toEqual(['jump', 'double', 'triple', 'tumble', 'side', 'dd', 'bird']);
+    expect(movesForMix('solo', [1, 0, 0], all)).toEqual(['jump', 'side', 'cross', 'back', 'bird']);
+    expect(movesForMix('long', [1, 0, 0], none)).toEqual(['jump']);
   });
 });
 

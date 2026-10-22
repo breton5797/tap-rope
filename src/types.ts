@@ -79,7 +79,7 @@ export interface PhysicsConfig {
   readonly gravity: number; // px/s^2
   readonly jumpV: number; // takeoff velocity from ground
   readonly boostV: number; // velocity SET on each air tap (level up)
-  readonly tumbleV: number; // takeoff velocity of a 덤블링 (higher, longer airtime than 2단)
+  readonly tumbleV: number; // takeoff velocity of a 덤블링 (peaks higher than a 2단, shorter airtime)
 }
 
 export type Grade = 'perfect' | 'good' | 'miss' | 'none'; // none = pickup-only beat

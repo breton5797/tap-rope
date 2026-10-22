@@ -1,7 +1,7 @@
 // Visual QA harness for the UI layer (ui-preview.html?screen=...). Not shipped.
 import '../styles/main.css';
 import { defaultSave } from '../core/storage';
-import type { HudState, ResultInfo, SaveData, UiCallbacks } from '../types';
+import type { HudState, MoveId, ResultInfo, SaveData, UiCallbacks } from '../types';
 import { createUi } from './index';
 import { createAudio } from '../audio/index';
 import type { SfxName } from '../types';
@@ -41,6 +41,7 @@ const save: SaveData = {
 const hud: HudState = {
   hearts: 2, maxHearts: 3, score: 12340, combo: 14, progress: 0.46, feverGauge: 0.72,
   fever: screen === 'fever', shield: true, slowMo: screen === 'fever', title: '1-3 줄넘기 계단', coins: 12,
+  ropeMode: screen === 'back' || params.get('mode') === 'solo' ? 'solo' : 'long', backward: screen === 'back',
 };
 
 const result: ResultInfo = {
@@ -71,13 +72,18 @@ const show: Record<string, () => void> = {
   result: () => ui.showResult(result),
   fail: () => ui.showResult(result),
   endless: () => ui.showResult(result),
-  tutorial: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0 }), ui.showTutorial(Number(params.get('step') ?? 1))),
+  tutorial: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0 }), ui.showTutorial((params.get('move') ?? 'double') as MoveId)),
   countdown: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0 }), ui.showCountdown(Number(params.get('n') ?? 3))),
+  back: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0 })),
+  guide: () => {
+    ui.showTitle(save);
+    document.querySelector<HTMLButtonElement>('.btn--guide')?.click();
+  },
   toast: () => (ui.showTitle(save), ui.toast('코인이 부족해요!')),
   audio: () => {
     const audio = createAudio();
     audio.unlock();
-    const names: SfxName[] = ['jump', 'boost', 'land', 'perfect', 'good', 'hit', 'coin', 'powerup', 'combo', 'fever', 'clear', 'fail', 'click', 'count'];
+    const names: SfxName[] = ['jump', 'boost', 'land', 'perfect', 'good', 'hit', 'coin', 'powerup', 'combo', 'fever', 'clear', 'fail', 'click', 'count', 'tumble', 'side', 'cross', 'reverse'];
     names.forEach((n, i) => setTimeout(() => audio.sfx(n, 2), i * 120));
     ([0, 1, 2, 3] as const).forEach((w, i) => setTimeout(() => audio.startMusic(120, w, 0.3 + i), i * 500));
     setTimeout(() => audio.setFever(true), 900);

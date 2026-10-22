@@ -180,6 +180,7 @@
 .tone--pink { --t1: #ff8cc0; --t2: #ff4f93; --t3: #c42466; }
 .tone--sky { --t1: #7fd0ff; --t2: #359dff; --t3: #1a6ccc; }
 .tone--violet { --t1: #b29bff; --t2: #7b5cff; --t3: #4f33c9; }
+.tone--mint { --t1: #6ff0c9; --t2: #1fcf9c; --t3: #0d9a72; }
 
 .setting__text {
   flex: 1;

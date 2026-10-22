@@ -265,7 +265,7 @@
 .node__stars {
   display: flex;
   gap: 1px;
-  margin-top: 4px;
+  margin-top: 10px;
 }
 
 .star {
@@ -291,4 +291,76 @@
   font-size: 11.5px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* rope-mode pill sitting on the disc rim */
+.node__mode {
+  position: absolute;
+  left: 50%;
+  bottom: -11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11.5px;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: none;
+  background: #3a8dff;
+  border: 2px solid #fff;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 0 rgba(20, 10, 60, 0.3);
+}
+
+.node__mode--solo {
+  background: #8a5cff;
+}
+
+.node__disc.is-locked .node__mode {
+  background: #8f8aba;
+}
+
+.node__moves {
+  display: flex;
+  gap: 4px;
+  margin-top: 13px;
+}
+
+.mv {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  background: linear-gradient(180deg, var(--t1), var(--t2));
+  box-shadow: 0 2px 0 var(--t3);
+}
+
+.mv.is-new {
+  box-shadow: 0 2px 0 var(--t3), 0 0 0 2px #fff, 0 0 12px 2px rgba(255, 225, 77, 0.85);
+}
+
+.mv__new {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  padding: 1px 4px;
+  border-radius: 5px;
+  color: #5e2a00;
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+  background: #ffe14d;
+  transform: translateX(-50%);
+  animation: bob 1.4s ease-in-out infinite;
+}
+
+.mv--more {
+  width: auto;
+  padding: 0 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: none;
 }

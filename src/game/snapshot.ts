@@ -10,7 +10,7 @@ export function toSnapshot(s: Session, skin: SkinId, realTime: number, reducedMo
     world: s.world,
     player: s.player,
     skin,
-    rope: ropeState(s.beats, s.time),
+    rope: ropeState(s.beats, s.time, s.ropeMode),
     obstacles: visibleObstacles(s.beats, s.time),
     lane: laneItems(s.beats, s.time),
     fever: s.score.feverTime > 0,
@@ -37,5 +37,7 @@ export function toHud(s: Session): HudState {
     slowMo: s.slowTime > 0,
     title: s.mode === 'stage' ? s.stage.name : s.mode === 'endless' ? '엔드리스' : '오늘의 도전',
     coins: s.score.coins,
+    ropeMode: s.ropeMode,
+    backward: s.ropeMode === 'solo' && s.player.backward,
   };
 }

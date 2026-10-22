@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { laneItems, ropeState, visibleObstacles } from '../../src/core/timeline';
+import { laneItems, moveForBeat, ropeState as ropeStateV2, visibleObstacles } from '../../src/core/timeline';
 import type { Beat, JumpLevel, Obstacle } from '../../src/types';
-import { LANE_LEAD, PLAYER_X, SCROLL_SPEED } from '../../src/types';
+import { LANE_LEAD, SCROLL_SPEED } from '../../src/types';
+
+const ropeState = (beats: readonly Beat[], t: number) => ropeStateV2(beats, t, 'long');
 
 const TAU = Math.PI * 2;
 
@@ -85,39 +87,76 @@ describe('ropeState', () => {
   });
 });
 
+
+describe('ropeState mode', () => {
+  it('reports the rope mode', () => {
+    const beats = [rope(0, 2), rope(1, 3)];
+    expect(ropeStateV2(beats, 2.5, 'solo')).toMatchObject({ mode: 'solo', phaseB: null });
+    expect(ropeStateV2(beats, 2.5, 'long').mode).toBe('long');
+    expect(ropeStateV2(beats, 2.5, 'solo').phaseA).toBeCloseTo(Math.PI);
+  });
+});
+
+describe('moveForBeat', () => {
+  const m = (obstacles: Obstacle[], req: JumpLevel, dd = false) => moveForBeat(mk(0, 1, obstacles, req, dd));
+
+  it('maps beats to moves by priority', () => {
+    expect(m([{ kind: 'ring', level: 2 }], 0)).toBe('tumble');
+    expect(m([{ kind: 'ball', level: 1, lane: 1 }, { kind: 'rope', level: 1 }], 1)).toBe('side');
+    expect(m([{ kind: 'rope', level: 2, cross: true }], 2)).toBe('cross');
+    expect(m([{ kind: 'rope', level: 2, back: true }], 2)).toBe('back');
+    expect(m([{ kind: 'rope', level: 3 }], 3)).toBe('triple');
+    expect(m([{ kind: 'hurdle', level: 2 }], 2)).toBe('double');
+    expect(m([{ kind: 'bird', level: 1 }], 0)).toBe('bird');
+    expect(m([{ kind: 'bird', level: 1 }, { kind: 'rope', level: 1 }], 1)).toBe('jump');
+    expect(m([{ kind: 'rope', level: 1 }], 1, true)).toBe('dd');
+    expect(m([{ kind: 'rope', level: 1 }], 1)).toBe('jump');
+    expect(m([{ kind: 'coin', level: 2 }], 0)).toBe('jump');
+  });
+});
+
 describe('visibleObstacles', () => {
   const beats = [
     mk(0, 3, [{ kind: 'rope', level: 1 }, { kind: 'hurdle', level: 2 }], 2),
-    mk(1, 3.2, [{ kind: 'bird', level: 1 }], 0),
-    mk(2, 3.4, [{ kind: 'coin', level: 1 }], 0),
-    mk(3, 3.6, [{ kind: 'shield', level: 2 }], 0),
-    mk(4, 3.8, [{ kind: 'heart', level: 3 }], 0),
-    mk(5, 30, [{ kind: 'hurdle', level: 1 }], 1),
+    mk(1, 3.5, [{ kind: 'bird', level: 1 }], 0),
+    mk(2, 4, [{ kind: 'coin', level: 1, lane: -1 }], 0),
+    mk(3, 4.5, [{ kind: 'shield', level: 2, lane: 1 }], 0),
+    mk(4, 5, [{ kind: 'heart', level: 3 }], 0),
+    mk(5, 5.5, [{ kind: 'ring', level: 2 }], 0),
+    mk(6, 6, [{ kind: 'ball', level: 1, lane: 1 }, { kind: 'ball', level: 1, lane: -1 }], 0),
+    mk(7, 30, [{ kind: 'hurdle', level: 1 }], 1),
   ];
 
-  it('positions non-rope obstacles by time', () => {
+  it('places non-rope obstacles by z with lanes and heights', () => {
     const v = visibleObstacles(beats, 3);
-    expect(v.map((o) => o.id)).toEqual(['0-1', '1-0', '2-0', '3-0', '4-0']);
-    expect(v[0]).toEqual({ id: '0-1', kind: 'hurdle', level: 2, x: PLAYER_X, height: 0 });
-    expect(v[1].x).toBeCloseTo(PLAYER_X + 0.2 * SCROLL_SPEED);
-    expect(v.map((o) => o.height)).toEqual([0, 92, 50, 120, 185]);
+    expect(v.map((o) => o.id)).toEqual(['0-1', '1-0', '2-0', '3-0', '4-0', '5-0', '6-0', '6-1']);
+    expect(v[0]).toEqual({ id: '0-1', kind: 'hurdle', level: 2, lane: 0, z: 0, height: 0 });
+    expect(v[1].z).toBeCloseTo(0.5 * SCROLL_SPEED);
+    expect(v.map((o) => o.height)).toEqual([0, 110, 50, 120, 185, 0, 0, 0]);
+    expect(v.map((o) => o.lane)).toEqual([0, 0, -1, 1, 0, 0, 1, -1]);
   });
 
-  it('culls off-screen obstacles', () => {
-    expect(visibleObstacles(beats, 5).map((o) => o.id)).not.toContain('0-1');
-    expect(visibleObstacles(beats, 2).map((o) => o.id)).toContain('0-1');
-    expect(visibleObstacles(beats, 0).map((o) => o.id)).toEqual([]);
+  it('keeps -80 <= z <= 900', () => {
+    const at = (t: number) => visibleObstacles(beats, t).map((o) => o.id);
+    expect(at(3.3)).toContain('0-1'); // z = -72
+    expect(at(3.4)).not.toContain('0-1'); // z = -96
+    expect(at(30 - 900 / SCROLL_SPEED)).toContain('7-0');
+    expect(at(30 - 901 / SCROLL_SPEED)).not.toContain('7-0');
   });
 });
 
 describe('laneItems', () => {
-  const beats = [rope(0, 2), mk(1, 3, [{ kind: 'rope', level: 1 }, { kind: 'bird', level: 1 }], 1), rope(2, 10)];
+  const beats = [
+    rope(0, 2),
+    mk(1, 3, [{ kind: 'rope', level: 1 }, { kind: 'ball', level: 1, lane: 1 }, { kind: 'ball', level: 1 }], 1),
+    rope(2, 10),
+  ];
 
-  it('shows upcoming beats within LANE_LEAD and just-passed ones', () => {
+  it('shows upcoming beats within LANE_LEAD and just-passed ones, with move and ball lanes', () => {
     const items = laneItems(beats, 2.1);
     expect(items).toEqual([
-      { beatId: 0, timeUntil: expect.closeTo(-0.1, 6), kinds: ['rope'], level: 1 },
-      { beatId: 1, timeUntil: expect.closeTo(0.9, 6), kinds: ['rope', 'bird'], level: 1 },
+      { beatId: 0, timeUntil: expect.closeTo(-0.1, 6), kinds: ['rope'], level: 1, move: 'jump', ballLanes: [] },
+      { beatId: 1, timeUntil: expect.closeTo(0.9, 6), kinds: ['rope', 'ball', 'ball'], level: 1, move: 'side', ballLanes: [1, 0] },
     ]);
     expect(laneItems(beats, 2.3).map((i) => i.beatId)).toEqual([1]);
     expect(laneItems(beats, 10 - LANE_LEAD + 0.01).map((i) => i.beatId)).toEqual([2]);

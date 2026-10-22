@@ -43,6 +43,12 @@ export const icons = {
     ]),
   play: (): SVGElement => icon([['path', { d: 'M8 5.2v13.6a1 1 0 001.5.86l10.6-6.8a1 1 0 000-1.72L9.5 4.34A1 1 0 008 5.2z', fill: 'currentColor' }]]),
   back: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3, d: 'M14.5 5l-7 7 7 7' }]]),
+  close: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3, d: 'M6.5 6.5l11 11M17.5 6.5l-11 11' }]]),
+  book: (): SVGElement =>
+    icon([
+      ['path', { d: 'M4 5.2c2.6-1 5.3-.9 8 .6v14c-2.7-1.5-5.4-1.6-8-.6z', fill: 'currentColor', opacity: 0.55 }],
+      ['path', { d: 'M20 5.2c-2.6-1-5.3-.9-8 .6v14c2.7-1.5 5.4-1.6 8-.6z', fill: 'currentColor' }],
+    ]),
   next: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3, d: 'M9.5 5l7 7-7 7' }]]),
   retry: (): SVGElement =>
     icon([
