@@ -41,7 +41,7 @@ export class Background {
   }
 
   private build(ctx: Ctx, art: WorldArt, v: View): void {
-    this.sky = vGrad(ctx, 0, art.skyTo, art.sky);
+    this.sky = vGrad(ctx, -90, art.skyTo, art.sky);
     const padded: View = { ...v, x0: v.x0 - MARGIN, y0: v.y0 - MARGIN, w: v.w + MARGIN * 2, h: v.h + MARGIN * 2 };
     const scene = makeCanvas(padded.w * v.k, padded.h * v.k);
     scene.ctx.setTransform(v.k, 0, 0, v.k, -padded.x0 * v.k, -padded.y0 * v.k);

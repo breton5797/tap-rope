@@ -1,5 +1,5 @@
 // Pooled particles, shockwave rings, text popups, screen shake and flash.
-import { GROUND_Y, PLAYER_X, type BurstKind, type EffectsApi, type PopupStyle } from '../types';
+import { type BurstKind, type EffectsApi, type PopupStyle } from '../types';
 import { drawPopups, PopupPool } from './popups';
 import { clamp, starPath, TAU, type Ctx } from './util';
 import type { View } from './view';
@@ -16,8 +16,9 @@ const CONFETTI = [C.red, C.gold, C.mint, C.blue, C.purple, C.pink];
 
 export class Effects implements EffectsApi {
   reduced = false;
-  /** feet height of the player in px above ground, updated by the renderer */
-  playerHeight = 0;
+  /** screen position of the player's feet, updated by the renderer */
+  anchorX = 180;
+  feetY = 454;
   private n = 0;
   private readonly px = new Float32Array(CAP);
   private readonly py = new Float32Array(CAP);
@@ -41,8 +42,8 @@ export class Effects implements EffectsApi {
   private flashAlpha = 0;
 
   burst(kind: BurstKind, x?: number, y?: number): void {
-    const feetY = GROUND_Y - this.playerHeight;
-    const bx = x ?? PLAYER_X;
+    const feetY = this.feetY;
+    const bx = x ?? this.anchorX;
     const by = y ?? (kind === 'dust' ? feetY : feetY - 26);
     const k = this.reduced ? 0.4 : 1;
     switch (kind) {
@@ -68,7 +69,7 @@ export class Effects implements EffectsApi {
   }
 
   popup(text: string, style: PopupStyle): void {
-    this.popups.add(text, style, GROUND_Y - this.playerHeight - 56);
+    this.popups.add(text, style, this.feetY - 50);
   }
 
   shake(intensity: number): void {

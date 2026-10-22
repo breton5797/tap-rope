@@ -1,135 +1,166 @@
-// World 1 — 노을 해변: sunset gradient, huge banded sun, shimmering sea, palm silhouettes, sand.
-import { GROUND_Y } from '../types';
+// World 1 — 노을 해변 (oblique top-down): sunset sky band, banded sun sinking into a
+// shimmering sea, foam on the shore, warm sand with palms, parasols and a sandcastle.
 import { blit, type SpriteCache } from './sprites';
-import { wrapped, type TileSpec, type WorldArt } from './scenery';
-import { circle, oval, radGrad, seeded, TAU, vGrad, type Ctx } from './util';
+import { groundY, HORIZON_Y } from './projection';
+import {
+  billboard, groundFill, groundOval, groundQuad, horizonHaze, laneDashes, sideProps,
+  TRACK_HALF, wrapped, Z_NEAR, type TileSpec, type WorldArt,
+} from './scenery';
+import { circle, oval, radGrad, roundRect, seeded, TAU, vGrad, type Ctx } from './util';
 import type { View } from './view';
 
-const HORIZON = 410;
-const SUN_X = 180;
-const SUN_Y = 396;
-
-function palm(ctx: Ctx, bx: number, tx: number, ty: number, dir: number): void {
-  ctx.lineCap = 'round';
-  const midX = (bx + tx) / 2 - dir * 18;
-  for (let i = 0; i < 2; i++) {
-    ctx.strokeStyle = i === 0 ? '#2C1640' : 'rgba(255,140,110,0.35)';
-    ctx.lineWidth = i === 0 ? 9 : 2;
-    ctx.beginPath();
-    ctx.moveTo(bx + (i ? dir * 3 : 0), GROUND_Y + 2);
-    ctx.quadraticCurveTo(midX + (i ? dir * 3 : 0), (GROUND_Y + ty) / 2, tx + (i ? dir * 2 : 0), ty);
-    ctx.stroke();
-  }
-  ctx.fillStyle = '#2A1440';
-  const leaves = [-2.7, -2.2, -1.6, -1.0, -0.45, 0.1, 0.55];
-  for (const a of leaves) {
-    const len = 46 + Math.cos(a * 3) * 8;
-    const ex = tx + Math.cos(a) * len;
-    const ey = ty + Math.sin(a) * len * 0.55 + 18;
-    const nx = -Math.sin(a) * 9;
-    const ny = Math.cos(a) * 9;
-    ctx.beginPath();
-    ctx.moveTo(tx, ty);
-    ctx.quadraticCurveTo((tx + ex) / 2 + nx, (ty + ey) / 2 - 16 + ny, ex, ey);
-    ctx.quadraticCurveTo((tx + ex) / 2 - nx * 0.2, (ty + ey) / 2 - 8, tx, ty);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#3B1E4E';
-  circle(ctx, tx - 4, ty + 5, 4);
-  ctx.fill();
-  circle(ctx, tx + 4, ty + 6, 4);
-  ctx.fill();
-}
+const SHORE_Z = 1500;
+const SHORE_Y = groundY(SHORE_Z);
 
 function sea(ctx: Ctx, v: View): void {
-  ctx.fillStyle = vGrad(ctx, HORIZON, GROUND_Y, [[0, '#FFB089'], [0.18, '#E0708A'], [0.55, '#8C3D8A'], [1, '#4A2B78']]);
-  ctx.fillRect(v.x0, HORIZON, v.w, GROUND_Y - HORIZON + 4);
+  ctx.fillStyle = vGrad(ctx, HORIZON_Y, SHORE_Y, [[0, '#FFB089'], [0.15, '#E0708A'], [0.6, '#8C3D8A'], [1, '#5B3384']]);
+  ctx.fillRect(v.x0, HORIZON_Y, v.w, SHORE_Y - HORIZON_Y + 2);
   ctx.fillStyle = 'rgba(255,232,180,0.9)';
-  ctx.fillRect(v.x0, HORIZON - 0.5, v.w, 1.5);
+  ctx.fillRect(v.x0, HORIZON_Y - 0.5, v.w, 1.5);
   const rnd = seeded(41);
-  for (let i = 0; i < 70; i++) {
-    const y = HORIZON + 4 + rnd() * rnd() * 52;
-    const len = 4 + (y - HORIZON) * 0.4 * rnd();
+  for (let i = 0; i < 90; i++) {
+    const y = HORIZON_Y + 3 + rnd() * (SHORE_Y - HORIZON_Y - 6);
+    const len = 3 + (y - HORIZON_Y) * 0.25 * rnd();
     ctx.fillStyle = rnd() < 0.5 ? 'rgba(255,200,170,0.28)' : 'rgba(60,20,90,0.25)';
     ctx.fillRect(v.x0 + rnd() * v.w, y, len, 1);
   }
   ctx.fillStyle = '#5A2C6E';
   ctx.beginPath();
-  ctx.moveTo(v.x0 - 10, HORIZON + 1);
-  ctx.quadraticCurveTo(v.x0 + 30, HORIZON - 14, v.x0 + 70, HORIZON - 6);
-  ctx.quadraticCurveTo(v.x0 + 100, HORIZON - 12, v.x0 + 130, HORIZON + 1);
+  ctx.moveTo(v.x0 - 10, HORIZON_Y + 1);
+  ctx.quadraticCurveTo(v.x0 + 26, HORIZON_Y - 11, v.x0 + 60, HORIZON_Y - 5);
+  ctx.quadraticCurveTo(v.x0 + 86, HORIZON_Y - 9, v.x0 + 112, HORIZON_Y + 1);
+  ctx.fill();
+}
+
+function palm(ctx: Ctx, lean: number): void {
+  ctx.fillStyle = 'rgba(90,40,40,0.25)';
+  oval(ctx, 30 * lean, 2, 34, 9);
+  ctx.fill();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#8A5A44';
+  ctx.lineWidth = 9;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(lean * 4, -50, lean * 22, -92);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,170,120,0.55)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  const tx = lean * 22;
+  const ty = -92;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * TAU + 0.3;
+    const ex = tx + Math.cos(a) * 44;
+    const ey = ty + Math.sin(a) * 20 + 10;
+    ctx.fillStyle = i % 2 ? '#3E9A6A' : '#2E7A58';
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.quadraticCurveTo((tx + ex) / 2 - Math.sin(a) * 8, (ty + ey) / 2 - 12, ex, ey);
+    ctx.quadraticCurveTo((tx + ex) / 2 + Math.sin(a) * 4, (ty + ey) / 2 - 2, tx, ty);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#6B3B2A';
+  circle(ctx, tx - 4, ty + 4, 4);
+  ctx.fill();
+  circle(ctx, tx + 4, ty + 5, 4);
+  ctx.fill();
+}
+
+function parasol(ctx: Ctx, hue: number): void {
+  ctx.fillStyle = 'rgba(90,40,40,0.22)';
+  oval(ctx, 8, 2, 30, 9);
+  ctx.fill();
+  ctx.strokeStyle = '#F4EDE4';
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -48);
+  ctx.stroke();
+  const cols = hue === 0 ? ['#FF5E7A', '#FFFFFF'] : ['#3BC4E8', '#FFF1A8'];
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = cols[i % 2];
+    ctx.beginPath();
+    ctx.moveTo(0, -60);
+    ctx.lineTo(-30 + i * 10, -44);
+    ctx.lineTo(-20 + i * 10, -44);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  roundRect(ctx, -30, -46, 60, 3, 1.5);
+  ctx.fill();
+}
+
+function castle(ctx: Ctx): void {
+  ctx.fillStyle = '#E9B074';
+  roundRect(ctx, -18, -16, 36, 16, 3);
+  ctx.fill();
+  ctx.fillStyle = '#F5C690';
+  for (const x of [-16, 6]) {
+    roundRect(ctx, x, -30, 10, 16, 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#FF5E7A';
+  ctx.beginPath();
+  ctx.moveTo(11, -30);
+  ctx.lineTo(11, -42);
+  ctx.lineTo(19, -38);
+  ctx.closePath();
   ctx.fill();
 }
 
 function sand(ctx: Ctx, v: View): void {
-  const bottom = v.y0 + v.h;
-  ctx.fillStyle = vGrad(ctx, GROUND_Y, bottom, [[0, '#F9CB93'], [0.25, '#EDAE76'], [1, '#B97556']]);
-  ctx.fillRect(v.x0, GROUND_Y, v.w, bottom - GROUND_Y);
-  ctx.fillStyle = 'rgba(160,80,90,0.35)';
-  ctx.fillRect(v.x0, GROUND_Y, v.w, 3);
+  groundFill(ctx, v, [[0, '#F7C995'], [0.3, '#F2B985'], [1, '#D68E62']]);
+  ctx.fillStyle = 'rgba(160,90,90,0.25)';
+  groundQuad(ctx, -3000, 3000, SHORE_Z - 160, SHORE_Z);
+  ctx.fill();
+  ctx.fillStyle = '#FBE2BC';
+  groundQuad(ctx, -TRACK_HALF, TRACK_HALF, Z_NEAR, SHORE_Z - 160);
+  ctx.fill();
+  laneDashes(ctx, 'rgba(232,150,105,0.75)', 3, 26, 22, true);
   const rnd = seeded(8);
-  ctx.strokeStyle = 'rgba(200,120,80,0.35)';
-  ctx.lineWidth = 1.2;
-  for (let i = 0; i < 34; i++) {
-    const x = v.x0 + rnd() * v.w;
-    const y = GROUND_Y + 14 + rnd() * (bottom - GROUND_Y - 14);
-    ctx.beginPath();
-    ctx.ellipse(x, y, 10 + rnd() * 14, 2, 0, Math.PI * 1.1, Math.PI * 1.9);
-    ctx.stroke();
-  }
-  ctx.fillStyle = 'rgba(255,240,215,0.45)';
-  for (let i = 0; i < 140; i++) {
-    circle(ctx, v.x0 + rnd() * v.w, GROUND_Y + 6 + rnd() * (bottom - GROUND_Y), 0.7);
+  for (let i = 0; i < 220; i++) {
+    ctx.fillStyle = rnd() < 0.5 ? 'rgba(255,240,215,0.6)' : 'rgba(190,110,70,0.35)';
+    groundOval(ctx, (rnd() - 0.5) * 900, -200 + rnd() * rnd() * 1500, 1.5, 1.5);
     ctx.fill();
   }
-  starfish(ctx, 300, 512);
-  ctx.fillStyle = '#FFE3EC';
-  oval(ctx, 74, 518, 6, 4.5);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(210,120,140,0.7)';
-  ctx.beginPath();
-  for (let i = -2; i <= 2; i++) {
-    ctx.moveTo(74, 522);
-    ctx.lineTo(74 + i * 2.6, 514);
+  for (const [x, z, c] of [[-200, 120, '#FF7A6B'], [190, 420, '#FFB627'], [-170, 760, '#FF8FB1'], [230, -60, '#FF7A6B']] as const) {
+    ctx.fillStyle = c;
+    groundOval(ctx, x, z, 9, 9);
+    ctx.fill();
   }
-  ctx.stroke();
 }
 
-function starfish(ctx: Ctx, x: number, y: number): void {
-  ctx.fillStyle = '#FF7A6B';
-  ctx.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * TAU - Math.PI / 2 + 0.2;
-    const r = i % 2 === 0 ? 8 : 3.4;
-    ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.8);
+function props(ctx: Ctx): void {
+  const list = sideProps(seeded(17), 4, -200, SHORE_Z - 200, 150, TRACK_HALF + 50, TRACK_HALF + 220);
+  for (const p of list) {
+    billboard(ctx, p.x, p.z, p.size);
+    if (p.kind === 0) castle(ctx);
+    else if (p.kind === 1) parasol(ctx, p.x < 0 ? 0 : 1);
+    else palm(ctx, p.x < 0 ? -1 : 1);
+    ctx.restore();
   }
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,230,200,0.8)';
-  circle(ctx, x, y, 1.2);
-  ctx.fill();
 }
 
 function drawScene(ctx: Ctx, v: View): void {
-  sea(ctx, v);
   sand(ctx, v);
-  palm(ctx, 14, 36, 300, 1);
-  palm(ctx, 350, 330, 326, -1);
-  palm(ctx, v.x0 + v.w + 6, v.x0 + v.w - 8, 350, -1);
+  sea(ctx, v);
+  horizonHaze(ctx, v, 'rgba(255,190,150,0.35)', 40);
+  props(ctx);
 }
 
 const STREAKS: TileSpec = {
-  y: 30,
-  h: 320,
+  y: -100,
+  h: 200,
   w: 620,
   speed: 6,
   draw(ctx, w) {
     const rnd = seeded(19);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 7; i++) {
       const x = rnd() * w;
-      const y = 70 + rnd() * 250;
-      const rx = 50 + rnd() * 70;
-      const ry = 4 + rnd() * 5;
+      const y = -60 + rnd() * 140;
+      const rx = 40 + rnd() * 60;
+      const ry = 3 + rnd() * 4;
       const g = vGrad(ctx, y - ry, y + ry, [[0, 'rgba(255,190,150,0.85)'], [1, 'rgba(150,60,130,0.7)']]);
       wrapped(x, w, (xx) => {
         ctx.fillStyle = g;
@@ -143,29 +174,27 @@ const STREAKS: TileSpec = {
 };
 
 function sunSprite(ctx: Ctx): void {
-  ctx.fillStyle = radGrad(ctx, 0, 0, 30, 170, [[0, 'rgba(255,220,140,0.75)'], [0.4, 'rgba(255,150,110,0.3)'], [1, 'rgba(255,120,120,0)']]);
-  circle(ctx, 0, 0, 170);
+  ctx.fillStyle = radGrad(ctx, 0, 0, 20, 130, [[0, 'rgba(255,220,140,0.75)'], [0.4, 'rgba(255,150,110,0.3)'], [1, 'rgba(255,120,120,0)']]);
+  circle(ctx, 0, 0, 130);
   ctx.fill();
-  ctx.fillStyle = vGrad(ctx, -50, 50, [[0, '#FFF4B8'], [0.5, '#FFC56A'], [1, '#FF7E57']]);
-  circle(ctx, 0, 0, 50);
+  ctx.fillStyle = vGrad(ctx, -38, 38, [[0, '#FFF4B8'], [0.5, '#FFC56A'], [1, '#FF7E57']]);
+  circle(ctx, 0, 0, 38);
   ctx.fill();
   ctx.globalCompositeOperation = 'destination-out';
-  for (let i = 0; i < 5; i++) {
-    const y = 6 + i * 8;
-    ctx.fillRect(-52, y, 104, 1.4 + i * 0.7);
-  }
+  for (let i = 0; i < 4; i++) ctx.fillRect(-40, 4 + i * 7, 80, 1.2 + i * 0.6);
   ctx.globalCompositeOperation = 'source-over';
 }
 
 function shimmer(ctx: Ctx, t: number): void {
   ctx.fillStyle = '#FFE6A8';
-  for (let i = 0; i < 20; i++) {
-    const y = HORIZON + 2 + i * 2.7;
-    const spread = 14 + i * 2.6;
+  const rows = 22;
+  for (let i = 0; i < rows; i++) {
+    const y = HORIZON_Y + 2 + i * ((SHORE_Y - HORIZON_Y - 6) / rows);
+    const spread = 10 + i * 2.2;
     for (let j = 0; j < 2; j++) {
       const off = Math.sin(t * 1.7 + i * 1.9 + j * 2.4) * spread * 0.55;
-      ctx.globalAlpha = 0.25 + 0.3 * (0.5 + 0.5 * Math.sin(t * 3.6 + i * 2.2 + j));
-      ctx.fillRect(SUN_X + off - (6 + i * 0.5), y, 12 + i, 1.2);
+      ctx.globalAlpha = 0.2 + 0.35 * (0.5 + 0.5 * Math.sin(t * 3.6 + i * 2.2 + j));
+      ctx.fillRect(180 + off - (5 + i * 0.4), y, 10 + i * 0.8, 1.1);
     }
   }
   ctx.globalAlpha = 1;
@@ -173,57 +202,31 @@ function shimmer(ctx: Ctx, t: number): void {
 
 function foam(ctx: Ctx, v: View, t: number): void {
   const x1 = v.x0 + v.w + 12;
-  ctx.beginPath();
-  ctx.moveTo(v.x0, GROUND_Y + 2);
-  for (let x = v.x0; x <= x1; x += 12) {
-    ctx.lineTo(x, GROUND_Y - 7 + 2.2 * Math.sin(x * 0.045 + t * 1.6) + 1.3 * Math.sin(x * 0.11 - t * 2.2));
+  for (let k = 0; k < 2; k++) {
+    const base = SHORE_Y + 1 + k * 5 + Math.sin(t * 1.2 + k * 2) * 2;
+    ctx.beginPath();
+    for (let x = v.x0; x <= x1; x += 12) {
+      const y = base + 1.6 * Math.sin(x * 0.05 + t * 1.6 + k) + Math.sin(x * 0.13 - t * 2.2) * 0.8;
+      if (x === v.x0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = k === 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,240,230,0.5)';
+    ctx.lineWidth = k === 0 ? 2 : 1.3;
+    ctx.stroke();
   }
-  ctx.lineTo(x1, GROUND_Y + 2);
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(255,236,226,0.5)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  for (let x = v.x0; x <= x1; x += 12) {
-    const y = GROUND_Y - 7 + 2.2 * Math.sin(x * 0.045 + t * 1.6) + 1.3 * Math.sin(x * 0.11 - t * 2.2);
-    if (x === v.x0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-}
-
-function gulls(ctx: Ctx, v: View, t: number): void {
-  ctx.strokeStyle = 'rgba(42,22,64,0.75)';
-  ctx.lineWidth = 1.6;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  const span = v.w + 120;
-  for (let i = 0; i < 3; i++) {
-    const x = v.x0 - 60 + ((t * (11 + i * 2) + i * 150) % span);
-    const y = 205 + i * 22 + Math.sin(t * 0.8 + i) * 6;
-    const k = 2.5 + 2.5 * Math.sin(t * 6 + i * 2);
-    const s = 6 - i;
-    ctx.moveTo(x - s, y - k);
-    ctx.quadraticCurveTo(x - s * 0.4, y - k * 0.2, x, y);
-    ctx.quadraticCurveTo(x + s * 0.4, y - k * 0.2, x + s, y - k);
-  }
-  ctx.stroke();
 }
 
 export const BEACH: WorldArt = {
-  sky: [[0, '#2A1858'], [0.3, '#682C7E'], [0.58, '#D2477C'], [0.82, '#FF8A5C'], [1, '#FFC879']],
-  skyTo: HORIZON,
+  sky: [[0, '#2A1858'], [0.35, '#6B2C7E'], [0.7, '#E0507A'], [1, '#FFB070']],
+  skyTo: HORIZON_Y,
   tiles: [STREAKS],
   drawScene,
   backdrop(ctx: Ctx, _v: View, t: number, sprites: SpriteCache) {
-    const sp = sprites.get('w1sun', 340, 340, 170, 170, sunSprite);
     ctx.globalAlpha = 0.94 + 0.06 * Math.sin(t * 1.3);
-    blit(ctx, sp, SUN_X, SUN_Y);
+    blit(ctx, sprites.get('w1sun', 260, 260, 130, 130, sunSprite), 180, HORIZON_Y + 4);
     ctx.globalAlpha = 1;
   },
   front(ctx: Ctx, v: View, t: number) {
-    gulls(ctx, v, t);
     shimmer(ctx, t);
     foam(ctx, v, t);
   },

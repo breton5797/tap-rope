@@ -1,12 +1,13 @@
 // Rhythm lane: translucent panel at the bottom, items flow right→left into the hit ring.
 import { LANE_LEAD, LOGICAL_W, type LaneItem, type ObstacleKind } from '../types';
 import { birdGlyph, bubble, clockIcon, coinFace, heartIcon, shieldIcon } from './icons';
+import { ballIcon, drawBallDots, drawMoveChip, ringIcon } from './lane-badges';
 import { blit, blitScaled, type SpriteCache } from './sprites';
 import { circle, clamp, FONT, LEVEL_DARK, LEVEL_FILL, LEVEL_LIGHT, outlinedText, radGrad, roundRect, vGrad, type Ctx } from './util';
 
 export const LANE_X = 14;
 export const LANE_Y = 542;
-export const LANE_W = LOGICAL_W - 28;
+export const PANEL_W = LOGICAL_W - 28;
 export const LANE_H = 68;
 export const HIT_X = 64;
 const CY = LANE_Y + LANE_H / 2;
@@ -14,30 +15,30 @@ const SPAN = LOGICAL_W - 90;
 const ICON = 32;
 
 const KIND_INDEX: Readonly<Record<ObstacleKind, number>> = {
-  rope: 0, hurdle: 1, bird: 2, coin: 3, shield: 4, slow: 5, heart: 6,
+  rope: 0, hurdle: 1, bird: 2, coin: 3, shield: 4, slow: 5, heart: 6, ring: 7, ball: 8,
 };
 const ICON_KEYS: string[] = [];
-for (let i = 0; i < 28; i++) ICON_KEYS.push(`lane${i}`);
+for (let i = 0; i < 36; i++) ICON_KEYS.push(`lane${i}`);
 
 function panel(ctx: Ctx): void {
   ctx.fillStyle = 'rgba(10,8,30,0.22)';
-  roundRect(ctx, 0, 4, LANE_W, LANE_H, 22);
+  roundRect(ctx, 0, 4, PANEL_W, LANE_H, 22);
   ctx.fill();
   ctx.fillStyle = 'rgba(20,18,58,0.48)';
-  roundRect(ctx, 0, 0, LANE_W, LANE_H, 22);
+  roundRect(ctx, 0, 0, PANEL_W, LANE_H, 22);
   ctx.fill();
   ctx.fillStyle = vGrad(ctx, 0, LANE_H, [[0, 'rgba(255,255,255,0.2)'], [0.45, 'rgba(255,255,255,0.03)'], [1, 'rgba(255,255,255,0)']]);
-  roundRect(ctx, 1, 1, LANE_W - 2, LANE_H * 0.55, 21);
+  roundRect(ctx, 1, 1, PANEL_W - 2, LANE_H * 0.55, 21);
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.28)';
   ctx.lineWidth = 1.2;
-  roundRect(ctx, 0.6, 0.6, LANE_W - 1.2, LANE_H - 1.2, 21.5);
+  roundRect(ctx, 0.6, 0.6, PANEL_W - 1.2, LANE_H - 1.2, 21.5);
   ctx.stroke();
   ctx.fillStyle = radGrad(ctx, HIT_X - LANE_X, LANE_H / 2, 4, 60, [[0, 'rgba(255,255,255,0.16)'], [1, 'rgba(255,255,255,0)']]);
   roundRect(ctx, 1, 1, 110, LANE_H - 2, 21);
   ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  for (let x = HIT_X - LANE_X + 30; x < LANE_W - 14; x += 12) {
+  for (let x = HIT_X - LANE_X + 30; x < PANEL_W - 14; x += 12) {
     circle(ctx, x, LANE_H / 2, 1.1);
     ctx.fill();
   }
@@ -102,6 +103,14 @@ function iconSprite(ctx: Ctx, arg: number): void {
     birdBadge(ctx);
     return;
   }
+  if (kind === 7) {
+    ringIcon(ctx);
+    return;
+  }
+  if (kind === 8) {
+    ballIcon(ctx);
+    return;
+  }
   bubble(ctx, 11.5, 'rgba(255,255,255,0.18)');
   if (kind === 3) coinFace(ctx, 8.5);
   else if (kind === 4) shieldIcon(ctx, 7);
@@ -135,8 +144,10 @@ function drawItem(ctx: Ctx, it: LaneItem, sprites: SpriteCache, t: number): void
     const sp = sprites.get(ICON_KEYS[arg], ICON + 6, ICON + 6, (ICON + 6) / 2, (ICON + 6) / 2, iconSprite, arg);
     const y = CY + (row - (n - 1) / 2) * gap * (n > 1 ? 1 : 0);
     blitScaled(ctx, sp, x, y, scale, scale);
+    if (row === 0) drawMoveChip(ctx, sprites, it.move, x + 12 * scale, y - 12 * scale, Math.min(1.15, pop));
     row++;
   }
+  drawBallDots(ctx, x, LANE_Y + LANE_H - 6, it.ballLanes);
   ctx.globalAlpha = 1;
 }
 
@@ -157,7 +168,7 @@ function hitRing(ctx: Ctx, glow: number, t: number): void {
 }
 
 export function drawLane(ctx: Ctx, lane: readonly LaneItem[], t: number, sprites: SpriteCache): void {
-  blit(ctx, sprites.get('lanePanel', LANE_W + 2, LANE_H + 8, 1, 1, panel), LANE_X, LANE_Y);
+  blit(ctx, sprites.get('lanePanel', PANEL_W + 2, LANE_H + 8, 1, 1, panel), LANE_X, LANE_Y);
   let glow = 0;
   for (const it of lane) glow = Math.max(glow, 1 - Math.abs(it.timeUntil) / 0.18);
   hitRing(ctx, clamp(glow, 0, 1), t);

@@ -1,42 +1,58 @@
-// Visual QA harness: animated mock scenes for the renderer (render-preview.html).
-// Query: ?world=0..3&skin=kid&scene=idle|jump2|jump3|hurdles|bird|fever|dd|hit
-//        &at=<sec> (freeze at a time) &shield=1 &slow=1 &mood=<Mood> &rm=1 &ui=0
+// Visual QA harness (v2): animated mock scenes for the renderer (render-preview.html).
+// Query: ?world=0..3&skin=kid&mode=long|solo
+//        &scene=idle|jump2|jump3|tumble|side|cross|back|ring|ball|hurdles|bird|fever|dd|hit
+//        &at=<sec> (freeze) &shield=1 &slow=1 &mood=<Mood> &rm=1 &ui=0
 import {
-  LANE_LEAD, PLAYER_X, SCROLL_SPEED,
-  type LaneItem, type Level, type Mood, type ObstacleKind, type PlayerState, type RenderSnapshot,
-  type SkinId, type VisibleObstacle, type WorldId,
+  LANE_LEAD, SCROLL_SPEED,
+  type Lane, type LaneItem, type Level, type Mood, type MoveId, type ObstacleKind, type PlayerState,
+  type RenderSnapshot, type RopeMode, type SkinId, type VisibleObstacle, type WorldId,
 } from '../types';
 import { createRenderer } from './index';
 
+interface Item {
+  readonly kind: ObstacleKind;
+  readonly lane?: Lane;
+}
+
 interface BeatSpec {
-  readonly kinds: readonly ObstacleKind[];
+  readonly items: readonly Item[];
   readonly level: Level;
+  readonly move: MoveId;
 }
 
 interface SceneCfg {
   readonly omega: number;
   readonly pattern: readonly BeatSpec[];
-  readonly dd: boolean;
-  readonly fever: boolean;
-  readonly hit: boolean;
-  readonly mood: Mood;
+  readonly mode: RopeMode;
+  readonly dd?: boolean;
+  readonly fever?: boolean;
+  readonly hit?: boolean;
+  readonly backward?: boolean;
+  readonly mood?: Mood;
 }
 
-const b = (kinds: readonly ObstacleKind[], level: Level): BeatSpec => ({ kinds, level });
+const R: Item = { kind: 'rope' };
+const it = (kind: ObstacleKind, lane: Lane = 0): Item => ({ kind, lane });
+const b = (items: readonly Item[], level: Level, move: MoveId = 'jump'): BeatSpec => ({ items, level, move });
 
 const SCENES: Readonly<Record<string, SceneCfg>> = {
-  idle: { omega: 4.6, pattern: [b(['rope'], 1)], dd: false, fever: false, hit: false, mood: 'idle' },
-  jump2: { omega: 4.2, pattern: [b(['rope'], 2)], dd: false, fever: false, hit: false, mood: 'happy' },
-  jump3: { omega: 4.3, pattern: [b(['rope'], 3)], dd: false, fever: false, hit: false, mood: 'cheer' },
+  idle: { omega: 4.6, mode: 'long', pattern: [b([R], 1)] },
+  jump2: { omega: 4.2, mode: 'long', pattern: [b([R], 2, 'double')], mood: 'happy' },
+  jump3: { omega: 4.3, mode: 'long', pattern: [b([R], 3, 'triple')], mood: 'cheer' },
+  tumble: { omega: 3.8, mode: 'long', pattern: [b([it('ring')], 2, 'tumble'), b([R], 1)] },
+  ring: { omega: 3.8, mode: 'long', pattern: [b([it('ring')], 2, 'tumble'), b([R, it('coin', 1)], 1), b([it('ring'), it('coin')], 2, 'tumble'), b([R, it('bird')], 1, 'bird')] },
+  side: { omega: 4.0, mode: 'long', pattern: [b([R, it('ball', 0)], 1, 'side'), b([R, it('ball', 1)], 1, 'side'), b([R], 1)] },
+  ball: { omega: 3.6, mode: 'long', pattern: [b([it('ball', -1), it('ball', 0)], 1, 'side'), b([R, it('coin', 1)], 1), b([it('ball', 1)], 1, 'side'), b([R], 1)] },
+  cross: { omega: 4.2, mode: 'solo', pattern: [b([R], 1, 'cross'), b([R], 1), b([R], 2, 'cross')] },
+  back: { omega: 4.4, mode: 'solo', pattern: [b([R], 1, 'back')], backward: true },
   hurdles: {
-    omega: 4.2,
-    pattern: [b(['rope', 'hurdle'], 1), b(['hurdle', 'coin'], 2), b(['rope', 'hurdle'], 3), b(['rope', 'bird'], 1), b(['rope', 'shield'], 2), b(['hurdle', 'heart'], 2), b(['rope', 'slow'], 1)],
-    dd: false, fever: false, hit: false, mood: 'idle',
+    omega: 4.0, mode: 'long',
+    pattern: [b([R, it('hurdle')], 1), b([it('hurdle'), it('coin', -1)], 2, 'double'), b([R, it('hurdle')], 3, 'triple'), b([R, it('bird')], 1, 'bird'), b([R, it('shield', 1)], 2, 'double'), b([it('hurdle'), it('heart')], 2, 'double'), b([R, it('slow', -1)], 1)],
   },
-  bird: { omega: 4.4, pattern: [b(['rope', 'bird'], 1), b(['rope'], 1), b(['rope', 'coin'], 1)], dd: false, fever: false, hit: false, mood: 'worried' },
-  fever: { omega: 4.6, pattern: [b(['rope'], 1), b(['rope'], 2), b(['rope', 'coin'], 1), b(['rope'], 3)], dd: false, fever: true, hit: false, mood: 'cheer' },
-  dd: { omega: 3.7, pattern: [b(['rope'], 1)], dd: true, fever: false, hit: false, mood: 'happy' },
-  hit: { omega: 4.6, pattern: [b(['rope'], 1), b(['rope', 'hurdle'], 1)], dd: false, fever: false, hit: true, mood: 'idle' },
+  bird: { omega: 4.4, mode: 'long', pattern: [b([R, it('bird')], 1, 'bird'), b([R], 1), b([R, it('coin')], 1)], mood: 'worried' },
+  fever: { omega: 4.6, mode: 'long', pattern: [b([R], 1), b([R], 2, 'double'), b([R, it('coin')], 1), b([R], 3, 'triple')], fever: true, mood: 'cheer' },
+  dd: { omega: 3.7, mode: 'long', pattern: [b([R], 1, 'dd')], dd: true, mood: 'happy' },
+  hit: { omega: 4.6, mode: 'long', pattern: [b([R], 1), b([R, it('hurdle')], 1)], hit: true },
 };
 
 const SKINS: readonly SkinId[] = ['kid', 'cat', 'bunny', 'robot', 'ninja', 'astro'];
@@ -44,16 +60,21 @@ const MOODS: readonly Mood[] = ['idle', 'happy', 'hurt', 'cheer', 'worried'];
 const GRAVITY = 3000;
 const JUMP_V = 660;
 const BOOST_V = 700;
+const TUMBLE_V = 980;
 const LEAD = [0, 0.22, 0.45, 0.62];
-const PICKUP_H = [0, 44, 112, 176];
-const BIRD_H = 92;
+const TUMBLE_LEAD = 0.33;
+const PICKUP_H = [0, 50, 120, 185];
+const LANE_SPEED = 9;
 
 const q = new URLSearchParams(location.search);
+const pick = <T extends string>(key: string, list: readonly T[], def: T): T =>
+  (list as readonly string[]).includes(q.get(key) ?? '') ? (q.get(key) as T) : def;
 const world = Math.max(0, Math.min(3, Number(q.get('world') ?? 0) | 0)) as WorldId;
-const skin = (SKINS as readonly string[]).includes(q.get('skin') ?? '') ? (q.get('skin') as SkinId) : 'kid';
-const sceneName = q.get('scene') && SCENES[q.get('scene') ?? ''] ? (q.get('scene') as string) : 'idle';
+const skin = pick('skin', SKINS, 'kid');
+const sceneName = pick('scene', Object.keys(SCENES), 'idle');
 const scene = SCENES[sceneName];
-const forcedMood = (MOODS as readonly string[]).includes(q.get('mood') ?? '') ? (q.get('mood') as Mood) : null;
+const mode = pick<RopeMode>('mode', ['long', 'solo'], scene.mode);
+const forcedMood = q.has('mood') ? pick('mood', MOODS, 'idle') : null;
 const freezeAt = q.has('at') ? Math.max(0, Number(q.get('at')) || 0) : null;
 const gScale = world === 3 ? 0.82 : 1;
 
@@ -66,6 +87,8 @@ const interval = (scene.dd ? Math.PI : Math.PI * 2) / scene.omega;
 const t0 = interval;
 const beatTime = (k: number): number => t0 + k * interval;
 const beatSpec = (k: number): BeatSpec => scene.pattern[k % scene.pattern.length];
+const ballLanes = (spec: BeatSpec): Lane[] => spec.items.filter((i) => i.kind === 'ball').map((i) => i.lane ?? 0);
+const has = (spec: BeatSpec, kind: ObstacleKind): boolean => spec.items.some((i) => i.kind === kind);
 
 interface Sim {
   t: number;
@@ -80,42 +103,57 @@ interface Sim {
 
 const sim: Sim = {
   t: 0,
-  player: { height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 1, buffer: 0 },
-  lastJumpBeat: -1,
-  judged: -1,
-  combo: 0,
-  hurtUntil: 0,
-  invulnUntil: 0,
-  nextHit: 1.6,
+  player: {
+    height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 1, buffer: 0,
+    lane: 0, laneX: 0, tumble: false, cross: false, backward: scene.backward ?? false, lastTap: 'none',
+  },
+  lastJumpBeat: -1, judged: -1, combo: 0, hurtUntil: 0, invulnUntil: 0, nextHit: 1.6,
 };
+
+function safeLane(lane: Lane, blocked: readonly Lane[]): Lane {
+  const free = ([-1, 0, 1] as const).filter((l) => !blocked.includes(l));
+  return free.reduce((best, l) => (Math.abs(l - lane) < Math.abs(best - lane) ? l : best), free[0]);
+}
+
+function takeoff(s: Sim, spec: BeatSpec, k: number): void {
+  const p = s.player;
+  const tumble = has(spec, 'ring');
+  const lane = ballLanes(spec).includes(p.lane) ? safeLane(p.lane, ballLanes(spec)) : p.lane;
+  s.player = { ...p, grounded: false, vy: tumble ? TUMBLE_V : JUMP_V, level: 1, airTime: 0, tumble, lane, lastTap: 'jump' };
+  s.lastJumpBeat = k;
+  if (tumble) fx.burst('sparkle');
+}
 
 function control(s: Sim): void {
   const k = Math.max(0, Math.ceil((s.t - t0) / interval - 0.05));
   const spec = beatSpec(k);
   const p = s.player;
-  if (p.grounded && beatTime(k) - s.t <= LEAD[spec.level] && s.lastJumpBeat !== k) {
-    s.player = { ...p, grounded: false, vy: JUMP_V, level: 1, airTime: 0 };
-    s.lastJumpBeat = k;
-  } else if (!p.grounded && s.lastJumpBeat === k && p.level < spec.level && p.vy <= 30) {
-    s.player = { ...p, vy: BOOST_V, level: (p.level + 1) as Level };
-    fx.burst('sparkle', PLAYER_X, 470 - p.height);
+  const lead = has(spec, 'ring') ? TUMBLE_LEAD : LEAD[spec.level];
+  if (p.grounded && beatTime(k) - s.t <= lead && s.lastJumpBeat !== k) return takeoff(s, spec, k);
+  if (p.grounded || s.lastJumpBeat !== k || p.tumble) return;
+  if (spec.move === 'cross' && !p.cross && p.vy < 200) s.player = { ...p, cross: true };
+  else if (p.level < spec.level && p.vy <= 30) {
+    s.player = { ...p, vy: BOOST_V, level: (p.level + 1) as Level, lastTap: 'boost' };
+    fx.burst('sparkle');
   }
 }
 
 function physics(s: Sim, dt: number): void {
   const p = s.player;
+  const dl = p.lane - p.laneX;
+  const laneX = Math.abs(dl) < LANE_SPEED * dt ? p.lane : p.laneX + Math.sign(dl) * LANE_SPEED * dt;
   if (p.grounded) {
-    s.player = { ...p, landTimer: p.landTimer + dt };
+    s.player = { ...p, laneX, landTimer: p.landTimer + dt };
     return;
   }
   const vy = p.vy - GRAVITY * gScale * dt;
   const height = p.height + vy * dt;
   if (height <= 0 && vy < 0) {
-    s.player = { height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, buffer: 0 };
-    fx.burst('dust', PLAYER_X, 470);
+    s.player = { ...p, laneX, height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, tumble: false, cross: false, lastTap: 'none' };
+    fx.burst('dust');
     return;
   }
-  s.player = { ...p, vy, height, airTime: p.airTime + dt };
+  s.player = { ...p, laneX, vy, height, airTime: p.airTime + dt };
 }
 
 function judge(s: Sim): void {
@@ -125,23 +163,19 @@ function judge(s: Sim): void {
   const p = s.player;
   if (p.grounded) return;
   s.combo++;
-  const perfect = p.height >= 40;
+  const perfect = p.height >= 40 || p.tumble;
   fx.popup(perfect ? 'PERFECT!' : 'GOOD', perfect ? 'perfect' : 'good');
-  if (perfect) fx.burst('sparkle', PLAYER_X, 470 - p.height - 20);
+  if (perfect) fx.burst('sparkle');
   if (s.combo % 5 === 0) fx.popup(`${s.combo} COMBO!`, 'combo');
-  if (s.combo % 12 === 0) fx.burst('confetti', PLAYER_X, 300);
+  if (s.combo % 12 === 0) fx.burst('confetti', 180, 260);
   const spec = beatSpec(k);
-  if (spec.kinds.includes('coin')) fx.burst('coin', PLAYER_X, 470 - p.height - 30);
-  if (spec.kinds.some((kd) => kd === 'shield' || kd === 'slow' || kd === 'heart')) {
-    fx.burst('powerup', PLAYER_X, 470 - p.height - 26);
-    fx.popup(spec.kinds.includes('shield') ? '실드!' : spec.kinds.includes('slow') ? '슬로모!' : '하트 +1', 'info');
-  }
+  if (spec.items.some((i) => i.kind === 'coin' && (i.lane ?? 0) === p.lane)) fx.burst('coin');
 }
 
 function hitEvents(s: Sim): void {
   if (!scene.hit || s.t < s.nextHit) return;
   s.nextHit += 2;
-  fx.burst('hit', PLAYER_X, 470 - s.player.height - 26);
+  fx.burst('hit');
   fx.popup('MISS', 'miss');
   fx.shake(0.8);
   fx.flash('rgba(255,70,70,1)');
@@ -159,17 +193,22 @@ function step(s: Sim, dt: number): void {
   fx.update(dt);
 }
 
+function heightOf(kind: ObstacleKind, level: Level): number {
+  if (kind === 'bird') return 110;
+  if (kind === 'hurdle' || kind === 'ring' || kind === 'ball') return 0;
+  return PICKUP_H[level];
+}
+
 function obstacleList(t: number): VisibleObstacle[] {
   const out: VisibleObstacle[] = [];
   const kFirst = Math.max(0, Math.floor((t - t0) / interval) - 1);
-  for (let k = kFirst; k < kFirst + 6; k++) {
-    const x = PLAYER_X + (beatTime(k) - t) * SCROLL_SPEED;
-    if (x < -40 || x > 440) continue;
+  for (let k = kFirst; k < kFirst + 8; k++) {
+    const z = (beatTime(k) - t) * SCROLL_SPEED;
+    if (z < -80 || z > 900) continue;
     const spec = beatSpec(k);
-    spec.kinds.forEach((kind, i) => {
-      if (kind === 'rope') return;
-      const height = kind === 'hurdle' ? 0 : kind === 'bird' ? BIRD_H : PICKUP_H[spec.level];
-      out.push({ id: `${k}-${i}`, kind, level: spec.level, x, height });
+    spec.items.forEach((i, idx) => {
+      if (i.kind === 'rope') return;
+      out.push({ id: `${k}-${idx}`, kind: i.kind, level: spec.level, lane: i.lane ?? 0, z, height: heightOf(i.kind, spec.level) });
     });
   }
   return out;
@@ -182,7 +221,9 @@ function laneList(t: number): LaneItem[] {
     const timeUntil = beatTime(k) - t;
     if (timeUntil < -0.3 || timeUntil > LANE_LEAD) continue;
     const spec = beatSpec(k);
-    out.push({ beatId: k, timeUntil, kinds: spec.kinds, level: spec.level });
+    const kinds = spec.items.map((i) => i.kind);
+    const level = has(spec, 'rope') || has(spec, 'hurdle') ? spec.level : 0;
+    out.push({ beatId: k, timeUntil, kinds, level, move: spec.move, ballLanes: ballLanes(spec) });
   }
   return out;
 }
@@ -196,15 +237,15 @@ function snapshot(s: Sim): RenderSnapshot {
     world,
     player: s.player,
     skin,
-    rope: { phaseA, phaseB: scene.dd ? phaseA + Math.PI : null, speed: scene.omega },
+    rope: { phaseA, phaseB: scene.dd && mode === 'long' ? phaseA + Math.PI : null, speed: scene.omega, mode },
     obstacles: obstacleList(s.t),
     lane: laneList(s.t),
-    fever: scene.fever,
+    fever: scene.fever ?? false,
     feverGauge: scene.fever ? 1 : 0.4,
     invulnerable: s.t < s.invulnUntil,
     shield: q.get('shield') === '1',
     slowMo: q.get('slow') === '1',
-    mood: forcedMood ?? (hurt ? 'hurt' : s.player.grounded ? scene.mood : 'happy'),
+    mood: forcedMood ?? (hurt ? 'hurt' : s.player.grounded ? scene.mood ?? 'idle' : 'happy'),
     reducedMotion: q.get('rm') === '1',
     showTurners: q.get('turners') !== '0',
   };
@@ -217,16 +258,15 @@ function resize(): void {
 function buildNav(): void {
   const nav = document.getElementById('nav');
   if (!nav || q.get('ui') === '0') return;
-  const link = (key: string, val: string, label: string): string => {
+  const link = (key: string, val: string, cur: string): string => {
     const p = new URLSearchParams(location.search);
     p.set(key, val);
-    const on = (q.get(key) ?? (key === 'scene' ? 'idle' : key === 'skin' ? 'kid' : '0')) === val;
-    return `<a href="?${p.toString()}" class="${on ? 'on' : ''}">${label}</a>`;
+    return `<a href="?${p.toString()}" class="${cur === val ? 'on' : ''}">${val}</a>`;
   };
   nav.innerHTML = [
-    ['0', '1', '2', '3'].map((w) => link('world', w, `W${w}`)).join(''),
-    Object.keys(SCENES).map((sc) => link('scene', sc, sc)).join(''),
-    SKINS.map((sk) => link('skin', sk, sk)).join(''),
+    ['0', '1', '2', '3'].map((w) => link('world', w, String(world))).join('') + link('mode', 'long', mode) + link('mode', 'solo', mode),
+    Object.keys(SCENES).map((sc) => link('scene', sc, sceneName)).join(''),
+    SKINS.map((sk) => link('skin', sk, skin)).join(''),
   ].map((row) => `<div>${row}</div>`).join('');
 }
 
@@ -235,10 +275,9 @@ resize();
 buildNav();
 
 if (freezeAt !== null) {
-  const dt = 1 / 120;
   let n = 0;
   while (sim.t < freezeAt) {
-    step(sim, dt);
+    step(sim, 1 / 120);
     if (n++ % 6 === 0) renderer.render(snapshot(sim));
   }
 }

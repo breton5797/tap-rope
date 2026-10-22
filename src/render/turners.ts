@@ -1,6 +1,6 @@
 // The two friends turning the rope. Body is drawn behind the rope, hands after it.
-import { GROUND_Y } from '../types';
-import { HAND_LX, HAND_RX, HAND_Y, handOffsetX, handOffsetY, TURNER_LX, TURNER_RX } from './rope';
+import { groundY, HEIGHT_K, project, screenX } from './projection';
+import { handPos, RopeRig, setLongRig, TURNER_X } from './rope';
 import { circle, clamp, oval, radGrad, roundRect, vGrad, type Ctx } from './util';
 
 interface TurnerLook {
@@ -151,7 +151,7 @@ function face(ctx: Ctx, lookUp: number, t: number): void {
 
 function arm(ctx: Ctx, look: TurnerLook, hx: number, hy: number): void {
   const sx = 7;
-  const sy = -50;
+  const sy = -50 * HEIGHT_K;
   ctx.lineCap = 'round';
   ctx.strokeStyle = OUTLINE;
   ctx.lineWidth = 8.4;
@@ -170,28 +170,46 @@ function arm(ctx: Ctx, look: TurnerLook, hx: number, hy: number): void {
   ctx.stroke();
 }
 
-function drawOne(ctx: Ctx, x: number, facing: number, look: TurnerLook, phase: number, t: number, lookUp: number): void {
+const rig = setLongRig(new RopeRig());
+const hp = new Float32Array(3);
+const sp = new Float32Array(3);
+
+/** screen position of a turner's hand (side -1 = left turner) */
+function handScreen(phase: number, side: number): void {
+  handPos(rig, phase, side, hp);
+  project(hp[0], hp[1], hp[2], sp);
+}
+
+function drawOne(ctx: Ctx, side: number, look: TurnerLook, phase: number, t: number, lookUp: number): void {
+  const facing = -side;
   const b = bob(phase);
-  const handX = (facing > 0 ? HAND_LX : HAND_RX) + facing * handOffsetX(phase);
-  const handY = HAND_Y + handOffsetY(phase);
+  const fx = screenX(side * TURNER_X, 0);
+  const fy = groundY(0);
+  handScreen(phase, side);
   ctx.save();
-  ctx.translate(x, GROUND_Y + b);
+  ctx.translate(fx, fy + b);
   ctx.scale(facing, 1);
   ctx.fillStyle = 'rgba(30,20,50,0.22)';
-  oval(ctx, 0, -b + 1, 20, 4.5);
+  oval(ctx, 0, -b + 1, 22, 7);
   ctx.fill();
+  ctx.save();
+  ctx.scale(1, HEIGHT_K);
   legs(ctx, look);
   torso(ctx, look);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(0, HEAD_Y * (HEIGHT_K - 1) + 4);
   head(ctx, look, lookUp, t);
-  arm(ctx, look, (handX - x) * facing, handY - (GROUND_Y + b));
+  ctx.restore();
+  arm(ctx, look, (sp[0] - fx) * facing, sp[1] - (fy + b));
   ctx.restore();
 }
 
 /** Turner bodies + arms (behind the rope). */
 export function drawTurners(ctx: Ctx, phase: number, t: number, playerHeight: number): void {
   const lookUp = clamp(playerHeight / 60, 0, 2.2);
-  drawOne(ctx, TURNER_LX, 1, LEFT, phase, t, lookUp);
-  drawOne(ctx, TURNER_RX, -1, RIGHT, phase, t + 1.3, lookUp);
+  drawOne(ctx, -1, LEFT, phase, t, lookUp);
+  drawOne(ctx, 1, RIGHT, phase, t + 1.3, lookUp);
 }
 
 function hand(ctx: Ctx, x: number, y: number, look: TurnerLook): void {
@@ -210,9 +228,8 @@ function hand(ctx: Ctx, x: number, y: number, look: TurnerLook): void {
 
 /** Fists + rope handles (over the rope ends). */
 export function drawTurnerHands(ctx: Ctx, phase: number): void {
-  const dy = handOffsetY(phase);
-  const dx = handOffsetX(phase);
-  hand(ctx, HAND_LX + dx, HAND_Y + dy, LEFT);
-  hand(ctx, HAND_RX - dx, HAND_Y + dy, RIGHT);
+  handScreen(phase, -1);
+  hand(ctx, sp[0], sp[1], LEFT);
+  handScreen(phase, 1);
+  hand(ctx, sp[0], sp[1], RIGHT);
 }
-

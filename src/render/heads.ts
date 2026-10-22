@@ -7,6 +7,7 @@ import { circle, oval, radGrad, roundRect, vGrad, type Ctx } from './util';
 export const HEAD_Y = -41;
 export const HEAD_R = 16;
 const OUTLINE = 'rgba(40,22,55,0.6)';
+const FACE_DROP = 2.5;
 
 function ears(ctx: Ctx, outer: string, inner: string, t: number): void {
   const tw = Math.sin(t * 2.3) > 0.97 ? 0.15 : 0;
@@ -198,16 +199,29 @@ function helmet(ctx: Ctx): void {
   ctx.fill();
 }
 
+/** Soft top-light on the crown so the head reads as seen from above. */
+function crown(ctx: Ctx, id: SkinId): void {
+  if (id === 'kid' || id === 'astro' || id === 'robot') return;
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  oval(ctx, -2, HEAD_Y - 9, 9, 4.5);
+  ctx.fill();
+}
+
 /** Head, face and front headgear. */
 export function drawHead(ctx: Ctx, id: SkinId, mood: Mood, t: number): void {
   headBall(ctx, id);
   const L = lookFor(id);
+  // seen from above: the face sits low on the head so the crown shows
+  ctx.save();
+  ctx.translate(0, FACE_DROP);
   if (id === 'cat') catFace(ctx);
   if (id === 'ninja') ninjaMask(ctx);
   if (id === 'robot') robotVisor(ctx);
   drawFace(ctx, mood, t, 0, id === 'robot' ? HEAD_Y - 1 : HEAD_Y + 1, L.face);
   if (id === 'cat') noseDot(ctx, '#FF7F98');
   if (id === 'bunny') noseDot(ctx, '#FF8FB1');
+  ctx.restore();
+  crown(ctx, id);
   if (id === 'kid' || id === 'astro') kidHair(ctx);
   if (id === 'astro') helmet(ctx);
 }
