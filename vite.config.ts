@@ -8,7 +8,8 @@ export default defineConfig({
     environment: 'node',
     coverage: {
       provider: 'v8',
-      include: ['src/core/**/*.ts'],
+      // pure logic is unit-tested; canvas/DOM/audio layers are covered by the e2e smoke run
+      include: ['src/core/**/*.ts', 'src/game/{session,bot,hints,feedback,snapshot}.ts'],
       reporter: ['text-summary', 'text'],
     },
   },

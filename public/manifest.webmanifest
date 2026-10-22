@@ -1,0 +1,17 @@
+{
+  "name": "탭탭 줄넘기 TAP ROPE",
+  "short_name": "탭탭줄넘기",
+  "description": "탭 한 번으로 점프! 공중에서 더 탭해 2단·3단 줄넘기.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "theme_color": "#2a1f6b",
+  "background_color": "#1b1446",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

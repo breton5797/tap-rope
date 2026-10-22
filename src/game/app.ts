@@ -22,6 +22,8 @@ type Screen = 'menu' | 'countdown' | 'play' | 'paused' | 'result';
 
 const COUNT_STEP = 0.6;
 const RESULT_DELAY = 1.3;
+/** `?autoplay=1` lets the bot play real runs (QA / demo recordings). */
+const AUTOPLAY = new URLSearchParams(window.location.search).has('autoplay');
 
 function todayIso(): string {
   const d = new Date();
@@ -221,6 +223,7 @@ export function startApp(): void {
 
   const tickPlay = (dt: number): void => {
     const wasFever = session.score.feverTime > 0;
+    if (AUTOPLAY && botShouldTap(session)) pendingTaps++;
     for (; pendingTaps > 0; pendingTaps--) {
       const out = tap(session);
       session = out.session;

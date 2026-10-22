@@ -1,0 +1,226 @@
+/* Tokens, reset and app shell. */
+:root {
+  --font-display: 'Jua', 'Black Han Sans', ui-rounded, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --font-body: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+
+  --ink: #241d5c;
+  --ink-soft: #5d5a94;
+  --ink-faint: #8f8cbc;
+  --paper: #fbfaff;
+
+  --sun: #ffcf3f;
+  --sun-deep: #f08a1c;
+  --pink: #ff5da2;
+  --pink-deep: #d6306f;
+  --mint: #2fd6a6;
+  --mint-deep: #13a27a;
+  --sky: #45b6ff;
+  --sky-deep: #1f7fd6;
+  --violet: #8a6bff;
+  --violet-deep: #5a3fd6;
+  --heart: #ff4d6d;
+
+  --glass: rgba(255, 255, 255, 0.74);
+  --glass-strong: rgba(255, 255, 255, 0.92);
+  --glass-dim: rgba(255, 255, 255, 0.18);
+  --glass-line: rgba(255, 255, 255, 0.85);
+  --scrim: rgba(22, 14, 64, 0.55);
+
+  --r-xl: 32px;
+  --r-lg: 24px;
+  --r-md: 18px;
+  --r-sm: 12px;
+
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 24px 48px -18px rgba(28, 16, 84, 0.55), 0 6px 14px -6px rgba(28, 16, 84, 0.25);
+  --shadow-soft: 0 10px 24px -10px rgba(28, 16, 84, 0.45);
+
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --gutter: 16px;
+
+  --ease-pop: cubic-bezier(0.2, 1.6, 0.4, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #1b1446;
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body,
+#app,
+#app * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  touch-action: manipulation;
+  background: radial-gradient(120% 80% at 50% 0%, #4b3bb0 0%, #2a1f6b 55%, #160f3d 100%);
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--font-display);
+  z-index: 1;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+  font-weight: 400;
+}
+
+.ico {
+  width: 1em;
+  height: 1em;
+  display: block;
+  flex: none;
+}
+
+/* Layers inside #ui. Containers never catch taps; screens opt in. */
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.layer[hidden] {
+  display: none;
+}
+
+.layer--screen > * {
+  pointer-events: auto;
+}
+
+.layer--toast {
+  z-index: 5;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--safe-t) + 12px) calc(var(--safe-r) + var(--gutter)) calc(var(--safe-b) + 16px) calc(var(--safe-l) + var(--gutter));
+  animation: screen-in 0.38s var(--ease-out) both;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 4px var(--gutter) 24px;
+  scrollbar-width: none;
+  touch-action: pan-y;
+}
+
+.scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(20px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.pop-in {
+  animation: pop-in 0.5s var(--ease-pop) both;
+}
+
+/* Reduced motion: user setting (.reduced-motion on #app) or the OS preference. */
+#app.reduced-motion #ui *,
+#app.reduced-motion #ui *::before,
+#app.reduced-motion #ui *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.001ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ui *,
+  #ui *::before,
+  #ui *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.001ms !important;
+  }
+}
