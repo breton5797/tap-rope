@@ -71,6 +71,8 @@ export function startApp(): void {
   /** touches since the last frame, in order: a tap, optionally followed by its swipe */
   let pendingInput: Input[] = [];
   let hintsSkipped = false;
+  /** first-ever run: the jump card waits until the briefing card has closed */
+  let jumpCardPending = false;
   let goTimer = 0;
   let music = { bpm: 0, world: -1 };
   const seenHints = new Set<MoveId>();
@@ -123,13 +125,19 @@ export function startApp(): void {
     }
     beginCountdown(brief ? BRIEFING_TIME : 0);
     if (!save.tutorialDone && mode === 'stage') {
-      ui.showTutorial('jump');
-      hintTimer = HINT_DURATION + 1.8;
+      jumpCardPending = brief;
+      if (!brief) showJumpCard();
       persist({ ...save, tutorialDone: true });
     }
   };
 
   /** `lead` = extra seconds before "3" (the briefing card is up meanwhile) */
+  const showJumpCard = (): void => {
+    jumpCardPending = false;
+    ui.showTutorial('jump');
+    hintTimer = HINT_DURATION + 1.8;
+  };
+
   const beginCountdown = (lead = 0): void => {
     screen = 'countdown';
     clearGoTimer();
@@ -137,6 +145,7 @@ export function startApp(): void {
     endTimer = -1;
     pendingInput = [];
     if (lead > 0) return;
+    if (jumpCardPending) showJumpCard(); // e.g. resumed after pausing during the briefing
     ui.showCountdown(3);
     audio.sfx('count', 3);
   };
@@ -251,7 +260,10 @@ export function startApp(): void {
       if (session.score.feverTime > 0) audio.setFever(true);
       goTimer = window.setTimeout(() => ui.showCountdown(null), 550);
     } else if (after !== before && after <= 3) {
-      if (after === 3) ui.showBriefing(null); // the briefing had its own read time; 3-2-1 gets the stage
+      if (after === 3) {
+        ui.showBriefing(null); // the briefing had its own read time; 3-2-1 gets the stage
+        if (jumpCardPending) showJumpCard();
+      }
       ui.showCountdown(after);
       audio.sfx('count', after);
     }
