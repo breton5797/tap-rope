@@ -104,7 +104,7 @@ describe('snapshot / hud', () => {
     expect(snap.world).toBe(0);
     const hud = toHud(s);
     expect(hud.hearts).toBe(3);
-    expect(hud.title).toBe(STAGES[0].name);
+    expect(hud.title).toBe(`1-1 · ${STAGES[0].name}`);
     expect(hud.progress).toBe(0);
   });
 

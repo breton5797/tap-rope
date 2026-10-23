@@ -4,7 +4,8 @@
  * 뒤로넘기 sections (solo). A move quota guarantees every MoveId in
  * `stage.moves` appears (cross ×4 in stages of ≥ 20 hazards): random chunks may
  * only use hazards not reserved for still-missing moves, and once nothing is
- * left the missing moves are forced. DD is capped at 35%, back ropes at 30%.
+ * left the missing moves are forced. DD is capped at 35%, back ropes at 30%. The first ball
+ * beat always blocks the centre lane (where the player starts), so `side` is truly needed.
  */
 import type { JumpLevel, Lane, Level, MoveId, Obstacle, StageDef } from '../types';
 import { moveForBeat } from './moves';
@@ -29,7 +30,7 @@ const BACK_CHUNK_FACTOR = 0.2;
 const BACK_MAX_SHARE = 0.3; // at most 30% of hazard beats are 뒤로넘기 ropes
 const CROSS_QUOTA = 4; // stages with ≥ CROSS_QUOTA_FROM hazards that list cross get at least this many
 const CROSS_QUOTA_FROM = 20;
-const BACK_L2_FROM = 14; // campaign index of W3-S5: level-2 back ropes allowed from here on
+const BACK_L2_FROM = 30; // campaign index (chapter·10 + index) of w4-s1: level-2 back ropes from here on
 const TWO_BALLS = 0.35;
 const PATTERNS: readonly (readonly Level[])[] = [[1, 2, 3], [1, 1, 2], [3, 1, 1], [2, 2]];
 const LANES: readonly Lane[] = [-1, 0, 1];
@@ -44,7 +45,7 @@ export function specMove(s: Spec): MoveId {
 }
 
 export function difficulty(stage: StageDef): number {
-  return Math.min(1, Math.max(0, (stage.bpm - 92) / 40));
+  return Math.min(1, Math.max(0, (stage.bpm - 88) / 62)); // v3 tempo range 88..150 bpm
 }
 
 export function maxLevel(stage: StageDef): Level {
@@ -96,7 +97,8 @@ function singleSolo(stage: StageDef, rng: Rng): Spec {
 
 function patternSpecs(stage: StageDef, rng: Rng, room: number): Spec[] | null {
   const top = maxLevel(stage);
-  const eligible = PATTERNS.filter((p) => p.length <= room && Math.max(...p) <= top);
+  const usable = (l: Level) => l === 1 || stage.levelWeights[l - 1] > 0;
+  const eligible = PATTERNS.filter((p) => p.length <= room && Math.max(...p) <= top && p.every(usable));
   if (eligible.length === 0) return null;
   const pattern = eligible[Math.floor(rng() * eligible.length)];
   const long = stage.ropeMode === 'long';
@@ -116,7 +118,7 @@ function ddSpecs(len: number): Spec[] {
 
 /** `len` back ropes followed by one forward 1단 rope (the second ↓ signal) */
 function backSpecs(stage: StageDef, rng: Rng, len: number): Spec[] {
-  const campaignIndex = stage.world * 5 + stage.index;
+  const campaignIndex = stage.chapter * 10 + stage.index;
   const allowL2 = campaignIndex >= BACK_L2_FROM && stage.levelWeights[1] > 0;
   const section = Array.from({ length: len }, () => {
     const level: Level = allowL2 ? (Math.min(2, pickLevel(stage.levelWeights, rng)) as Level) : 1;
@@ -197,5 +199,17 @@ export function planSpecs(stage: StageDef, rng: Rng): Spec[] {
       });
     specs = [...specs, ...chunk];
   }
-  return specs;
+  return centreFirstBall(specs);
+}
+
+/**
+ * The player starts in the centre lane; if the first ball beat left it free, a stage could
+ * list `side` without ever forcing a hop. Move that beat's first ball into the centre.
+ */
+function centreFirstBall(specs: readonly Spec[]): Spec[] {
+  const i = specs.findIndex((s) => s.obstacles.some((o) => o.kind === 'ball'));
+  if (i < 0 || specs[i].obstacles.some((o) => o.kind === 'ball' && (o.lane ?? 0) === 0)) return [...specs];
+  const j = specs[i].obstacles.findIndex((o) => o.kind === 'ball');
+  const obstacles = specs[i].obstacles.map((o, k): Obstacle => (k === j ? { ...o, lane: 0 } : o));
+  return specs.map((s, k) => (k === i ? { ...s, obstacles } : s));
 }

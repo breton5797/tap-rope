@@ -6,50 +6,23 @@
  *    a cross ≥ airtime(2)+0.18s, after a lone bird ≥ 0.5s; before a cross or a
  *    1-ball beat ≥ airtime(2|1)+0.18s, before a 2-ball beat ≥ 2·airtime(1)+0.3s —
  *    and slots reachable lane pickups in between.
- * Also builds the endless chunk (long/solo alternating) and daily stage definitions.
+ * Also builds the endless chunk (long/solo alternating, non-moon looks cycling) and the
+ * daily stage (campaign formula at d ≈ 0.55, look and rope mode from the date seed).
  */
-import type { Beat, JumpLevel, Lane, Level, Obstacle, ObstacleKind, PhysicsConfig, RopeMode, StageDef, WorldId } from '../types';
-import { movesForMix } from './content';
-import { airtimeForLevel, airtimeTumble } from './physics';
+import type { Beat, JumpLevel, Lane, Level, Obstacle, ObstacleKind, PhysicsConfig, RopeMode, StageDef } from '../types';
+import { designStage } from './campaign';
+import { CHAPTERS, STAGES } from './content';
+import { movesForMix } from './moves';
+import { airtimeForLevel } from './physics';
 import { hashString, mulberry32 } from './rng';
+import { gapAfter, gapBefore, minGap, SAFETY } from './spacing';
 import { difficulty, maxLevel, planSpecs, type Spec } from './specs';
 
 type Rng = () => number;
 
-const SAFETY = 0.18;
-const BIRD_GAP = 0.5;
-const TWO_HOP_EXTRA = 0.3;
+const MAX_SLACK = 4; // extra random half-beats between singles on the easiest stages
 const RARE_PICKUPS: readonly ObstacleKind[] = ['shield', 'slow', 'heart'];
 const LANES: readonly Lane[] = [-1, 0, 1];
-
-const hasKind = (s: Spec, k: ObstacleKind) => s.obstacles.some((o) => o.kind === k);
-const ballCount = (s: Spec) => s.obstacles.filter((o) => o.kind === 'ball').length;
-const isCross = (s: Spec) => s.obstacles.some((o) => o.kind === 'rope' && o.cross === true);
-
-/** seconds the player needs after `prev` before taking off for anything */
-function gapAfter(prev: Spec, cfg: PhysicsConfig): number {
-  if (hasKind(prev, 'ring')) return airtimeTumble(cfg) + SAFETY;
-  if (isCross(prev)) return airtimeForLevel(2, cfg) + SAFETY;
-  if (prev.required > 0) return airtimeForLevel(prev.required as Level, cfg) + SAFETY;
-  if (hasKind(prev, 'bird')) return BIRD_GAP;
-  return airtimeForLevel(1, cfg) + SAFETY; // ball-only: the side hop was a 1단 jump
-}
-
-/** seconds of preparation `next` needs (lane hops, tap → air swipe) */
-function gapBefore(next: Spec, cfg: PhysicsConfig): number {
-  const a1 = airtimeForLevel(1, cfg);
-  const balls = ballCount(next);
-  if (balls >= 2) return 2 * a1 + TWO_HOP_EXTRA;
-  if (balls === 1) return a1 + SAFETY;
-  if (isCross(next)) return airtimeForLevel(2, cfg) + SAFETY;
-  return 0;
-}
-
-function minGap(prev: Spec, next: Spec, cfg: PhysicsConfig): number {
-  const birdOnly = prev.required === 0 && hasKind(prev, 'bird');
-  const after = birdOnly && next.required >= 2 ? airtimeForLevel(1, cfg) + SAFETY : gapAfter(prev, cfg);
-  return Math.max(after, gapBefore(next, cfg));
-}
 
 function pickupObstacle(stage: StageDef, rng: Rng): Obstacle {
   const top = maxLevel(stage);
@@ -69,7 +42,8 @@ interface Placed {
 function placeSpecs(specs: readonly Spec[], stage: StageDef, cfg: PhysicsConfig, rng: Rng): Placed[] {
   const half = 30 / stage.bpm;
   const slotsFor = (sec: number) => Math.ceil(sec / half - 1e-9);
-  const maxSlack = Math.round(3 * (1 - difficulty(stage)));
+  // continuous in difficulty so tempo keeps tightening all the way up; bosses run tight
+  const maxSlack = stage.kind === 'boss' ? 0 : MAX_SLACK * (1 - difficulty(stage));
   let placed: Placed[] = [];
   let lastSlot = 0;
   specs.forEach((spec, i) => {
@@ -126,14 +100,21 @@ function endlessMix(chunk: number, d: number): Mix {
   };
 }
 
+/** Endless themes cycle through the non-moon chapters, so gravity never changes mid-run. */
+const ENDLESS_LOOKS = CHAPTERS.filter((c) => c.theme !== 3);
+
 export function endlessStage(chunk: number, seed: number): StageDef {
   const d = Math.min(1, Math.max(0, chunk / 15));
   const ropeMode: RopeMode = chunk % 2 === 0 ? 'long' : 'solo';
   const levelWeights = [0.6 - 0.35 * d, 0.3 + 0.05 * d, 0.1 + 0.3 * d] as const;
   const mix = modeMix(ropeMode, endlessMix(chunk, d));
+  const look = ENDLESS_LOOKS[chunk % ENDLESS_LOOKS.length];
   return {
     id: `endless-${chunk}`,
-    world: (Math.floor(chunk / 4) % 3) as WorldId,
+    world: look.theme,
+    chapter: 0,
+    variant: look.variant,
+    kind: 'normal',
     index: 0,
     name: '엔드리스',
     ropeMode,
@@ -147,27 +128,16 @@ export function endlessStage(chunk: number, seed: number): StageDef {
   };
 }
 
-const DAILY_MIX: Mix = {
-  hurdle: 0.25, bird: 0.2, combo: 0.25, doubleDutch: 0.35, ball: 0.25, ring: 0.25, cross: 0.6, back: 0.3,
-};
+const DAILY_D = 0.55;
 
+/** Built with the campaign formula at d ≈ 0.55 with every move unlocked; look from a seeded chapter. */
 export function dailyStage(dateIso: string): StageDef {
   const seed = hashString(dateIso);
-  const ropeMode: RopeMode = (seed >>> 4) % 2 === 0 ? 'long' : 'solo';
-  const levelWeights = [0.35, 0.4, 0.25] as const;
-  const mix = modeMix(ropeMode, DAILY_MIX);
-  return {
-    id: `daily-${dateIso}`,
-    world: (seed % 4) as WorldId,
-    index: 0,
-    name: '오늘의 도전',
-    ropeMode,
-    moves: movesForMix(ropeMode, levelWeights, mix),
-    bpm: 116 + (seed % 7),
-    hazardBeats: 30,
-    seed,
-    levelWeights,
-    mix,
-    pickupRate: 0.25,
-  };
+  const look = CHAPTERS[seed % CHAPTERS.length];
+  return designStage({
+    id: `daily-${dateIso}`, name: '오늘의 도전', n: STAGES.length, chapter: 0, index: 0, kind: 'normal',
+    world: look.theme, variant: look.variant,
+    ropeMode: (seed >>> 4) % 2 === 0 ? 'long' : 'solo',
+    d: DAILY_D, seed,
+  });
 }

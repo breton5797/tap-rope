@@ -119,6 +119,12 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
     }
   });
 
+  it('makes the first ball beat block the centre lane, so a listed side move is really required', () => {
+    const first = beats.find((b) => balls(b).length > 0);
+    if (stage.moves.includes('side')) expect(first).toBeDefined();
+    if (first) expect(balls(first).map((o) => o.lane ?? 0)).toContain(0);
+  });
+
   it('puts cross only on level 1–2 ropes', () => {
     for (const b of beats.filter(isCross)) {
       expect(ropes(b).every((o) => o.level <= 2)).toBe(true);
@@ -206,31 +212,41 @@ describe('generateBeats details', () => {
       const s = STAGES.find((x) => x.id === id) as StageDef;
       return generateBeats(s, physicsForWorld(s.world)).filter(f).length;
     };
+    // §16 stage numbers: 2 hurdle, 4 double, 6 side, 8 bird, 11 tumble, 13 cross, 16 triple, 21 back, 24 dd
     expect(count('w1-s2', (b) => has(b, 'hurdle'))).toBeGreaterThanOrEqual(3);
-    expect(count('w1-s3', (b) => b.requiredLevel === 2)).toBeGreaterThanOrEqual(4);
-    expect(count('w1-s4', (b) => has(b, 'ball'))).toBeGreaterThanOrEqual(4);
-    expect(count('w2-s1', (b) => has(b, 'ring'))).toBeGreaterThanOrEqual(4);
-    expect(count('w2-s2', isCross)).toBeGreaterThanOrEqual(4);
-    expect(count('w2-s3', (b) => b.requiredLevel === 3)).toBeGreaterThanOrEqual(3);
-    expect(count('w3-s1', isBack)).toBeGreaterThanOrEqual(6);
-    expect(count('w3-s2', (b) => b.doubleDutch)).toBeGreaterThanOrEqual(4);
+    expect(count('w1-s4', (b) => b.requiredLevel === 2)).toBeGreaterThanOrEqual(4);
+    expect(count('w1-s6', (b) => has(b, 'ball'))).toBeGreaterThanOrEqual(4);
+    expect(count('w1-s8', (b) => has(b, 'bird'))).toBeGreaterThanOrEqual(3);
+    expect(count('w2-s1', (b) => has(b, 'ring'))).toBeGreaterThanOrEqual(3);
+    expect(count('w2-s3', isCross)).toBeGreaterThanOrEqual(4);
+    expect(count('w2-s6', (b) => b.requiredLevel === 3)).toBeGreaterThanOrEqual(4);
+    expect(count('w3-s1', isBack)).toBeGreaterThanOrEqual(3); // one full section; the 30% cap allows ≤ 5 of 18
+    expect(count('w3-s4', (b) => b.doubleDutch)).toBeGreaterThanOrEqual(4);
   });
 
-  it('balances cross and back in late solo stages (each 15–30% of hazards)', () => {
-    for (const s of STAGES.slice(14).filter((x) => x.ropeMode === 'solo')) {
-      const hz = generateBeats(s, physicsForWorld(s.world)).filter(isHazard);
-      for (const f of [isCross, isBack]) {
-        const share = hz.filter(f).length / hz.length;
-        expect(share).toBeGreaterThanOrEqual(0.15);
-        expect(share).toBeLessThanOrEqual(0.3);
+  it('balances cross and back in solo stages that use both (mean 15–30%, each stage 5–40%)', () => {
+    const both = STAGES.filter((x) => x.ropeMode === 'solo' && x.kind !== 'bonus'
+      && x.moves.includes('cross') && x.moves.includes('back'));
+    expect(both.length).toBeGreaterThan(20);
+    for (const f of [isCross, isBack]) {
+      const shares = both.map((s) => {
+        const hz = generateBeats(s, physicsForWorld(s.world)).filter(isHazard);
+        return { id: s.id, share: hz.filter(f).length / hz.length };
+      });
+      for (const { id, share } of shares) {
+        expect(share, id).toBeGreaterThanOrEqual(0.05);
+        expect(share, id).toBeLessThanOrEqual(0.4);
       }
+      const mean = shares.reduce((a, x) => a + x.share, 0) / shares.length;
+      expect(mean).toBeGreaterThanOrEqual(0.15);
+      expect(mean).toBeLessThanOrEqual(0.3);
     }
   });
 
-  it('allows level-2 back ropes only from W3-S5 on', () => {
+  it('allows level-2 back ropes only from w4-s1 (stage 31) on', () => {
     const backLevels = (s: StageDef) => generateBeats(s, physicsForWorld(s.world)).filter(isBack).map((b) => b.requiredLevel);
-    for (const s of STAGES.slice(0, 14)) expect(backLevels(s).every((l) => l === 1)).toBe(true);
-    expect(STAGES.slice(14).some((s) => backLevels(s).includes(2))).toBe(true);
+    for (const s of STAGES.slice(0, 30)) expect(backLevels(s).every((l) => l === 1)).toBe(true);
+    expect(STAGES.slice(30).some((s) => backLevels(s).includes(2))).toBe(true);
   });
 });
 
@@ -252,6 +268,13 @@ describe('endlessStage', () => {
     }
   });
 
+  it('cycles non-moon themes and variants, as normal chapter-0 stages', () => {
+    const looks = Array.from({ length: 16 }, (_, c) => endlessStage(c, 1));
+    expect(looks.every((s) => s.world !== 3 && s.chapter === 0 && s.kind === 'normal')).toBe(true);
+    expect(new Set(looks.map((s) => s.world))).toEqual(new Set([0, 1, 2]));
+    expect(new Set(looks.map((s) => `${s.world}-${s.variant}`)).size).toBeGreaterThanOrEqual(6);
+  });
+
   it('is deterministic and seed dependent', () => {
     expect(endlessStage(3, 9)).toEqual(endlessStage(3, 9));
     expect(endlessStage(3, 9).seed).not.toBe(endlessStage(3, 10).seed);
@@ -265,7 +288,11 @@ describe('dailyStage', () => {
     expect(a).toEqual(dailyStage('2026-10-23'));
     expect(a.id).toBe('daily-2026-10-23');
     expect(a.name).toBe('오늘의 도전');
-    expect(a.hazardBeats).toBe(30);
+    expect(a.hazardBeats).toBeGreaterThanOrEqual(28);
+    expect(a.hazardBeats).toBeLessThanOrEqual(36);
+    expect(a).toMatchObject({ chapter: 0, kind: 'normal' });
+    const looks = new Set(Array.from({ length: 40 }, (_, d) => dailyStage(`2027-03-${String((d % 28) + 1).padStart(2, '0')}-${d}`).variant));
+    expect(looks.size).toBeGreaterThan(2);
     expect(a.seed).not.toBe(dailyStage('2026-10-24').seed);
     const modes = new Set(Array.from({ length: 20 }, (_, d) => dailyStage(`2026-11-${String(d + 1).padStart(2, '0')}`).ropeMode));
     expect(modes).toEqual(new Set(['long', 'solo']));

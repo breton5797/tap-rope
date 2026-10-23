@@ -137,6 +137,15 @@ describe('isStageUnlocked', () => {
     expect(isStageUnlocked(s1, 99)).toBe(false);
     expect(isStageUnlocked(s1, -1)).toBe(false);
   });
+
+  it('chains across all 100 stages', () => {
+    expect(STAGES).toHaveLength(100);
+    const all = STAGES.slice(0, 99).reduce((s, st) => recordResult(s, st.id, 1, 0, 0), defaultSave());
+    expect(isStageUnlocked(all, 99)).toBe(true);
+    expect(isStageUnlocked(all, 100)).toBe(false);
+    const gap = recordResult(all, STAGES[49].id, 0, 0, 0);
+    expect(isStageUnlocked({ ...gap, stars: { ...gap.stars, [STAGES[49].id]: 0 } }, 50)).toBe(false);
+  });
 });
 
 describe('buySkin', () => {
