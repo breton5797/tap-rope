@@ -4,13 +4,14 @@ import {
   defaultSave,
   isStageUnlocked,
   loadSave,
+  markBriefed,
   parseSave,
   recordResult,
   writeSave,
 } from '../../src/core/storage';
 import { STAGES } from '../../src/core/content';
 
-const KEY = 'taprope.save.v1';
+const KEY = 'laserescape.save.v1';
 
 function memStore(initial: Record<string, string> = {}) {
   const data = { ...initial };
@@ -26,7 +27,7 @@ describe('defaultSave', () => {
     expect(defaultSave()).toEqual({
       version: 1, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
       settings: { sound: true, music: true, vibration: true, reducedMotion: false },
-      tutorialDone: false,
+      tutorialDone: false, briefed: [],
     });
   });
 });
@@ -63,6 +64,30 @@ describe('parseSave', () => {
 
   it('floors coins', () => {
     expect(parseSave({ coins: 12.9 }).coins).toBe(12);
+  });
+});
+
+describe('briefed chapters', () => {
+  it('round-trips and validates briefed (ints 0..9, unique, sorted)', () => {
+    expect(parseSave({ briefed: [3, 0, 3, 12, -1, 1.5, 'x', 9] }).briefed).toEqual([0, 3, 9]);
+    expect(parseSave({ briefed: 'nope' }).briefed).toEqual([]);
+    const s = { ...defaultSave(), briefed: [0, 4] };
+    expect(parseSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+
+  it('markBriefed adds a chapter once, immutably', () => {
+    const s0 = defaultSave();
+    const s1 = markBriefed(s0, 4);
+    expect(s1.briefed).toEqual([4]);
+    expect(markBriefed(markBriefed(s1, 0), 4).briefed).toEqual([0, 4]);
+    expect(markBriefed(s1, 4)).toBe(s1);
+    expect(markBriefed(s1, 10)).toBe(s1);
+    expect(s0.briefed).toEqual([]);
+  });
+
+  it('ignores the old TAP ROPE save key (fresh game)', () => {
+    const old = { getItem: (k: string) => (k === 'taprope.save.v1' ? JSON.stringify({ coins: 999 }) : null) };
+    expect(loadSave(old)).toEqual(defaultSave());
   });
 });
 

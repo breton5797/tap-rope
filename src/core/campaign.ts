@@ -1,51 +1,40 @@
 /**
- * The 100-stage campaign as a formula (GDD v3 §15–§17). Stage number n = chapter·10 + index + 1.
+ * The 100-stage campaign as a formula (GDD v4 §5, v3 §17). Stage number n = chapter·10 + index + 1.
  * - kind: n % 10 == 5 → bonus, n % 10 == 0 → boss, otherwise normal.
- * - rope mode: hand-made rows for chapters 1–3 (they carry the §16 intro schedule),
- *   then two mirrored rows alternate; no row/boundary ever has 3 stages of one mode in a row.
  * - difficulty d(n) = 0.80·(n−1)/99 + 0.20·index/9, then boss +0.08, bonus −0.25,
- *   first-introduction stage −0.04, moon chapters +MOON_BUMP (low gravity spreads beats out).
- *   The generator's random slack shrinks continuously with tempo; bosses run with none.
- *   A chapter's first stage is automatically easier than the previous boss.
+ *   first-introduction stage −0.04. A chapter's first stage is automatically easier than the
+ *   previous boss. The generator's random slack shrinks continuously with tempo; bosses get none.
  * - mapping: bpm = 88 + 62·d (≤ 150); hazards = 14 + 34·d (boss ×1.4 ≤ 60, bonus 12–16);
  *   level weights and mix values grow with d, restricted to the stage's moves.
- * - moves: intro stage = jump + 이단 (once unlocked) + the new move; every other normal stage and
- *   every boss = all unlocked moves its rope allows (variety comes from the rope-mode rotation;
- *   seeded subsets made neighbouring stages swing too much in difficulty); bonus = jump (+ double).
- * - pickups: bonus 0.8 (coin-rich), boss 0.1, normal 0.3 − 0.15·d.
+ * - moves: intro stage = jump + 이단 (once unlocked) + the new move, which gets a focused mix
+ *   (high/rear/gate intros use a 100% share so nothing else shadows it); every other normal stage
+ *   and every boss = all unlocked moves; bonus = jump (+ 이단), coin-rich.
+ * - pickups: bonus 0.8, boss 0.1, normal 0.3 − 0.15·d.
  */
-import type { ChapterMeta, MoveId, RopeMode, StageDef, StageKind, WorldId } from '../types';
+import type { ChapterMeta, MoveId, StageDef, StageKind, WorldId } from '../types';
 import { MOVE_ORDER, movesForMix } from './moves';
 import { hashString } from './rng';
 
 export const INTRO_STAGE: Readonly<Record<MoveId, number>> = {
-  jump: 1, double: 4, side: 6, bird: 8, tumble: 11, cross: 13, triple: 16, back: 21, dd: 24,
+  jump: 1, beam: 2, double: 4, slide: 6, drone: 8, triple: 11, high: 13, rear: 16, gate: 21, pulse: 24,
 };
-const HURDLE_INTRO = 2;
-const COMBO_FROM = 9;
-const MOON_BUMP = 0.06;
-const LONG_ONLY: readonly MoveId[] = ['tumble', 'dd'];
-const SOLO_ONLY: readonly MoveId[] = ['cross', 'back'];
+/** share given to the newly introduced feature on its intro stage */
 const INTRO_FOCUS: Partial<Record<MoveId, number>> = {
-  bird: 0.35, dd: 0.5, side: 0.4, tumble: 0.35, cross: 0.5, back: 0.6,
+  beam: 0.85, slide: 0.35, drone: 0.35, high: 1, rear: 1, gate: 1, pulse: 0.6,
 };
-
-const MODE_ROWS: readonly string[] = ['LLSSLLSLSL', 'LSSLSLSLSL', 'SLSLSLLSLS'];
-const MODE_A = 'LSLSLLSLSL';
-const MODE_B = 'SLSLSSLSLS';
 
 /** 8 normal names (index 0–3, 5–8), then the bonus and boss suffixes, per chapter */
 const NAMES: readonly (readonly string[])[] = [
-  ['첫 점프', '폴짝 허들', '혼자 콩콩', '혼자서 이단뛰기', '데굴데굴 공 피하기', '미끄럼틀 리듬', '참새가 날아와요', '그네 옆 박자', '사탕 비', '놀이터 대장'],
-  ['무지개 덤블링', '모래성 콩콩', '엇걸어 콩콩', '갈매기 피하기', '세 번 콩콩콩', '파도 타기', '소라 껍데기 길', '노을 산책', '조개 줍기', '노을의 파도왕'],
-  ['거꾸로 빙글', '네온 산책', '뒤로 엇걸어', '네온 더블더치', '전광판 계단', '빌딩 숲 리듬', '야경 질주', '신호등 박자', '네온 코인', '네온 마스터'],
-  ['둥실 첫걸음', '분화구 점프', '운석 소나기', '달토끼 콩콩', '무중력 계단', '우주 정거장', '달빛 산책', '지구돋이', '별가루', '달의 챔피언'],
-  ['별빛 점프', '가로등 리듬', '반딧불 콩콩', '한밤의 허들', '부엉이 조심', '달그림자 점프', '꿈나라 계단', '은하수 건너기', '별사탕', '한밤의 대장'],
-  ['낙엽 밟기', '도토리 데굴', '단풍 콩콩', '가을바람 콩콩', '허수아비 넘기', '코스모스 리듬', '은행잎 소나기', '다람쥐 질주', '군밤 줍기', '가을 축제'],
-  ['달빛 파도', '등대 불빛', '밤갈매기', '반짝 물결', '해파리 둥실', '밤배 리듬', '고래 노래', '파도 거품', '진주 줍기', '밤바다의 왕'],
-  ['빗방울 점프', '우산 돌리기', '물웅덩이 콩콩', '젖은 네온', '번개 계단', '빗줄기 리듬', '네온 우산길', '폭우 질주', '빗속 코인', '폭풍의 네온'],
-  ['붉은 달', '코로나 점프', '그림자 계단', '일식 산책', '붉은 운석', '어둠 속 점프', '개기일식', '다시 뜨는 해', '금빛 별', '일식의 지배자'],
-  ['무지개 첫걸음', '일곱 빛깔 리듬', '구름 위 콩콩', '무지개 다리', '파스텔 계단', '반짝 별길', '하늘 끝 질주', '마지막 리허설', '무지개 보물', '무지개 피날레'],
+  ['첫 잠입', '날아오는 빔', '철조망 옆길', '두 겹 레이저', '서치라이트 피하기', '머리 조심!', '경비견 순찰로', '첫 드론 경보', '비상 보급품', '정문 경비대장'],
+  ['하수구 입구', '증기 파이프 길', '물방울 리듬', '녹슨 사다리', '세 겹 레이저', '쥐들의 지름길', '머리 위 빔', '수문 개방', '잃어버린 금화', '수로의 감시자'],
+  ['하얀 복도', '소독실 통과', '실험체 탈출?', '현미경 아래', '보안 카메라 사각', '샘플 냉장고', '레이저 미로', '연구원 출입증', '연구 자금', '연구소장의 함정'],
+  ['꺼진 불빛', '깜빡이는 서버', '케이블 정글', '뒤에서 온다!', '냉각팬 바람', '해킹 진행 중', '방화벽 돌파', '데이터 센터', '백업 드라이브', '중앙 서버 코어'],
+  ['철창 복도', '간수 교대 시간', '감방 열쇠', '레이저 게이트', '탈옥 지도', '펄스 경보', '감시탑 아래', '독방 앞까지', '압수품 창고', '포로 구출 대작전'],
+  ['사이렌이 울린다', '포로와 함께', '빨간 경광등', '봉쇄 직전', '숨을 고르며', '추격 드론', '셔터가 닫힌다', '비상계단', '응급 상자', '경비대 총출동'],
+  ['비상구를 찾아라', '붉은 실험실', '깨진 유리벽', '탈출 통로', '흩어진 서류', '자동 잠금장치', '경보 해제 실패', '연구동 출구', '비상금 금고', '실험 병기 폭주'],
+  ['컨베이어 벨트', '프레스 기계', '용접 불꽃', '부품 창고', '휴식 시간', '로봇 팔 사이로', '고철 더미', '증기 배출', '공구 상자', '공장장의 마지막 라인'],
+  ['옥상 문을 열고', '바람 부는 난간', '별빛 아래 질주', '물탱크 위로', '도시 야경', '탐조등 교차', '안테나 숲', '마지막 경비선', '하늘 보급품', '옥상의 저격 드론'],
+  ['동이 튼다', '헬리패드로', '프로펠러 바람', '마지막 레이저', '구조 신호', '로프를 잡아라', '헬기 시동', '이륙 직전', '임무 보상', '헬기 대탈출'],
 ];
 
 type Mix = StageDef['mix'];
@@ -62,61 +51,50 @@ export function kindFor(n: number): StageKind {
   return n % 10 === 0 ? 'boss' : n % 10 === 5 ? 'bonus' : 'normal';
 }
 
-export function ropeModeFor(n: number): RopeMode {
-  const c = Math.floor((n - 1) / 10);
-  const row = c < MODE_ROWS.length ? MODE_ROWS[c] : c % 2 === 1 ? MODE_A : MODE_B;
-  return row[(n - 1) % 10] === 'L' ? 'long' : 'solo';
-}
-
 const introMove = (n: number): MoveId | undefined => MOVE_ORDER.find((m) => INTRO_STAGE[m] === n);
-const fitsMode = (m: MoveId, mode: RopeMode) => !(mode === 'solo' ? LONG_ONLY : SOLO_ONLY).includes(m);
 
 function nameFor(n: number): string {
-  const c = Math.floor((n - 1) / 10);
+  const names = NAMES[Math.floor((n - 1) / 10)];
   const i = (n - 1) % 10;
-  const names = NAMES[c];
   if (i === 4) return `보너스 ${names[8]}`;
   if (i === 9) return `보스 ${names[9]}`;
   return names[i < 4 ? i : i - 1];
 }
 
-export function curveD(n: number, moon: boolean): number {
+export function curveD(n: number): number {
   const index = (n - 1) % 10;
   const kind = kindFor(n);
   const base = 0.8 * ((n - 1) / 99) + 0.2 * (index / 9);
-  const bump = (kind === 'boss' ? 0.08 : kind === 'bonus' ? -0.25 : 0)
-    + (introMove(n) ? -0.04 : 0) + (moon ? MOON_BUMP : 0);
+  const bump = (kind === 'boss' ? 0.08 : kind === 'bonus' ? -0.25 : 0) + (introMove(n) ? -0.04 : 0);
   return clamp01(base + bump);
 }
 
-export function movesFor(n: number, mode: RopeMode, kind: StageKind): MoveId[] {
-  const unlocked = MOVE_ORDER.filter((m) => INTRO_STAGE[m] <= n && fitsMode(m, mode));
-  const intro = introMove(n);
+export function movesFor(n: number, kind: StageKind, intro?: MoveId): MoveId[] {
+  const unlocked = MOVE_ORDER.filter((m) => INTRO_STAGE[m] <= n);
   if (kind === 'bonus') return unlocked.filter((m) => m === 'jump' || m === 'double');
   if (intro) return MOVE_ORDER.filter((m) => m === 'jump' || m === intro || (m === 'double' && unlocked.includes(m)));
   return unlocked;
 }
 
 function weightsFor(moves: readonly MoveId[], d: number, kind: StageKind, intro?: MoveId): Weights {
-  const w2 = !moves.includes('double') ? 0 : intro === 'double' ? 0.35 : kind === 'bonus' ? 0.15 : 0.2 + 0.25 * d;
-  const w3 = !moves.includes('triple') ? 0 : intro === 'triple' ? 0.4 : 0.08 + 0.27 * d;
+  const w2 = !moves.includes('double') ? 0 : intro === 'double' ? 0.3 : kind === 'bonus' ? 0.15 : 0.2 + 0.25 * d;
+  const w3 = !moves.includes('triple') ? 0 : intro === 'triple' ? 0.3 : 0.08 + 0.27 * d;
   return [round2(1 - w2 - w3), round2(w2), round2(w3)];
 }
 
-function mixFor(moves: readonly MoveId[], mode: RopeMode, n: number, d: number, intro?: MoveId): Mix {
-  const kind = kindFor(n);
-  const feature = (m: MoveId, normal: number) =>
-    !moves.includes(m) ? 0 : round2(intro === m ? (INTRO_FOCUS[m] ?? normal) : normal);
-  const busy = kind !== 'bonus' && !intro;
+function mixFor(moves: readonly MoveId[], d: number, intro?: MoveId): Mix {
+  const on = (m: MoveId) => moves.includes(m);
+  const val = (m: MoveId, normal: number) => (!on(m) ? 0 : round2(intro === m ? (INTRO_FOCUS[m] ?? normal) : normal));
+  const slideOn = on('slide') || on('high');
+  const droneOn = on('drone') || on('gate');
   return {
-    hurdle: mode === 'long' && n >= HURDLE_INTRO && kind !== 'bonus' ? round2(n === HURDLE_INTRO ? 0.4 : 0.1 + 0.15 * d) : 0,
-    bird: feature('bird', 0.1 + 0.15 * d),
-    combo: busy && n >= COMBO_FROM ? round2(0.05 + 0.45 * d) : 0,
-    doubleDutch: feature('dd', 0.25 + 0.25 * d),
-    ball: feature('side', 0.15 + 0.15 * d),
-    ring: feature('tumble', 0.12 + 0.15 * d),
-    cross: feature('cross', 0.25 + 0.3 * d),
-    back: feature('back', 0.3 + 0.3 * d),
+    beam: on('beam') || on('rear') ? (intro === 'rear' ? 0.5 : val('beam', 0.25 + 0.25 * d)) : 0,
+    slide: !slideOn ? 0 : round2(intro === 'slide' || intro === 'high' ? 0.35 : 0.25 + 0.15 * d),
+    high: val('high', 0.3 + 0.2 * d),
+    rear: val('rear', 0.12 + 0.2 * d),
+    drone: !droneOn ? 0 : round2(intro === 'drone' || intro === 'gate' ? 0.35 : 0.08 + 0.12 * d),
+    gate: val('gate', 0.3 + 0.3 * d),
+    pulse: val('pulse', 0.15 + 0.15 * d),
   };
 }
 
@@ -129,9 +107,10 @@ export interface StageShape {
   readonly kind: StageKind;
   readonly world: WorldId;
   readonly variant: StageDef['variant'];
-  readonly ropeMode: RopeMode;
   readonly d: number;
   readonly seed: number;
+  /** endless: use every move unlocked at n, without the intro-stage focus */
+  readonly unlockedOnly?: boolean;
 }
 
 function hazardsFor(kind: StageKind, d: number): number {
@@ -141,7 +120,7 @@ function hazardsFor(kind: StageKind, d: number): number {
   return normal;
 }
 
-/** Coin-rich bonus, sparse boss; normal stages get fewer pickups (more breathing room lost) as d rises. */
+/** Coin-rich bonus, sparse boss; normal stages get fewer pickups as d rises. */
 function pickupRateFor(kind: StageKind, d: number): number {
   if (kind === 'bonus') return 0.8;
   if (kind === 'boss') return 0.1;
@@ -150,14 +129,13 @@ function pickupRateFor(kind: StageKind, d: number): number {
 
 /** Turns a stage's place on the curve into a full StageDef. */
 export function designStage(s: StageShape): StageDef {
-  const intro = s.kind === 'normal' ? introMove(s.n) : undefined;
-  const chosen = movesFor(s.n, s.ropeMode, s.kind);
+  const intro = s.kind === 'normal' && !s.unlockedOnly ? introMove(s.n) : undefined;
+  const chosen = movesFor(s.n, s.kind, intro);
   const levelWeights = weightsFor(chosen, s.d, s.kind, intro);
-  const mix = mixFor(chosen, s.ropeMode, s.n, s.d, intro);
+  const mix = mixFor(chosen, s.d, intro);
   return {
-    id: s.id, world: s.world, chapter: s.chapter, variant: s.variant, kind: s.kind, index: s.index,
-    name: s.name, ropeMode: s.ropeMode,
-    moves: movesForMix(s.ropeMode, levelWeights, mix),
+    id: s.id, world: s.world, chapter: s.chapter, variant: s.variant, kind: s.kind, index: s.index, name: s.name,
+    moves: movesForMix(levelWeights, mix),
     bpm: Math.min(150, Math.round(88 + 62 * s.d)),
     hazardBeats: hazardsFor(s.kind, s.d),
     seed: s.seed,
@@ -174,8 +152,7 @@ export function buildCampaign(chapters: readonly ChapterMeta[]): StageDef[] {
     const id = `w${chapter.id + 1}-s${(i % 10) + 1}`;
     return designStage({
       id, name: nameFor(n), n, chapter: chapter.id, index: i % 10, kind: kindFor(n),
-      world: chapter.theme, variant: chapter.variant, ropeMode: ropeModeFor(n),
-      d: curveD(n, chapter.theme === 3), seed: hashString(`taprope:${id}`),
+      world: chapter.theme, variant: chapter.variant, d: curveD(n), seed: hashString(`laserescape:${id}`),
     });
   });
 }

@@ -18,9 +18,11 @@ const normals = (c: number) => scored.filter((x) => x.s.chapter === c && x.s.kin
 const mean = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
 function mk(id: number, time: number, obstacles: Obstacle[], requiredLevel: JumpLevel): Beat {
-  return { id, time, obstacles, requiredLevel, doubleDutch: false };
+  return { id, time, obstacles, requiredLevel, needsSlide: false, pulse: false };
 }
-const rope = (id: number, time: number, level: 1 | 2 | 3 = 1) => mk(id, time, [{ kind: 'rope', level }], level);
+/** a jump laser: floor at level 1, stacked beams above */
+const rope = (id: number, time: number, level: 1 | 2 | 3 = 1) =>
+  mk(id, time, [level === 1 ? { kind: 'floor', level } : { kind: 'beam', level, from: 'front' }], level);
 
 describe('stageDifficulty basics', () => {
   const stage = STAGES[0] as StageDef;
@@ -42,7 +44,7 @@ describe('stageDifficulty basics', () => {
     const slow = [rope(0, 2), rope(1, 3), rope(2, 4), rope(3, 5)];
     const fast = [rope(0, 2), rope(1, 2.7), rope(2, 3.4), rope(3, 4.1)];
     const varied = [rope(0, 2), rope(1, 3, 2), rope(2, 4), rope(3, 5, 3)];
-    const combo = slow.map((b) => mk(b.id, b.time, [{ kind: 'rope', level: 1 }, { kind: 'hurdle', level: 1 }], 1));
+    const combo = slow.map((b) => mk(b.id, b.time, [{ kind: 'floor', level: 1 }, { kind: 'drone', level: 1 }], 1));
     const base = stageDifficulty(stage, slow);
     expect(stageDifficulty(stage, fast)).toBeGreaterThan(base);
     expect(stageDifficulty(stage, varied)).toBeGreaterThan(base);

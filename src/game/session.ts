@@ -5,10 +5,10 @@
  */
 import type {
   Beat, GameMode, JudgeResult, Mood, ObstacleKind, PhysicsConfig, PlayerState,
-  RopeMode, ScoreState, StageDef, Swipe, Variant, WorldId,
+  ScoreState, StageDef, Swipe, Variant, WorldId,
 } from '../types';
 import { HAZARD_KINDS } from '../types';
-import { initialPlayer, physicsForWorld, stepPlayer, swipePlayer, tapPlayer } from '../core/physics';
+import { initialPlayer, physicsForWorld, slidePlayer, stepPlayer, swipePlayer, tapPlayer } from '../core/physics';
 import { judgeBeat } from '../core/judge';
 import { applyJudge, computeStars, initialScore, tickScore } from '../core/scoring';
 import { dailyStage, endlessStage, generateBeats } from '../core/levels';
@@ -27,7 +27,6 @@ export interface TempoChange {
   readonly bpm: number;
   readonly world: WorldId;
   readonly variant: Variant;
-  readonly ropeMode: RopeMode;
 }
 
 export type SessionStatus = 'playing' | 'cleared' | 'failed';
@@ -37,7 +36,6 @@ export interface Session {
   readonly stage: StageDef;
   readonly world: WorldId;
   readonly bpm: number; // current music tempo (changes per endless chunk)
-  readonly ropeMode: RopeMode; // long / solo (changes per endless chunk)
   readonly variant: Variant; // look variant (changes per endless chunk)
   readonly tempoQueue: readonly TempoChange[]; // pending endless tempo/world switches
   readonly cfg: PhysicsConfig;
@@ -62,7 +60,7 @@ export interface Session {
 
 export type GameEvent =
   | { readonly type: 'tap'; readonly action: 'jump' | 'boost' | 'buffered' | 'none'; readonly level: number }
-  | { readonly type: 'swipe'; readonly action: 'tumble' | 'side' | 'cross' | 'reverse' | 'none' }
+  | { readonly type: 'move'; readonly action: 'slide' | 'dive' | 'none' }
   | { readonly type: 'land' }
   | { readonly type: 'judge'; readonly result: JudgeResult; readonly shielded: boolean }
   | { readonly type: 'hit'; readonly shielded: boolean; readonly hearts: number }
@@ -94,7 +92,7 @@ export function createSession(mode: GameMode, stage: StageDef | null, opts: { da
   const cfg = physicsForWorld(world);
   const beats = generateBeats(def, cfg, snapToBeat(LEAD_IN, def.bpm));
   return {
-    mode, stage: def, world, bpm: def.bpm, ropeMode: def.ropeMode, variant: def.variant, tempoQueue: [], cfg, beats, cursor: 0, time: 0,
+    mode, stage: def, world, bpm: def.bpm, variant: def.variant, tempoQueue: [], cfg, beats, cursor: 0, time: 0,
     player: initialPlayer(), score: initialScore(), hearts: MAX_HEARTS, hitsTaken: 0,
     shield: false, slowTime: 0, invulnTime: 0, mood: 'idle', moodTime: 0, status: 'playing',
     hazardTotal: mode === 'endless' ? Infinity : beats.filter(isHazardBeat).length,
@@ -108,11 +106,18 @@ export function tap(s: Session): StepOutput {
   return { session: { ...s, player }, events: [{ type: 'tap', action, level: player.level }] };
 }
 
-/** A swipe modifies the jump its touch just started (덤블링 / 옆 이동 / 엇걸어 / 뒤로넘기). */
+/** A swipe modifies the touch that started it: ↓ turns a fresh jump into a slide, or dives from the air. */
 export function swipe(s: Session, dir: Swipe): StepOutput {
   if (s.status !== 'playing') return { session: s, events: [] };
-  const { player, action } = swipePlayer(s.player, dir, s.cfg, s.ropeMode);
-  return { session: { ...s, player }, events: [{ type: 'swipe', action }] };
+  const { player, action } = swipePlayer(s.player, dir, s.cfg);
+  return { session: { ...s, player }, events: [{ type: 'move', action }] };
+}
+
+/** Keyboard ↓: slide (or dive) without a preceding tap. */
+export function slide(s: Session): StepOutput {
+  if (s.status !== 'playing') return { session: s, events: [] };
+  const { player, action } = slidePlayer(s.player, s.cfg);
+  return { session: { ...s, player }, events: [{ type: 'move', action }] };
 }
 
 function extendEndless(s: Session): Session {
@@ -125,7 +130,7 @@ function extendEndless(s: Session): Session {
   const reIded = fresh.map((b, i) => ({ ...b, id: offset + i }));
   // switch tempo/world in the quiet gap after the previous chunk's last beat, not at generation time
   const change: TempoChange = {
-    at: last.time + 0.3, bpm: def.bpm, world: def.world, variant: def.variant, ropeMode: def.ropeMode,
+    at: last.time + 0.3, bpm: def.bpm, world: def.world, variant: def.variant,
   };
   return { ...s, beats: [...s.beats, ...reIded], endlessChunk: chunk, tempoQueue: [...s.tempoQueue, change] };
 }
@@ -134,10 +139,8 @@ function applyTempo(s: Session): Session {
   const due = s.tempoQueue.filter((c) => c.at <= s.time);
   if (due.length === 0) return s;
   const latest = due[due.length - 1];
-  // 뒤로넘기 only exists on a solo rope: a mode switch starts the new chunk turning forwards
-  const player = latest.ropeMode === s.ropeMode ? s.player : { ...s.player, backward: false };
   return {
-    ...s, player, bpm: latest.bpm, world: latest.world, variant: latest.variant, ropeMode: latest.ropeMode,
+    ...s, bpm: latest.bpm, world: latest.world, variant: latest.variant,
     tempoQueue: s.tempoQueue.filter((c) => c.at > s.time),
   };
 }
@@ -169,7 +172,7 @@ function resolveHit(s: Session, raw: JudgeResult): { s: Session; result: JudgeRe
 
 function judgeNext(s0: Session): Applied {
   const beat = s0.beats[s0.cursor];
-  const raw = judgeBeat(beat, s0.player, s0.ropeMode);
+  const raw = judgeBeat(beat, s0.player);
   const events: GameEvent[] = [];
   const hitRes = raw.hit ? resolveHit(s0, raw) : { s: s0, result: raw, events: [] };
   let s = hitRes.s;
@@ -198,18 +201,13 @@ function judgeNext(s0: Session): Applied {
   return { s, events };
 }
 
-/** A swipe made during a buffered tap modifies the jump that fires on landing. */
-function applyPendingSwipe(player: PlayerState, s: Session): { player: PlayerState; events: GameEvent[] } {
-  if (!player.pendingSwipe || player.grounded) return { player, events: [] };
-  const out = swipePlayer({ ...player, pendingSwipe: null }, player.pendingSwipe, s.cfg, s.ropeMode);
-  return { player: out.player, events: [{ type: 'swipe', action: out.action }] };
-}
-
 function advance(s: Session, dt: number): Applied {
   const stepped = stepPlayer(s.player, dt, s.cfg);
-  const pending = stepped.autoJumped ? applyPendingSwipe(stepped.player, s) : { player: stepped.player, events: [] };
-  const player = pending.player;
-  const events: GameEvent[] = stepped.landed ? [{ type: 'land' }, ...pending.events] : pending.events;
+  const player: PlayerState = stepped.player;
+  const events: GameEvent[] = [
+    ...(stepped.landed ? [{ type: 'land' } as const] : []),
+    ...(stepped.slideStarted ? [{ type: 'move', action: 'slide' } as const] : []),
+  ];
   const moodTime = Math.max(0, s.moodTime - dt);
   return {
     s: {
@@ -224,7 +222,7 @@ function advance(s: Session, dt: number): Applied {
 function ambientMood(s: Session): Mood {
   if (s.score.feverTime > 0) return 'cheer';
   const next = s.beats[s.cursor];
-  if (next && next.time - s.time < 0.9 && next.obstacles.some((o) => o.kind === 'bird')) return 'worried';
+  if (next && next.time - s.time < 0.9 && next.obstacles.some((o) => o.kind === 'drone')) return 'worried';
   return 'idle';
 }
 

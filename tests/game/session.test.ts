@@ -3,7 +3,8 @@ import type { Beat, MoveId, Obstacle, Swipe } from '../../src/types';
 import { STAGES } from '../../src/core/content';
 import { endlessStage } from '../../src/core/levels';
 import {
-  createSession, MAX_HEARTS, sessionProgress, sessionStars, step, swipe, tap, type GameEvent, type Session,
+  createSession, MAX_HEARTS, sessionProgress, sessionStars, slide, step, swipe, tap,
+  type GameEvent, type Session,
 } from '../../src/game/session';
 import { botAction, type BotAction } from '../../src/game/bot';
 
@@ -21,7 +22,7 @@ function playBot(s0: Session, maxSeconds: number, swipeDelay = 0): BotRun {
   let pending: { dir: Swipe; at: number } | null = null;
   const note = (events: readonly GameEvent[]): void => {
     for (const e of events) {
-      if (e.type === 'swipe' && e.action !== 'none') performed.add(e.action);
+      if (e.type === 'move' && e.action !== 'none') performed.add(e.action);
       if (e.type === 'tap' && e.action === 'boost') performed.add(`level${e.level}`);
     }
   };
@@ -61,7 +62,7 @@ function advance(s0: Session, seconds: number): Session {
 
 /** the physical action that proves a listed move was really used */
 const MOVE_PROOF: Partial<Record<MoveId, string>> = {
-  tumble: 'tumble', side: 'side', cross: 'cross', back: 'reverse', double: 'level2', triple: 'level3',
+  slide: 'slide', high: 'slide', double: 'level2', triple: 'level3',
 };
 
 function runIdle(s0: Session, seconds: number): { s: Session; hits: number } {
@@ -75,16 +76,23 @@ function runIdle(s0: Session, seconds: number): { s: Session; hits: number } {
   return { s, hits };
 }
 
-const ropeBeat = (id: number, time: number, level: 1 | 2 | 3, extra: Partial<Obstacle> = {}): Beat => ({
-  id, time, obstacles: [{ kind: 'rope', level, ...extra }], requiredLevel: level, doubleDutch: false,
-});
+const beatOf = (id: number, time: number, obstacles: Obstacle[]): Beat => {
+  const jumps = obstacles.filter((o) => o.kind === 'floor' || o.kind === 'beam').map((o) => o.level);
+  const requiredLevel = (jumps.length ? Math.max(...jumps) : 0) as Beat['requiredLevel'];
+  const needsSlide = obstacles.some((o) => o.kind === 'high' || o.kind === 'ceiling');
+  return { id, time, obstacles, requiredLevel, needsSlide, pulse: false };
+};
+const floorBeat = (id: number, time: number): Beat => beatOf(id, time, [{ kind: 'floor', level: 1 }]);
+const beamBeat = (id: number, time: number, level: 1 | 2 | 3): Beat =>
+  beatOf(id, time, [{ kind: 'beam', level, from: 'front' }]);
+const ceilingBeat = (id: number, time: number): Beat => beatOf(id, time, [{ kind: 'ceiling', level: 1 }]);
 
-const soloStage = STAGES.find((st) => st.ropeMode === 'solo') ?? STAGES[0];
-const longStage = STAGES.find((st) => st.ropeMode === 'long') ?? STAGES[0];
+/** a session holding just the given beats */
+const withBeats = (beats: Beat[]): Session => ({ ...createSession('stage', STAGES[0]), beats, hazardTotal: beats.length });
 
 describe('bot clears every stage (all generated content is beatable)', () => {
   for (const stage of STAGES) {
-    it(`${stage.id} ${stage.name} (${stage.ropeMode})`, () => {
+    it(`${stage.id} ${stage.name}`, () => {
       const { s: end, performed } = playBot(createSession('stage', stage), 400);
       for (const move of stage.moves) {
         const proof = MOVE_PROOF[move];
@@ -140,10 +148,10 @@ describe('music sync', () => {
   it('endless follows each chunk bpm/world and stays on that chunk grid', () => {
     const end = runBot(createSession('endless', null, { seed: 11 }), 150);
     expect(end.endlessChunk).toBeGreaterThan(3);
-    // tempo switches wait until the newly generated chunk is about to play
     const active = endlessStage(end.endlessChunk - end.tempoQueue.length, 11);
     expect(end.bpm).toBe(active.bpm);
     expect(end.world).toBe(active.world);
+    expect(end.variant).toBe(active.variant);
     for (const c of end.tempoQueue) expect(c.at).toBeGreaterThan(end.time);
     const newest = endlessStage(end.endlessChunk, 11);
     for (const b of end.beats.slice(-newest.hazardBeats)) expect(onHalfBeatGrid(b.time, newest.bpm)).toBe(true);
@@ -160,8 +168,7 @@ describe('session rules', () => {
   });
 
   it('a shield absorbs one hit without losing a heart', () => {
-    const base = createSession('stage', STAGES[0]);
-    const s0: Session = { ...base, beats: [ropeBeat(0, 0.5, 1), ropeBeat(1, 3, 1)], shield: true, hazardTotal: 2 };
+    const s0: Session = { ...withBeats([floorBeat(0, 0.5), floorBeat(1, 3)]), shield: true };
     const out = runIdle(s0, 1);
     expect(out.s.hearts).toBe(MAX_HEARTS);
     expect(out.s.shield).toBe(false);
@@ -169,92 +176,63 @@ describe('session rules', () => {
   });
 
   it('invulnerability ignores a second hit right after the first', () => {
-    const base = createSession('stage', STAGES[0]);
-    const s0: Session = { ...base, beats: [ropeBeat(0, 0.5, 1), ropeBeat(1, 0.9, 1)], hazardTotal: 2 };
-    const out = runIdle(s0, 1.2);
+    const out = runIdle(withBeats([floorBeat(0, 0.5), floorBeat(1, 0.9)]), 1.2);
     expect(out.s.hearts).toBe(MAX_HEARTS - 1);
   });
 
-  it('a 1단 jump does not clear a 2단 rope; a boosted jump does', () => {
-    const base = createSession('stage', STAGES[0]);
-    const s0: Session = { ...base, beats: [ropeBeat(0, 0.5, 2)], hazardTotal: 1 };
-    let single = advance(s0, 0.3);
-    single = tap(single).session;
+  it('a single jump does not clear a 2-beam stack; a boosted jump does', () => {
+    const s0 = withBeats([beamBeat(0, 0.5, 2)]);
+    const single = tap(advance(s0, 0.3)).session;
     expect(runIdle(single, 1).s.hearts).toBe(MAX_HEARTS - 1);
-
-    let dbl = advance(s0, 0.3);
-    dbl = tap(dbl).session;
-    dbl = advance(dbl, 0.08);
-    dbl = tap(dbl).session;
+    let dbl = tap(advance(s0, 0.3)).session;
+    dbl = tap(advance(dbl, 0.08)).session;
     expect(dbl.player.level).toBe(2);
     expect(runIdle(dbl, 1).s.hearts).toBe(MAX_HEARTS);
   });
 
-  it('swipe up right after a ground tap turns the jump into a tumble that clears a ring', () => {
-    const base = createSession('stage', longStage);
-    const ring: Beat = { id: 0, time: 0.6, obstacles: [{ kind: 'ring', level: 1 }], requiredLevel: 0, doubleDutch: false };
-    const s0: Session = { ...base, beats: [ring], hazardTotal: 1 };
-    let s = advance(s0, 0.35);
-    s = tap(s).session;
-    const out = swipe(s, 'up');
-    expect(out.events).toEqual([{ type: 'swipe', action: 'tumble' }]);
+  it('tap + ↓ turns the fresh jump into a slide that clears a ceiling laser; standing is a hit', () => {
+    const s0 = withBeats([ceilingBeat(0, 0.6)]);
+    const tapped = tap(advance(s0, 0.35)).session;
+    const out = swipe(tapped, 'down');
+    expect(out.events).toEqual([{ type: 'move', action: 'slide' }]);
+    expect(out.session.player.sliding).toBe(true);
+    expect(out.session.player.grounded).toBe(true);
     expect(runIdle(out.session, 1).s.hearts).toBe(MAX_HEARTS);
-    // a plain jump does not clear the ring
-    expect(runIdle(tap(advance(s0, 0.35)).session, 1).s.hearts).toBe(MAX_HEARTS - 1);
+    expect(runIdle(advance(s0, 0.35), 1).s.hearts).toBe(MAX_HEARTS - 1);
   });
 
-  it('a side hop moves out of a ball lane; staying put is a hit', () => {
-    const base = createSession('stage', longStage);
-    const ball: Beat = { id: 0, time: 0.6, obstacles: [{ kind: 'ball', level: 1, lane: 0 }], requiredLevel: 0, doubleDutch: false };
-    const s0: Session = { ...base, beats: [ball], hazardTotal: 1 };
-    const hopped = swipe(tap(advance(s0, 0.4)).session, 'right').session;
-    expect(hopped.player.lane).toBe(1);
-    expect(runIdle(hopped, 1).s.hearts).toBe(MAX_HEARTS);
-    expect(runIdle(tap(advance(s0, 0.4)).session, 1).s.hearts).toBe(MAX_HEARTS - 1);
+  it('sliding into a floor laser is a hit (it must be jumped)', () => {
+    const slid = slide(advance(withBeats([floorBeat(0, 0.6)]), 0.4)).session;
+    expect(slid.player.sliding).toBe(true);
+    expect(runIdle(slid, 1).s.hearts).toBe(MAX_HEARTS - 1);
   });
 
-  it('solo: a cross rope needs an air swipe, a back rope needs 뒤로넘기', () => {
-    const base = createSession('stage', soloStage);
-    const crossS: Session = { ...base, beats: [ropeBeat(0, 0.6, 1, { cross: true })], hazardTotal: 1 };
-    let c = tap(advance(crossS, 0.4)).session;
-    c = advance(c, 0.06);
-    c = swipe(tap(c).session, 'left').session;
-    expect(c.player.cross).toBe(true);
-    expect(runIdle(c, 1).s.hearts).toBe(MAX_HEARTS);
-
-    const backS: Session = { ...base, beats: [ropeBeat(0, 0.6, 1, { back: true })], hazardTotal: 1 };
-    const forward = tap(advance(backS, 0.4)).session;
-    expect(runIdle(forward, 1).s.hearts).toBe(MAX_HEARTS - 1);
-    const reversed = swipe(tap(advance(backS, 0.4)).session, 'down').session;
-    expect(reversed.player.backward).toBe(true);
-    expect(runIdle(reversed, 1).s.hearts).toBe(MAX_HEARTS);
+  it('an airborne ↓ dives and slides on landing in time for a ceiling laser', () => {
+    let s = tap(advance(withBeats([ceilingBeat(0, 0.75)]), 0.3)).session;
+    s = advance(s, 0.12); // mid-air: the slide key dives, and the slide starts on landing
+    const dived = slide(s);
+    expect(dived.events).toEqual([{ type: 'move', action: 'dive' }]);
+    expect(dived.session.player.pendingSlide).toBe(true);
+    expect(runIdle(dived.session, 1).s.hearts).toBe(MAX_HEARTS);
   });
 
-  it('뒤로넘기 resets when an endless chunk switches rope mode', () => {
-    const base = createSession('endless', null, { seed: 5 });
-    const s0: Session = {
-      ...base,
-      ropeMode: 'solo',
-      player: { ...base.player, backward: true },
-      tempoQueue: [{ at: 0.05, bpm: base.bpm, world: base.world, variant: base.variant, ropeMode: 'long' }],
-    };
-    const s = advance(s0, 0.1);
-    expect(s.ropeMode).toBe('long');
-    expect(s.player.backward).toBe(false);
+  it('a tap during a slide cancels it into a jump', () => {
+    const slid = slide(advance(withBeats([floorBeat(0, 3)]), 0.1)).session;
+    const jumped = tap(slid).session;
+    expect(jumped.player.sliding).toBe(false);
+    expect(jumped.player.grounded).toBe(false);
   });
 
-  it('a swipe made during a buffered tap is applied to the auto-jump on landing', () => {
-    const base = createSession('stage', longStage);
-    const s0: Session = {
-      ...base,
-      beats: [],
-      hazardTotal: 0,
-      player: { ...base.player, grounded: false, height: 4, vy: -300, level: 1, airTime: 0.4, buffer: 0.1, pendingSwipe: 'right' },
-    };
-    const out = step(s0, 0.05);
-    expect(out.session.player.lane).toBe(1);
-    expect(out.session.player.pendingSwipe).toBeNull();
-    expect(out.events).toContainEqual({ type: 'swipe', action: 'side' });
+  it('a drone punishes a 2-level jump; a laser gate (floor + drone) needs exactly one jump', () => {
+    const drone = withBeats([beatOf(0, 0.6, [{ kind: 'drone', level: 1 }])]);
+    let high = tap(advance(drone, 0.4)).session;
+    high = tap(advance(high, 0.05)).session;
+    expect(runIdle(high, 1).s.hearts).toBe(MAX_HEARTS - 1);
+    expect(runIdle(drone, 1).s.hearts).toBe(MAX_HEARTS);
+
+    const gate = withBeats([beatOf(0, 0.6, [{ kind: 'floor', level: 1 }, { kind: 'drone', level: 1 }])]);
+    expect(runIdle(tap(advance(gate, 0.4)).session, 1).s.hearts).toBe(MAX_HEARTS);
+    expect(runIdle(gate, 1).s.hearts).toBe(MAX_HEARTS - 1);
   });
 
   it('slow-mo pickup scales stage time', () => {
@@ -263,9 +241,11 @@ describe('session rules', () => {
     expect(s.time).toBeCloseTo(0.07, 5);
   });
 
-  it('tap after the run ends is ignored', () => {
+  it('tap, swipe and slide after the run ends are ignored', () => {
     const { s } = runIdle(createSession('stage', STAGES[0]), 120);
     expect(tap(s).events).toHaveLength(0);
+    expect(swipe(s, 'down').events).toHaveLength(0);
+    expect(slide(s).events).toHaveLength(0);
     expect(advance(s, 0.1)).toBe(s);
   });
 });

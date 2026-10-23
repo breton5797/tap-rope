@@ -14,12 +14,11 @@ export interface FeedbackDeps {
 }
 
 const MISS_TEXT: Record<string, string> = {
-  bird: '너무 높아요!',
+  drone: '드론에 들켰다! 낮게!',
   level: '더 높이!',
-  cross: '엇걸어! ✕',
-  dir: '방향이 반대예요!',
-  tumble: '덤블링으로! ↑',
-  ball: '공을 피해요!',
+  low: '점프!',
+  slide: '점프해야 해요!',
+  standing: '슬라이딩! ↓',
 };
 
 const PICKUP_TEXT: Partial<Record<ObstacleKind, string>> = {
@@ -39,12 +38,15 @@ function onTap(d: FeedbackDeps, e: Extract<GameEvent, { type: 'tap' }>): void {
   }
 }
 
-function onSwipe(d: FeedbackDeps, e: Extract<GameEvent, { type: 'swipe' }>, backward: boolean): void {
+function onMove(d: FeedbackDeps, e: Extract<GameEvent, { type: 'move' }>): void {
   if (e.action === 'none') return;
-  d.audio.sfx(e.action);
-  d.haptics.vibrate(e.action === 'tumble' ? 24 : 12);
-  if (e.action === 'tumble') d.fx.burst('sparkle');
-  if (e.action === 'reverse') d.fx.popup(backward ? '뒤로넘기 ↺' : '앞으로 ↻', 'info');
+  if (e.action === 'slide') {
+    d.audio.sfx('slide');
+    d.fx.burst('dust');
+    d.haptics.vibrate(12);
+  } else {
+    d.haptics.vibrate(8); // dive: the slide sfx plays when it lands
+  }
 }
 
 function onJudge(d: FeedbackDeps, e: Extract<GameEvent, { type: 'judge' }>): void {
@@ -72,7 +74,7 @@ function onHit(d: FeedbackDeps, e: Extract<GameEvent, { type: 'hit' }>): void {
   d.fx.shake(0.75);
   d.fx.flash('rgba(255,70,70,0.45)');
   d.fx.burst('hit');
-  d.audio.sfx('hit');
+  d.audio.sfx('zap');
   d.haptics.vibrate([40, 30, 70]);
 }
 
@@ -88,11 +90,8 @@ function onPickup(d: FeedbackDeps, kind: ObstacleKind): void {
   d.haptics.vibrate(25);
 }
 
-/**
- * `quiet` = attract-mode demo: visuals only, no sound/haptics/popups.
- * `backward` = the player's 뒤로넘기 state after these events (for the reverse popup).
- */
-export function playFeedback(d: FeedbackDeps, events: readonly GameEvent[], quiet = false, backward = false): void {
+/** `quiet` = attract-mode demo: visuals only, no sound/haptics/popups. */
+export function playFeedback(d: FeedbackDeps, events: readonly GameEvent[], quiet = false): void {
   for (const e of events) {
     if (quiet) {
       if (e.type === 'land') d.fx.burst('dust');
@@ -100,7 +99,7 @@ export function playFeedback(d: FeedbackDeps, events: readonly GameEvent[], quie
     }
     switch (e.type) {
       case 'tap': onTap(d, e); break;
-      case 'swipe': onSwipe(d, e, backward); break;
+      case 'move': onMove(d, e); break;
       case 'land': d.fx.burst('dust'); d.audio.sfx('land'); break;
       case 'judge': onJudge(d, e); break;
       case 'hit': onHit(d, e); break;

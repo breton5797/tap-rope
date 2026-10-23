@@ -1,14 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AudioApi, Beat, EffectsApi, JudgeResult } from '../../src/types';
-import { STAGES } from '../../src/core/content';
+import type { AudioApi, Beat, EffectsApi, JudgeResult, Obstacle } from '../../src/types';
+import { SCROLL_SPEED } from '../../src/types';
+import { CHAPTERS, STAGES } from '../../src/core/content';
 import { createSession, type GameEvent, type Session } from '../../src/game/session';
 import { hintForBeat, introducedMoves, upcomingHint } from '../../src/game/hints';
 import { playFeedback } from '../../src/game/feedback';
-import { toHud, toSnapshot } from '../../src/game/snapshot';
+import { hasEscort, toHud, toSnapshot } from '../../src/game/snapshot';
 
-const beat = (time: number, obstacles: Beat['obstacles'], requiredLevel: Beat['requiredLevel']): Beat => ({
-  id: 0, time, obstacles, requiredLevel, doubleDutch: false,
-});
+const beat = (time: number, obstacles: Obstacle[]): Beat => {
+  const jumps = obstacles.filter((o) => o.kind === 'floor' || o.kind === 'beam').map((o) => o.level);
+  return {
+    id: 0, time, obstacles,
+    requiredLevel: (jumps.length ? Math.max(...jumps) : 0) as Beat['requiredLevel'],
+    needsSlide: obstacles.some((o) => o.kind === 'high' || o.kind === 'ceiling'),
+    pulse: false,
+  };
+};
 
 function mocks() {
   const fx: EffectsApi = { burst: vi.fn(), popup: vi.fn(), shake: vi.fn(), flash: vi.fn(), update: vi.fn() };
@@ -23,34 +30,43 @@ const judged = (grade: JudgeResult['grade'], reason: JudgeResult['reason'] = nul
   type: 'judge', shielded: false, result: { beatId: 0, grade, hit: grade === 'miss', reason, collected: [] },
 });
 
+const opts = { realTime: 12, reducedMotion: true, running: true };
+
 describe('hints', () => {
-  it('maps beats to move cards', () => {
-    expect(hintForBeat(beat(1, [{ kind: 'bird', level: 1 }], 0))).toBe('bird');
-    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 3 }], 3))).toBe('triple');
-    expect(hintForBeat(beat(1, [{ kind: 'hurdle', level: 2 }], 2))).toBe('double');
-    expect(hintForBeat(beat(1, [{ kind: 'ring', level: 1 }], 0))).toBe('tumble');
-    expect(hintForBeat(beat(1, [{ kind: 'ball', level: 1, lane: 1 }], 0))).toBe('side');
-    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 1, cross: true }], 1))).toBe('cross');
-    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 1, back: true }], 1))).toBe('back');
-    expect(hintForBeat(beat(1, [{ kind: 'rope', level: 1 }], 1))).toBeNull();
+  it('maps beats to move cards (plain floor jumps are taught at the start, not here)', () => {
+    expect(hintForBeat(beat(1, [{ kind: 'drone', level: 1 }]))).toBe('drone');
+    expect(hintForBeat(beat(1, [{ kind: 'beam', level: 3, from: 'front' }]))).toBe('triple');
+    expect(hintForBeat(beat(1, [{ kind: 'beam', level: 2, from: 'front' }]))).toBe('double');
+    expect(hintForBeat(beat(1, [{ kind: 'ceiling', level: 1 }]))).toBe('slide');
+    expect(hintForBeat(beat(1, [{ kind: 'high', level: 1, from: 'front' }]))).toBe('high');
+    expect(hintForBeat(beat(1, [{ kind: 'floor', level: 1 }, { kind: 'drone', level: 1 }]))).toBe('gate');
+    expect(hintForBeat(beat(1, [{ kind: 'floor', level: 1 }]))).toBeNull();
   });
 
   it('finds the next unseen hint inside the lookahead only', () => {
     const base = createSession('stage', STAGES[0]);
-    const s: Session = { ...base, beats: [beat(1, [{ kind: 'rope', level: 2 }], 2), beat(1.5, [{ kind: 'bird', level: 1 }], 0), beat(9, [{ kind: 'rope', level: 3 }], 3)] };
-    const any = new Set(['double', 'bird'] as const);
+    const s: Session = {
+      ...base,
+      beats: [
+        beat(1, [{ kind: 'beam', level: 2, from: 'front' }]),
+        beat(1.5, [{ kind: 'drone', level: 1 }]),
+        beat(9, [{ kind: 'beam', level: 3, from: 'front' }]),
+      ],
+    };
+    const any = new Set(['double', 'drone'] as const);
     expect(upcomingHint(s, new Set(), any)).toBe('double');
-    expect(upcomingHint(s, new Set(['double'] as const), any)).toBe('bird');
-    expect(upcomingHint(s, new Set(['double', 'bird'] as const), any)).toBeNull();
+    expect(upcomingHint(s, new Set(['double'] as const), any)).toBe('drone');
+    expect(upcomingHint(s, new Set(['double', 'drone'] as const), any)).toBeNull();
   });
 });
 
 describe('intro-only hints', () => {
-  it('a stage only teaches the moves it introduces', () => {
+  it('a stage only teaches the moves it introduces (GDD-v4 §5 schedule)', () => {
     const stage = (n: number) => STAGES[n - 1];
     expect(introducedMoves(stage(1))).toContain('jump');
     expect(introducedMoves(stage(4))).toEqual(['double']);
-    expect(introducedMoves(stage(11))).toContain('tumble');
+    expect(introducedMoves(stage(6))).toEqual(['slide']);
+    expect(introducedMoves(stage(8))).toEqual(['drone']);
     expect(introducedMoves(stage(100))).toEqual([]);
     const all = new Set(STAGES.flatMap((st) => introducedMoves(st)));
     expect(all.size).toBe(new Set(STAGES.flatMap((st) => st.moves)).size);
@@ -58,7 +74,7 @@ describe('intro-only hints', () => {
 
   it('upcomingHint ignores moves outside the allowed set', () => {
     const base = createSession('stage', STAGES[0]);
-    const s: Session = { ...base, beats: [beat(1, [{ kind: 'rope', level: 3 }], 3)] };
+    const s: Session = { ...base, beats: [beat(1, [{ kind: 'beam', level: 3, from: 'front' }])] };
     expect(upcomingHint(s, new Set(), new Set(['triple'] as const))).toBe('triple');
     expect(upcomingHint(s, new Set(), new Set())).toBeNull();
   });
@@ -75,38 +91,42 @@ describe('feedback', () => {
 
   it('plays grade popups and miss reasons', () => {
     const d = mocks();
-    playFeedback(d, [judged('perfect'), judged('good'), judged('miss', 'bird'), judged('miss', 'level'), judged('none'), judged('miss', 'ball')]);
+    playFeedback(d, [
+      judged('perfect'), judged('good'), judged('miss', 'drone'), judged('miss', 'level'), judged('none'),
+      judged('miss', 'standing'), judged('miss', 'slide'),
+    ]);
     expect(d.fx.popup).toHaveBeenNthCalledWith(1, 'PERFECT!', 'perfect');
     expect(d.fx.popup).toHaveBeenNthCalledWith(2, 'GOOD', 'good');
-    expect(d.fx.popup).toHaveBeenNthCalledWith(3, '너무 높아요!', 'miss');
+    expect(d.fx.popup).toHaveBeenNthCalledWith(3, '드론에 들켰다! 낮게!', 'miss');
     expect(d.fx.popup).toHaveBeenNthCalledWith(4, '더 높이!', 'miss');
-    expect(d.fx.popup).toHaveBeenNthCalledWith(5, '공을 피해요!', 'miss');
-    expect(d.fx.popup).toHaveBeenCalledTimes(5);
+    expect(d.fx.popup).toHaveBeenNthCalledWith(5, '슬라이딩! ↓', 'miss');
+    expect(d.fx.popup).toHaveBeenNthCalledWith(6, '점프해야 해요!', 'miss');
+    expect(d.fx.popup).toHaveBeenCalledTimes(6);
   });
 
-  it('hits shake + vibrate, shielded hits do not shake', () => {
+  it('hits zap, shake and vibrate; shielded hits do not shake', () => {
     const d = mocks();
     playFeedback(d, [{ type: 'hit', shielded: true, hearts: 3 }]);
     expect(d.fx.shake).not.toHaveBeenCalled();
     playFeedback(d, [{ type: 'hit', shielded: false, hearts: 2 }]);
     expect(d.fx.shake).toHaveBeenCalledOnce();
+    expect(d.audio.sfx).toHaveBeenCalledWith('zap');
     expect(d.haptics.vibrate).toHaveBeenLastCalledWith([40, 30, 70]);
   });
 
-  it('taps, pickups, fever, combo and end events', () => {
+  it('taps, moves, pickups, fever, combo and end events', () => {
     const d = mocks();
     playFeedback(d, [
       { type: 'tap', action: 'jump', level: 1 }, { type: 'tap', action: 'boost', level: 2 },
       { type: 'tap', action: 'buffered', level: 0 },
       { type: 'pickup', kind: 'coin' }, { type: 'pickup', kind: 'shield' },
-      { type: 'swipe', action: 'tumble' }, { type: 'swipe', action: 'reverse' }, { type: 'swipe', action: 'none' },
+      { type: 'move', action: 'slide' }, { type: 'move', action: 'dive' }, { type: 'move', action: 'none' },
       { type: 'fever' }, { type: 'combo', combo: 20 }, { type: 'end', cleared: true }, { type: 'end', cleared: false },
     ]);
     expect(d.audio.sfx).toHaveBeenCalledWith('jump', 1);
     expect(d.audio.sfx).toHaveBeenCalledWith('boost', 2);
     expect(d.audio.sfx).toHaveBeenCalledWith('coin');
-    expect(d.audio.sfx).toHaveBeenCalledWith('tumble');
-    expect(d.audio.sfx).toHaveBeenCalledWith('reverse');
+    expect(d.audio.sfx).toHaveBeenCalledWith('slide');
     expect(d.fx.popup).toHaveBeenCalledWith('실드 장착!', 'info');
     expect(d.audio.setFever).toHaveBeenCalledWith(true);
     expect(d.fx.popup).toHaveBeenCalledWith('20 COMBO!', 'combo');
@@ -118,24 +138,37 @@ describe('feedback', () => {
 describe('snapshot / hud', () => {
   it('maps a fresh session', () => {
     const s = createSession('stage', STAGES[0]);
-    const snap = toSnapshot(s, 'cat', 12, true);
+    const snap = toSnapshot(s, 'cat', opts);
     expect(snap.skin).toBe('cat');
     expect(snap.reducedMotion).toBe(true);
-    expect(snap.world).toBe(0);
+    expect(snap.running).toBe(true);
+    expect(snap.world).toBe(CHAPTERS[0].theme);
+    expect(snap.scroll).toBe(0);
+    expect(snap.escort).toBe(false);
     const hud = toHud(s);
     expect(hud.hearts).toBe(3);
     expect(hud.title).toBe(`1-1 · ${STAGES[0].name}`);
     expect(hud.progress).toBe(0);
+    expect(hud.sliding).toBe(false);
+  });
+
+  it('scroll follows stage time; escort only in part 2 (escape) zones', () => {
+    const s = { ...createSession('stage', STAGES[0]), time: 2 };
+    expect(toSnapshot(s, 'kid', opts).scroll).toBe(2 * SCROLL_SPEED);
+    for (const stage of STAGES) {
+      expect(hasEscort(createSession('stage', stage)), stage.id).toBe(CHAPTERS[stage.chapter].part === 2);
+    }
+    expect(hasEscort(createSession('endless', null, { seed: 3 }))).toBe(false);
   });
 
   it('titles endless and daily modes and shows full gauge in fever', () => {
     const e = createSession('endless', null, { seed: 3 });
-    expect(toHud(e).title).toBe('엔드리스');
+    expect(toHud(e).title).toBe('무한 탈출');
     expect(toHud(e).progress).toBe(0);
     const d = createSession('daily', null, { date: '2026-10-23' });
-    expect(toHud(d).title).toBe('오늘의 도전');
+    expect(toHud(d).title).toBe('오늘의 작전');
     const fever: Session = { ...d, score: { ...d.score, feverTime: 3, feverGauge: 0 } };
     expect(toHud(fever).feverGauge).toBe(1);
-    expect(toSnapshot(fever, 'kid', 0, false).fever).toBe(true);
+    expect(toSnapshot(fever, 'kid', opts).fever).toBe(true);
   });
 });

@@ -1,40 +1,58 @@
 /**
- * Static game content (GDD v3 §15): 4 themes (WORLDS: background, music, gravity),
- * 10 player-facing chapters of 10 stages (theme × look variant), 6 skins and the
- * 100-stage campaign built by the formula in campaign.ts.
+ * Static game content (GDD v4 §5, §7): 4 corridor themes (WORLDS), 10 zones (CHAPTERS: part 1
+ * rescue, part 2 escape, each a designed theme × variant look with a mission briefing),
+ * 6 spy skins, and the 100-stage campaign built by the formula in campaign.ts.
  */
-import type { ChapterMeta, SkinMeta, StageDef, WorldMeta } from '../types';
+import type { ChapterMeta, SkinMeta, StageDef, Variant, WorldId, WorldMeta } from '../types';
 import { buildCampaign } from './campaign';
 
 export { movesForMix } from './moves';
 
 export const WORLDS: readonly WorldMeta[] = [
-  { id: 0, name: '놀이터', subtitle: '햇살 가득 첫 줄넘기', gravityScale: 1.0 },
-  { id: 1, name: '노을 해변', subtitle: '파도 소리와 함께 리듬을', gravityScale: 1.0 },
-  { id: 2, name: '네온 시티', subtitle: '빛나는 밤의 더블더치', gravityScale: 1.0 },
-  { id: 3, name: '달 기지', subtitle: '둥실둥실 저중력 점프', gravityScale: 0.82 },
+  { id: 0, name: '경비 초소', subtitle: '기지 바깥 경계선' },
+  { id: 1, name: '연구소', subtitle: '하얀 실험실과 서버' },
+  { id: 2, name: '감옥 블록', subtitle: '철창 너머의 복도' },
+  { id: 3, name: '공장 · 수로', subtitle: '증기와 기계의 지하' },
 ];
 
+/** The only theme × variant looks the renderer draws (endless/daily use these too). */
+export const DESIGNED_LOOKS: Readonly<Record<WorldId, readonly Variant[]>> = {
+  0: ['base', 'night', 'dawn'],
+  1: ['base', 'dark', 'alarm'],
+  2: ['base', 'alarm'],
+  3: ['base', 'steam'],
+};
+
 export const CHAPTERS: readonly ChapterMeta[] = [
-  { id: 0, name: '놀이터', subtitle: '햇살 가득 첫 줄넘기', theme: 0, variant: 'base' },
-  { id: 1, name: '노을 해변', subtitle: '파도 소리와 함께 리듬을', theme: 1, variant: 'base' },
-  { id: 2, name: '네온 시티', subtitle: '빛나는 밤의 더블더치', theme: 2, variant: 'base' },
-  { id: 3, name: '달 기지', subtitle: '둥실둥실 저중력 점프', theme: 3, variant: 'base' },
-  { id: 4, name: '놀이터의 밤', subtitle: '가로등 아래 별빛 줄넘기', theme: 0, variant: 'night' },
-  { id: 5, name: '가을 놀이터', subtitle: '낙엽 위로 사뿐사뿐', theme: 0, variant: 'autumn' },
-  { id: 6, name: '밤바다', subtitle: '달빛 파도 위의 리듬', theme: 1, variant: 'night' },
-  { id: 7, name: '비 오는 네온', subtitle: '빗속을 가르는 네온 점프', theme: 2, variant: 'rain' },
-  { id: 8, name: '일식의 달', subtitle: '붉게 물든 저중력 무대', theme: 3, variant: 'eclipse' },
-  { id: 9, name: '무지개 피날레', subtitle: '모든 기술을 무지개 위에서', theme: 0, variant: 'rainbow' },
+  { id: 0, part: 1, name: '외곽 경비구역', subtitle: '잠입 작전 개시', theme: 0, variant: 'base',
+    briefing: '포로가 잡혀 있는 기지에 잠입한다. 레이저를 넘어라!' },
+  { id: 1, part: 1, name: '지하 수로', subtitle: '증기 속으로', theme: 3, variant: 'steam',
+    briefing: '경비를 피해 증기 가득한 수로로.' },
+  { id: 2, part: 1, name: '연구동', subtitle: '하얀 보안 구역', theme: 1, variant: 'base',
+    briefing: '하얀 실험실, 보안 레이저가 촘촘하다.' },
+  { id: 3, part: 1, name: '서버실', subtitle: '불 꺼진 데이터 센터', theme: 1, variant: 'dark',
+    briefing: '불이 꺼진 서버실. 드론을 조심해.' },
+  { id: 4, part: 1, name: '감옥 블록', subtitle: '포로가 기다린다', theme: 2, variant: 'base',
+    briefing: '포로가 있는 곳! 보스를 넘으면 구출 성공.' },
+  { id: 5, part: 2, name: '경보 발령', subtitle: '들켰다, 뛰어!', theme: 2, variant: 'alarm',
+    briefing: '경보가 울렸다! 포로와 함께 달려라.' },
+  { id: 6, part: 2, name: '연구동 비상탈출', subtitle: '붉은 비상등 아래', theme: 1, variant: 'alarm',
+    briefing: '붉은 비상등 아래 출구를 찾아라.' },
+  { id: 7, part: 2, name: '공장 라인', subtitle: '멈추지 않는 기계', theme: 3, variant: 'base',
+    briefing: '쉬지 않는 기계 사이로. 프레스에 끼이지 마!' },
+  { id: 8, part: 2, name: '옥상', subtitle: '밤하늘 아래 경비선', theme: 0, variant: 'night',
+    briefing: '밤하늘 아래 마지막 경비선. 헬기가 곧 온다.' },
+  { id: 9, part: 2, name: '헬기 탈출', subtitle: '동이 트는 하늘', theme: 0, variant: 'dawn',
+    briefing: '동이 튼다. 헬기까지 전력 질주!' },
 ];
 
 export const SKINS: readonly SkinMeta[] = [
-  { id: 'kid', name: '기본', price: 0 },
-  { id: 'cat', name: '냥냥이', price: 60 },
-  { id: 'bunny', name: '토끼', price: 90 },
-  { id: 'ninja', name: '닌자', price: 140 },
-  { id: 'robot', name: '로봇', price: 200 },
-  { id: 'astro', name: '우주인', price: 300 },
+  { id: 'kid', name: '요원 K', price: 0 },
+  { id: 'cat', name: '고양이 요원', price: 60 },
+  { id: 'bunny', name: '토끼 해커', price: 90 },
+  { id: 'ninja', name: '닌자 요원', price: 140 },
+  { id: 'robot', name: '로봇 R-7', price: 200 },
+  { id: 'astro', name: '특수부대', price: 300 },
 ];
 
 export const STAGES: readonly StageDef[] = buildCampaign(CHAPTERS);
