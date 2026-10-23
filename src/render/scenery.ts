@@ -1,4 +1,4 @@
-import { LANE_W } from '../types';
+import { LANE_W, type Variant } from '../types';
 import { depthScale, groundRy, groundY, HORIZON_Y, screenX } from './projection';
 import type { SpriteCache } from './sprites';
 import { vGrad, type Ctx, type Stops } from './util';
@@ -18,12 +18,22 @@ export interface WorldArt {
   readonly sky: Stops;
   readonly skyTo: number; // logical y where the sky gradient ends
   readonly tiles: readonly TileSpec[];
-  /** horizon backdrop + perspective ground + side props, drawn once per size */
-  drawScene(ctx: Ctx, v: View): void;
+  /** tall props (trees, palms, domes) where night fairy lights can hang */
+  readonly anchors: readonly Anchor[];
+  /** horizon backdrop + perspective ground + side props, drawn once per size × variant */
+  drawScene(ctx: Ctx, v: View, variant: Variant): void;
   /** animated details behind the drifting tiles (sun, planets) */
   backdrop(ctx: Ctx, v: View, t: number, sprites: SpriteCache): void;
   /** animated details over the static scene (waves, twinkles, lights) */
-  front(ctx: Ctx, v: View, t: number, sprites: SpriteCache): void;
+  front(ctx: Ctx, v: View, t: number, sprites: SpriteCache, variant: Variant): void;
+}
+
+/** A light-hanging point on a prop: ground position + height/radius of its crown. */
+export interface Anchor {
+  readonly x: number;
+  readonly z: number;
+  readonly h: number;
+  readonly r: number;
 }
 
 /** half-width of the 3-lane track in world px */

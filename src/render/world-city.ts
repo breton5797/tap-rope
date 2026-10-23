@@ -228,6 +228,7 @@ export const CITY: WorldArt = {
   sky: [[0, '#05051A'], [0.5, '#170C40'], [1, '#5E1A6E']],
   skyTo: HORIZON_Y,
   tiles: [],
+  anchors: [],
   drawScene,
   backdrop() {
     /* stars and moon are static */

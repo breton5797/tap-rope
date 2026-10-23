@@ -4,7 +4,7 @@ import { blit, type SpriteCache } from './sprites';
 import { depthScale, groundY, HORIZON_Y, screenX } from './projection';
 import {
   billboard, groundFill, groundOval, groundQuad, horizonHaze, laneDashes, sideProps, starField,
-  TRACK_HALF, Z_FAR, Z_NEAR, type TileSpec, type WorldArt,
+  TRACK_HALF, Z_FAR, Z_NEAR, type Anchor, type TileSpec, type WorldArt,
 } from './scenery';
 import { circle, oval, radGrad, roundRect, seeded, starPath, TAU, vGrad, type Ctx } from './util';
 import type { View } from './view';
@@ -122,9 +122,12 @@ function antenna(ctx: Ctx): void {
   ctx.fill();
 }
 
+const PROPS = sideProps(seeded(29), 3, -100, 2400, 190, TRACK_HALF + 60, TRACK_HALF + 220);
+const ANCHORS: readonly Anchor[] = PROPS.filter((p) => p.kind !== 2 && p.z > 60)
+  .map((p) => ({ x: p.x, z: p.z, h: (p.kind === 0 ? 18 : 12) * p.size, r: (p.kind === 0 ? 30 : 20) * p.size }));
+
 function props(ctx: Ctx): void {
-  const list = sideProps(seeded(29), 3, -100, 2400, 190, TRACK_HALF + 60, TRACK_HALF + 220);
-  for (const p of list) {
+  for (const p of PROPS) {
     billboard(ctx, p.x, p.z, p.size);
     if (p.kind === 2) antenna(ctx);
     else dome(ctx, p.kind === 0 ? 30 : 20);
@@ -220,6 +223,7 @@ export const MOON: WorldArt = {
   sky: [[0, '#01020B'], [0.6, '#08102F'], [1, '#26336A']],
   skyTo: HORIZON_Y,
   tiles: [BRIGHT_STARS],
+  anchors: ANCHORS,
   drawScene,
   backdrop(ctx: Ctx, _v: View, t: number, sprites: SpriteCache) {
     blit(ctx, sprites.get('w3earth', 90, 90, 45, 45, earthSprite), EARTH_X, EARTH_Y + Math.sin(t * 0.4) * 2);

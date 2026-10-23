@@ -4,15 +4,63 @@ import { blit, type SpriteCache } from './sprites';
 import { HORIZON_Y } from './projection';
 import {
   billboard, cloud, groundBands, groundFill, groundOval, groundQuad, horizonHaze, laneDashes,
-  sideProps, TRACK_HALF, wrapped, Z_FAR, Z_NEAR, type TileSpec, type WorldArt,
+  sideProps, TRACK_HALF, wrapped, Z_FAR, Z_NEAR, type Anchor, type TileSpec, type WorldArt,
 } from './scenery';
-import { circle, radGrad, roundRect, seeded, TAU, vGrad, type Ctx } from './util';
+import type { Variant } from '../types';
+import { circle, radGrad, roundRect, seeded, TAU, vGrad, type Ctx, type Stops } from './util';
 import type { View } from './view';
+
+type Canopy = readonly [string, string, string];
+
+interface Palette {
+  readonly hills: readonly (readonly [string, string])[];
+  readonly hillTrees: readonly [string, string];
+  readonly canopies: readonly Canopy[];
+  readonly bush: readonly [string, string];
+  readonly grass: Stops;
+  readonly stripe: string;
+}
+
+const GREEN: Palette = {
+  hills: [['#B9E6B0', '#A2D99A'], ['#8FD27F', '#76C26C']],
+  hillTrees: ['#5DB35E', '#4A9E52'],
+  canopies: [['#B4F08F', '#62C35A', '#3A9447']],
+  bush: ['#9EE57E', '#43A04A'],
+  grass: [[0, '#A9E38B'], [0.25, '#7ED15E'], [1, '#4EA43F']],
+  stripe: 'rgba(255,255,255,0.08)',
+};
+
+const AUTUMN: Palette = {
+  hills: [['#F2C98A', '#E3AE6B'], ['#D99A5B', '#C98447']],
+  hillTrees: ['#D9622B', '#E8A23A'],
+  canopies: [['#FFD27A', '#F59E2B', '#C9661A'], ['#FFB08A', '#E5533A', '#A8321F'], ['#FFF0A0', '#F2C230', '#C99412']],
+  bush: ['#F6B65A', '#B8642A'],
+  grass: [[0, '#E6D58A'], [0.25, '#BFB55A'], [1, '#8C8A3A']],
+  stripe: 'rgba(255,230,160,0.12)',
+};
+
+const PASTEL: Palette = {
+  hills: [['#D8F3D0', '#C2EBC0'], ['#B5E8B0', '#9EDDA0']],
+  hillTrees: ['#8FD6A0', '#FFB8D9'],
+  canopies: [['#D9FFC0', '#8FE07F', '#5BBE6A'], ['#FFE0F0', '#FFB0D6', '#E98BBE'], ['#E6E0FF', '#B8A8FF', '#8F7FE0']],
+  bush: ['#C8F5B0', '#6CC777'],
+  grass: [[0, '#C9F2B0'], [0.25, '#9EE57E'], [1, '#6CC25A']],
+  stripe: 'rgba(255,255,255,0.12)',
+};
+
+/** set while a scene is being pre-rendered */
+let pal: Palette = GREEN;
+
+function paletteFor(variant: Variant): Palette {
+  if (variant === 'autumn') return AUTUMN;
+  if (variant === 'rainbow') return PASTEL;
+  return GREEN;
+}
 
 function hills(ctx: Ctx, v: View): void {
   const layers: readonly (readonly [number, number, string, string])[] = [
-    [HORIZON_Y - 22, 10, '#B9E6B0', '#A2D99A'],
-    [HORIZON_Y - 10, 7, '#8FD27F', '#76C26C'],
+    [HORIZON_Y - 22, 10, pal.hills[0][0], pal.hills[0][1]],
+    [HORIZON_Y - 10, 7, pal.hills[1][0], pal.hills[1][1]],
   ];
   for (const [base, amp, c0, c1] of layers) {
     ctx.beginPath();
@@ -28,13 +76,13 @@ function hills(ctx: Ctx, v: View): void {
   const rnd = seeded(12);
   for (let x = v.x0 + 6; x < v.x0 + v.w; x += 9 + rnd() * 16) {
     const r = 3 + rnd() * 4;
-    ctx.fillStyle = rnd() < 0.5 ? '#5DB35E' : '#4A9E52';
+    ctx.fillStyle = rnd() < 0.5 ? pal.hillTrees[0] : pal.hillTrees[1];
     circle(ctx, x, HORIZON_Y - r * 0.6, r);
     ctx.fill();
   }
 }
 
-function tree(ctx: Ctx, s: number): void {
+function tree(ctx: Ctx, s: number, c: Canopy): void {
   ctx.fillStyle = 'rgba(30,70,20,0.28)';
   ctx.beginPath();
   ctx.ellipse(4, 0, 26 * s, 8 * s, 0, 0, TAU);
@@ -42,7 +90,7 @@ function tree(ctx: Ctx, s: number): void {
   ctx.fillStyle = '#8A5A3B';
   roundRect(ctx, -4 * s, -26 * s, 8 * s, 27 * s, 3 * s);
   ctx.fill();
-  ctx.fillStyle = radGrad(ctx, -10 * s, -58 * s, 4 * s, 40 * s, [[0, '#B4F08F'], [0.55, '#62C35A'], [1, '#3A9447']]);
+  ctx.fillStyle = radGrad(ctx, -10 * s, -58 * s, 4 * s, 40 * s, [[0, c[0]], [0.55, c[1]], [1, c[2]]]);
   ctx.beginPath();
   ctx.arc(-12 * s, -38 * s, 17 * s, 0, TAU);
   ctx.arc(12 * s, -40 * s, 16 * s, 0, TAU);
@@ -59,7 +107,7 @@ function bush(ctx: Ctx, s: number): void {
   ctx.beginPath();
   ctx.ellipse(2, 0, 20 * s, 6 * s, 0, 0, TAU);
   ctx.fill();
-  ctx.fillStyle = radGrad(ctx, -6 * s, -16 * s, 2 * s, 22 * s, [[0, '#9EE57E'], [1, '#43A04A']]);
+  ctx.fillStyle = radGrad(ctx, -6 * s, -16 * s, 2 * s, 22 * s, [[0, pal.bush[0]], [1, pal.bush[1]]]);
   ctx.beginPath();
   ctx.arc(-9 * s, -8 * s, 10 * s, 0, TAU);
   ctx.arc(9 * s, -8 * s, 10 * s, 0, TAU);
@@ -161,14 +209,16 @@ function track(ctx: Ctx): void {
   }
 }
 
+const PROPS = sideProps(seeded(3), 3, -260, 2600, 120, TRACK_HALF + 50, TRACK_HALF + 230);
+const ANCHORS: readonly Anchor[] = PROPS.filter((p) => p.kind !== 0 && p.z > 60).map((p) => ({ x: p.x, z: p.z, h: 54 * p.size, r: 20 * p.size }));
+
 function props(ctx: Ctx): void {
-  const list = sideProps(seeded(3), 3, -260, 2600, 120, TRACK_HALF + 50, TRACK_HALF + 230);
-  for (const p of list) {
+  PROPS.forEach((p, i) => {
     billboard(ctx, p.x, p.z, p.size);
     if (p.kind === 0) bush(ctx, 1);
-    else tree(ctx, 1);
+    else tree(ctx, 1, pal.canopies[i % pal.canopies.length]);
     ctx.restore();
-  }
+  });
   billboard(ctx, -250, 520, 1);
   slide(ctx);
   ctx.restore();
@@ -177,10 +227,11 @@ function props(ctx: Ctx): void {
   ctx.restore();
 }
 
-function drawScene(ctx: Ctx, v: View): void {
+function drawScene(ctx: Ctx, v: View, variant: Variant): void {
+  pal = paletteFor(variant);
   hills(ctx, v);
-  groundFill(ctx, v, [[0, '#A9E38B'], [0.25, '#7ED15E'], [1, '#4EA43F']]);
-  groundBands(ctx, -3000, 3000, 70, 'rgba(255,255,255,0.08)');
+  groundFill(ctx, v, pal.grass);
+  groundBands(ctx, -3000, 3000, 70, pal.stripe);
   flowers(ctx, seeded(8));
   track(ctx);
   horizonHaze(ctx, v, 'rgba(235,248,255,0.55)', 36);
@@ -216,6 +267,7 @@ export const PLAYGROUND: WorldArt = {
   sky: [[0, '#3E9FF0'], [0.6, '#8ED3FF'], [1, '#E2F5FF']],
   skyTo: HORIZON_Y,
   tiles: [CLOUDS],
+  anchors: ANCHORS,
   drawScene,
   backdrop(ctx: Ctx, _v: View, t: number, sprites: SpriteCache) {
     blit(ctx, sprites.get('w0sun', 140, 140, 70, 70, sunSprite), 296, 22 + Math.sin(t * 0.5) * 1.5);

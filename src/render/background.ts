@@ -1,7 +1,8 @@
-import type { WorldId } from '../types';
+import type { Variant, WorldId } from '../types';
 import type { SpriteCache } from './sprites';
 import type { TileSpec, WorldArt } from './scenery';
 import { makeCanvas, vGrad, type Ctx } from './util';
+import { lookOf, type VariantLook } from './variants';
 import type { View } from './view';
 import { PLAYGROUND } from './world-playground';
 import { BEACH } from './world-beach';
@@ -18,36 +19,53 @@ interface BuiltTile {
   readonly canvas: HTMLCanvasElement;
 }
 
+/** Theme backdrop + pre-rendered scene, cached per (theme, variant, view size). */
 export class Background {
-  private world = -1;
-  private viewKey = '';
+  private key = '';
   private scene: HTMLCanvasElement | null = null;
   private tiles: BuiltTile[] = [];
   private sky: CanvasGradient | null = null;
 
-  draw(ctx: Ctx, v: View, world: WorldId, t: number, sprites: SpriteCache): void {
+  draw(ctx: Ctx, v: View, world: WorldId, variant: Variant, t: number, sprites: SpriteCache, reduced: boolean): void {
     const art = ARTS[world] ?? PLAYGROUND;
-    if (world !== this.world || v.key !== this.viewKey || !this.scene) {
-      this.build(ctx, art, v);
-      this.world = world;
-      this.viewKey = v.key;
+    const look = lookOf(variant);
+    const key = `${world}|${variant}|${v.key}`;
+    if (key !== this.key || !this.scene) {
+      this.build(ctx, art, look, v, world, variant);
+      this.key = key;
     }
     ctx.fillStyle = this.sky ?? '#000';
     ctx.fillRect(v.x0 - MARGIN, v.y0 - MARGIN, v.w + MARGIN * 2, v.h + MARGIN * 2);
-    art.backdrop(ctx, v, t, sprites);
+    if (look.keepBackdrop(world)) art.backdrop(ctx, v, t, sprites);
+    look.backdrop(ctx, t, sprites, world);
     for (const tile of this.tiles) drawTile(ctx, v, tile, t);
     if (this.scene) ctx.drawImage(this.scene, v.x0 - MARGIN, v.y0 - MARGIN, v.w + MARGIN * 2, v.h + MARGIN * 2);
-    art.front(ctx, v, t, sprites);
+    art.front(ctx, v, t, sprites, variant);
+    look.ground(ctx, v, t, world, reduced);
   }
 
-  private build(ctx: Ctx, art: WorldArt, v: View): void {
-    this.sky = vGrad(ctx, -90, art.skyTo, art.sky);
+  /** Variant layers drawn over the stage (rain, falling leaves, sparkles). */
+  overlay(ctx: Ctx, v: View, world: WorldId, variant: Variant, t: number, reduced: boolean): void {
+    lookOf(variant).overlay(ctx, v, t, world, reduced);
+  }
+
+  private build(ctx: Ctx, art: WorldArt, look: VariantLook, v: View, world: WorldId, variant: Variant): void {
+    this.sky = vGrad(ctx, -90, art.skyTo, look.sky ?? art.sky);
     const padded: View = { ...v, x0: v.x0 - MARGIN, y0: v.y0 - MARGIN, w: v.w + MARGIN * 2, h: v.h + MARGIN * 2 };
     const scene = makeCanvas(padded.w * v.k, padded.h * v.k);
-    scene.ctx.setTransform(v.k, 0, 0, v.k, -padded.x0 * v.k, -padded.y0 * v.k);
-    art.drawScene(scene.ctx, padded);
+    const sctx = scene.ctx;
+    sctx.setTransform(v.k, 0, 0, v.k, -padded.x0 * v.k, -padded.y0 * v.k);
+    art.drawScene(sctx, padded, variant);
+    if (look.grade) {
+      sctx.globalCompositeOperation = 'source-atop';
+      sctx.fillStyle = look.grade;
+      sctx.fillRect(padded.x0, padded.y0, padded.w, padded.h);
+      sctx.globalCompositeOperation = 'source-over';
+    }
+    look.scene(sctx, padded, world, art);
     this.scene = scene.canvas;
-    this.tiles = art.tiles.map((spec) => {
+    const specs = look.keepTiles(world) ? [...art.tiles, ...look.tiles] : look.tiles;
+    this.tiles = specs.map((spec) => {
       const tile = makeCanvas(spec.w * v.k, spec.h * v.k);
       tile.ctx.setTransform(v.k, 0, 0, v.k, 0, -spec.y * v.k);
       spec.draw(tile.ctx, spec.w);

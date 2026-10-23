@@ -1,10 +1,11 @@
 // World 1 — 노을 해변 (oblique top-down): sunset sky band, banded sun sinking into a
 // shimmering sea, foam on the shore, warm sand with palms, parasols and a sandcastle.
+import type { Variant } from '../types';
 import { blit, type SpriteCache } from './sprites';
 import { groundY, HORIZON_Y } from './projection';
 import {
   billboard, groundFill, groundOval, groundQuad, horizonHaze, laneDashes, sideProps,
-  TRACK_HALF, wrapped, Z_NEAR, type TileSpec, type WorldArt,
+  TRACK_HALF, wrapped, Z_NEAR, type Anchor, type TileSpec, type WorldArt,
 } from './scenery';
 import { circle, oval, radGrad, roundRect, seeded, TAU, vGrad, type Ctx } from './util';
 import type { View } from './view';
@@ -131,9 +132,13 @@ function sand(ctx: Ctx, v: View): void {
   }
 }
 
+const PROPS = sideProps(seeded(17), 4, -200, SHORE_Z - 200, 150, TRACK_HALF + 50, TRACK_HALF + 220);
+/** palm crowns (lean puts the crown ~22px toward the outside) */
+const ANCHORS: readonly Anchor[] = PROPS.filter((p) => p.kind >= 2 && p.z > 60)
+  .map((p) => ({ x: p.x + (p.x < 0 ? -22 : 22) * p.size, z: p.z, h: 92 * p.size, r: 26 * p.size }));
+
 function props(ctx: Ctx): void {
-  const list = sideProps(seeded(17), 4, -200, SHORE_Z - 200, 150, TRACK_HALF + 50, TRACK_HALF + 220);
-  for (const p of list) {
+  for (const p of PROPS) {
     billboard(ctx, p.x, p.z, p.size);
     if (p.kind === 0) castle(ctx);
     else if (p.kind === 1) parasol(ctx, p.x < 0 ? 0 : 1);
@@ -185,8 +190,8 @@ function sunSprite(ctx: Ctx): void {
   ctx.globalCompositeOperation = 'source-over';
 }
 
-function shimmer(ctx: Ctx, t: number): void {
-  ctx.fillStyle = '#FFE6A8';
+function shimmer(ctx: Ctx, t: number, color: string): void {
+  ctx.fillStyle = color;
   const rows = 22;
   for (let i = 0; i < rows; i++) {
     const y = HORIZON_Y + 2 + i * ((SHORE_Y - HORIZON_Y - 6) / rows);
@@ -220,14 +225,15 @@ export const BEACH: WorldArt = {
   sky: [[0, '#2A1858'], [0.35, '#6B2C7E'], [0.7, '#E0507A'], [1, '#FFB070']],
   skyTo: HORIZON_Y,
   tiles: [STREAKS],
+  anchors: ANCHORS,
   drawScene,
   backdrop(ctx: Ctx, _v: View, t: number, sprites: SpriteCache) {
     ctx.globalAlpha = 0.94 + 0.06 * Math.sin(t * 1.3);
     blit(ctx, sprites.get('w1sun', 260, 260, 130, 130, sunSprite), 180, HORIZON_Y + 4);
     ctx.globalAlpha = 1;
   },
-  front(ctx: Ctx, v: View, t: number) {
-    shimmer(ctx, t);
+  front(ctx: Ctx, v: View, t: number, _sprites: SpriteCache, variant: Variant) {
+    shimmer(ctx, t, variant === 'night' || variant === 'eclipse' ? '#E6F0FF' : '#FFE6A8');
     foam(ctx, v, t);
   },
 };

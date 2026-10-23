@@ -57,8 +57,10 @@ class CanvasRenderer implements Renderer {
     ctx.setTransform(k, 0, 0, k, tx + fx.shakeX() * k, ty + fx.shakeY() * k);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    this.bg.draw(ctx, v, snap.world, snap.realTime, this.sprites);
+    const variant = snap.variant ?? 'base';
+    this.bg.draw(ctx, v, snap.world, variant, snap.realTime, this.sprites, snap.reducedMotion);
     this.drawStage(ctx, snap);
+    this.bg.overlay(ctx, v, snap.world, variant, snap.realTime, snap.reducedMotion);
     fx.anchorX = this.player.feetX;
     fx.feetY = this.player.feetY;
     fx.drawWorld(ctx);

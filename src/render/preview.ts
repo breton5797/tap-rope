@@ -1,11 +1,12 @@
 // Visual QA harness (v2): animated mock scenes for the renderer (render-preview.html).
 // Query: ?world=0..3&skin=kid&mode=long|solo
 //        &scene=idle|jump2|jump3|tumble|side|cross|back|ring|ball|hurdles|bird|fever|dd|hit
+//        &variant=base|night|autumn|rain|eclipse|rainbow
 //        &at=<sec> (freeze) &shield=1 &slow=1 &mood=<Mood> &rm=1 &ui=0
 import {
   LANE_LEAD, SCROLL_SPEED,
   type Lane, type LaneItem, type Level, type Mood, type MoveId, type ObstacleKind, type PlayerState,
-  type RenderSnapshot, type RopeMode, type SkinId, type VisibleObstacle, type WorldId,
+  type RenderSnapshot, type RopeMode, type SkinId, type Variant, type VisibleObstacle, type WorldId,
 } from '../types';
 import { createRenderer } from './index';
 
@@ -74,6 +75,8 @@ const skin = pick('skin', SKINS, 'kid');
 const sceneName = pick('scene', Object.keys(SCENES), 'idle');
 const scene = SCENES[sceneName];
 const mode = pick<RopeMode>('mode', ['long', 'solo'], scene.mode);
+const VARIANTS: readonly Variant[] = ['base', 'night', 'autumn', 'rain', 'eclipse', 'rainbow'];
+const variant = pick('variant', VARIANTS, 'base');
 const forcedMood = q.has('mood') ? pick('mood', MOODS, 'idle') : null;
 const freezeAt = q.has('at') ? Math.max(0, Number(q.get('at')) || 0) : null;
 const gScale = world === 3 ? 0.82 : 1;
@@ -235,6 +238,7 @@ function snapshot(s: Sim): RenderSnapshot {
     time: s.t,
     realTime: s.t,
     world,
+    variant,
     player: s.player,
     skin,
     rope: { phaseA, phaseB: scene.dd && mode === 'long' ? phaseA + Math.PI : null, speed: scene.omega, mode },
@@ -266,6 +270,7 @@ function buildNav(): void {
   nav.innerHTML = [
     ['0', '1', '2', '3'].map((w) => link('world', w, String(world))).join('') + link('mode', 'long', mode) + link('mode', 'solo', mode),
     Object.keys(SCENES).map((sc) => link('scene', sc, sceneName)).join(''),
+    VARIANTS.map((vr) => link('variant', vr, variant)).join(''),
     SKINS.map((sk) => link('skin', sk, skin)).join(''),
   ].map((row) => `<div>${row}</div>`).join('');
 }
