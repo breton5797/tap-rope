@@ -5,7 +5,7 @@
  */
 import type {
   Beat, GameMode, JudgeResult, Mood, ObstacleKind, PhysicsConfig, PlayerState,
-  RopeMode, ScoreState, StageDef, Swipe, WorldId,
+  RopeMode, ScoreState, StageDef, Swipe, Variant, WorldId,
 } from '../types';
 import { HAZARD_KINDS } from '../types';
 import { initialPlayer, physicsForWorld, stepPlayer, swipePlayer, tapPlayer } from '../core/physics';
@@ -26,6 +26,7 @@ export interface TempoChange {
   readonly at: number;
   readonly bpm: number;
   readonly world: WorldId;
+  readonly variant: Variant;
   readonly ropeMode: RopeMode;
 }
 
@@ -37,6 +38,7 @@ export interface Session {
   readonly world: WorldId;
   readonly bpm: number; // current music tempo (changes per endless chunk)
   readonly ropeMode: RopeMode; // long / solo (changes per endless chunk)
+  readonly variant: Variant; // look variant (changes per endless chunk)
   readonly tempoQueue: readonly TempoChange[]; // pending endless tempo/world switches
   readonly cfg: PhysicsConfig;
   readonly beats: readonly Beat[];
@@ -92,7 +94,7 @@ export function createSession(mode: GameMode, stage: StageDef | null, opts: { da
   const cfg = physicsForWorld(world);
   const beats = generateBeats(def, cfg, snapToBeat(LEAD_IN, def.bpm));
   return {
-    mode, stage: def, world, bpm: def.bpm, ropeMode: def.ropeMode, tempoQueue: [], cfg, beats, cursor: 0, time: 0,
+    mode, stage: def, world, bpm: def.bpm, ropeMode: def.ropeMode, variant: def.variant, tempoQueue: [], cfg, beats, cursor: 0, time: 0,
     player: initialPlayer(), score: initialScore(), hearts: MAX_HEARTS, hitsTaken: 0,
     shield: false, slowTime: 0, invulnTime: 0, mood: 'idle', moodTime: 0, status: 'playing',
     hazardTotal: mode === 'endless' ? Infinity : beats.filter(isHazardBeat).length,
@@ -122,7 +124,9 @@ function extendEndless(s: Session): Session {
   const offset = s.beats.length;
   const reIded = fresh.map((b, i) => ({ ...b, id: offset + i }));
   // switch tempo/world in the quiet gap after the previous chunk's last beat, not at generation time
-  const change: TempoChange = { at: last.time + 0.3, bpm: def.bpm, world: def.world, ropeMode: def.ropeMode };
+  const change: TempoChange = {
+    at: last.time + 0.3, bpm: def.bpm, world: def.world, variant: def.variant, ropeMode: def.ropeMode,
+  };
   return { ...s, beats: [...s.beats, ...reIded], endlessChunk: chunk, tempoQueue: [...s.tempoQueue, change] };
 }
 
@@ -133,7 +137,7 @@ function applyTempo(s: Session): Session {
   // 뒤로넘기 only exists on a solo rope: a mode switch starts the new chunk turning forwards
   const player = latest.ropeMode === s.ropeMode ? s.player : { ...s.player, backward: false };
   return {
-    ...s, player, bpm: latest.bpm, world: latest.world, ropeMode: latest.ropeMode,
+    ...s, player, bpm: latest.bpm, world: latest.world, variant: latest.variant, ropeMode: latest.ropeMode,
     tempoQueue: s.tempoQueue.filter((c) => c.at > s.time),
   };
 }

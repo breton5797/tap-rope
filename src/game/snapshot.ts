@@ -8,6 +8,7 @@ export function toSnapshot(s: Session, skin: SkinId, realTime: number, reducedMo
     time: s.time,
     realTime,
     world: s.world,
+    variant: s.variant,
     player: s.player,
     skin,
     rope: ropeState(s.beats, s.time, s.ropeMode),

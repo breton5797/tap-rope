@@ -236,7 +236,7 @@ describe('session rules', () => {
       ...base,
       ropeMode: 'solo',
       player: { ...base.player, backward: true },
-      tempoQueue: [{ at: 0.05, bpm: base.bpm, world: base.world, ropeMode: 'long' }],
+      tempoQueue: [{ at: 0.05, bpm: base.bpm, world: base.world, variant: base.variant, ropeMode: 'long' }],
     };
     const s = advance(s0, 0.1);
     expect(s.ropeMode).toBe('long');

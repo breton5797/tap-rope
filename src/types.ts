@@ -12,7 +12,12 @@ export const SCROLL_SPEED = 240; // world px/s that hurdles/balls/rings/birds/pi
 export const LANE_W = 72; // world px between lane centres
 export const LANE_LEAD = 2.4; // seconds of preview shown in the rhythm lane
 
+/** Visual/physics THEME: 0 playground, 1 beach, 2 neon city, 3 moon (low gravity). */
 export type WorldId = 0 | 1 | 2 | 3;
+/** Look variant layered on a theme (v3: 10 chapters = 4 themes × variants). */
+export type Variant = 'base' | 'night' | 'autumn' | 'rain' | 'eclipse' | 'rainbow';
+/** bonus = easy coin-rich breather (every 5th), boss = long mixed finale (every 10th). */
+export type StageKind = 'normal' | 'bonus' | 'boss';
 export type Level = 1 | 2 | 3;
 export type JumpLevel = 0 | 1 | 2 | 3; // 0 = grounded
 export type Lane = -1 | 0 | 1; // left / centre / right
@@ -107,9 +112,12 @@ export interface ScoreState {
 }
 
 export interface StageDef {
-  readonly id: string; // e.g. "w1-s3"
-  readonly world: WorldId;
-  readonly index: number; // 0..4 inside the world
+  readonly id: string; // "w{chapter+1}-s{index+1}", e.g. "w7-s3"
+  readonly world: WorldId; // theme (renderer, music, gravity)
+  readonly chapter: number; // 0..9 (the player-facing "world" number − 1); endless/daily use 0
+  readonly variant: Variant;
+  readonly kind: StageKind;
+  readonly index: number; // 0..9 inside the chapter
   readonly name: string; // Korean display name
   readonly ropeMode: RopeMode;
   /** moves this stage introduces/uses — drives tutorial cards and the stage-select badges */
@@ -133,6 +141,15 @@ export interface StageDef {
 
 /** Player-facing moves, used for tutorials, lane icons and stage badges. */
 export type MoveId = 'jump' | 'double' | 'triple' | 'tumble' | 'side' | 'cross' | 'back' | 'dd' | 'bird';
+
+/** One of the 10 player-facing worlds ("챕터") of 10 stages each. */
+export interface ChapterMeta {
+  readonly id: number; // 0..9
+  readonly name: string; // e.g. "놀이터의 밤"
+  readonly subtitle: string;
+  readonly theme: WorldId;
+  readonly variant: Variant;
+}
 
 export interface WorldMeta {
   readonly id: WorldId;
@@ -201,6 +218,7 @@ export interface RenderSnapshot {
   readonly time: number; // stage time
   readonly realTime: number; // wall-clock seconds, for idle animation
   readonly world: WorldId;
+  readonly variant: Variant;
   readonly player: PlayerState;
   readonly skin: SkinId;
   readonly rope: RopeState;
