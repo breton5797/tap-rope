@@ -48,7 +48,8 @@ function slidePlan(s: Session, until: number): BotAction | null {
   if (p.sliding && p.slideTime > until + 0.05) return null; // current slide still covers the beat
   if (until > SLIDE_LEAD || until <= 0) return null;
   if (p.grounded || p.sliding) return { swipe: 'down' }; // tap + ↓ → slide
-  return p.pendingSlide ? null : { swipe: 'down' }; // airborne: tap is a no-op boost, ↓ dives
+  // airborne: the tap boosts first, then the ↓ dives into a slide on landing
+  return p.pendingSlide ? null : { swipe: 'down' };
 }
 
 function jumpPlan(s: Session, b: Beat, until: number): BotAction | null {

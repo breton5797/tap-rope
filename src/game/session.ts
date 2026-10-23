@@ -12,6 +12,7 @@ import { initialPlayer, physicsForWorld, slidePlayer, stepPlayer, swipePlayer, t
 import { judgeBeat } from '../core/judge';
 import { applyJudge, computeStars, initialScore, tickScore } from '../core/scoring';
 import { dailyStage, endlessStage, generateBeats } from '../core/levels';
+import { beatShape, gapAfter } from '../core/spacing';
 
 export const MAX_HEARTS = 3;
 export const INVULN_TIME = 0.9;
@@ -100,8 +101,15 @@ export function createSession(mode: GameMode, stage: StageDef | null, opts: { da
   };
 }
 
+/** a tap this close to a slide laser keeps an ongoing slide (it is the start of a ↓ swipe) */
+const SLIDE_KEEP = 0.2;
+
 export function tap(s: Session): StepOutput {
   if (s.status !== 'playing') return { session: s, events: [] };
+  const next = s.beats[s.cursor];
+  if (s.player.sliding && next?.needsSlide && next.time - s.time < SLIDE_KEEP) {
+    return { session: s, events: [{ type: 'tap', action: 'none', level: 0 }] };
+  }
   const { player, action } = tapPlayer(s.player, s.cfg);
   return { session: { ...s, player }, events: [{ type: 'tap', action, level: player.level }] };
 }
@@ -125,7 +133,8 @@ function extendEndless(s: Session): Session {
   if (s.mode !== 'endless' || !last || last.time - s.time > ENDLESS_LOOKAHEAD) return s;
   const chunk = s.endlessChunk + 1;
   const def = endlessStage(chunk, s.seed);
-  const fresh = generateBeats(def, s.cfg, snapToBeat(last.time + 1.2, def.bpm));
+  const gap = Math.max(1.2, gapAfter(beatShape(last), s.cfg));
+  const fresh = generateBeats(def, s.cfg, snapToBeat(last.time + gap, def.bpm));
   const offset = s.beats.length;
   const reIded = fresh.map((b, i) => ({ ...b, id: offset + i }));
   // switch tempo/world in the quiet gap after the previous chunk's last beat, not at generation time

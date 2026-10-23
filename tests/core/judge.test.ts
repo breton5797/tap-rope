@@ -32,7 +32,8 @@ describe('judgeBeat — jump lasers (floor / beam)', () => {
   });
 
   it('passes good below PERFECT_H and perfect at/above', () => {
-    expect(judgeBeat(floor, air(1, 12)).grade).toBe('good');
+    expect(judgeBeat(floor, air(1, 24)).grade).toBe('good');
+    expect(judgeBeat(floor, air(1, 20)).reason).toBe('low');
     expect(judgeBeat(beam3, air(3, 40))).toEqual({ beatId: 7, grade: 'perfect', hit: false, reason: null, collected: [] });
   });
 
@@ -78,7 +79,7 @@ describe('judgeBeat — drones and gates', () => {
   it('a gate needs exactly a 1단 jump', () => {
     expect(judgeBeat(gate, ground).reason).toBe('low');
     expect(judgeBeat(gate, air(1, 50)).grade).toBe('perfect');
-    expect(judgeBeat(gate, air(1, 20)).grade).toBe('good');
+    expect(judgeBeat(gate, air(1, 28)).grade).toBe('good');
   });
 });
 

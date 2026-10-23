@@ -10,7 +10,8 @@
 import type { Level, PhysicsConfig, PlayerState, Swipe, WorldId } from '../types';
 
 export const DEFAULT_PHYSICS: PhysicsConfig = { gravity: 3000, jumpV: 660, boostV: 700, fallV: 1400, slideTime: 0.55 };
-export const CLEAR_H = 12;
+/** a jump laser is cleared above this height — matches the drawn floor fence */
+export const CLEAR_H = 24;
 export const PERFECT_H = 40;
 export const SWIPE_WINDOW = 0.25;
 
@@ -62,8 +63,9 @@ export function tapPlayer(p: PlayerState, cfg: PhysicsConfig): { player: PlayerS
 
 /** Keyboard ↓ (no tap): slide on the floor; in the air, dive and slide on landing. */
 export function slidePlayer(p: PlayerState, cfg: PhysicsConfig): { player: PlayerState; action: SlideAction } {
-  if (p.sliding || p.pendingSlide) return { player: p, action: 'none' };
-  if (p.grounded) return { player: startSlide(p, cfg), action: 'slide' };
+  if (p.pendingSlide) return { player: p, action: 'none' };
+  // pressing ↓ again while sliding restarts the slide (back-to-back slide lasers)
+  if (p.grounded || p.sliding) return { player: startSlide(p, cfg), action: 'slide' };
   return { player: { ...p, vy: -cfg.fallV, pendingSlide: true, buffer: 0 }, action: 'dive' };
 }
 

@@ -45,7 +45,7 @@ const sliding = (): PlayerState => slidePlayer(initialPlayer(), cfg).player;
 describe('constants', () => {
   it('exposes GDD v4 values', () => {
     expect(DEFAULT_PHYSICS).toEqual({ gravity: 3000, jumpV: 660, boostV: 700, fallV: 1400, slideTime: 0.55 });
-    expect(CLEAR_H).toBe(12);
+    expect(CLEAR_H).toBe(24);
     expect(PERFECT_H).toBe(40);
     expect(SWIPE_WINDOW).toBe(0.25);
   });
@@ -144,8 +144,10 @@ describe('swipePlayer / slidePlayer', () => {
       const p = jumped();
       expect(swipePlayer(p, d, cfg)).toEqual({ player: p, action: 'none' });
     }
-    const s = sliding();
-    expect(swipePlayer(s, 'down', cfg).action).toBe('none');
+    // ↓ while sliding restarts the slide (back-to-back slide lasers)
+    const restarted = swipePlayer(sliding(), 'down', cfg);
+    expect(restarted.action).toBe('slide');
+    expect(restarted.player.slideTime).toBe(cfg.slideTime);
     const dive = swipePlayer(high(), 'down', cfg).player;
     expect(swipePlayer(dive, 'down', cfg).action).toBe('none');
   });
@@ -155,7 +157,7 @@ describe('swipePlayer / slidePlayer', () => {
     // the jump was a separate key press, so there is no touch to convert — dive into a slide
     expect(slidePlayer(stepPlayer(jumped(), 0.12, cfg).player, cfg).action).toBe('dive');
     expect(slidePlayer(high(), cfg).action).toBe('dive');
-    expect(slidePlayer(sliding(), cfg).action).toBe('none');
+    expect(slidePlayer(sliding(), cfg).action).toBe('slide');
   });
 });
 
@@ -248,5 +250,12 @@ describe('airtimeForLevel', () => {
       if (r.landed) break;
     }
     expect(t).toBeCloseTo(airtimeForLevel(3, cfg), 1);
+  });
+});
+
+
+describe('v4 review fixes', () => {
+  it('CLEAR_H matches the drawn floor fence (24px)', () => {
+    expect(CLEAR_H).toBe(24);
   });
 });

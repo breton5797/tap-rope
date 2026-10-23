@@ -101,6 +101,7 @@ export function startApp(): void {
 
   const toMenu = (show: (s: SaveData) => void): void => {
     screen = 'menu';
+    jumpCardPending = false;
     audio.stopMusic();
     audio.setFever(false);
     session = demoSession();
@@ -109,6 +110,7 @@ export function startApp(): void {
   };
 
   const startRun = (mode: GameMode, stage: StageDef | null): void => {
+    jumpCardPending = false;
     const date = todayIso();
     run = { mode, stage, date };
     session = createSession(mode, stage, { date, seed: Math.floor(Math.random() * 1e9) });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Beat, MoveId, Obstacle, Swipe } from '../../src/types';
 import { STAGES } from '../../src/core/content';
 import { endlessStage } from '../../src/core/levels';
+import { beatShape, gapAfter } from '../../src/core/spacing';
 import {
   createSession, MAX_HEARTS, sessionProgress, sessionStars, slide, step, swipe, tap,
   type GameEvent, type Session,
@@ -233,6 +234,35 @@ describe('session rules', () => {
     const gate = withBeats([beatOf(0, 0.6, [{ kind: 'floor', level: 1 }, { kind: 'drone', level: 1 }])]);
     expect(runIdle(tap(advance(gate, 0.4)).session, 1).s.hearts).toBe(MAX_HEARTS);
     expect(runIdle(gate, 1).s.hearts).toBe(MAX_HEARTS - 1);
+  });
+
+  it('pressing ↓ again while sliding restarts the slide (back-to-back slide beats)', () => {
+    let s = slide(advance(withBeats([ceilingBeat(0, 0.3), ceilingBeat(1, 0.9)]), 0.1)).session;
+    s = advance(s, 0.45); // first slide nearly over
+    const again = slide(s);
+    expect(again.events).toEqual([{ type: 'move', action: 'slide' }]);
+    expect(again.session.player.slideTime).toBeCloseTo(again.session.cfg.slideTime, 6);
+    expect(runIdle(again.session, 1).s.hearts).toBe(MAX_HEARTS);
+  });
+
+  it('a tap while sliding keeps the slide when a slide laser is about to arrive', () => {
+    let s = slide(advance(withBeats([ceilingBeat(0, 0.5)]), 0.2)).session;
+    s = advance(s, 0.2); // 0.1s before the ceiling laser
+    const tapped = tap(s);
+    expect(tapped.events).toEqual([{ type: 'tap', action: 'none', level: 0 }]);
+    expect(tapped.session.player.sliding).toBe(true);
+    expect(runIdle(tapped.session, 0.5).s.hearts).toBe(MAX_HEARTS);
+    // with no slide laser close, the same tap cancels the slide into a jump
+    const free = tap(slide(advance(withBeats([floorBeat(0, 3)]), 0.2)).session);
+    expect(free.session.player.sliding).toBe(false);
+  });
+
+  it('endless chunk joins respect the spacing after the previous chunk\'s last beat', () => {
+    const base = createSession('endless', null, { seed: 3 });
+    const s0: Session = { ...base, beats: [beamBeat(0, 1, 3)], time: 0.5, cursor: 0 };
+    const s = step(s0, DT).session;
+    expect(s.beats.length).toBeGreaterThan(1);
+    expect(s.beats[1].time - 1).toBeGreaterThanOrEqual(gapAfter(beatShape(s0.beats[0]), s0.cfg) - 1e-9);
   });
 
   it('slow-mo pickup scales stage time', () => {
