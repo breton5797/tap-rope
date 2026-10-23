@@ -1,67 +1,57 @@
-// Per-skin colors and body accessories (tails, backpacks, chest emblems).
+// Agent outfits per skin (v4 spy cartoon) + the rescued prisoner.
 import type { SkinId } from '../types';
 import type { FaceStyle } from './face';
-import type { Ctx } from './util';
 
-export interface SkinLook {
-  readonly head: string;
-  readonly headLight: string;
-  readonly headShade: string;
-  readonly limb: string;
-  readonly shirt: string;
-  readonly shirtDark: string;
-  readonly pants: string;
-  readonly shoe: string;
+export type LookId = SkinId | 'prisoner';
+
+export interface AgentLook {
+  readonly skin: string; // face / head colour
+  readonly skinLight: string;
+  readonly skinShade: string;
+  readonly suit: string;
+  readonly suitDark: string;
+  readonly accent: string; // tie / emblem / trim
+  readonly boot: string;
+  readonly hand: string;
+  readonly stripes: boolean;
   readonly face: FaceStyle;
 }
 
-const DEFAULT_FACE: FaceStyle = { eye: '#2B2140', mouth: '#7A3044', blush: true };
+const FACE: FaceStyle = { eye: '#2B2140', mouth: '#7A3044', blush: true };
 
-export const LOOKS: Readonly<Record<SkinId, SkinLook>> = {
+export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
   kid: {
-    head: '#FFD9B8', headLight: '#FFF0E2', headShade: '#F0AF88', limb: '#FFD9B8',
-    shirt: '#FFD23F', shirtDark: '#EC9D00', pants: '#3A86FF', shoe: '#FF5E5B', face: DEFAULT_FACE,
+    skin: '#FFD9B8', skinLight: '#FFF0E2', skinShade: '#F0AF88', suit: '#2B3045', suitDark: '#171A26',
+    accent: '#FF3358', boot: '#12141C', hand: '#FFD9B8', stripes: false, face: FACE,
   },
   cat: {
-    head: '#FFAE52', headLight: '#FFD596', headShade: '#E07F24', limb: '#FFAE52',
-    shirt: '#5B8CFF', shirtDark: '#3760D6', pants: '#2E3B70', shoe: '#FFFFFF', face: DEFAULT_FACE,
+    skin: '#FFAE52', skinLight: '#FFD596', skinShade: '#E07F24', suit: '#2B3045', suitDark: '#171A26',
+    accent: '#FFD23F', boot: '#12141C', hand: '#FFAE52', stripes: false, face: FACE,
   },
   bunny: {
-    head: '#FFF3F7', headLight: '#FFFFFF', headShade: '#F1C3D4', limb: '#FFF3F7',
-    shirt: '#FF8FB8', shirtDark: '#E25E8F', pants: '#9B7BFF', shoe: '#FF5E8E', face: DEFAULT_FACE,
-  },
-  ninja: {
-    head: '#30345A', headLight: '#545A8C', headShade: '#1A1C34', limb: '#30345A',
-    shirt: '#30345A', shirtDark: '#1A1C34', pants: '#262947', shoe: '#15172B',
-    face: { eye: '#2B2140', mouth: null, blush: false },
+    skin: '#FFF3F7', skinLight: '#FFFFFF', skinShade: '#F1C3D4', suit: '#7B61FF', suitDark: '#5038C8',
+    accent: '#3DFFB4', boot: '#2B2140', hand: '#FFF3F7', stripes: false, face: FACE,
   },
   robot: {
-    head: '#D8E0EC', headLight: '#FFFFFF', headShade: '#8E9BB4', limb: '#AEB9CC',
-    shirt: '#C9D3E2', shirtDark: '#8592AC', pants: '#7D8AA5', shoe: '#4A5570',
+    skin: '#D8E0EC', skinLight: '#FFFFFF', skinShade: '#8E9BB4', suit: '#AEB9CC', suitDark: '#6E7A92',
+    accent: '#3BF4FF', boot: '#4A5570', hand: '#C9D3E2', stripes: false,
     face: { eye: '#5CF2FF', mouth: null, blush: false },
   },
+  ninja: {
+    skin: '#30345A', skinLight: '#545A8C', skinShade: '#1A1C34', suit: '#262A48', suitDark: '#14162A',
+    accent: '#E63946', boot: '#0E0F1C', hand: '#30345A', stripes: false,
+    face: { eye: '#2B2140', mouth: null, blush: false },
+  },
   astro: {
-    head: '#FFD9B8', headLight: '#FFF0E2', headShade: '#F0AF88', limb: '#F1F5FB',
-    shirt: '#F4F7FB', shirtDark: '#BCC7D8', pants: '#E2E8F2', shoe: '#FF8A3D', face: DEFAULT_FACE,
+    skin: '#FFD9B8', skinLight: '#FFF0E2', skinShade: '#F0AF88', suit: '#5F7A4C', suitDark: '#3C4E30',
+    accent: '#C9A24A', boot: '#2A2A22', hand: '#3C4E30', stripes: false, face: FACE,
+  },
+  prisoner: {
+    skin: '#FFD3B0', skinLight: '#FFEBDA', skinShade: '#EAA47E', suit: '#F2F2F4', suitDark: '#C9CCD6',
+    accent: '#2B2F3E', boot: '#5A4A3A', hand: '#FFD3B0', stripes: true, face: FACE,
   },
 };
 
-export function lookFor(id: SkinId): SkinLook {
+export function lookFor(id: LookId): AgentLook {
   return LOOKS[id] ?? LOOKS.kid;
-}
-
-/** Cat tail curling out from behind the hips (seen from above). */
-export function drawTail(ctx: Ctx, id: SkinId, t: number, air: boolean): void {
-  if (id !== 'cat') return;
-  const sw = Math.sin(t * (air ? 9 : 4)) * 3;
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = '#B86A1C';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(5, -10);
-  ctx.bezierCurveTo(16, -10, 20 + sw, -18, 15 + sw, -24);
-  ctx.stroke();
-  ctx.strokeStyle = '#FFAE52';
-  ctx.lineWidth = 4.2;
-  ctx.stroke();
 }

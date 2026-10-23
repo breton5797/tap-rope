@@ -1,6 +1,7 @@
 // Pooled particles, shockwave rings, text popups, screen shake and flash.
-import { type BurstKind, type EffectsApi, type PopupStyle } from '../types';
+import { GROUND_Y, PLAYER_X, type BurstKind, type EffectsApi, type PopupStyle } from '../types';
 import { drawPopups, PopupPool } from './popups';
+import { ZapPool } from './zaps';
 import { clamp, starPath, TAU, type Ctx } from './util';
 import type { View } from './view';
 
@@ -17,8 +18,10 @@ const CONFETTI = [C.red, C.gold, C.mint, C.blue, C.purple, C.pink];
 export class Effects implements EffectsApi {
   reduced = false;
   /** screen position of the player's feet, updated by the renderer */
-  anchorX = 180;
-  feetY = 454;
+  anchorX = PLAYER_X;
+  feetY = GROUND_Y;
+  /** px from the feet up to the body centre */
+  bodyLift = 34;
   private n = 0;
   private readonly px = new Float32Array(CAP);
   private readonly py = new Float32Array(CAP);
@@ -36,6 +39,7 @@ export class Effects implements EffectsApi {
   private readonly ringColor = new Uint8Array(RING_CAP);
   private ringNext = 0;
   private readonly popups = new PopupPool();
+  private readonly zaps = new ZapPool();
   private shakeAmp = 0;
   private clock = 0;
   private flashColor = '#FFFFFF';
@@ -44,7 +48,7 @@ export class Effects implements EffectsApi {
   burst(kind: BurstKind, x?: number, y?: number): void {
     const feetY = this.feetY;
     const bx = x ?? this.anchorX;
-    const by = y ?? (kind === 'dust' ? feetY : feetY - 26);
+    const by = y ?? (kind === 'dust' ? feetY : feetY - this.bodyLift);
     const k = this.reduced ? 0.4 : 1;
     switch (kind) {
       case 'dust': return this.dust(bx, by, k);
@@ -53,8 +57,9 @@ export class Effects implements EffectsApi {
         this.ringAt(bx, by, 26, C.gold);
         return this.radial(bx, by, Math.round(12 * k), Shape.Star, C.gold, C.amber, 70, 170, 0.55);
       case 'hit':
-        this.ringAt(bx, by, 40, C.red);
-        return this.radial(bx, by, Math.round(18 * k), Shape.Rect, C.red, C.white, 150, 320, 0.55, 700);
+        this.zaps.add(bx, by);
+        this.ringAt(bx, by, 40, C.cyan);
+        return this.radial(bx, by, Math.round(16 * k), Shape.Star, C.cyan, C.white, 140, 300, 0.45, 300);
       case 'powerup':
         this.ringAt(bx, by, 46, C.cyan);
         return this.radial(bx, by, Math.round(18 * k), Shape.Star, C.cyan, C.white, 60, 160, 0.9, -120);
@@ -69,7 +74,7 @@ export class Effects implements EffectsApi {
   }
 
   popup(text: string, style: PopupStyle): void {
-    this.popups.add(text, style, this.feetY - 50);
+    this.popups.add(text, style, this.feetY - 80);
   }
 
   shake(intensity: number): void {
@@ -92,6 +97,7 @@ export class Effects implements EffectsApi {
     this.popups.update(d);
     this.stepParticles(d);
     for (let i = 0; i < RING_CAP; i++) this.ring[i * 4 + 2] += d;
+    this.zaps.update(d);
   }
 
   shakeX(): number {
@@ -104,6 +110,7 @@ export class Effects implements EffectsApi {
 
   drawWorld(ctx: Ctx): void {
     this.drawRings(ctx);
+    this.zaps.draw(ctx);
     this.drawParticles(ctx);
     drawPopups(ctx, this.popups);
   }

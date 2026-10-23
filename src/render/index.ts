@@ -1,39 +1,33 @@
-// TAP ROPE canvas renderer (v2, oblique top-down camera). Public entry: createRenderer(canvas).
-import { LOGICAL_H, LOGICAL_W, type EffectsApi, type Renderer, type RenderSnapshot } from '../types';
-import { Background } from './background';
+// LASER ESCAPE canvas renderer (v4, side-scrolling corridor). Public entry: createRenderer(canvas).
+import { GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, type EffectsApi, type Renderer, type RenderSnapshot } from '../types';
+import { AgentPainter } from './agent';
+import { Corridor } from './corridor';
+import { AGENT_SCALE } from './layout';
+import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
 import { Effects } from './effects';
+import { EscortPainter } from './escort';
+import { drawGadgets } from './gadgets';
 import { drawLane } from './lane';
-import { drawObstacles, drawObstacleShadows } from './obstacles';
+import { drawLasers } from './lasers';
 import { Overlays } from './overlays';
-import { PlayerPainter } from './player';
-import { project } from './projection';
-import {
-  drawRopePass, handPos, isFront, ropePoint, RopeRig, ROPE_STYLES, setLongRig, setSoloRig, type RopeStyle,
-} from './rope';
 import { SpriteCache } from './sprites';
-import { drawTurnerHands, drawTurners } from './turners';
 import type { Ctx } from './util';
 import { computeView, type View } from './view';
-
-/** obstacles farther than this are drawn behind the back half of the rope */
-const ROPE_DEPTH = 70;
 
 class CanvasRenderer implements Renderer {
   private readonly ctx: Ctx;
   private view: View;
   private readonly sprites = new SpriteCache();
-  private readonly bg = new Background();
+  private readonly corridor = new Corridor();
+  private readonly darkness = new Darkness();
   private readonly effects = new Effects();
-  private readonly player = new PlayerPainter();
+  private readonly agent = new AgentPainter();
+  private readonly escort = new EscortPainter();
   private readonly overlays = new Overlays();
-  private readonly rigA = new RopeRig();
-  private readonly rigB = setLongRig(new RopeRig());
-  private readonly pt = new Float32Array(3);
-  private readonly hp = new Float32Array(3);
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) throw new Error('TAP ROPE renderer: 2D canvas context unavailable');
+    if (!ctx) throw new Error('LASER ESCAPE renderer: 2D canvas context unavailable');
     this.ctx = ctx;
     this.view = computeView(canvas.clientWidth || LOGICAL_W, canvas.clientHeight || LOGICAL_H, 1);
     this.applyView();
@@ -51,18 +45,16 @@ class CanvasRenderer implements Renderer {
   render(snap: RenderSnapshot): void {
     const { ctx, view: v, effects: fx } = this;
     fx.reduced = snap.reducedMotion;
+    fx.anchorX = PLAYER_X;
+    fx.feetY = GROUND_Y - snap.player.height;
+    fx.bodyLift = snap.player.sliding ? 14 : 34;
     const k = v.k;
     const tx = v.ox * v.dpr;
     const ty = v.oy * v.dpr;
     ctx.setTransform(k, 0, 0, k, tx + fx.shakeX() * k, ty + fx.shakeY() * k);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    const variant = snap.variant ?? 'base';
-    this.bg.draw(ctx, v, snap.world, variant, snap.realTime, this.sprites, snap.reducedMotion);
-    this.drawStage(ctx, snap);
-    this.bg.overlay(ctx, v, snap.world, variant, snap.realTime, snap.reducedMotion);
-    fx.anchorX = this.player.feetX;
-    fx.feetY = this.player.feetY;
+    this.drawWorld(ctx, v, snap);
     fx.drawWorld(ctx);
     if (snap.fever) this.overlays.fever(ctx, v, snap.realTime, snap.reducedMotion);
     if (snap.slowMo) this.overlays.slowMo(ctx, v, snap.realTime);
@@ -71,60 +63,30 @@ class CanvasRenderer implements Renderer {
     fx.drawFlash(ctx, v);
   }
 
-  private setupRigs(snap: RenderSnapshot): void {
-    const p = snap.player;
-    if (snap.rope.mode === 'solo') {
-      setSoloRig(this.rigA, p.laneX, p.height, p.backward, p.cross);
-      this.rigA.floor = 0;
-      for (let i = 0; i < 2; i++) {
-        handPos(this.rigA, snap.rope.phaseA, i === 0 ? -1 : 1, this.hp);
-        project(this.hp[0], this.hp[1], this.hp[2], this.pt);
-        this.player.hands[i * 2] = this.pt[0];
-        this.player.hands[i * 2 + 1] = this.pt[1];
-      }
-    } else {
-      setLongRig(this.rigA);
-      this.player.hands[0] = Number.NaN;
-    }
-  }
-
-  private ropes(ctx: Ctx, snap: RenderSnapshot, front: boolean, a: RopeStyle, b: RopeStyle): void {
-    const { rope } = snap;
+  private drawWorld(ctx: Ctx, v: View, snap: RenderSnapshot): void {
     const t = snap.realTime;
-    const solo = rope.mode === 'solo';
-    if (!solo && rope.phaseB !== null) {
-      drawRopePass(ctx, this.rigB, rope.phaseB, rope.speed, front, b, snap.fever, t, snap.reducedMotion);
-    }
-    drawRopePass(ctx, this.rigA, rope.phaseA, rope.speed, front, a, snap.fever, t, snap.reducedMotion);
+    const variant = snap.variant ?? 'base';
+    const reduced = snap.reducedMotion;
+    this.corridor.draw(ctx, v, snap.world, variant, snap.scroll);
+    if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
+    if (variant === 'steam') steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced);
+    if (variant === 'dark') this.darkness.draw(ctx, v, snap.player.height);
+    drawLasers(ctx, v, snap.obstacles, t, snap.fever, this.sprites);
+    drawGadgets(ctx, snap.obstacles, t, this.sprites);
+    if (snap.escort) this.escort.draw(ctx, snap.player, t, snap.scroll, snap.running);
+    this.drawAgent(ctx, snap, variant === 'dark');
+    if (variant === 'steam') fog(ctx, v, snap.scroll, t, this.sprites);
+    if (variant === 'alarm') alarmWash(ctx, v, reduced ? 0 : t);
   }
 
-  private drawStage(ctx: Ctx, snap: RenderSnapshot): void {
-    const t = snap.realTime;
+  private drawAgent(ctx: Ctx, snap: RenderSnapshot, torch: boolean): void {
     const p = snap.player;
-    const long = snap.rope.mode === 'long' && snap.showTurners;
-    const solo = snap.rope.mode === 'solo';
-    const showRope = long || solo;
-    const [a, b] = ROPE_STYLES[snap.world] ?? ROPE_STYLES[0];
-    this.setupRigs(snap);
-    drawObstacleShadows(ctx, snap.obstacles);
-    this.player.drawShadow(ctx, p.laneX, p.height);
-    drawObstacles(ctx, snap.obstacles, ROPE_DEPTH, Number.POSITIVE_INFINITY, t, this.sprites);
-    if (long) drawTurners(ctx, snap.rope.phaseA, t, p.height);
-    if (showRope) this.ropes(ctx, snap, false, a, b);
-    drawObstacles(ctx, snap.obstacles, 0, ROPE_DEPTH, t, this.sprites);
-    this.player.draw(ctx, snap);
-    if (showRope) this.ropes(ctx, snap, true, a, b);
-    if (long) drawTurnerHands(ctx, snap.rope.phaseA);
-    if (solo && p.cross) this.player.drawCrossX(ctx, a.main, a.dark);
-    if (solo) this.player.drawHandsOver(ctx, snap.skin);
-    if (showRope && snap.fever && !snap.reducedMotion) this.feverTrail(snap.rope.phaseA);
-    drawObstacles(ctx, snap.obstacles, Number.NEGATIVE_INFINITY, 0, t, this.sprites);
-  }
-
-  private feverTrail(phase: number): void {
-    if (!isFront(phase, this.rigA.sign) && Math.random() < 0.5) return;
-    ropePoint(this.rigA, phase, 0.1 + Math.random() * 0.8, this.pt);
-    this.effects.sparkleAt(this.pt[0], this.pt[1]);
+    this.agent.shadow(ctx, PLAYER_X, p.height, p.sliding, AGENT_SCALE);
+    this.agent.draw(ctx, {
+      x: PLAYER_X, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
+      running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE,
+    });
+    if (snap.shield) this.overlays.shield(ctx, PLAYER_X, GROUND_Y - p.height - (p.sliding ? 18 : 34), snap.realTime);
   }
 
   private applyView(): void {

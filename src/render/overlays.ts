@@ -1,9 +1,12 @@
 // Full-screen mood overlays: fever hue pulse + edge glow + speed lines, slow-mo blue vignette.
 // Vignettes are smooth, so they are pre-rendered once per view at low resolution and
 // stretched — a single drawImage instead of a per-frame full-screen gradient.
-import { HORIZON_Y, NEAR_Y } from './projection';
-import { makeCanvas, seeded, type Ctx } from './util';
+import { GROUND_Y } from '../types';
+import { circle, makeCanvas, seeded, type Ctx } from './util';
 import type { View } from './view';
+
+const HORIZON_Y = 150;
+const NEAR_Y = GROUND_Y;
 
 const LINES = 16;
 const VIGNETTE_RES = 0.25; // device px per logical px for the vignette bitmaps
@@ -66,6 +69,23 @@ export class Overlays {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  /** Glowing shield bubble around the agent. */
+  shield(ctx: Ctx, x: number, y: number, t: number): void {
+    const r = 33 + Math.sin(t * 4) * 1.2;
+    ctx.fillStyle = 'rgba(90,200,255,0.16)';
+    circle(ctx, x, y, r);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(150,235,255,0.85)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(x, y, r - 5, Math.PI * 1.1 + Math.sin(t) * 0.1, Math.PI * 1.35 + Math.sin(t) * 0.1);
+    ctx.stroke();
   }
 
   slowMo(ctx: Ctx, v: View, t: number): void {
