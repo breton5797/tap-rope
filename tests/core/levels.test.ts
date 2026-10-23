@@ -282,6 +282,33 @@ describe('endlessStage', () => {
   });
 });
 
+describe('designed theme × variant looks', () => {
+  const DESIGNED: Readonly<Record<number, readonly string[]>> = {
+    0: ['base', 'night', 'autumn', 'rainbow'], 1: ['base', 'night'], 2: ['base', 'rain'], 3: ['base', 'eclipse'],
+  };
+  const ok = (s: StageDef) => DESIGNED[s.world].includes(s.variant);
+
+  it('endless chunks only use designed pairs, never the moon', () => {
+    for (let c = 0; c < 64; c++) {
+      const s = endlessStage(c, 7);
+      expect(ok(s), `${s.id} ${s.world}/${s.variant}`).toBe(true);
+      expect(s.world).not.toBe(3);
+    }
+  });
+
+  it('daily dates only use designed pairs (one of the 10 chapters)', () => {
+    const start = Date.UTC(2026, 0, 1);
+    for (let d = 0; d < 400; d++) {
+      const s = dailyStage(new Date(start + d * 86400000).toISOString().slice(0, 10));
+      expect(ok(s), `${s.id} ${s.world}/${s.variant}`).toBe(true);
+    }
+  });
+
+  it('campaign stages only use designed pairs', () => {
+    for (const s of STAGES) expect(ok(s), s.id).toBe(true);
+  });
+});
+
 describe('dailyStage', () => {
   it('is deterministic per date and picks the rope mode by seed', () => {
     const a = dailyStage('2026-10-23');
