@@ -1,0 +1,175 @@
+// In-game HUD. updateHud runs every frame, so every write is diffed first.
+import type { HudState } from '../types';
+import { animate, formatNumber, h, swallowInput, type Ctx } from './dom';
+import { icons } from './icons';
+import { moveGlyph, ROPE_MODE_LABEL } from './moves';
+
+export interface Hud {
+  readonly el: HTMLElement;
+  update(s: HudState): void;
+  reset(): void;
+}
+
+interface Refs {
+  readonly hearts: HTMLElement;
+  readonly title: HTMLElement;
+  readonly score: HTMLElement;
+  readonly coins: HTMLElement;
+  readonly progress: HTMLElement;
+  readonly feverBar: HTMLElement;
+  readonly feverFill: HTMLElement;
+  readonly feverLabel: HTMLElement;
+  readonly combo: HTMLElement;
+  readonly comboNum: HTMLElement;
+  readonly shield: HTMLElement;
+  readonly slow: HTMLElement;
+  readonly mode: HTMLElement;
+  readonly back: HTMLElement;
+}
+
+type Prev = { -readonly [K in keyof HudState]?: HudState[K] };
+
+const POP: KeyframeAnimationOptions = { duration: 260, easing: 'cubic-bezier(.2,1.6,.4,1)' };
+
+function statusChip(cls: string, icon: SVGElement, label: string): HTMLElement {
+  return h('div', { cls: `status ${cls}` }, [icon, h('span', { text: label })]);
+}
+
+function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
+  const pause = h('button', { cls: 'hud__pause', attrs: { type: 'button', 'aria-label': '일시정지' } }, [icons.pause()]);
+  swallowInput(pause);
+  pause.addEventListener('click', () => {
+    ctx.cb.onUiClick();
+    ctx.cb.onPause();
+  });
+  const refs: Refs = {
+    hearts: h('div', { cls: 'hud__hearts', attrs: { 'aria-label': '하트' } }),
+    title: h('div', { cls: 'hud__title' }),
+    score: h('div', { cls: 'hud__score', text: '0' }),
+    coins: h('span', { cls: 'chip__value', text: '0' }),
+    progress: h('div', { cls: 'bar__fill' }),
+    feverBar: h('div', { cls: 'bar bar--fever' }),
+    feverFill: h('div', { cls: 'bar__fill' }),
+    feverLabel: h('span', { cls: 'bar__label', text: 'FEVER' }),
+    combo: h('div', { cls: 'combo', attrs: { 'aria-live': 'polite' } }),
+    comboNum: h('span', { cls: 'combo__num' }),
+    shield: statusChip('status--shield', icons.shield(), '실드'),
+    slow: statusChip('status--slow', icons.clock(), '슬로우'),
+    mode: h('span', { cls: 'hud__mode' }),
+    back: statusChip('status--back', moveGlyph('back'), '뒤로'),
+  };
+  refs.feverBar.append(refs.feverFill, refs.feverLabel, icons.fire());
+  refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'COMBO' }));
+  const el = h('div', { cls: 'hud' }, [
+    h('div', { cls: 'hud__top' }, [
+      pause,
+      h('div', { cls: 'hud__center' }, [refs.title, refs.score]),
+      h('div', { cls: 'chip chip--coin chip--sm' }, [icons.coin(), refs.coins]),
+    ]),
+    h('div', { cls: 'hud__mid' }, [
+      h('div', { cls: 'hud__left' }, [refs.hearts, refs.mode]),
+      h('div', { cls: 'hud__status' }, [refs.back, refs.shield, refs.slow]),
+    ]),
+    h('div', { cls: 'hud__bars' }, [h('div', { cls: 'bar bar--progress' }, [refs.progress]), refs.feverBar]),
+    refs.combo,
+  ]);
+  return { el, refs };
+}
+
+function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduced: boolean): void {
+  if (prev.maxHearts !== max) {
+    refs.hearts.replaceChildren(...Array.from({ length: max }, () => h('span', { cls: 'heart' }, [icons.heart()])));
+  }
+  const nodes = Array.from(refs.hearts.children);
+  nodes.forEach((node, i) => {
+    const full = i < hearts;
+    const wasFull = prev.hearts === undefined ? full : i < prev.hearts;
+    node.classList.toggle('is-empty', !full);
+    if (wasFull === full || prev.hearts === undefined) return;
+    const frames = full
+      ? [{ transform: 'scale(.4)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }]
+      : [{ transform: 'scale(1.5) rotate(-12deg)', filter: 'brightness(2)' }, { transform: 'scale(.9)' }, { transform: 'scale(1)' }];
+    animate(node, frames, { duration: 420, easing: 'cubic-bezier(.2,1.4,.4,1)' }, reduced);
+  });
+  refs.hearts.setAttribute('aria-label', `하트 ${hearts}/${max}`);
+}
+
+function renderCombo(refs: Refs, combo: number, prev: number | undefined, reduced: boolean): void {
+  const visible = combo >= 3;
+  refs.combo.classList.toggle('is-visible', visible);
+  if (!visible) return;
+  refs.comboNum.textContent = String(combo);
+  const tier = combo >= 50 ? 3 : combo >= 25 ? 2 : combo >= 10 ? 1 : 0;
+  refs.combo.dataset.tier = String(tier);
+  if (prev !== undefined && combo > prev) {
+    animate(refs.combo, [{ transform: 'scale(1.4)' }, { transform: 'scale(1)' }], POP, reduced);
+  }
+}
+
+function renderFever(refs: Refs, s: HudState, prev: Prev): void {
+  const g = Math.round(Math.max(0, Math.min(1, s.feverGauge)) * 200) / 200;
+  if (prev.feverGauge !== g) refs.feverFill.style.transform = `scaleX(${g})`;
+  if (prev.fever !== s.fever) {
+    refs.feverBar.classList.toggle('is-fever', s.fever);
+    refs.feverLabel.textContent = s.fever ? 'FEVER ×2' : 'FEVER';
+  }
+  const wasFull = !prev.fever && (prev.feverGauge ?? 0) >= 1;
+  const full = !s.fever && g >= 1;
+  if (wasFull !== full || prev.feverGauge === undefined) refs.feverBar.classList.toggle('is-full', full);
+}
+
+/** "7-3 · 이름" renders the stage number as a small badge. */
+function renderTitle(el: HTMLElement, title: string): void {
+  const m = /^(\d+-\d+) · (.*)$/.exec(title);
+  el.replaceChildren(...(m ? [h('span', { cls: 'hud__no', text: m[1] }), m[2]] : [title]));
+}
+
+function renderValues(refs: Refs, s: HudState, prev: Prev, reduced: boolean): void {
+  if (prev.title !== s.title) renderTitle(refs.title, s.title);
+  if (prev.score !== s.score) {
+    refs.score.textContent = formatNumber(s.score);
+    if (prev.score !== undefined && s.score > prev.score) {
+      animate(refs.score, [{ transform: 'scale(1.22)' }, { transform: 'scale(1)' }], POP, reduced);
+    }
+  }
+  if (prev.coins !== s.coins) {
+    refs.coins.textContent = formatNumber(s.coins);
+    if (prev.coins !== undefined) animate(refs.coins, [{ transform: 'translateY(-6px) scale(1.3)' }, { transform: 'none' }], POP, reduced);
+  }
+  const p = Math.round(Math.max(0, Math.min(1, s.progress)) * 400) / 400;
+  if (prev.progress !== p) refs.progress.style.transform = `scaleX(${p})`;
+  if (prev.shield !== s.shield) refs.shield.classList.toggle('is-on', s.shield);
+  if (prev.slowMo !== s.slowMo) refs.slow.classList.toggle('is-on', s.slowMo);
+  if (prev.ropeMode !== s.ropeMode) {
+    refs.mode.textContent = ROPE_MODE_LABEL[s.ropeMode] ?? '';
+    refs.mode.dataset.mode = s.ropeMode;
+  }
+  if (prev.backward !== s.backward) {
+    refs.back.classList.toggle('is-on', s.backward);
+    if (prev.backward !== undefined) animate(refs.back, [{ transform: 'rotate(-20deg) scale(1.3)' }, { transform: 'none' }], POP, reduced);
+  }
+}
+
+export function createHud(ctx: Ctx): Hud {
+  const { el, refs } = buildDom(ctx);
+  let prev: Prev = {};
+  return {
+    el,
+    update(s: HudState): void {
+      const reduced = ctx.reducedMotion();
+      if (prev.hearts !== s.hearts || prev.maxHearts !== s.maxHearts) renderHearts(refs, s.hearts, s.maxHearts, prev, reduced);
+      if (prev.combo !== s.combo) renderCombo(refs, s.combo, prev.combo, reduced);
+      renderValues(refs, s, prev, reduced);
+      renderFever(refs, s, prev);
+      prev = {
+        ...s,
+        progress: Math.round(Math.max(0, Math.min(1, s.progress)) * 400) / 400,
+        feverGauge: Math.round(Math.max(0, Math.min(1, s.feverGauge)) * 200) / 200,
+      };
+    },
+    reset(): void {
+      prev = {};
+      refs.combo.classList.remove('is-visible');
+    },
+  };
+}

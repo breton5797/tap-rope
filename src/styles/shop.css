@@ -1,0 +1,223 @@
+/* Shop and settings screens. */
+.shop__hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px 14px 14px;
+  margin-bottom: 16px;
+  border-radius: 28px;
+}
+
+.shop__stage {
+  position: relative;
+  flex: none;
+  width: 108px;
+  height: 108px;
+  border-radius: 24px;
+  background: radial-gradient(circle at 50% 35%, #ffffff 0%, #e9e4ff 70%);
+  box-shadow: inset 0 -6px 0 rgba(123, 92, 255, 0.12);
+}
+
+.shop__stage .avatar {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  animation: idle-hop 1.3s ease-in-out infinite;
+}
+
+@keyframes idle-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.06, 0.94); }
+  50% { transform: translateY(-12px) scale(0.97, 1.03); }
+}
+
+.shop__kicker {
+  color: var(--ink-faint);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.shop__name {
+  margin-top: 2px;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.shop__count {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--violet-deep);
+  font-size: 14px;
+  background: #ece7ff;
+}
+
+.shop__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.skin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 14px;
+  border-radius: 26px;
+  animation: pop-in 0.45s var(--ease-pop) both;
+}
+
+.skin:nth-child(2) { animation-delay: 0.04s; }
+.skin:nth-child(3) { animation-delay: 0.08s; }
+.skin:nth-child(4) { animation-delay: 0.12s; }
+.skin:nth-child(5) { animation-delay: 0.16s; }
+.skin:nth-child(6) { animation-delay: 0.2s; }
+
+.skin.is-selected {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 3px var(--mint), var(--shadow-card);
+}
+
+.skin__art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.skin__art .avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+}
+
+.skin.is-locked .skin__art .avatar {
+  filter: saturate(0.75) brightness(0.96);
+}
+
+.skin__lock {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 16px;
+  background: rgba(24, 14, 72, 0.6);
+}
+
+.skin__name {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.skin .btn {
+  width: 100%;
+}
+
+.skin__state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 40px;
+  border-radius: 14px;
+  color: var(--mint-deep);
+  font-size: 17px;
+  background: #dcfaef;
+}
+
+.shop__hint {
+  margin-top: 18px;
+  color: rgba(255, 255, 255, 0.82);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  word-break: keep-all;
+}
+
+/* ---------- settings ---------- */
+.settings {
+  padding: 4px 18px;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(36, 29, 92, 0.08);
+}
+
+.setting:last-child {
+  border-bottom: 0;
+}
+
+.setting__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  color: #fff;
+  font-size: 22px;
+  background: linear-gradient(160deg, var(--t1), var(--t2));
+  box-shadow: 0 4px 0 var(--t3);
+}
+
+.tone--sun { --t1: #ffd84a; --t2: #ffae2b; --t3: #dc7414; }
+.tone--pink { --t1: #ff8cc0; --t2: #ff4f93; --t3: #c42466; }
+.tone--sky { --t1: #7fd0ff; --t2: #359dff; --t3: #1a6ccc; }
+.tone--violet { --t1: #b29bff; --t2: #7b5cff; --t3: #4f33c9; }
+.tone--mint { --t1: #6ff0c9; --t2: #1fcf9c; --t3: #0d9a72; }
+
+.setting__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting__label {
+  font-size: 20px;
+}
+
+.setting__desc {
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  word-break: keep-all;
+}
+
+.credits {
+  margin-top: 28px;
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.credits__logo {
+  margin-bottom: 6px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 26px;
+}
+
+.credits__small {
+  margin-top: 4px;
+  opacity: 0.6;
+}
