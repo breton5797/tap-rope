@@ -2,7 +2,7 @@
 // Vignettes are smooth, so they are pre-rendered once per view at low resolution and
 // stretched — a single drawImage instead of a per-frame full-screen gradient.
 import { GROUND_Y } from '../types';
-import { circle, makeCanvas, seeded, type Ctx } from './util';
+import { circle, makeCanvas, releaseCanvas, seeded, type Ctx } from './util';
 import type { View } from './view';
 
 const HORIZON_Y = 150;
@@ -100,6 +100,8 @@ export class Overlays {
   private ensure(v: View): void {
     if (this.key === v.key) return;
     this.key = v.key;
+    releaseCanvas(this.slow);
+    releaseCanvas(this.edge);
     this.slow = vignette(v, 0.35, [[0, 'rgba(40,90,220,0)'], [1, 'rgba(40,80,220,0.42)']]);
     this.edge = vignette(v, 0.45, [[0, 'rgba(255,80,200,0)'], [0.6, 'rgba(255,140,60,0.2)'], [1, 'rgba(255,60,200,0.6)']]);
   }

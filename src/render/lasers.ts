@@ -14,8 +14,8 @@ export const JUMP_RED = '#FF3358';
 export const SLIDE_CYAN = '#2EE6FF';
 const HUES: string[] = [];
 for (let i = 0; i < 36; i++) HUES.push(`hsl(${i * 10},100%,62%)`);
-/** bolt sprite colours: 0 red, 1 cyan, 2.. fever hues */
-const BOLT_COLORS: readonly string[] = [JUMP_RED, SLIDE_CYAN, ...HUES];
+/** bolt sprite colours: 0 red, 1 cyan, 2.. 12 fever hues (every 3rd of HUES, keeps the sprite cache small) */
+const BOLT_COLORS: readonly string[] = [JUMP_RED, SLIDE_CYAN, ...HUES.filter((_, i) => i % 3 === 0)];
 const BOLT_KEYS = BOLT_COLORS.map((_, i) => `bolt${i}`);
 
 /** Beam body fading from the bright head (x=0) to nothing at BEAM_LEN. */
@@ -44,7 +44,7 @@ function boltSprite(ctx: Ctx, idx: number): void {
 }
 
 function colorIndex(o: VisibleObstacle, fever: boolean, t: number, k: number): number {
-  if (fever) return 2 + ((Math.floor(t * 30) + k * 5) % 36);
+  if (fever) return 2 + ((Math.floor(t * 10) + k * 2) % 12);
   return o.kind === 'high' || o.kind === 'ceiling' ? 1 : 0;
 }
 

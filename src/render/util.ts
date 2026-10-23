@@ -92,6 +92,13 @@ export function radGrad(ctx: Ctx, x: number, y: number, r0: number, r1: number, 
   return g;
 }
 
+/** Drop a canvas's backing store now (WebKit keeps it until GC otherwise). */
+export function releaseCanvas(c: HTMLCanvasElement | null): void {
+  if (!c) return;
+  c.width = 0;
+  c.height = 0;
+}
+
 export interface Surface {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: Ctx;

@@ -6,7 +6,7 @@ import { CEIL_Y } from './layout';
 import { CEIL_BOT, VENT_X } from './plane';
 import { PLANE_W } from './themes';
 import { blitScaled, type SpriteCache } from './sprites';
-import { circle, makeCanvas, radGrad, roundRect, type Ctx } from './util';
+import { circle, makeCanvas, radGrad, releaseCanvas, roundRect, type Ctx } from './util';
 import type { View } from './view';
 
 /** siren x positions inside a plane tile (scroll 1:1) */
@@ -107,6 +107,7 @@ export class Darkness {
 
   draw(ctx: Ctx, v: View, agentHeight: number): void {
     if (this.key !== v.key || !this.mask) {
+      releaseCanvas(this.mask);
       this.mask = this.build(v);
       this.key = v.key;
     }

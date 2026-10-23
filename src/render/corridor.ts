@@ -8,12 +8,16 @@ import { CEIL_Y } from './layout';
 import { drawCeiling, drawFloor, CEIL_BOT, CEIL_TOP, FLOOR_BOT, FLOOR_TOP } from './plane';
 import { drawWall, PLANE_W, themeOf, WALL_VARIANTS, WALL_W } from './themes';
 import { drawTop, TOP_VARIANTS, TOP_Y, topFx } from './top-band';
-import { makeCanvas, type Ctx } from './util';
+import { makeCanvas, releaseCanvas, type Ctx } from './util';
 import type { View } from './view';
 
 export const WALL_PARALLAX = 0.55;
 /** the dim band above the ceiling is rendered at reduced resolution */
 const TOP_RES = 0.65;
+/** corridor tiles bake at most at this device-pixel ratio (memory: iOS Safari canvas limits) */
+const MAX_TILE_DPR = 2;
+/** …and never denser than this many device px per logical px (big iPads) */
+const MAX_TILE_K = 2.6;
 const TOP_SALT = 11;
 
 const GRADE: Readonly<Record<Variant, string | null>> = {
@@ -41,7 +45,7 @@ function tileHash(i: number, salt: number): number {
 }
 
 function bake(v: View, w: number, y: number, h: number, res: number, draw: (ctx: Ctx) => void, grade: string | null): HTMLCanvasElement {
-  const k = v.k * res;
+  const k = Math.min(v.s * Math.min(v.dpr, MAX_TILE_DPR), MAX_TILE_K) * res;
   const { canvas, ctx } = makeCanvas(w * k, h * k);
   ctx.setTransform(k, 0, 0, k, 0, -y * k);
   draw(ctx);
@@ -82,7 +86,14 @@ export class Corridor {
     }
   }
 
+  /** Free every cached tile (only the current theme × variant × view is ever kept). */
+  private release(): void {
+    for (const l of this.layers) for (const c of l.canvases) releaseCanvas(c);
+    this.layers = [];
+  }
+
   private build(v: View, world: WorldId, variant: Variant): void {
+    this.release();
     const th = themeOf(world);
     const grade = GRADE[variant] ?? null;
     const tops: HTMLCanvasElement[] = [];
