@@ -7,9 +7,11 @@
 import type { Beat, Swipe } from '../types';
 import type { Session } from './session';
 
-/** first tap this long before a jump beat; air taps follow every BOOST_GAP */
+/** first tap this long before a 1-level jump beat; air taps follow every BOOST_GAP.
+ * Multi-level jumps start earlier so the taps keep a human cadence (~10 taps/s). */
 const LEAD = 0.2;
-const BOOST_GAP = 0.08;
+const BOOST_GAP = 0.1;
+const leadFor = (level: number): number => LEAD + (level - 1) * BOOST_GAP;
 /** a slide starts this long before a slide beat (it lasts slideTime, ≈0.55s) */
 const SLIDE_LEAD = 0.3;
 
@@ -51,9 +53,11 @@ function slidePlan(s: Session, until: number): BotAction | null {
 
 function jumpPlan(s: Session, b: Beat, until: number): BotAction | null {
   const p = s.player;
-  if (p.grounded || p.sliding) return until <= LEAD && until > 0 ? { swipe: null } : null;
-  if (p.level >= wantedLevel(b) || until <= 0) return null;
-  return until <= LEAD - p.level * BOOST_GAP ? { swipe: null } : null;
+  const want = wantedLevel(b);
+  const lead = leadFor(want);
+  if (p.grounded || p.sliding) return until <= lead && until > 0 ? { swipe: null } : null;
+  if (p.level >= want || until <= 0) return null;
+  return until <= lead - p.level * BOOST_GAP ? { swipe: null } : null;
 }
 
 /** Returns the touch to perform this frame, or null. */
