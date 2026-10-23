@@ -104,7 +104,7 @@ const SCENES: Readonly<Record<MoveId, Scene>> = {
   },
   rear: {
     lift: 16, x: 50, at: [68, 16], taps: 1, warnTint: true,
-    layers: () => [...beams(1, true), svg('path', { d: 'M4 30 L10 20 L16 30z', fill: '#ffc53d', class: 'tut__blink' }), svg('rect', { x: 9.2, y: 23, width: 1.6, height: 4, fill: '#1d2238' })],
+    layers: () => [...beams(1, true), svg('path', { d: 'M4 30 L10 20 L16 30z', fill: '#ffc53d', class: 'tut__warn-pulse' }), svg('rect', { x: 9.2, y: 23, width: 1.6, height: 4, fill: '#1d2238' })],
   },
   gate: { lift: 18, x: 30, at: [16, 16], taps: 1, warnTint: true, layers: () => [...floorLaser(58), drone(58, 16)] },
   pulse: {

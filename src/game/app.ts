@@ -251,6 +251,7 @@ export function startApp(): void {
       if (session.score.feverTime > 0) audio.setFever(true);
       goTimer = window.setTimeout(() => ui.showCountdown(null), 550);
     } else if (after !== before && after <= 3) {
+      if (after === 3) ui.showBriefing(null); // the briefing had its own read time; 3-2-1 gets the stage
       ui.showCountdown(after);
       audio.sfx('count', after);
     }
