@@ -118,8 +118,14 @@ function renderFever(refs: Refs, s: HudState, prev: Prev): void {
   if (wasFull !== full || prev.feverGauge === undefined) refs.feverBar.classList.toggle('is-full', full);
 }
 
+/** "7-3 · 이름" renders the stage number as a small badge. */
+function renderTitle(el: HTMLElement, title: string): void {
+  const m = /^(\d+-\d+) · (.*)$/.exec(title);
+  el.replaceChildren(...(m ? [h('span', { cls: 'hud__no', text: m[1] }), m[2]] : [title]));
+}
+
 function renderValues(refs: Refs, s: HudState, prev: Prev, reduced: boolean): void {
-  if (prev.title !== s.title) refs.title.textContent = s.title;
+  if (prev.title !== s.title) renderTitle(refs.title, s.title);
   if (prev.score !== s.score) {
     refs.score.textContent = formatNumber(s.score);
     if (prev.score !== undefined && s.score > prev.score) {

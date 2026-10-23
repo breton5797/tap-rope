@@ -223,3 +223,47 @@
   85% { opacity: 1; }
   to { transform: translate3d(var(--drift), 105vh, 0) rotate(var(--spin)); opacity: 0; }
 }
+
+/* ---------- chapter clear (boss) ---------- */
+.chapter-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 2px;
+}
+
+.chapter-clear__ribbon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 22px;
+  color: #5e2a00;
+  font-size: 19px;
+  background: linear-gradient(180deg, #ffe46b, #ffb02e);
+  clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%);
+  filter: drop-shadow(0 3px 0 #dc7414);
+  animation: ribbon-in 0.6s var(--ease-pop) 0.9s both;
+}
+
+.chapter-clear__ribbon .ico {
+  font-size: 20px;
+  color: #c2410c;
+}
+
+.chapter-clear__line {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: var(--mint-deep);
+  font-size: 14px;
+  background: #dcfaef;
+  animation: pop-in 0.5s var(--ease-pop) 1.2s both;
+}
+
+.chapter-clear__line .ico {
+  font-size: 15px;
+}

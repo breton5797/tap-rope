@@ -1,158 +1,4 @@
-/* Stage select: world tabs, hero card and the winding stage trail. */
-.tab--w0, .world--w0 { --w-a: #56c8ff; --w-b: #3fd18a; --w-ink: #0f6a4a; }
-.tab--w1, .world--w1 { --w-a: #ffb45a; --w-b: #ff5d8f; --w-ink: #b02a5a; }
-.tab--w2, .world--w2 { --w-a: #9b5cff; --w-b: #ff3fd0; --w-ink: #5a1fb0; }
-.tab--w3, .world--w3 { --w-a: #33449e; --w-b: #0e1440; --w-ink: #1b2470; }
-
-.screen--stages,
-.screen--shop,
-.screen--settings {
-  background: linear-gradient(180deg, rgba(22, 14, 64, 0.35) 0%, rgba(22, 14, 64, 0.7) 100%);
-}
-
-.tabs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.tab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 58px;
-  border-radius: 18px;
-  color: #fff;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1.5px solid rgba(255, 255, 255, 0.24);
-  transition: transform 0.25s var(--ease-pop), background 0.2s;
-}
-
-.tab:active {
-  transform: scale(0.94);
-}
-
-.tab__num {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  font-size: 13px;
-  background: linear-gradient(135deg, var(--w-a), var(--w-b));
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
-}
-
-.tab.is-active {
-  color: var(--ink);
-  background: #fff;
-  border-color: #fff;
-  transform: translateY(-2px);
-  box-shadow: 0 5px 0 var(--w-b), 0 14px 20px -10px rgba(0, 0, 0, 0.5);
-}
-
-.tab__name {
-  white-space: nowrap;
-}
-
-.world {
-  animation: screen-in 0.4s var(--ease-out) both;
-}
-
-.world__hero {
-  position: relative;
-  overflow: hidden;
-  min-height: 124px;
-  padding: 18px 20px;
-  border-radius: 28px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--w-a), var(--w-b));
-  border: 1.5px solid rgba(255, 255, 255, 0.45);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 20px 36px -16px rgba(0, 0, 0, 0.6);
-}
-
-.world__deco {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.world--w0 .world__deco {
-  background:
-    radial-gradient(circle at 86% 26%, #fff6a8 0 20px, rgba(255, 246, 168, 0.35) 21px 32px, transparent 33px),
-    radial-gradient(120px 60px at 80% 118%, #2fbf6e 98%, transparent 100%),
-    radial-gradient(150px 70px at 104% 112%, #25a85e 98%, transparent 100%);
-}
-
-.world--w1 .world__deco {
-  background:
-    radial-gradient(circle at 84% 100%, #ffe58a 0 34px, rgba(255, 229, 138, 0.35) 35px 52px, transparent 53px),
-    repeating-linear-gradient(180deg, transparent 0 86px, rgba(255, 255, 255, 0.25) 86px 89px, transparent 89px 100px);
-}
-
-.world--w2 .world__deco {
-  background:
-    linear-gradient(180deg, transparent 55%, rgba(255, 255, 255, 0.08) 55%),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 2px, transparent 2px 28px),
-    radial-gradient(circle at 84% 34%, #ffe1ff 0 3px, transparent 4px);
-  mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
-  -webkit-mask-image: linear-gradient(90deg, transparent 30%, #000 70%);
-}
-
-.world--w3 .world__deco {
-  background:
-    radial-gradient(circle at 82% 40%, #f2f0ff 0 22px, #c9c4ea 23px 26px, transparent 27px),
-    radial-gradient(circle at 60% 20%, #fff 0 1.5px, transparent 2px),
-    radial-gradient(circle at 70% 75%, #fff 0 1.2px, transparent 2px),
-    radial-gradient(circle at 92% 82%, #fff 0 1.6px, transparent 2px),
-    radial-gradient(circle at 50% 60%, #fff 0 1px, transparent 2px);
-}
-
-.world__kicker {
-  position: relative;
-  font-size: 13px;
-  letter-spacing: 0.22em;
-  opacity: 0.85;
-}
-
-.world__name {
-  position: relative;
-  margin-top: 4px;
-  font-size: 34px;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.16);
-}
-
-.world__sub {
-  position: relative;
-  margin-top: 4px;
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 700;
-  opacity: 0.92;
-}
-
-.world__stars {
-  position: relative;
-  margin-top: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px 5px 7px;
-  border-radius: 999px;
-  font-size: 15px;
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.world__stars .ico {
-  color: var(--sun);
-  font-size: 18px;
-}
-
-/* ---------- trail ---------- */
+/* Stage trail and nodes (normal / bonus / boss). */
 .trail {
   position: relative;
   margin: 40px 0 48px;
@@ -363,4 +209,75 @@
   font-size: 12px;
   background: rgba(255, 255, 255, 0.22);
   box-shadow: none;
+}
+
+/* ---------- bonus / boss ---------- */
+.node__kind {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 2px 7px;
+  border-radius: 7px;
+  font-size: 12px;
+  vertical-align: 2px;
+  text-shadow: none;
+}
+
+.node__kind--bonus {
+  color: #5e2a00;
+  background: linear-gradient(180deg, #ffe46b, #ffb02e);
+}
+
+.node__kind--boss {
+  color: #fff;
+  letter-spacing: 0.08em;
+  background: linear-gradient(180deg, #ff6b7a, #c4234a);
+}
+
+.node__disc--bonus {
+  font-size: 34px;
+  color: #fff;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.6) 0 14%, transparent 15%), linear-gradient(160deg, #ffe066, #ff9a1f);
+  border-color: #ffd23f;
+  box-shadow: 0 0 0 3px #fff, 0 6px 0 3px rgba(20, 10, 60, 0.3), 0 0 22px 4px rgba(255, 210, 63, 0.55);
+}
+
+.node__disc--bonus .ico {
+  filter: drop-shadow(0 2px 0 #c96a00);
+}
+
+.node--boss {
+  z-index: 1;
+}
+
+.node__disc--boss {
+  width: 104px;
+  height: 104px;
+  margin-top: -14px;
+  font-size: 46px;
+  background: radial-gradient(circle at 35% 26%, rgba(255, 255, 255, 0.45) 0 12%, transparent 13%), linear-gradient(160deg, #ff5d6c, #7b1fa2);
+  border-width: 5px;
+  box-shadow: 0 7px 0 rgba(20, 10, 60, 0.4), 0 0 0 6px rgba(255, 93, 108, 0.25), 0 18px 30px -10px rgba(0, 0, 0, 0.7);
+}
+
+.node__crown {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  font-size: 38px;
+  color: #ffd23f;
+  transform: translateX(-50%) rotate(-6deg);
+  filter: drop-shadow(0 3px 0 #b5640a) drop-shadow(0 0 10px rgba(255, 210, 63, 0.7));
+  animation: bob 1.8s ease-in-out infinite;
+}
+
+.node__disc--boss.is-locked .node__crown {
+  color: #c9c4e6;
+  filter: drop-shadow(0 3px 0 #8f8aba);
+}
+
+.node__disc.is-locked.node__disc--bonus,
+.node__disc.is-locked.node__disc--boss {
+  background: linear-gradient(180deg, #d6d2ee, #a39ecd);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 6px 0 rgba(20, 10, 60, 0.35);
 }

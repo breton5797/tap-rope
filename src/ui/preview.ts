@@ -32,21 +32,25 @@ const base = defaultSave();
 const save: SaveData = {
   ...base,
   coins: 1280,
-  stars: { 'w1-s1': 3, 'w1-s2': 2, 'w1-s3': 3, 'w1-s4': 1 },
-  bestScores: { 'w1-s1': 12450, 'w1-s2': 9800, 'w1-s3': 15320, 'w1-s4': 7400, endless: 23810 },
+  // chapters 1-2 cleared, chapter 3 up to stage 6
+  stars: Object.fromEntries(
+    Array.from({ length: 26 }, (_, i) => [`w${Math.floor(i / 10) + 1}-s${(i % 10) + 1}`, (i * 7) % 3 + 1]),
+  ),
+  bestScores: { 'w1-s1': 12450, 'w1-s2': 9800, 'w1-s3': 15320, 'w1-s4': 7400, 'w3-s5': 21800, endless: 23810 },
   ownedSkins: ['kid', 'cat', 'robot'],
   skin: 'cat',
 };
 
 const hud: HudState = {
   hearts: 2, maxHearts: 3, score: 12340, combo: 14, progress: 0.46, feverGauge: 0.72,
-  fever: screen === 'fever', shield: true, slowMo: screen === 'fever', title: '1-3 줄넘기 계단', coins: 12,
+  fever: screen === 'fever', shield: true, slowMo: screen === 'fever', title: '7-3 · 밤바다 산책', coins: 12,
   ropeMode: screen === 'back' || params.get('mode') === 'solo' ? 'solo' : 'long', backward: screen === 'back',
 };
 
 const result: ResultInfo = {
-  mode: screen === 'endless' ? 'endless' : 'stage', stageId: 'w1-s3', title: screen === 'endless' ? '엔드리스' : '1-3 줄넘기 계단',
-  cleared: screen === 'result', stars: screen === 'result' ? 2 : 0, score: 15320, best: 14800,
+  mode: screen === 'endless' ? 'endless' : 'stage', stageId: screen === 'boss' ? 'w7-s10' : 'w1-s3',
+  title: screen === 'endless' ? '엔드리스' : screen === 'boss' ? '7-10 · 밤바다의 왕' : '1-3 줄넘기 계단',
+  cleared: screen === 'result' || screen === 'boss', stars: screen === 'result' ? 2 : screen === 'boss' ? 3 : 0, score: 15320, best: 14800,
   newRecord: screen !== 'fail', perfects: 32, goods: 11, misses: 2, maxCombo: 27, coinsEarned: 24, hasNext: true,
 };
 
@@ -63,7 +67,13 @@ const ui = createUi(document.getElementById('ui') as HTMLElement, cb);
 
 const show: Record<string, () => void> = {
   title: () => ui.showTitle(save),
-  stages: () => ui.showStageSelect(save),
+  stages: () => {
+    ui.showStageSelect(save);
+    const c = params.get('chapter');
+    if (c) document.querySelectorAll<HTMLButtonElement>('.chap')[Number(c) - 1]?.click();
+    const y = Number(params.get('scroll') ?? 0);
+    if (y) setTimeout(() => document.querySelector('.screen--stages .scroll')?.scrollTo(0, y), 50);
+  },
   shop: () => ui.showShop(save),
   settings: () => ui.showSettings(save),
   hud: () => (ui.showHud(), ui.updateHud(hud)),
@@ -71,6 +81,7 @@ const show: Record<string, () => void> = {
   pause: () => (ui.showHud(), ui.updateHud(hud), ui.showPause()),
   result: () => ui.showResult(result),
   fail: () => ui.showResult(result),
+  boss: () => ui.showResult(result),
   endless: () => ui.showResult(result),
   tutorial: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0 }), ui.showTutorial((params.get('move') ?? 'double') as MoveId)),
   countdown: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0 }), ui.showCountdown(Number(params.get('n') ?? 3))),

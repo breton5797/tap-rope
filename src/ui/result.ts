@@ -1,4 +1,5 @@
 // Result screen: stars, score count-up, record ribbon, stats and confetti.
+import { STAGES } from '../core/content';
 import type { ResultInfo } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
@@ -62,7 +63,20 @@ function headline(r: ResultInfo): { kicker: string; title: string; tone: string 
   }
   return r.cleared
     ? { kicker: r.title, title: 'STAGE CLEAR!', tone: 'win' }
-    : { kicker: 'GAME OVER', title: '아쉬워요!', tone: 'lose' };
+    : { kicker: r.title, title: '아쉬워요!', tone: 'lose' };
+}
+
+/** Banner shown after beating a chapter's boss stage. */
+function chapterClear(r: ResultInfo): HTMLElement | null {
+  const stage = STAGES.find((s) => s.id === r.stageId);
+  if (r.mode !== 'stage' || !r.cleared || stage?.kind !== 'boss') return null;
+  return h('div', { cls: 'chapter-clear' }, [
+    h('span', { cls: 'chapter-clear__ribbon' }, [icons.crown(), h('span', { text: '챕터 클리어!' })]),
+    h('span', { cls: 'chapter-clear__line' }, [
+      r.hasNext ? icons.unlock() : icons.star(),
+      h('span', { text: r.hasNext ? `다음 월드 열림 · WORLD ${stage.chapter + 2}` : '모든 월드 클리어! 최고예요!' }),
+    ]),
+  ]);
 }
 
 function actions(ctx: Ctx, r: ResultInfo): HTMLElement {
@@ -96,6 +110,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
   const card = h('div', { cls: `result card pop-in result--${head.tone}` }, [
     h('div', { cls: 'result__kicker', text: head.kicker }),
     h('h2', { cls: 'result__title', text: head.title }),
+    chapterClear(r),
     r.mode === 'stage' ? stars(r.stars) : h('div', { cls: 'result__trophy' }, [icons.infinity()]),
     h('div', { cls: 'result__scorebox' }, [
       r.newRecord ? h('div', { cls: 'ribbon', text: 'NEW RECORD' }) : null,

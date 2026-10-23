@@ -49,6 +49,26 @@ export const icons = {
       ['path', { d: 'M4 5.2c2.6-1 5.3-.9 8 .6v14c-2.7-1.5-5.4-1.6-8-.6z', fill: 'currentColor', opacity: 0.55 }],
       ['path', { d: 'M20 5.2c-2.6-1-5.3-.9-8 .6v14c2.7-1.5 5.4-1.6 8-.6z', fill: 'currentColor' }],
     ]),
+  gift: (): SVGElement =>
+    icon([
+      ['rect', { x: 3.5, y: 10, width: 17, height: 11, rx: 2.5, fill: 'currentColor' }],
+      ['rect', { x: 2.5, y: 7, width: 19, height: 4.5, rx: 1.8, fill: 'currentColor', opacity: 0.8 }],
+      ['rect', { x: 10.6, y: 7, width: 2.8, height: 14, fill: '#fff', opacity: 0.85 }],
+      ['path', { d: 'M12 7c-1.5-3.2-5.6-3.9-5.6-1.4C6.4 7.2 9.6 7 12 7zm0 0c1.5-3.2 5.6-3.9 5.6-1.4C17.6 7.2 14.4 7 12 7z', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8 }],
+    ]),
+  crown: (): SVGElement =>
+    icon([
+      ['path', { d: 'M3 8.5l4.6 3.6L12 5l4.4 7.1L21 8.5l-1.8 10H4.8z', fill: 'currentColor', 'stroke-linejoin': 'round' }],
+      ['circle', { cx: 3, cy: 8, r: 1.6, fill: 'currentColor' }],
+      ['circle', { cx: 12, cy: 4.6, r: 1.6, fill: 'currentColor' }],
+      ['circle', { cx: 21, cy: 8, r: 1.6, fill: 'currentColor' }],
+      ['rect', { x: 4.8, y: 19.5, width: 14.4, height: 2, rx: 1, fill: 'currentColor' }],
+    ]),
+  unlock: (): SVGElement =>
+    icon([
+      ['path', { ...STROKE, d: 'M7.5 10.5V8a4.5 4.5 0 018.6-1.9' }],
+      ['rect', { x: 4.5, y: 10, width: 15, height: 11, rx: 3.5, fill: 'currentColor' }],
+    ]),
   next: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3, d: 'M9.5 5l7 7-7 7' }]]),
   retry: (): SVGElement =>
     icon([
