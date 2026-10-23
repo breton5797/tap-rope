@@ -77,23 +77,23 @@ export function steamPuffs(ctx: Ctx, v: View, scroll: number, t: number, sprites
   forEachTileX(v, scroll, VENT_X, (x) => {
     for (let k = 0; k < n; k++) {
       const f = (t * 0.7 + k / n + x * 0.003) % 1;
-      const s = 0.25 + f * 1.1;
-      ctx.globalAlpha = (1 - f) * 0.55;
-      blitScaled(ctx, sp, x + Math.sin(t * 2 + k) * 6 + f * 10, GROUND_Y + 8 - f * 150, s, s);
+      const s = 0.3 + f * 1.4;
+      ctx.globalAlpha = (1 - f) * 0.8;
+      blitScaled(ctx, sp, x + Math.sin(t * 2 + k) * 8 + f * 14, GROUND_Y + 8 - f * 190, s, s);
     }
   });
   ctx.globalAlpha = 1;
 }
 
 /** Low drifting fog bank over the floor (drawn over the stage). */
-export function fog(ctx: Ctx, v: View, scroll: number, t: number, sprites: SpriteCache): void {
+export function fog(ctx: Ctx, v: View, scroll: number, t: number, sprites: SpriteCache, alpha: number): void {
   const sp = sprites.get('puff', 62, 62, 31, 31, puffSprite);
   const span = v.w + 160;
   for (let i = 0; i < 9; i++) {
     const x = v.x0 - 80 + ((i * 97 - scroll * 0.8 + t * 12) % span + span) % span;
     const y = GROUND_Y - 6 - (i % 3) * 14;
-    ctx.globalAlpha = 0.22;
-    blitScaled(ctx, sp, x, y, 3.2, 1.2);
+    ctx.globalAlpha = alpha;
+    blitScaled(ctx, sp, x, y, 3.4, 1.4);
   }
   ctx.globalAlpha = 1;
 }

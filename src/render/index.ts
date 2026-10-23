@@ -67,15 +67,18 @@ class CanvasRenderer implements Renderer {
     const t = snap.realTime;
     const variant = snap.variant ?? 'base';
     const reduced = snap.reducedMotion;
-    this.corridor.draw(ctx, v, snap.world, variant, snap.scroll);
+    this.corridor.draw(ctx, v, snap.world, variant, snap.scroll, t);
     if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
-    if (variant === 'steam') steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced);
+    if (variant === 'steam') {
+      fog(ctx, v, snap.scroll, t, this.sprites, 0.34);
+      steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced);
+    }
     if (variant === 'dark') this.darkness.draw(ctx, v, snap.player.height);
-    drawLasers(ctx, v, snap.obstacles, t, snap.fever, this.sprites);
+    drawLasers(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced);
     drawGadgets(ctx, snap.obstacles, t, this.sprites);
-    if (snap.escort) this.escort.draw(ctx, snap.player, t, snap.scroll, snap.running);
+    if (snap.escort) this.escort.draw(ctx, snap.player, t, snap.time, snap.scroll, snap.running);
     this.drawAgent(ctx, snap, variant === 'dark');
-    if (variant === 'steam') fog(ctx, v, snap.scroll, t, this.sprites);
+    if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.12);
     if (variant === 'alarm') alarmWash(ctx, v, reduced ? 0 : t);
   }
 
@@ -84,7 +87,7 @@ class CanvasRenderer implements Renderer {
     this.agent.shadow(ctx, PLAYER_X, p.height, p.sliding, AGENT_SCALE);
     this.agent.draw(ctx, {
       x: PLAYER_X, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
-      running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE,
+      running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE, yOff: 0,
     });
     if (snap.shield) this.overlays.shield(ctx, PLAYER_X, GROUND_Y - p.height - (p.sliding ? 18 : 34), snap.realTime);
   }

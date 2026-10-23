@@ -111,7 +111,13 @@ function sparks(ctx: Ctx, x: number, y: number, color: string, t: number, seed: 
 }
 
 /** Floor (from bottom) and ceiling (from top) laser fences. */
-function fence(ctx: Ctx, o: VisibleObstacle, t: number, fever: boolean): void {
+/** Blink for status lights: hard 4Hz normally, a gentle 1Hz pulse with reduced motion. */
+function blinkLevel(t: number, hz: number, reduced: boolean): number {
+  if (reduced) return 0.75 + 0.25 * Math.sin(t * Math.PI * 2);
+  return (t * hz) % 1 < 0.5 ? 1 : 0.3;
+}
+
+function fence(ctx: Ctx, o: VisibleObstacle, t: number, fever: boolean, reduced: boolean): void {
   const x = fixedX(o.timeUntil);
   const seed = seedOf(o.id);
   const floor = o.kind === 'floor';
@@ -121,14 +127,14 @@ function fence(ctx: Ctx, o: VisibleObstacle, t: number, fever: boolean): void {
   const tu = o.timeUntil;
   const on = tu <= ARM_TIME && tu > -0.3;
   const charge = tu > ARM_TIME && tu <= CHARGE_TIME ? 1 - (tu - ARM_TIME) / (CHARGE_TIME - ARM_TIME) : on ? 1 : 0;
-  const blink = (t * 4) % 1 < 0.5 ? 1 : 0.3;
+  const blink = blinkLevel(t, 4, reduced);
   emitterPod(ctx, x, baseY, floor ? 1 : -1, color, Math.max(charge, blink * 0.4));
   if (!on) {
     if (charge > 0) sparks(ctx, x, baseY - (floor ? 9 : -9), color, t, seed);
     return;
   }
   const grow = clamp((ARM_TIME - tu) / 0.07, 0, 1);
-  const a = flicker(t, seed) * (tu < 0 ? clamp(1 + tu / 0.3, 0, 1) : 1);
+  const a = (reduced ? 1 : flicker(t, seed)) * (tu < 0 ? clamp(1 + tu / 0.3, 0, 1) : 1);
   const start = baseY - (floor ? 8 : -8);
   const end = start + (tipY - start) * grow;
   for (const dx of [-8, 0, 8]) beam(ctx, x + dx, start, x + dx, end, color, a);
@@ -147,15 +153,20 @@ function heightsOf(o: VisibleObstacle): readonly number[] {
 }
 
 /** Blinking arrow on the screen edge where a flying beam will enter. */
-function warning(ctx: Ctx, v: View, o: VisibleObstacle, t: number, fever: boolean): void {
+function warning(ctx: Ctx, v: View, o: VisibleObstacle, t: number, fever: boolean, reduced: boolean): void {
   const back = o.from === 'back';
   const x = back ? v.x0 + 12 : v.x0 + v.w - 12;
-  const blink = (t * 6) % 1 < 0.55;
+  const pulse = reduced ? blinkLevel(t, 1, true) : (t * 6) % 1 < 0.55 ? 1 : 0.35;
   const urgency = clamp(1 - (o.timeUntil - ENTER_TIME) / 1.1, 0.3, 1);
+  if (o.kind === 'high') {
+    ctx.globalAlpha = 0.18 * pulse * urgency;
+    ctx.fillStyle = SLIDE_CYAN;
+    ctx.fillRect(back ? v.x0 : x - 2, CEIL_BOT, 14, floorY(HIGH_H) - CEIL_BOT);
+  }
   heightsOf(o).forEach((h, k) => {
     const y = floorY(h);
     const color = colorFor(o, fever, t, k);
-    ctx.globalAlpha = (blink ? 1 : 0.35) * urgency;
+    ctx.globalAlpha = pulse * urgency;
     ctx.fillStyle = color;
     ctx.beginPath();
     const d = back ? 1 : -1;
@@ -170,19 +181,20 @@ function warning(ctx: Ctx, v: View, o: VisibleObstacle, t: number, fever: boolea
   ctx.globalAlpha = 1;
 }
 
-function flying(ctx: Ctx, v: View, o: VisibleObstacle, t: number, fever: boolean, sprites: SpriteCache): void {
+function flying(ctx: Ctx, v: View, o: VisibleObstacle, t: number, fever: boolean, sprites: SpriteCache, reduced: boolean): void {
   const from: LaserFrom = o.from === 'back' ? 'back' : 'front';
   if (o.timeUntil > ENTER_TIME) {
-    warning(ctx, v, o, t, fever);
+    warning(ctx, v, o, t, fever, reduced);
     return;
   }
   const head = flyingX(from, o.timeUntil, v);
   const dir = from === 'back' ? -1 : 1;
   const seed = seedOf(o.id);
+  if (o.kind === 'high') curtain(ctx, head, dir, sprites);
   heightsOf(o).forEach((h, k) => {
     const y = floorY(h);
     const ci = colorIndex(o, fever, t, k);
-    ctx.globalAlpha = flicker(t, seed + k);
+    ctx.globalAlpha = reduced ? 1 : flicker(t, seed + k);
     ctx.save();
     ctx.translate(head, y);
     ctx.scale(dir, 1);
@@ -199,10 +211,53 @@ function flying(ctx: Ctx, v: View, o: VisibleObstacle, t: number, fever: boolean
   });
 }
 
+/** Head-height lasers carry a cyan grid curtain up to the ceiling: no jump can clear them. */
+const CURTAIN_H = floorY(HIGH_H) - CEIL_BOT;
+
+function curtainSprite(ctx: Ctx): void {
+  const g = ctx.createLinearGradient(0, 0, BEAM_LEN, 0);
+  g.addColorStop(0, 'rgba(30,200,240,0.42)');
+  g.addColorStop(1, 'rgba(46,230,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, -CURTAIN_H, BEAM_LEN, CURTAIN_H);
+  const lg = ctx.createLinearGradient(0, 0, BEAM_LEN, 0);
+  lg.addColorStop(0, 'rgba(40,215,255,0.95)');
+  lg.addColorStop(1, 'rgba(160,248,255,0)');
+  ctx.strokeStyle = lg;
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  for (let x = 0; x <= BEAM_LEN; x += 10) {
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, -CURTAIN_H);
+  }
+  for (let y = -26; y > -CURTAIN_H; y -= 26) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(BEAM_LEN, y);
+  }
+  ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, -CURTAIN_H);
+  ctx.lineTo(BEAM_LEN, -CURTAIN_H);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, -CURTAIN_H);
+  ctx.stroke();
+}
+
+function curtain(ctx: Ctx, head: number, dir: number, sprites: SpriteCache): void {
+  ctx.save();
+  ctx.translate(head, floorY(HIGH_H));
+  ctx.scale(dir, 1);
+  blit(ctx, sprites.get('curtain', BEAM_LEN + 10, CURTAIN_H + 8, 5, CURTAIN_H + 4, curtainSprite), 0, 0);
+  ctx.restore();
+}
+
 /** All laser hazards (not drones / pickups). */
-export function drawLasers(ctx: Ctx, v: View, obs: readonly VisibleObstacle[], t: number, fever: boolean, sprites: SpriteCache): void {
+export function drawLasers(
+  ctx: Ctx, v: View, obs: readonly VisibleObstacle[], t: number, fever: boolean, sprites: SpriteCache, reduced: boolean,
+): void {
   for (const o of obs) {
-    if (o.kind === 'floor' || o.kind === 'ceiling') fence(ctx, o, t, fever);
-    else if (o.kind === 'beam' || o.kind === 'high') flying(ctx, v, o, t, fever, sprites);
+    if (o.kind === 'floor' || o.kind === 'ceiling') fence(ctx, o, t, fever, reduced);
+    else if (o.kind === 'beam' || o.kind === 'high') flying(ctx, v, o, t, fever, sprites, reduced);
   }
 }

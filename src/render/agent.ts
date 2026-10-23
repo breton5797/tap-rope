@@ -22,6 +22,8 @@ export interface AgentFrame {
   readonly blink: boolean;
   readonly torch: boolean;
   readonly scale: number;
+  /** small upward offset = further back (escort depth) */
+  readonly yOff: number;
 }
 
 function limb(ctx: Ctx, color: string, x0: number, y0: number, cx: number, cy: number, x1: number, y1: number, w: number): void {
@@ -122,7 +124,7 @@ export class AgentPainter {
     this.prevLevel = p.level;
     const L = lookFor(f.id);
     ctx.save();
-    ctx.translate(f.x, GROUND_Y - p.height);
+    ctx.translate(f.x, GROUND_Y - p.height - f.yOff);
     ctx.scale(f.scale, f.scale);
     if (f.blink && Math.sin(t * 30) > 0) ctx.globalAlpha = 0.35;
     if (f.mood === 'hurt') ctx.translate(Math.sin(t * 70) * 1.5, 0);
@@ -185,29 +187,44 @@ export class AgentPainter {
     if (dive) this.streaks(ctx, t);
   }
 
+  /** Low, long slide: legs out front, torso leaning far back, head tucked close, one arm back. */
   private slide(ctx: Ctx, f: AgentFrame, L: AgentLook): void {
     const { t } = f;
     this.dust(ctx, f.p.slideAge, t);
-    const hipX = -2;
-    const hipY = -7;
-    limb(ctx, L.suitDark, hipX, hipY, 6, -5, 13, -2, 5);
-    boot(ctx, L, 13, -2, 0);
-    limb(ctx, L.suit, hipX, hipY, 9, -8, 18, -3, 5);
-    boot(ctx, L, 18, -3, 0);
-    limb(ctx, L.suit, -10, -14, -16, -8, -22, -2, 4.4);
-    hand(ctx, L, -22, -2);
+    this.speedLines(ctx, t);
+    limb(ctx, L.suitDark, -12, -11, -26, -6, -38, -2, 4.2);
+    hand(ctx, L, -38, -2);
+    limb(ctx, L.suitDark, 2, -6, 10, -3, 18, -2, 5);
+    boot(ctx, L, 18, -2, 0);
     ctx.save();
-    ctx.translate(hipX, hipY);
-    ctx.rotate(-0.95);
+    ctx.translate(2, -6);
+    ctx.rotate(-1.25);
     ctx.translate(0, 12);
     torso(ctx, f.id, L);
     ctx.restore();
-    limb(ctx, L.suit, -8, -16, 0, -22, 8, -20, 4.4);
-    hand(ctx, L, 8, -20);
+    limb(ctx, L.suit, 2, -6, 12, -7, 23, -5, 5);
+    boot(ctx, L, 23, -5, -0.15);
+    limb(ctx, L.suit, -10, -13, -1, -9, 10, -10, 4.4);
+    hand(ctx, L, 10, -10);
     ctx.save();
-    ctx.translate(-23, 22);
+    ctx.translate(-18, 19);
     this.head(ctx, f, 1);
     ctx.restore();
+  }
+
+  private speedLines(ctx: Ctx, t: number): void {
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const o = (t * 260 + i * 23) % 40;
+      const x = -40 - o;
+      const y = -8 - i * 9;
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 14 - i * 4, y);
+    }
+    ctx.stroke();
   }
 
   private arms(ctx: Ctx, f: AgentFrame, L: AgentLook, bx: number, by: number, fx: number, fy: number): void {
@@ -232,11 +249,11 @@ export class AgentPainter {
   }
 
   private dust(ctx: Ctx, age: number, t: number): void {
-    ctx.fillStyle = 'rgba(220,214,230,0.55)';
+    ctx.fillStyle = 'rgba(220,214,230,0.5)';
     for (let i = 0; i < 6; i++) {
       const k = (t * 3 + i / 6) % 1;
       ctx.globalAlpha = (1 - k) * 0.6 * clamp(age * 6, 0, 1);
-      circle(ctx, -10 - k * 40, -1 - k * 3 - (i % 2) * 2, 2 + k * 4);
+      circle(ctx, -30 - k * 40, -1 - k * 3 - (i % 2) * 2, 2 + k * 4);
       ctx.fill();
     }
     ctx.globalAlpha = 1;

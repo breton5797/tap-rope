@@ -13,15 +13,15 @@ export const BEAM_H: readonly number[] = [16, 40, 64];
 export const HIGH_H = 56;
 /** ceiling lasers stop just above a sliding agent */
 export const CEIL_LASER_END = 46;
-/** floor lasers rise to knee height */
-export const FLOOR_LASER_H = 40;
+/** floor lasers rise to CLEAR_H (core physics): clearing the fence == passing the judge */
+export const FLOOR_LASER_H = 24;
 /** a flying beam enters the screen this long before it reaches the agent */
 export const ENTER_TIME = 0.9;
 /** floor/ceiling emitters switch on this long before arrival */
 export const ARM_TIME = 0.6;
 export const CHARGE_TIME = 1.0;
 export const BEAM_LEN = 120;
-export const ESCORT_DX = -54;
+export const ESCORT_DX = -68;
 /** agent drawing scale (art is authored ~58px tall) */
 export const AGENT_SCALE = 1.25;
 

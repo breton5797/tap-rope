@@ -1,32 +1,64 @@
-// The rescued prisoner running behind the agent. It replays the agent's moves with a
-// short delay (ring buffer of recent player states), so jumps and slides ripple back.
+// The rescued prisoner running behind the agent. It replays the agent's moves DELAY seconds
+// late (timestamped ring buffer), so jumps and slides ripple back. The buffer is cleared
+// whenever a new run starts or the escort (re)appears, so no stale moves leak across runs.
 import { PLAYER_X, type PlayerState } from '../types';
 import { AgentPainter } from './agent';
 import { ESCORT_DX } from './layout';
 import type { Ctx } from './util';
 
-const DELAY_FRAMES = 9;
-const ESCORT_SCALE = 1.12;
+const DELAY = 0.15;
+const CAP = 64;
+/** a gap longer than this between frames means the escort was hidden / a new run began */
+const GAP_RESET = 0.5;
+const ESCORT_SCALE = 1.0;
+/** drawn a touch higher = a step further back in the corridor */
+const DEPTH = 4;
 
 export class EscortPainter {
   private readonly painter = new AgentPainter();
-  private readonly buf: (PlayerState | null)[] = new Array(DELAY_FRAMES).fill(null);
+  private readonly times = new Float64Array(CAP);
+  private readonly states: (PlayerState | null)[] = new Array(CAP).fill(null);
   private head = 0;
+  private count = 0;
+  private lastReal = Number.NEGATIVE_INFINITY;
+  private lastStage = Number.NEGATIVE_INFINITY;
 
-  /** Record this frame's agent state; returns the delayed state for the escort. */
-  private delayed(p: PlayerState): PlayerState {
-    this.buf[this.head] = p;
-    this.head = (this.head + 1) % DELAY_FRAMES;
-    return this.buf[this.head] ?? p;
+  reset(): void {
+    this.states.fill(null);
+    this.head = 0;
+    this.count = 0;
   }
 
-  draw(ctx: Ctx, p: PlayerState, t: number, scroll: number, running: boolean): void {
-    const q = this.delayed(p);
+  /** Record this frame's agent state; returns the state from DELAY seconds ago. */
+  private delayed(p: PlayerState, now: number): PlayerState {
+    this.times[this.head] = now;
+    this.states[this.head] = p;
+    this.head = (this.head + 1) % CAP;
+    this.count = Math.min(CAP, this.count + 1);
+    let best: PlayerState | null = null;
+    for (let i = 1; i <= this.count; i++) {
+      const idx = (this.head - i + CAP) % CAP;
+      if (this.times[idx] <= now - DELAY) {
+        best = this.states[idx];
+        break;
+      }
+      best = this.states[idx];
+    }
+    return best ?? p;
+  }
+
+  draw(ctx: Ctx, p: PlayerState, realTime: number, stageTime: number, scroll: number, running: boolean): void {
+    if (realTime - this.lastReal > GAP_RESET || stageTime < this.lastStage - 1e-3) this.reset();
+    this.lastReal = realTime;
+    this.lastStage = stageTime;
+    const q = this.delayed(p, realTime);
     const x = PLAYER_X + ESCORT_DX;
-    this.painter.shadow(ctx, x, q.height, q.sliding, ESCORT_SCALE);
+    ctx.globalAlpha = 0.93;
+    this.painter.shadow(ctx, x, q.height + DEPTH, q.sliding, ESCORT_SCALE);
     this.painter.draw(ctx, {
-      x, id: 'prisoner', p: q, mood: running ? 'happy' : 'idle', t: t + 0.37, scroll: scroll - 23, running,
-      blink: false, torch: false, scale: ESCORT_SCALE,
+      x, id: 'prisoner', p: q, mood: running ? 'happy' : 'idle', t: realTime + 0.37, scroll: scroll - 23, running,
+      blink: false, torch: false, scale: ESCORT_SCALE, yOff: DEPTH,
     });
+    ctx.globalAlpha = 1;
   }
 }
