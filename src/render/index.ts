@@ -67,7 +67,8 @@ class CanvasRenderer implements Renderer {
     const t = snap.realTime;
     const variant = snap.variant ?? 'base';
     const reduced = snap.reducedMotion;
-    this.corridor.draw(ctx, v, snap.world, variant, snap.scroll, t);
+    // reduced motion freezes decorative corridor animation (top-band fans, status LEDs)
+    this.corridor.draw(ctx, v, snap.world, variant, snap.scroll, reduced ? 0 : t);
     if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
     if (variant === 'steam') {
       fog(ctx, v, snap.scroll, t, this.sprites, 0.34);

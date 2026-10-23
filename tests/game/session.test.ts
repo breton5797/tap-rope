@@ -249,7 +249,7 @@ describe('session rules', () => {
     let s = slide(advance(withBeats([ceilingBeat(0, 0.5)]), 0.2)).session;
     s = advance(s, 0.2); // 0.1s before the ceiling laser
     const tapped = tap(s);
-    expect(tapped.events).toEqual([{ type: 'tap', action: 'none', level: 0 }]);
+    expect(tapped.events).toEqual([{ type: 'tap', action: 'none', level: 0, keptSlide: true }]);
     expect(tapped.session.player.sliding).toBe(true);
     expect(runIdle(tapped.session, 0.5).s.hearts).toBe(MAX_HEARTS);
     // with no slide laser close, the same tap cancels the slide into a jump

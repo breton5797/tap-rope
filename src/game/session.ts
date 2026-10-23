@@ -60,7 +60,11 @@ export interface Session {
 }
 
 export type GameEvent =
-  | { readonly type: 'tap'; readonly action: 'jump' | 'boost' | 'buffered' | 'none'; readonly level: number }
+  | {
+    readonly type: 'tap'; readonly action: 'jump' | 'boost' | 'buffered' | 'none'; readonly level: number;
+    /** true when a tap during a slide was held back because a slide laser is about to arrive */
+    readonly keptSlide?: boolean;
+  }
   | { readonly type: 'move'; readonly action: 'slide' | 'dive' | 'none' }
   | { readonly type: 'land' }
   | { readonly type: 'judge'; readonly result: JudgeResult; readonly shielded: boolean }
@@ -108,7 +112,7 @@ export function tap(s: Session): StepOutput {
   if (s.status !== 'playing') return { session: s, events: [] };
   const next = s.beats[s.cursor];
   if (s.player.sliding && next?.needsSlide && next.time - s.time < SLIDE_KEEP) {
-    return { session: s, events: [{ type: 'tap', action: 'none', level: 0 }] };
+    return { session: s, events: [{ type: 'tap', action: 'none', level: 0, keptSlide: true }] };
   }
   const { player, action } = tapPlayer(s.player, s.cfg);
   return { session: { ...s, player }, events: [{ type: 'tap', action, level: player.level }] };

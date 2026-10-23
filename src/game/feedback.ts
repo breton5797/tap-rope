@@ -28,6 +28,10 @@ const PICKUP_TEXT: Partial<Record<ObstacleKind, string>> = {
 };
 
 function onTap(d: FeedbackDeps, e: Extract<GameEvent, { type: 'tap' }>): void {
+  if (e.action === 'none' && e.keptSlide) {
+    d.haptics.vibrate(6); // the tap was read as the start of a ↓ swipe: keep sliding
+    return;
+  }
   if (e.action === 'jump') {
     d.audio.sfx('jump', 1);
     d.haptics.vibrate(8);

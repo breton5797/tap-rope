@@ -114,6 +114,13 @@ describe('feedback', () => {
     expect(d.haptics.vibrate).toHaveBeenLastCalledWith([40, 30, 70]);
   });
 
+  it('a tap held back to keep a slide gives a light haptic cue and nothing else', () => {
+    const d = mocks();
+    playFeedback(d, [{ type: 'tap', action: 'none', level: 0, keptSlide: true }]);
+    expect(d.haptics.vibrate).toHaveBeenCalledWith(6);
+    expect(d.audio.sfx).not.toHaveBeenCalled();
+  });
+
   it('taps, moves, pickups, fever, combo and end events', () => {
     const d = mocks();
     playFeedback(d, [
