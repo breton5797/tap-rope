@@ -1,148 +1,60 @@
 /**
- * Time → render state helpers.
- * - ropeState: rope phase is piecewise-linear between "passes" (moments the rope
- *   sweeps under the player), so phase ≡ 0 (mod 2π) exactly at each pass.
- *   Multi-under beats spin L times (passes 0.12s apart); Double-Dutch sections
- *   alternate passes between rope A (even) and rope B (odd).
- * - visibleObstacles: approaching hurdles/rings/balls/birds/pickups in world space
- *   (lane, z ahead of the player, height); the renderer projects them.
- * - laneItems: rhythm-lane preview entries with the move badge and ball lanes.
+ * Time → render state helpers (GDD v4 §1, §8).
+ * - visibleObstacles: every obstacle from VISIBLE_LEAD seconds before its beat (edge warnings
+ *   start then) until 0.4s after it passed, with its direction and float height.
+ * - laneItems: rhythm-lane preview entries with the move badge and the main laser direction.
  */
-import type { Beat, Lane, LaneItem, RopeMode, RopeState, VisibleObstacle } from '../types';
-import { LANE_LEAD, SCROLL_SPEED } from '../types';
+import type { Beat, LaneItem, LaserFrom, Obstacle, ObstacleKind, VisibleObstacle } from '../types';
+import { HAZARD_KINDS, LANE_LEAD, VISIBLE_LEAD } from '../types';
 import { moveForBeat } from './moves';
 
 export { moveForBeat } from './moves';
 
-const TAU = Math.PI * 2;
-const IDLE_PERIOD = 1.2;
-const MULTI_SPACING = 0.12;
-const DD_LEAD = 1;
-const DD_TAIL = 0.5;
-const Z_MIN = -80;
-const Z_MAX = 900;
+const KEEP_PASSED = 0.4;
 const LANE_PAST = 0.25;
-const BIRD_HEIGHT = 110;
+/** px above the floor of each obstacle's bottom (the renderer may stylise around these) */
+const HEIGHT: Readonly<Partial<Record<ObstacleKind, number>>> = { floor: 0, beam: 8, high: 58, ceiling: 44, drone: 54 };
 const PICKUP_HEIGHT = { 1: 50, 2: 120, 3: 185 } as const;
 
-interface Phase {
-  readonly phase: number;
-  readonly speed: number;
-}
-
-const hasRope = (b: Beat) => b.obstacles.some((o) => o.kind === 'rope');
-
-function ropeLevel(b: Beat): number {
-  return Math.max(1, ...b.obstacles.filter((o) => o.kind === 'rope').map((o) => o.level));
-}
-
-function expandPasses(b: Beat): number[] {
-  const l = ropeLevel(b);
-  return Array.from({ length: l }, (_, k) => b.time + (k - (l - 1) / 2) * MULTI_SPACING);
-}
-
-/** index of the last pass ≤ t, or -1 */
-function lastIndexAtOrBefore(passes: readonly number[], t: number): number {
-  let lo = 0;
-  let hi = passes.length - 1;
-  let ans = -1;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (passes[mid] <= t) {
-      ans = mid;
-      lo = mid + 1;
-    } else hi = mid - 1;
+function fromOf(o: Obstacle): LaserFrom | null {
+  switch (o.kind) {
+    case 'floor': return 'bottom';
+    case 'ceiling': return 'top';
+    case 'drone': return 'front';
+    case 'beam':
+    case 'high': return o.from ?? 'front';
+    default: return null;
   }
-  return ans;
 }
 
-function phaseAt(passes: readonly number[], t: number): Phase {
-  const idle = TAU / IDLE_PERIOD;
-  if (passes.length === 0) return { phase: idle * t, speed: idle };
-  const i = lastIndexAtOrBefore(passes, t);
-  if (i < 0) return { phase: idle * (t - passes[0]), speed: idle };
-  if (i === passes.length - 1) {
-    const speed = i > 0 ? TAU / (passes[i] - passes[i - 1]) : idle;
-    return { phase: TAU * i + speed * (t - passes[i]), speed };
-  }
-  const span = passes[i + 1] - passes[i];
-  return { phase: TAU * i + (TAU * (t - passes[i])) / span, speed: TAU / span };
-}
-
-/** maximal runs of consecutive Double-Dutch rope beats */
-function ddSections(ropeBeats: readonly Beat[]): Beat[][] {
-  return ropeBeats.reduce<Beat[][]>((acc, b, i) => {
-    if (!b.doubleDutch) return acc;
-    const continues = i > 0 && ropeBeats[i - 1].doubleDutch && acc.length > 0;
-    if (!continues) return [...acc, [b]];
-    return [...acc.slice(0, -1), [...acc[acc.length - 1], b]];
-  }, []);
-}
-
-export function ropeState(beats: readonly Beat[], t: number, mode: RopeMode): RopeState {
-  const ropeBeats = beats.filter(hasRope);
-  const sections = ddSections(ropeBeats);
-  const bBeats = new Set(sections.flatMap((s) => s.filter((_, k) => k % 2 === 1)));
-  const passesA = ropeBeats
-    .filter((b) => !bBeats.has(b))
-    .flatMap((b) => (b.doubleDutch ? [b.time] : expandPasses(b)))
-    .sort((x, y) => x - y);
-  const a = phaseAt(passesA, t);
-  const active = sections.find(
-    (s) => t >= s[0].time - DD_LEAD && t <= s[s.length - 1].time + DD_TAIL,
-  );
-  const passesB = active ? active.filter((_, k) => k % 2 === 1).map((b) => b.time) : [];
-  const phaseB = active && passesB.length > 0 ? phaseAt(passesB, t).phase : null;
-  return { phaseA: a.phase, phaseB, speed: a.speed, mode };
-}
-
-function obstacleHeight(kind: VisibleObstacle['kind'], level: 1 | 2 | 3): number {
-  if (kind === 'hurdle' || kind === 'ring' || kind === 'ball') return 0;
-  if (kind === 'bird') return BIRD_HEIGHT;
-  return PICKUP_HEIGHT[level];
-}
+const heightOf = (o: Obstacle): number => HEIGHT[o.kind] ?? PICKUP_HEIGHT[o.level];
 
 export function visibleObstacles(beats: readonly Beat[], t: number): VisibleObstacle[] {
   return beats.flatMap((beat) => {
-    const z = (beat.time - t) * SCROLL_SPEED;
-    if (z < Z_MIN || z > Z_MAX) return [];
-    return beat.obstacles.flatMap((o, index): VisibleObstacle[] => {
-      if (o.kind === 'rope') return [];
-      const kind = o.kind;
-      const lane: Lane = o.lane ?? 0;
-      return [{ id: `${beat.id}-${index}`, kind, level: o.level, lane, z, height: obstacleHeight(kind, o.level) }];
-    });
+    const timeUntil = beat.time - t;
+    if (timeUntil < -KEEP_PASSED || timeUntil > VISIBLE_LEAD + 1e-9) return [];
+    return beat.obstacles.map((o, index): VisibleObstacle => ({
+      id: `${beat.id}-${index}`, kind: o.kind, level: o.level, from: fromOf(o), timeUntil, height: heightOf(o),
+    }));
   });
 }
 
-const ropeBack = (b: Beat): boolean | null => {
-  const rope = b.obstacles.find((o) => o.kind === 'rope');
-  return rope ? (rope.back ?? false) : null;
-};
-
-/** True when this rope beat turns the other way from the previous rope beat (needs a ↓ swipe). */
-function flipsDirection(beats: readonly Beat[], index: number): boolean {
-  const back = ropeBack(beats[index]);
-  if (back === null) return false;
-  for (let i = index - 1; i >= 0; i--) {
-    const prev = ropeBack(beats[i]);
-    if (prev !== null) return prev !== back;
-  }
-  return back; // the first rope beat only needs ↓ if it starts backwards
+/** direction of the laser that defines the beat's move (slide lasers, then beams, floor, drone) */
+function mainFrom(b: Beat): LaserFrom | null {
+  const order: readonly ObstacleKind[] = ['high', 'ceiling', 'beam', 'floor', 'drone'];
+  const main = order.map((k) => b.obstacles.find((o) => o.kind === k)).find((o) => o !== undefined);
+  return main && HAZARD_KINDS.includes(main.kind) ? fromOf(main) : null;
 }
 
 export function laneItems(beats: readonly Beat[], t: number): LaneItem[] {
-  const items: LaneItem[] = [];
-  beats.forEach((b, i) => {
-    if (b.time - t < -LANE_PAST || b.time - t > LANE_LEAD) return;
-    items.push({
+  return beats
+    .filter((b) => b.time - t >= -LANE_PAST && b.time - t <= LANE_LEAD)
+    .map((b) => ({
       beatId: b.id,
       timeUntil: b.time - t,
       kinds: b.obstacles.map((o) => o.kind),
       level: b.requiredLevel,
-      move: flipsDirection(beats, i) ? 'back' : moveForBeat(b),
-      ballLanes: b.obstacles.filter((o) => o.kind === 'ball').map((o): Lane => o.lane ?? 0),
-    });
-  });
-  return items;
+      move: moveForBeat(b),
+      from: mainFrom(b),
+    }));
 }

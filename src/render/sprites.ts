@@ -1,4 +1,4 @@
-import { makeCanvas, type Ctx } from './util';
+import { makeCanvas, releaseCanvas, type Ctx } from './util';
 
 /** A pre-rendered bitmap in logical units; (ax, ay) is the anchor inside it. */
 export interface Sprite {
@@ -23,6 +23,7 @@ export class SpriteCache {
   setScale(k: number): void {
     if (Math.abs(k - this.k) < 1e-6) return;
     this.k = k;
+    for (const sp of this.map.values()) releaseCanvas(sp.canvas);
     this.map.clear();
   }
 

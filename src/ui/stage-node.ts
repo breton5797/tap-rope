@@ -7,7 +7,7 @@ import { physicsForWorld } from '../core/physics';
 import type { MoveId, SaveData, StageDef } from '../types';
 import { formatNumber, h, svg, type Ctx } from './dom';
 import { icons } from './icons';
-import { MOVES, moveGlyph, ROPE_MODE_LABEL } from './moves';
+import { MOVES, moveGlyph } from './moves';
 
 /** Horizontal node positions (percent of trail width); the boss sits centred. */
 const TRAIL_X = [24, 68, 32, 72, 30, 68, 26, 70, 24, 56] as const;
@@ -114,7 +114,6 @@ const KIND_LABEL: Readonly<Record<string, string>> = { bonus: '보너스', boss:
 
 function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean): HTMLButtonElement {
   const kind = stage.kind ?? 'normal';
-  const mode = stage.ropeMode ?? 'long';
   const disc = h(
     'button',
     {
@@ -124,7 +123,6 @@ function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean
     [
       kind === 'boss' ? h('span', { cls: 'node__crown' }, [icons.crown()]) : null,
       discFace(stage, unlocked),
-      h('span', { cls: `node__mode node__mode--${mode}`, text: ROPE_MODE_LABEL[mode] }),
     ],
   );
   disc.addEventListener('click', ctx.tap(() => (unlocked ? ctx.cb.onStartStage(stage.id) : undefined)));
@@ -140,7 +138,7 @@ export function stageNode(ctx: Ctx, save: SaveData, stage: StageDef, isNext: boo
     'div',
     { cls: `node node--${kind}`, style: { left: `${TRAIL_X[stage.index] ?? 50}%`, top: `${nodeTop(stage)}px` } },
     [
-      isNext ? h('span', { cls: 'node__flag', text: '도전!' }) : null,
+      isNext ? h('span', { cls: 'node__flag', text: '출동!' }) : null,
       stageDisc(ctx, stage, unlocked, isNext),
       starRow(unlocked ? save.stars[stage.id] ?? 0 : 0),
       unlocked ? difficultyMeter(stage) : null,

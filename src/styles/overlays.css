@@ -5,7 +5,7 @@
   position: absolute;
   left: calc(var(--safe-l) + var(--gutter));
   right: calc(var(--safe-r) + var(--gutter));
-  /* sits in the open sky between the HUD and the rope arc, clear of the rhythm lane */
+  /* sits in the open corridor below the HUD, clear of the rhythm lane */
   top: calc(var(--safe-t) + 168px);
   max-width: 420px;
   margin: 0 auto;
@@ -18,8 +18,8 @@
   gap: 14px;
   padding: 12px 16px 12px 12px;
   border-radius: 26px;
-  background: linear-gradient(180deg, #fff, #f6f4ff);
-  border: 1.5px solid #fff;
+  background: linear-gradient(180deg, #1f2a55, #111933);
+  border: 1.5px solid rgba(46, 230, 255, 0.4);
   box-shadow: var(--shadow-card);
   animation: pop-in 0.5s var(--ease-pop) both;
 }
@@ -34,7 +34,7 @@
   animation: tut-hop 1.1s ease-in-out infinite;
 }
 
-.tut--warn .tut__fig:not(.tut__fig--flip) {
+.tut--warn .tut__fig {
   animation-duration: 0.7s;
 }
 
@@ -52,16 +52,6 @@
 @keyframes tut-ripple {
   from { opacity: 0.9; transform: scale(0.6); }
   to { opacity: 0; transform: scale(1.4); }
-}
-
-.tut__wing {
-  transform-box: fill-box;
-  transform-origin: bottom;
-  animation: flap 0.3s ease-in-out infinite alternate;
-}
-
-@keyframes flap {
-  to { transform: scaleY(-0.6); }
 }
 
 .tut__body {
@@ -110,16 +100,7 @@
   animation: 1.1s var(--ease-out) infinite;
 }
 
-.tut__finger--up { animation-name: finger-up; }
 .tut__finger--down { animation-name: finger-down; }
-.tut__finger--h { animation-name: finger-h; animation-duration: 1.6s; animation-timing-function: ease-in-out; }
-
-@keyframes finger-up {
-  0% { translate: 0 10px; opacity: 0; }
-  20% { opacity: 1; }
-  80% { translate: 0 -10px; opacity: 1; }
-  100% { translate: 0 -10px; opacity: 0; }
-}
 
 @keyframes finger-down {
   0% { translate: 0 -10px; opacity: 0; }
@@ -128,35 +109,60 @@
   100% { translate: 0 10px; opacity: 0; }
 }
 
-@keyframes finger-h {
-  0%, 100% { translate: -11px 0; }
-  50% { translate: 11px 0; }
+/* lasers, drones and the sliding agent */
+.tut__laser {
+  animation: laser-flicker 0.9s steps(2) infinite;
 }
 
-.tut__fig--flip {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: flip 1.1s cubic-bezier(0.5, 0, 0.3, 1) infinite;
+@keyframes laser-flicker {
+  50% { opacity: 0.75; }
 }
 
-@keyframes flip {
-  0%, 25% { rotate: 0deg; }
-  100% { rotate: -360deg; }
+.tut__laser--fly {
+  animation: laser-fly 1.1s ease-in infinite;
 }
 
-.tut__ball {
-  animation: ball-roll 1.6s linear infinite;
+@keyframes laser-fly {
+  from { translate: 18px 0; opacity: 0.2; }
+  60% { opacity: 1; }
+  to { translate: -4px 0; }
 }
 
-@keyframes ball-roll {
-  from { translate: 14px 0; rotate: 0deg; }
-  to { translate: -14px 0; rotate: -160deg; }
+.tut__pulse {
+  animation: pulse-on 1.2s steps(1) infinite;
 }
 
-.tut__ball,
-.tut__ball * {
-  transform-box: fill-box;
-  transform-origin: center;
+.tut__pulse--1 { animation-delay: 0.4s; }
+.tut__pulse--2 { animation-delay: 0.8s; }
+
+@keyframes pulse-on {
+  0% { opacity: 1; }
+  33% { opacity: 0.12; }
+}
+
+.tut__warn-pulse {
+  animation: warn-pulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes warn-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}
+
+.tut__drone {
+  animation: drone-hover 1.4s ease-in-out infinite;
+}
+
+@keyframes drone-hover {
+  50% { translate: 0 -3px; }
+}
+
+.tut__fig--slide {
+  animation: slide-jitter 0.5s ease-in-out infinite;
+}
+
+@keyframes slide-jitter {
+  50% { translate: 0 1.5px; }
 }
 
 .tut__skip {
@@ -169,7 +175,7 @@
   border-radius: 999px;
   color: #fff;
   font-size: 14px;
-  background: rgba(24, 14, 72, 0.5);
+  background: rgba(8, 14, 34, 0.5);
   border: 1.5px solid rgba(255, 255, 255, 0.35);
 }
 
@@ -177,7 +183,7 @@
 .screen--modal {
   align-items: center;
   justify-content: center;
-  background: rgba(18, 10, 56, 0.58);
+  background: rgba(4, 8, 20, 0.58);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
@@ -200,9 +206,10 @@
   border-radius: 24px;
   color: #fff;
   font-size: 30px;
-  background: linear-gradient(160deg, #b29bff, #7b5cff);
-  border: 4px solid #fff;
-  box-shadow: 0 6px 0 #4f33c9, 0 16px 24px -10px rgba(0, 0, 0, 0.5);
+  color: #032536;
+  background: linear-gradient(160deg, #8af4ff, #1fc9ec);
+  border: 4px solid #0f1630;
+  box-shadow: 0 6px 0 #08799a, 0 0 24px rgba(46, 230, 255, 0.55), 0 16px 24px -10px rgba(0, 0, 0, 0.5);
   transform: translateX(-50%) rotate(-6deg);
 }
 
@@ -235,4 +242,9 @@
   .countdown__ring {
     display: none;
   }
+}
+
+.tut--warn .tut__card {
+  border-color: rgba(255, 59, 92, 0.55);
+  box-shadow: var(--shadow-card), 0 0 24px -6px rgba(255, 59, 92, 0.6);
 }

@@ -1,5 +1,5 @@
 /**
- * Stage difficulty score (GDD v3 §18), computed from the generated hazard beats only
+ * Stage difficulty score (GDD v3 §18, re-tuned for v4), computed from the generated hazard beats only
  * (pickups are ignored). Each term is normalised to 0..1, then weighted (weights sum to 1):
  * - rate   : hazard beats per second over the stage, / 2 (capped at 1)
  * - tight  : 1 / mean(actual gap ÷ minimum allowed gap) over consecutive hazards — the inverse
@@ -7,10 +7,10 @@
  *            gravity, rounded up to the stage's half-beat grid), so 1 = every hazard comes as
  *            early as the rules and the rhythm grid allow, at any tempo
  * - change : share of consecutive hazards whose move (moveForBeat) differs
- * - multi  : share of 2단/3단 beats, a 3단 counting 1.5 and a Double-Dutch beat (two ropes in one
- *            jump window) counting as a 2단, so long and solo stages compare fairly (capped at 1)
- * - combo  : share of beats with two or more hazards at once (rope + hurdle/ball/bird)
- * - length : hazard beats / 60 (endurance; not in the §18 list — added so long boss finales
+ * - multi  : share of 2단/3단 beats, a 3단 counting 1.5 and a pulse-laser beat (a rapid run with
+ *            no breather) counting as a 2단 (capped at 1)
+ * - combo  : share of beats with two or more hazards at once (laser gates: floor + drone)
+ * - length : hazard beats / 60 (endurance; not in the v3 §18 list — added so long boss finales
  *            register as harder than their chapter's normal stages)
  */
 import type { Beat, StageDef } from '../types';
@@ -19,13 +19,13 @@ import { moveForBeat } from './moves';
 import { physicsForWorld } from './physics';
 import { beatShape, minGap } from './spacing';
 
-export const DIFFICULTY_WEIGHTS = { rate: 0.15, tight: 0.35, change: 0.1, multi: 0.15, combo: 0.1, length: 0.15 } as const;
+export const DIFFICULTY_WEIGHTS = { rate: 0.15, tight: 0.4, change: 0.1, multi: 0.1, combo: 0.1, length: 0.15 } as const;
 
 export type DifficultyTerms = Readonly<Record<keyof typeof DIFFICULTY_WEIGHTS, number>>;
 
 const hazardCount = (b: Beat) => b.obstacles.filter((o) => HAZARD_KINDS.includes(o.kind)).length;
 const share = (n: number, total: number) => (total > 0 ? n / total : 0);
-const multiPoint = (b: Beat) => (b.requiredLevel === 3 ? 1.5 : b.requiredLevel === 2 || b.doubleDutch ? 1 : 0);
+const multiPoint = (b: Beat) => (b.requiredLevel === 3 ? 1.5 : b.requiredLevel === 2 || b.pulse ? 1 : 0);
 const ZERO: DifficultyTerms = { rate: 0, tight: 0, change: 0, multi: 0, combo: 0, length: 0 };
 const LENGTH_FULL = 60;
 

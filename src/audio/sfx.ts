@@ -33,9 +33,10 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     tone(ctx, out, { type: 'triangle', freq: midiToFreq(81), start: t, dur: 0.18, gain: 0.2 });
   },
   hit: (ctx, out, t) => {
-    tone(ctx, out, { type: 'sine', freq: 180, freqEnd: 40, start: t, dur: 0.32, gain: 0.55 });
-    tone(ctx, out, { type: 'sawtooth', freq: 110, freqEnd: 55, start: t, dur: 0.22, gain: 0.12, filter: 800 });
-    noise(ctx, out, { start: t, dur: 0.22, gain: 0.25, type: 'lowpass', freq: 2400, freqEnd: 300 });
+    // electric zap + body thump
+    tone(ctx, out, { type: 'sine', freq: 170, freqEnd: 45, start: t, dur: 0.3, gain: 0.5 });
+    tone(ctx, out, { type: 'sawtooth', freq: 1600, freqEnd: 70, start: t, dur: 0.26, gain: 0.12, filter: 5000 });
+    [0, 0.025, 0.06, 0.1, 0.15].forEach((dt) => noise(ctx, out, { start: t + dt, dur: 0.03, gain: 0.2, type: 'bandpass', freq: 3800, q: 2 }));
   },
   coin: (ctx, out, t) => {
     tone(ctx, out, { type: 'square', freq: midiToFreq(83), start: t, dur: 0.07, gain: 0.08, filter: 6000 });
@@ -65,25 +66,25 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
   click: (ctx, out, t) => {
     tone(ctx, out, { type: 'sine', freq: 1500, freqEnd: 900, start: t, dur: 0.035, gain: 0.16 });
   },
-  tumble: (ctx, out, t) => {
-    noise(ctx, out, { start: t, dur: 0.42, gain: 0.16, type: 'bandpass', freq: 500, freqEnd: 6500, q: 1.4 });
-    tone(ctx, out, { type: 'triangle', freq: 300, freqEnd: 1100, start: t, dur: 0.3, gain: 0.18 });
-    notes(ctx, out, t + 0.18, [91, 95, 98, 103], 0.04, 'sine', 0.1);
+  slide: (ctx, out, t) => {
+    noise(ctx, out, { start: t, dur: 0.32, gain: 0.2, type: 'bandpass', freq: 3200, freqEnd: 700, q: 1.1 });
+    noise(ctx, out, { start: t + 0.04, dur: 0.26, gain: 0.07, type: 'highpass', freq: 6000 });
+    tone(ctx, out, { type: 'sine', freq: 420, freqEnd: 160, start: t, dur: 0.16, gain: 0.08 });
   },
-  side: (ctx, out, t) => {
-    noise(ctx, out, { start: t, dur: 0.12, gain: 0.14, type: 'bandpass', freq: 2600, freqEnd: 900, q: 1.6 });
-    tone(ctx, out, { type: 'sine', freq: 700, freqEnd: 480, start: t, dur: 0.08, gain: 0.08 });
-  },
-  cross: (ctx, out, t) => {
-    [0, 0.055].forEach((dt, i) => {
-      tone(ctx, out, { type: 'square', freq: i ? 2100 : 1700, freqEnd: 1200, start: t + dt, dur: 0.03, gain: 0.115, filter: 5000 });
-      noise(ctx, out, { start: t + dt, dur: 0.02, gain: 0.1, type: 'highpass', freq: 5000 });
+  warn: (ctx, out, t) => {
+    [0, 0.13].forEach((dt, i) => {
+      tone(ctx, out, { type: 'square', freq: i ? 660 : 880, start: t + dt, dur: 0.1, gain: 0.12, filter: 3200, attack: 0.003 });
     });
   },
-  reverse: (ctx, out, t) => {
-    tone(ctx, out, { type: 'triangle', freq: 1300, freqEnd: 380, start: t, dur: 0.18, gain: 0.16 });
-    tone(ctx, out, { type: 'square', freq: 650, freqEnd: 190, start: t + 0.03, dur: 0.16, gain: 0.04, filter: 2200 });
-    tone(ctx, out, { type: 'sine', freq: midiToFreq(79), start: t + 0.2, dur: 0.1, gain: 0.12 });
+  zap: (ctx, out, t) => {
+    tone(ctx, out, { type: 'sawtooth', freq: 1200, freqEnd: 90, start: t, dur: 0.22, gain: 0.12, filter: 4200 });
+    [0, 0.03, 0.07, 0.12].forEach((dt) => noise(ctx, out, { start: t + dt, dur: 0.025, gain: 0.16, type: 'bandpass', freq: 4500, q: 2.5 }));
+  },
+  rescue: (ctx, out, t) => {
+    notes(ctx, out, t, [67, 72, 76, 79], 0.08, 'square', 0.06);
+    [60, 64, 67, 72, 76].forEach((m) => tone(ctx, out, { type: 'triangle', freq: midiToFreq(m), start: t + 0.34, dur: 0.9, gain: 0.07, attack: 0.02 }));
+    tone(ctx, out, { type: 'sawtooth', freq: midiToFreq(84), start: t + 0.34, dur: 0.7, gain: 0.04, filter: 3800, attack: 0.02 });
+    noise(ctx, out, { start: t + 0.34, dur: 0.5, gain: 0.05, type: 'highpass', freq: 8000 });
   },
   count: (ctx, out, t, level) => {
     const go = level <= 0;

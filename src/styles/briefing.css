@@ -1,0 +1,144 @@
+/* MISSION BRIEFING dossier (non-blocking, sits above the countdown). */
+.brief {
+  position: absolute;
+  left: calc(var(--safe-l) + var(--gutter));
+  right: calc(var(--safe-r) + var(--gutter));
+  top: calc(var(--safe-t) + 178px);
+  max-width: 380px;
+  margin: 0 auto;
+  pointer-events: none;
+}
+
+.brief__card {
+  position: relative;
+  padding: 18px 18px 14px;
+  border-radius: 6px 22px 22px 22px;
+  color: #3a2a12;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 25px, rgba(120, 90, 40, 0.13) 25px 26px),
+    linear-gradient(170deg, #f8ebc8, #e9d29d);
+  box-shadow: 0 2px 0 #c9ad6c, 0 24px 40px -14px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  animation: brief-in 0.6s var(--ease-pop) both;
+  transform-origin: 20% 0;
+}
+
+/* folder tab */
+.brief__card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -14px;
+  width: 120px;
+  height: 16px;
+  border-radius: 8px 12px 0 0;
+  background: #f3e2b6;
+}
+
+@keyframes brief-in {
+  from { opacity: 0; transform: rotate(-4deg) translateY(-24px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+
+.brief__clip {
+  position: absolute;
+  top: -20px;
+  right: 34px;
+  width: 14px;
+  height: 40px;
+  border: 3px solid #9aa6bf;
+  border-radius: 8px;
+  transform: rotate(8deg);
+}
+
+.brief__stamp {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  padding: 3px 8px;
+  border: 2.5px solid rgba(214, 38, 64, 0.8);
+  border-radius: 4px;
+  color: rgba(214, 38, 64, 0.85);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  transform: rotate(-9deg);
+  animation: stamp 0.45s var(--ease-pop) 0.5s both;
+}
+
+@keyframes stamp {
+  from { opacity: 0; transform: rotate(-9deg) scale(2.6); }
+  to { opacity: 1; transform: rotate(-9deg); }
+}
+
+.brief__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.brief__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: #6b4f1f;
+}
+
+.brief__kicker .ico {
+  font-size: 15px;
+}
+
+.brief__part {
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 13px;
+  background: #1f4f8a;
+}
+
+.brief--p2 .brief__part {
+  background: #c4123a;
+}
+
+.brief__zone {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 4px;
+  font-size: 27px;
+  color: #2a1d0a;
+}
+
+.brief__no {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 900;
+  color: #8a6a32;
+}
+
+.brief__text {
+  min-height: 3.1em;
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  word-break: keep-all;
+}
+
+.brief__text:not(.is-done)::after {
+  content: '▌';
+  margin-left: 1px;
+  color: #c4123a;
+  animation: rec-blink 0.7s steps(1) infinite;
+}
+
+.brief__foot {
+  margin-top: 8px;
+  padding-right: 96px;
+  color: #8a6a32;
+  font-size: 12.5px;
+}

@@ -9,16 +9,16 @@ import type { Swipe } from '../types';
 export interface InputHandlers {
   onTap(): void;
   onSwipe(dir: Swipe): void;
+  /** keyboard ↓ / S: slide without a tap */
+  onSlideKey(): void;
   onPauseKey(): void;
 }
 
 const SWIPE_MIN_PX = 26;
 // stays inside the physics SWIPE_WINDOW (0.25s) so a recognized swipe is never silently ignored
 const SWIPE_MAX_MS = 240;
-const TAP_KEYS = new Set([' ', 'Spacebar', 'Enter', 'w', 'W']);
-const ARROW_SWIPES: Readonly<Record<string, Swipe>> = {
-  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-};
+const TAP_KEYS = new Set([' ', 'Spacebar', 'Enter', 'w', 'W', 'ArrowUp']);
+const SLIDE_KEYS = new Set(['ArrowDown', 's', 'S']);
 const PAUSE_KEYS = new Set(['Escape', 'p', 'P']);
 
 interface Track {
@@ -74,11 +74,12 @@ function bindKeys(h: InputHandlers): void {
     if (e.repeat) return;
     const target = e.target as HTMLElement | null;
     if (target?.closest('button') && e.key !== 'Escape') return;
-    const dir = ARROW_SWIPES[e.key];
-    if (TAP_KEYS.has(e.key) || dir) {
+    if (TAP_KEYS.has(e.key)) {
       e.preventDefault();
       h.onTap();
-      if (dir) h.onSwipe(dir);
+    } else if (SLIDE_KEYS.has(e.key)) {
+      e.preventDefault();
+      h.onSlideKey();
     } else if (PAUSE_KEYS.has(e.key)) {
       h.onPauseKey();
     }

@@ -9,9 +9,9 @@ import { createAudio } from '../audio/index';
 import { createHaptics } from '../platform/haptics';
 import { registerServiceWorker } from '../platform/pwa';
 import { nextStageId, stageById } from '../core/content';
-import { buySkin, loadSave, recordResult, writeSave } from '../core/storage';
+import { buySkin, loadSave, markBriefed, recordResult, writeSave } from '../core/storage';
 import { stepPlayer } from '../core/physics';
-import { createSession, sessionStars, step, swipe, tap, type Session } from './session';
+import { createSession, sessionStars, slide, step, swipe, tap, type Session, type StepOutput } from './session';
 import { botAction, type BotAction } from './bot';
 import { toHud, toSnapshot } from './snapshot';
 import { playFeedback } from './feedback';
@@ -21,6 +21,9 @@ import { bindInput } from './input';
 type Screen = 'menu' | 'countdown' | 'play' | 'paused' | 'result';
 
 const COUNT_STEP = 0.6;
+/** the mission briefing card reads for this long before 3-2-1 starts */
+const BRIEFING_TIME = 2.6;
+const STORY_BOSSES = new Set(['w5-s10', 'w10-s10']);
 const RESULT_DELAY = 1.3;
 /** `?autoplay=1` lets the bot play real runs (QA / demo recordings). */
 const AUTOPLAY = new URLSearchParams(window.location.search).has('autoplay');
@@ -31,9 +34,17 @@ function todayIso(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-function botInput(a: BotAction | null): Array<'tap' | Swipe> {
+type Input = 'tap' | 'slideKey' | Swipe;
+
+function botInput(a: BotAction | null): Input[] {
   if (!a) return [];
   return a.swipe ? ['tap', a.swipe] : ['tap'];
+}
+
+function applyInput(s: Session, input: Input): StepOutput {
+  if (input === 'tap') return tap(s);
+  if (input === 'slideKey') return slide(s);
+  return swipe(s, input);
 }
 
 function demoSession(): Session {
@@ -58,8 +69,10 @@ export function startApp(): void {
   let endTimer = -1;
   let hintTimer = 0;
   /** touches since the last frame, in order: a tap, optionally followed by its swipe */
-  let pendingInput: Array<'tap' | Swipe> = [];
+  let pendingInput: Input[] = [];
   let hintsSkipped = false;
+  /** first-ever run: the jump card waits until the briefing card has closed */
+  let jumpCardPending = false;
   let goTimer = 0;
   let music = { bpm: 0, world: -1 };
   const seenHints = new Set<MoveId>();
@@ -88,6 +101,7 @@ export function startApp(): void {
 
   const toMenu = (show: (s: SaveData) => void): void => {
     screen = 'menu';
+    jumpCardPending = false;
     audio.stopMusic();
     audio.setFever(false);
     session = demoSession();
@@ -96,6 +110,7 @@ export function startApp(): void {
   };
 
   const startRun = (mode: GameMode, stage: StageDef | null): void => {
+    jumpCardPending = false;
     const date = todayIso();
     run = { mode, stage, date };
     session = createSession(mode, stage, { date, seed: Math.floor(Math.random() * 1e9) });
@@ -104,20 +119,35 @@ export function startApp(): void {
     ui.hideAll();
     ui.showHud();
     ui.updateHud(toHud(session));
-    beginCountdown();
+    const chapter = stage?.chapter ?? -1;
+    const brief = mode === 'stage' && stage !== null && (stage.index === 0 || !save.briefed.includes(chapter));
+    if (brief) {
+      ui.showBriefing(chapter);
+      persist(markBriefed(save, chapter));
+    }
+    beginCountdown(brief ? BRIEFING_TIME : 0);
     if (!save.tutorialDone && mode === 'stage') {
-      ui.showTutorial('jump');
-      hintTimer = HINT_DURATION + 1.8;
+      jumpCardPending = brief;
+      if (!brief) showJumpCard();
       persist({ ...save, tutorialDone: true });
     }
   };
 
-  const beginCountdown = (): void => {
+  /** `lead` = extra seconds before "3" (the briefing card is up meanwhile) */
+  const showJumpCard = (): void => {
+    jumpCardPending = false;
+    ui.showTutorial('jump');
+    hintTimer = HINT_DURATION + 1.8;
+  };
+
+  const beginCountdown = (lead = 0): void => {
     screen = 'countdown';
     clearGoTimer();
-    countdown = 3 * COUNT_STEP;
+    countdown = 3 * COUNT_STEP + lead;
     endTimer = -1;
     pendingInput = [];
+    if (lead > 0) return;
+    if (jumpCardPending) showJumpCard(); // e.g. resumed after pausing during the briefing
     ui.showCountdown(3);
     audio.sfx('count', 3);
   };
@@ -129,6 +159,7 @@ export function startApp(): void {
     clearGoTimer();
     audio.stopMusic();
     ui.showCountdown(null);
+    ui.showBriefing(null);
     ui.showPause();
   };
 
@@ -137,6 +168,7 @@ export function startApp(): void {
     audio.stopMusic();
     audio.setFever(false);
     const cleared = session.status === 'cleared';
+    if (cleared && run.mode === 'stage' && STORY_BOSSES.has(session.stage.id)) audio.sfx('rescue');
     const stars = sessionStars(session);
     const key = run.mode === 'stage' ? session.stage.id : run.mode === 'endless' ? 'endless' : `daily:${run.date}`;
     const prevBest = save.bestScores[key] ?? 0;
@@ -223,12 +255,17 @@ export function startApp(): void {
     const after = Math.ceil(countdown / COUNT_STEP);
     if (countdown <= 0) {
       screen = 'play';
+      ui.showBriefing(null);
       ui.showCountdown(0);
       audio.sfx('count', 0);
       startMusic();
       if (session.score.feverTime > 0) audio.setFever(true);
       goTimer = window.setTimeout(() => ui.showCountdown(null), 550);
-    } else if (after !== before) {
+    } else if (after !== before && after <= 3) {
+      if (after === 3) {
+        ui.showBriefing(null); // the briefing had its own read time; 3-2-1 gets the stage
+        if (jumpCardPending) showJumpCard();
+      }
       ui.showCountdown(after);
       audio.sfx('count', after);
     }
@@ -254,9 +291,9 @@ export function startApp(): void {
     const queued = pendingInput;
     pendingInput = [];
     for (const input of queued) {
-      const out = input === 'tap' ? tap(session) : swipe(session, input);
+      const out = applyInput(session, input);
       session = out.session;
-      playFeedback(deps, out.events, false, session.player.backward);
+      playFeedback(deps, out.events);
     }
     const out = step(session, dt);
     session = out.session;
@@ -272,9 +309,7 @@ export function startApp(): void {
   };
 
   const tickMenu = (dt: number): void => {
-    for (const input of botInput(botAction(session))) {
-      session = (input === 'tap' ? tap(session) : swipe(session, input)).session;
-    }
+    for (const input of botInput(botAction(session))) session = applyInput(session, input).session;
     const out = step(session, dt);
     session = out.session;
     playFeedback(deps, out.events, true);
@@ -290,6 +325,10 @@ export function startApp(): void {
     onTap: () => {
       audio.unlock();
       if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, 'tap'];
+    },
+    onSlideKey: () => {
+      audio.unlock();
+      if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, 'slideKey'];
     },
     onSwipe: (dir: Swipe) => {
       if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, dir];
@@ -320,7 +359,9 @@ export function startApp(): void {
     else if (screen === 'play') tickPlay(dt);
     else if (screen === 'result') tickResult(dt);
     renderer.fx.update(dt);
-    renderer.render(toSnapshot(session, save.skin, now / 1000, reducedMotion()));
+    renderer.render(toSnapshot(session, save.skin, {
+      realTime: now / 1000, reducedMotion: reducedMotion(), running: screen !== 'paused',
+    }));
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

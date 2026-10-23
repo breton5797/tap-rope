@@ -1,55 +1,50 @@
 /**
- * Beat judgement (GDD §1, v2 §10). Effective level = tumble ? 2 : level.
- * Check order: bird → ball → ring → rope/hurdle (height, level) → cross → dir.
- * Pass is PERFECT at height ≥ PERFECT_H, for ball/bird-only beats, or for a ring
- * cleared by a tumble; otherwise GOOD. Pickups need the player's lane, airborne
- * and effective level ≥ pickup level, and are never collected on a hit.
+ * Beat judgement — GDD v4 §3. Check order: drone → slide lasers → jump lasers.
+ * - drone: airborne with level ≥ 2 → 'drone' (floor, slide or a 1단 hop are fine)
+ * - high / ceiling: not sliding → 'standing'
+ * - floor / beam L: sliding → 'slide'; on the floor or below CLEAR_H → 'low'; level < L → 'level'
+ * Grades: jump beats perfect at height ≥ PERFECT_H; slide beats perfect when the slide is
+ * 0.05–0.35s old; a lone drone passed is perfect. Pickups need airborne + level ≥ L, never on a hit.
  */
-import type { Beat, JudgeResult, JumpLevel, ObstacleKind, PlayerState, RopeMode } from '../types';
+import type { Beat, JudgeResult, ObstacleKind, PlayerState } from '../types';
 import { CLEAR_H, PERFECT_H } from './physics';
 
 type MissReason = NonNullable<JudgeResult['reason']>;
 
 const PICKUPS: readonly ObstacleKind[] = ['coin', 'shield', 'slow', 'heart'];
+const SLIDE_PERFECT_MIN = 0.05;
+const SLIDE_PERFECT_MAX = 0.35;
 
-function effectiveLevel(p: PlayerState): JumpLevel {
-  return p.tumble ? 2 : p.level;
-}
+const isJumpLaser = (k: ObstacleKind) => k === 'floor' || k === 'beam';
+const isSlideLaser = (k: ObstacleKind) => k === 'high' || k === 'ceiling';
 
 function collect(beat: Beat, p: PlayerState): readonly ObstacleKind[] {
   if (p.grounded) return [];
-  const level = effectiveLevel(p);
-  return beat.obstacles
-    .filter((o) => PICKUPS.includes(o.kind) && (o.lane ?? 0) === p.lane && level >= o.level)
-    .map((o) => o.kind);
+  return beat.obstacles.filter((o) => PICKUPS.includes(o.kind) && p.level >= o.level).map((o) => o.kind);
 }
 
-/** first failing rule in §10 order, or null when the beat is cleared */
-function missReason(beat: Beat, p: PlayerState, mode: RopeMode): MissReason | null {
+function missReason(beat: Beat, p: PlayerState): MissReason | null {
   const obs = beat.obstacles;
-  const level = effectiveLevel(p);
-  const has = (k: ObstacleKind) => obs.some((o) => o.kind === k);
-  if (has('bird') && !p.grounded && (level >= 2 || p.tumble)) return 'bird';
-  if (obs.some((o) => o.kind === 'ball' && (o.lane ?? 0) === p.lane)) return 'ball';
-  if (has('ring') && !p.tumble) return 'tumble';
-  const barriers = obs.filter((o) => o.kind === 'rope' || o.kind === 'hurdle');
-  if (barriers.length === 0) return null;
+  if (obs.some((o) => o.kind === 'drone') && !p.grounded && p.level >= 2) return 'drone';
+  if (obs.some((o) => isSlideLaser(o.kind)) && !p.sliding) return 'standing';
+  const jumps = obs.filter((o) => isJumpLaser(o.kind));
+  if (jumps.length === 0) return null;
+  if (p.sliding) return 'slide';
   if (p.grounded || p.height < CLEAR_H) return 'low';
-  if (level < Math.max(...barriers.map((o) => o.level))) return 'level';
-  const ropes = obs.filter((o) => o.kind === 'rope');
-  if (ropes.some((o) => o.cross) && !p.cross) return 'cross';
-  if (mode === 'solo' && ropes.some((o) => (o.back ?? false) !== p.backward)) return 'dir';
+  if (p.level < Math.max(...jumps.map((o) => o.level))) return 'level';
   return null;
 }
 
-export function judgeBeat(beat: Beat, p: PlayerState, mode: RopeMode): JudgeResult {
-  const reason = missReason(beat, p, mode);
+export function judgeBeat(beat: Beat, p: PlayerState): JudgeResult {
+  const reason = missReason(beat, p);
   if (reason) return { beatId: beat.id, grade: 'miss', hit: true, reason, collected: [] };
   const kinds = beat.obstacles.map((o) => o.kind);
   const collected = collect(beat, p);
-  const barrier = kinds.some((k) => k === 'rope' || k === 'hurdle');
-  const hazard = kinds.some((k) => k === 'bird' || k === 'ball' || k === 'ring');
-  if (!barrier && !hazard) return { beatId: beat.id, grade: 'none', hit: false, reason: null, collected };
-  const perfect = !barrier || kinds.includes('ring') || p.height >= PERFECT_H;
-  return { beatId: beat.id, grade: perfect ? 'perfect' : 'good', hit: false, reason: null, collected };
+  const pass = (perfect: boolean): JudgeResult => ({
+    beatId: beat.id, grade: perfect ? 'perfect' : 'good', hit: false, reason: null, collected,
+  });
+  if (kinds.some(isJumpLaser)) return pass(p.height >= PERFECT_H);
+  if (kinds.some(isSlideLaser)) return pass(p.slideAge >= SLIDE_PERFECT_MIN && p.slideAge <= SLIDE_PERFECT_MAX);
+  if (kinds.includes('drone')) return pass(true);
+  return { beatId: beat.id, grade: 'none', hit: false, reason: null, collected };
 }

@@ -39,19 +39,19 @@ function skinCard(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement {
 export function buildShop(ctx: Ctx, save: SaveData, onBack: () => void): HTMLElement {
   const current = SKINS.find((s) => s.id === save.skin) ?? SKINS[0];
   const owned = SKINS.filter((s) => save.ownedSkins.includes(s.id)).length;
-  return h('section', { cls: 'screen screen--shop', attrs: { 'aria-label': '상점' } }, [
-    header(ctx, '상점', onBack, [coinChip(save.coins)], icons.back()),
+  return h('section', { cls: 'screen screen--shop', attrs: { 'aria-label': '장비실' } }, [
+    header(ctx, '장비실', onBack, [coinChip(save.coins)], icons.back()),
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'shop__hero card' }, [
         h('div', { cls: 'shop__stage' }, [current ? avatar(current.id, false) : null, h('div', { cls: 'shop__floor' })]),
         h('div', { cls: 'shop__info' }, [
-          h('div', { cls: 'shop__kicker', text: '지금 내 캐릭터' }),
+          h('div', { cls: 'shop__kicker', text: '현재 출동 요원' }),
           h('div', { cls: 'shop__name', text: current?.name ?? '' }),
           h('div', { cls: 'shop__count', text: `컬렉션 ${owned} / ${SKINS.length}` }),
         ]),
       ]),
       h('div', { cls: 'shop__grid' }, SKINS.map((s) => skinCard(ctx, save, s))),
-      h('p', { cls: 'shop__hint', text: '스테이지를 클리어하고 코인을 모아 새 친구를 데려오세요!' }),
+      h('p', { cls: 'shop__hint', text: '작전을 성공하고 코인을 모아 새 요원을 영입하세요!' }),
     ]),
   ]);
 }

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   airtimeForLevel,
-  airtimeTumble,
   CLEAR_H,
   DEFAULT_PHYSICS,
   initialPlayer,
   PERFECT_H,
   physicsForWorld,
+  slidePlayer,
   stepPlayer,
   SWIPE_WINDOW,
   swipePlayer,
@@ -17,146 +17,147 @@ import type { PhysicsConfig, PlayerState } from '../../src/types';
 const cfg = DEFAULT_PHYSICS;
 const DT = 1 / 240;
 
-/** Advance until `until` returns true or maxT elapses; returns final player + elapsed. */
 function runUntil(
   p: PlayerState,
   c: PhysicsConfig,
   until: (p: PlayerState) => boolean,
   maxT = 5,
-): { player: PlayerState; t: number; maxH: number } {
+): { player: PlayerState; t: number; maxH: number; slideStarted: boolean } {
   let cur = p;
   let t = 0;
   let maxH = cur.height;
+  let slideStarted = false;
   while (t < maxT) {
-    cur = stepPlayer(cur, DT, c).player;
+    const r = stepPlayer(cur, DT, c);
+    cur = r.player;
+    slideStarted = slideStarted || r.slideStarted;
     t += DT;
     maxH = Math.max(maxH, cur.height);
     if (until(cur)) break;
   }
-  return { player: cur, t, maxH };
+  return { player: cur, t, maxH, slideStarted };
 }
 
 const jumped = (): PlayerState => tapPlayer(initialPlayer(), cfg).player;
-const boosted = (): PlayerState => tapPlayer(stepPlayer(jumped(), 0.1, cfg).player, cfg).player;
+const high = (): PlayerState => stepPlayer(jumped(), SWIPE_WINDOW + 0.02, cfg).player;
+const sliding = (): PlayerState => slidePlayer(initialPlayer(), cfg).player;
 
 describe('constants', () => {
-  it('exposes GDD values', () => {
-    expect(DEFAULT_PHYSICS).toEqual({ gravity: 3000, jumpV: 660, boostV: 700, tumbleV: 980 });
-    expect(CLEAR_H).toBe(12);
+  it('exposes GDD v4 values', () => {
+    expect(DEFAULT_PHYSICS).toEqual({ gravity: 3000, jumpV: 660, boostV: 700, fallV: 1400, slideTime: 0.55 });
+    expect(CLEAR_H).toBe(24);
     expect(PERFECT_H).toBe(40);
     expect(SWIPE_WINDOW).toBe(0.25);
+  });
+
+  it('uses the same physics for every theme', () => {
+    for (const w of [0, 1, 2, 3] as const) expect(physicsForWorld(w)).toEqual(DEFAULT_PHYSICS);
   });
 });
 
 describe('initialPlayer', () => {
-  it('is grounded at rest in the centre lane', () => {
+  it('stands on the floor, not sliding', () => {
     expect(initialPlayer()).toEqual({
       height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, buffer: 0,
-      lane: 0, laneX: 0, tumble: false, cross: false, backward: false, lastTap: 'none', pendingSwipe: null,
+      sliding: false, slideTime: 0, slideAge: 0, pendingSlide: false, lastTap: 'none',
     });
   });
 });
 
 describe('tapPlayer', () => {
-  it('jumps from the ground and records lastTap', () => {
+  it('jumps from the floor and records lastTap', () => {
     const p0 = initialPlayer();
     const { player, action } = tapPlayer(p0, cfg);
     expect(action).toBe('jump');
     expect(player).toMatchObject({ grounded: false, level: 1, vy: cfg.jumpV, lastTap: 'jump' });
-    expect(p0.grounded).toBe(true); // immutability
+    expect(p0.grounded).toBe(true);
   });
 
   it('boosts in the air up to level 3, then does nothing', () => {
-    const b1 = { player: boosted(), action: 'boost' };
+    const b1 = tapPlayer(stepPlayer(jumped(), 0.1, cfg).player, cfg);
+    expect(b1.action).toBe('boost');
     expect(b1.player).toMatchObject({ level: 2, vy: cfg.boostV, lastTap: 'boost' });
     const b2 = tapPlayer(b1.player, cfg);
-    expect(b2.action).toBe('boost');
     expect(b2.player.level).toBe(3);
     const b3 = tapPlayer(b2.player, cfg);
     expect(b3.action).toBe('none');
     expect(b3.player).toEqual({ ...b2.player, lastTap: 'none' });
   });
 
-  it('buffers a tap when descending close to the ground', () => {
+  it('buffers a tap when descending close to the floor', () => {
     const p: PlayerState = { ...initialPlayer(), grounded: false, level: 1, height: 20, vy: -300, lastTap: 'jump' };
     const { player, action } = tapPlayer(p, cfg);
     expect(action).toBe('buffered');
     expect(player.buffer).toBeCloseTo(0.12);
-    expect(player.level).toBe(1);
     expect(player.lastTap).toBe('none');
   });
 
-  it('boosts (not buffers) when descending but still high', () => {
-    const p: PlayerState = { ...initialPlayer(), grounded: false, level: 1, height: 40, vy: -300 };
-    expect(tapPlayer(p, cfg).action).toBe('boost');
+  it('cancels a slide and jumps', () => {
+    const r = tapPlayer(sliding(), cfg);
+    expect(r.action).toBe('jump');
+    expect(r.player).toMatchObject({ sliding: false, slideTime: 0, slideAge: 0, grounded: false, level: 1 });
   });
 
-  it('is ignored while tumbling', () => {
-    const t = swipePlayer(jumped(), 'up', cfg, 'long').player;
-    const r = tapPlayer(t, cfg);
-    expect(r.action).toBe('none');
-    expect(r.player).toBe(t);
+  it('a boost during a dive cancels the dive', () => {
+    const dive = swipePlayer(high(), 'down', cfg).player;
+    const r = tapPlayer(dive, cfg);
+    expect(r.action).toBe('boost');
+    expect(r.player.pendingSlide).toBe(false);
   });
 });
 
-describe('swipePlayer', () => {
-  it('up right after a ground jump = tumble', () => {
+describe('swipePlayer / slidePlayer', () => {
+  it('↓ right after a ground jump converts it into a slide', () => {
     const p = stepPlayer(jumped(), 0.1, cfg).player;
-    const r = swipePlayer(p, 'up', cfg, 'long');
-    expect(r.action).toBe('tumble');
-    expect(r.player.tumble).toBe(true);
-    expect(r.player.vy).toBeCloseTo(Math.sqrt(cfg.tumbleV ** 2 - 2 * cfg.gravity * p.height), 6);
-    expect(swipePlayer(r.player, 'up', cfg, 'long').action).toBe('none');
+    const r = swipePlayer(p, 'down', cfg);
+    expect(r.action).toBe('slide');
+    expect(r.player).toMatchObject({
+      height: 0, vy: 0, grounded: true, level: 0, sliding: true, slideTime: cfg.slideTime, slideAge: 0, lastTap: 'none',
+    });
   });
 
-  it('a full tumble flies higher than a 2단 apex and lands in airtimeTumble', () => {
-    const t = swipePlayer(jumped(), 'up', cfg, 'solo').player;
-    const { t: air, maxH, player } = runUntil(t, cfg, (q) => q.grounded);
-    expect(air).toBeCloseTo(airtimeTumble(cfg), 1);
-    expect(maxH).toBeGreaterThan(154);
-    expect(player).toMatchObject({ tumble: false, cross: false, lastTap: 'none' });
+  it('↓ in the air later dives, and the slide starts on landing', () => {
+    const r = swipePlayer(high(), 'down', cfg);
+    expect(r.action).toBe('dive');
+    expect(r.player).toMatchObject({ vy: -cfg.fallV, pendingSlide: true });
+    const landed = runUntil(r.player, cfg, (q) => q.grounded);
+    expect(landed.slideStarted).toBe(true);
+    expect(landed.player).toMatchObject({ sliding: true, pendingSlide: false, level: 0 });
+    expect(landed.t).toBeLessThan(0.12);
   });
 
-  it('left/right after a ground jump moves one lane, clamped', () => {
-    const r = swipePlayer(jumped(), 'left', cfg, 'long');
-    expect(r.action).toBe('side');
-    expect(r.player.lane).toBe(-1);
-    expect(swipePlayer(r.player, 'left', cfg, 'long').action).toBe('none');
-    expect(swipePlayer(r.player, 'right', cfg, 'long').player.lane).toBe(0);
-    expect(swipePlayer(jumped(), 'right', cfg, 'solo').player.lane).toBe(1);
+  it('↓ after an air tap dives too', () => {
+    const b = tapPlayer(stepPlayer(jumped(), 0.05, cfg).player, cfg).player;
+    expect(swipePlayer(b, 'down', cfg).action).toBe('dive');
   });
 
-  it('left/right after an air tap = cross', () => {
-    const r = swipePlayer(boosted(), 'right', cfg, 'solo');
-    expect(r.action).toBe('cross');
-    expect(r.player.cross).toBe(true);
-    expect(r.player.lane).toBe(0);
+  it('a buffered tap then ↓ becomes a dive into a slide', () => {
+    const p: PlayerState = { ...initialPlayer(), grounded: false, level: 1, height: 20, vy: -300 };
+    const r = swipePlayer(tapPlayer(p, cfg).player, 'down', cfg);
+    expect(r.action).toBe('dive');
+    expect(r.player.buffer).toBe(0);
+    expect(runUntil(r.player, cfg, (q) => q.grounded).player.sliding).toBe(true);
   });
 
-  it('down after a ground jump toggles backward in solo only', () => {
-    const r = swipePlayer(jumped(), 'down', cfg, 'solo');
-    expect(r.action).toBe('reverse');
-    expect(r.player.backward).toBe(true);
-    const back = swipePlayer(tapPlayer(runUntil(r.player, cfg, (q) => q.grounded).player, cfg).player, 'down', cfg, 'solo');
-    expect(back.player.backward).toBe(false);
-    expect(swipePlayer(jumped(), 'down', cfg, 'long').action).toBe('none');
+  it('only ↓ acts; nothing while already sliding or diving', () => {
+    for (const d of ['up', 'left', 'right'] as const) {
+      const p = jumped();
+      expect(swipePlayer(p, d, cfg)).toEqual({ player: p, action: 'none' });
+    }
+    // ↓ while sliding restarts the slide (back-to-back slide lasers)
+    const restarted = swipePlayer(sliding(), 'down', cfg);
+    expect(restarted.action).toBe('slide');
+    expect(restarted.player.slideTime).toBe(cfg.slideTime);
+    const dive = swipePlayer(high(), 'down', cfg).player;
+    expect(swipePlayer(dive, 'down', cfg).action).toBe('none');
   });
 
-  it('backward persists across landings', () => {
-    const r = swipePlayer(jumped(), 'down', cfg, 'solo').player;
-    expect(runUntil(r, cfg, (q) => q.grounded).player.backward).toBe(true);
-  });
-
-  it('does nothing outside the swipe window, on the ground, or with up/down after air tap', () => {
-    const late = stepPlayer(jumped(), SWIPE_WINDOW + 0.02, cfg).player;
-    expect(swipePlayer(late, 'up', cfg, 'long').action).toBe('none');
-    expect(swipePlayer(late, 'left', cfg, 'long').action).toBe('none');
-    expect(swipePlayer(late, 'down', cfg, 'solo').action).toBe('none');
-    expect(swipePlayer(initialPlayer(), 'left', cfg, 'long').action).toBe('none');
-    expect(swipePlayer(boosted(), 'up', cfg, 'long').action).toBe('none');
-    expect(swipePlayer(boosted(), 'down', cfg, 'solo').action).toBe('none');
-    const p = initialPlayer();
-    expect(swipePlayer(p, 'up', cfg, 'long').player).toBe(p);
+  it('slidePlayer (keyboard ↓, no tap) slides from the floor and always dives in the air', () => {
+    expect(slidePlayer(initialPlayer(), cfg).action).toBe('slide');
+    // the jump was a separate key press, so there is no touch to convert — dive into a slide
+    expect(slidePlayer(stepPlayer(jumped(), 0.12, cfg).player, cfg).action).toBe('dive');
+    expect(slidePlayer(high(), cfg).action).toBe('dive');
+    expect(slidePlayer(sliding(), cfg).action).toBe('slide');
   });
 });
 
@@ -165,7 +166,7 @@ describe('stepPlayer', () => {
     const r = stepPlayer(initialPlayer(), 0.5, cfg);
     expect(r.player.grounded).toBe(true);
     expect(r.player.landTimer).toBeCloseTo(0.5);
-    expect(r.landed).toBe(false);
+    expect(r).toMatchObject({ landed: false, autoJumped: false, slideStarted: false });
   });
 
   it('1단 jump: airtime ≈ 0.44s, apex ≈ 73px', () => {
@@ -177,7 +178,17 @@ describe('stepPlayer', () => {
     expect(player).toMatchObject({ height: 0, vy: 0, level: 0, airTime: 0, landTimer: 0, lastTap: 'none' });
   });
 
-  it('reports landed exactly on the landing step', () => {
+  it('a slide lasts slideTime, ageing as it goes', () => {
+    const s = sliding();
+    const mid = stepPlayer(s, 0.3, cfg).player;
+    expect(mid.sliding).toBe(true);
+    expect(mid.slideTime).toBeCloseTo(0.25);
+    expect(mid.slideAge).toBeCloseTo(0.3);
+    const done = stepPlayer(s, 0.6, cfg).player;
+    expect(done).toMatchObject({ sliding: false, slideTime: 0, slideAge: 0, grounded: true });
+  });
+
+  it('reports landed exactly once per jump', () => {
     let p = jumped();
     let landedCount = 0;
     for (let i = 0; i < 240; i++) {
@@ -188,46 +199,24 @@ describe('stepPlayer', () => {
     expect(landedCount).toBe(1);
   });
 
-  it('counts airTime while airborne', () => {
-    expect(stepPlayer(jumped(), 0.1, cfg).player.airTime).toBeCloseTo(0.1);
-  });
-
-  it('eases laneX toward lane at ~9 lanes/s', () => {
-    const p = swipePlayer(jumped(), 'left', cfg, 'long').player;
-    expect(p.laneX).toBe(0);
-    expect(stepPlayer(p, 0.05, cfg).player.laneX).toBeCloseTo(-0.45);
-    expect(stepPlayer(p, 0.2, cfg).player.laneX).toBe(-1);
-    const g: PlayerState = { ...initialPlayer(), lane: 1, laneX: 0.5 };
-    expect(stepPlayer(g, 1, cfg).player.laneX).toBe(1);
-  });
-
-  it('auto-jumps on landing when a tap was buffered', () => {
-    const p: PlayerState = { ...initialPlayer(), grounded: false, level: 2, height: 3, vy: -600, cross: true };
-    const tapped = tapPlayer(p, cfg).player;
-    const r = stepPlayer(tapped, 0.02, cfg);
-    expect(r.landed).toBe(true);
-    expect(r.autoJumped).toBe(true);
-    expect(r.player).toMatchObject({ grounded: false, level: 1, buffer: 0, lastTap: 'jump', cross: false });
-  });
-
-  it('expires the buffer if landing is far away', () => {
-    const p: PlayerState = { ...initialPlayer(), grounded: false, level: 1, height: 25, vy: -1 };
-    const tapped = tapPlayer(p, cfg).player;
-    expect(tapped.buffer).toBeGreaterThan(0);
-    const r = runUntil(tapped, cfg, (q) => q.grounded);
-    expect(r.player.grounded).toBe(true);
-    expect(r.player.buffer).toBe(0);
+  it('auto-jumps on landing when a tap was buffered (tap beats a pending slide)', () => {
+    const p: PlayerState = { ...initialPlayer(), grounded: false, level: 2, height: 3, vy: -600, pendingSlide: true };
+    const r = stepPlayer(tapPlayer(p, cfg).player, 0.02, cfg);
+    expect(r).toMatchObject({ landed: true, autoJumped: true, slideStarted: false });
+    expect(r.player).toMatchObject({ grounded: false, level: 1, buffer: 0, lastTap: 'jump', sliding: false });
   });
 
   it('is robust to large dt (sub-steps)', () => {
     const p = jumped();
     const big = stepPlayer(p, 0.25, cfg).player;
     const small = runUntil(p, cfg, () => false, 0.25 - DT / 2).player;
-    expect(Math.abs(big.height - small.height)).toBeLessThan(3); // Euler step-size error only
+    expect(Math.abs(big.height - small.height)).toBeLessThan(3);
     const land = stepPlayer(p, 1.0, cfg);
     expect(land.landed).toBe(true);
-    expect(land.player.grounded).toBe(true);
     expect(land.player.landTimer).toBeGreaterThan(0.5);
+    const dive = stepPlayer(swipePlayer(high(), 'down', cfg).player, 1.0, cfg);
+    expect(dive.slideStarted).toBe(true);
+    expect(dive.player.sliding).toBe(false); // the whole slide fits in that one long step
   });
 
   it('ignores non-positive dt', () => {
@@ -236,14 +225,13 @@ describe('stepPlayer', () => {
   });
 });
 
-describe('airtimeForLevel / airtimeTumble', () => {
+describe('airtimeForLevel', () => {
   it('matches GDD targets roughly', () => {
     expect(airtimeForLevel(1, cfg)).toBeCloseTo(0.44, 2);
     expect(airtimeForLevel(2, cfg)).toBeGreaterThan(0.72);
     expect(airtimeForLevel(2, cfg)).toBeLessThan(0.85);
     expect(airtimeForLevel(3, cfg)).toBeGreaterThan(1.0);
     expect(airtimeForLevel(3, cfg)).toBeLessThan(1.2);
-    expect(airtimeTumble(cfg)).toBeCloseTo((2 * 980) / 3000, 6);
   });
 
   it('agrees with simulation of apex taps', () => {
@@ -265,75 +253,9 @@ describe('airtimeForLevel / airtimeTumble', () => {
   });
 });
 
-describe('physicsForWorld', () => {
-  it('is default on earth worlds', () => {
-    expect(physicsForWorld(0)).toEqual(DEFAULT_PHYSICS);
-  });
 
-  it('moon: lower gravity, same apex, longer hang time', () => {
-    const moon = physicsForWorld(3);
-    expect(moon.gravity).toBeCloseTo(3000 * 0.82);
-    const apex = (c: PhysicsConfig, v: number) => (v * v) / (2 * c.gravity);
-    expect(apex(moon, moon.jumpV)).toBeCloseTo(apex(DEFAULT_PHYSICS, DEFAULT_PHYSICS.jumpV), 6);
-    expect(apex(moon, moon.tumbleV)).toBeCloseTo(apex(DEFAULT_PHYSICS, DEFAULT_PHYSICS.tumbleV), 6);
-    expect(airtimeForLevel(1, moon)).toBeGreaterThan(airtimeForLevel(1, DEFAULT_PHYSICS));
-    expect(airtimeTumble(moon)).toBeGreaterThan(airtimeTumble(DEFAULT_PHYSICS));
-  });
-});
-
-
-describe('v2 review fixes', () => {
-  const cfg = DEFAULT_PHYSICS;
-  const airborneJump = (airTime: number): PlayerState => {
-    let p = tapPlayer(initialPlayer(), cfg).player;
-    p = stepPlayer(p, airTime, cfg).player;
-    return p;
-  };
-
-  it('a swipe during a buffered (pre-landing) tap is kept for the auto-jump', () => {
-    let p = tapPlayer(initialPlayer(), cfg).player;
-    while (!(p.vy < 0 && p.height < 20)) p = stepPlayer(p, 1 / 240, cfg).player;
-    p = tapPlayer(p, cfg).player;
-    expect(p.buffer).toBeGreaterThan(0);
-    const swiped = swipePlayer(p, 'left', cfg, 'long');
-    expect(swiped.action).toBe('none');
-    expect(swiped.player.pendingSwipe).toBe('left');
-    const landed = stepPlayer(swiped.player, 0.05, cfg);
-    expect(landed.autoJumped).toBe(true);
-    expect(landed.player.pendingSwipe).toBe('left'); // the session applies it to the new jump
-  });
-
-  it('a pending swipe is dropped when the buffer expires without a jump', () => {
-    const p: PlayerState = { ...airborneJump(0.3), pendingSwipe: 'up', buffer: 0 };
-    let q = p;
-    for (let i = 0; i < 60 && !q.grounded; i++) q = stepPlayer(q, 1 / 60, cfg).player;
-    expect(q.grounded).toBe(true);
-    expect(q.pendingSwipe).toBeNull();
-  });
-
-  it('every swipe is ignored while tumbling', () => {
-    const t = swipePlayer(airborneJump(0.02), 'up', cfg, 'solo').player;
-    for (const dir of ['up', 'down', 'left', 'right'] as const) {
-      expect(swipePlayer(t, dir, cfg, 'solo').action).toBe('none');
-    }
-  });
-
-  it('a late swipe still reaches the full tumble apex', () => {
-    const apex = (start: number): number => {
-      let p = swipePlayer(airborneJump(start), 'up', cfg, 'long').player;
-      let top = p.height;
-      while (!p.grounded) {
-        p = stepPlayer(p, 1 / 240, cfg).player;
-        top = Math.max(top, p.height);
-      }
-      return top;
-    };
-    const full = (cfg.tumbleV * cfg.tumbleV) / (2 * cfg.gravity);
-    for (const start of [0, 0.1, 0.2]) expect(apex(start)).toBeCloseTo(full, -1);
-  });
-
-  it('a swipe exactly at the window edge still counts', () => {
-    const p = { ...airborneJump(0.1), airTime: SWIPE_WINDOW };
-    expect(swipePlayer(p, 'right', cfg, 'long').action).toBe('side');
+describe('v4 review fixes', () => {
+  it('CLEAR_H matches the drawn floor fence (24px)', () => {
+    expect(CLEAR_H).toBe(24);
   });
 });

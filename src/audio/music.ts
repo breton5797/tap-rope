@@ -22,32 +22,39 @@ interface Style {
   readonly pad: boolean;
   readonly swing: number; // 0..0.35 of a step
   readonly cutoff: number;
+  readonly bassLine?: readonly number[]; // semitone offsets cycled over the bass hits
+  readonly clank?: readonly number[]; // metallic percussion steps
+  readonly toms?: readonly number[];
 }
 
+/** Spy/stealth loops per corridor theme: 0 outpost, 1 lab, 2 prison, 3 industrial. */
 const STYLES: Readonly<Record<WorldId, Style>> = {
   0: {
-    chords: [[48, 64, 67, 72], [43, 62, 67, 71], [45, 64, 69, 72], [41, 65, 69, 72]],
-    scale: [72, 74, 76, 79, 81, 84, 81, 79],
-    kick: [0, 4, 8, 12], snare: [4, 12], hatEvery: 2, bass: [0, 6, 8, 14], stabs: [2, 10],
-    arpEvery: 2, bassType: 'triangle', stabType: 'square', arpType: 'triangle', pad: false, swing: 0, cutoff: 5200,
+    chords: [[45, 69, 72, 76], [41, 69, 72, 77], [45, 69, 72, 76], [40, 68, 71, 76]],
+    scale: [81, 84, 88, 84],
+    kick: [0, 10], snare: [4, 12], hatEvery: 1, bass: [0, 2, 4, 6, 8, 10, 12, 14], stabs: [3, 11],
+    bassLine: [0, 0, 7, 8, 7, 0, 3, 5],
+    arpEvery: 0, bassType: 'triangle', stabType: 'square', arpType: 'triangle', pad: false, swing: 0.08, cutoff: 2600,
   },
   1: {
-    chords: [[41, 64, 69, 72, 76], [40, 62, 67, 71, 74], [38, 60, 65, 69, 72], [36, 59, 64, 67, 71]],
-    scale: [76, 72, 69, 74, 71, 67, 72, 69],
-    kick: [0, 10], snare: [4, 12], hatEvery: 2, bass: [0, 7, 10], stabs: [0, 7],
-    arpEvery: 4, bassType: 'sine', stabType: 'triangle', arpType: 'sine', pad: false, swing: 0.28, cutoff: 3200,
+    chords: [[38, 62, 65, 69], [34, 62, 65, 70], [36, 60, 64, 67], [33, 60, 64, 69]],
+    scale: [74, 77, 81, 77, 72, 76, 79, 76],
+    kick: [0, 8], snare: [4, 12], hatEvery: 2, bass: [0, 8, 11],
+    stabs: [], arpEvery: 1, bassType: 'sine', stabType: 'sine', arpType: 'square', pad: true, swing: 0, cutoff: 4200,
   },
   2: {
-    chords: [[45, 69, 72, 76], [41, 69, 72, 77], [48, 67, 72, 76], [43, 67, 71, 74]],
-    scale: [69, 72, 76, 81, 76, 72, 69, 64],
-    kick: [0, 4, 8, 12], snare: [4, 12], hatEvery: 1, bass: [0, 2, 4, 6, 8, 10, 12, 14], stabs: [],
-    arpEvery: 1, bassType: 'sawtooth', stabType: 'sawtooth', arpType: 'sawtooth', pad: true, swing: 0, cutoff: 2600,
+    chords: [[40, 64, 67, 71], [36, 64, 67, 72], [38, 62, 66, 69], [35, 63, 66, 71]],
+    scale: [76, 79, 83, 79],
+    kick: [0, 3, 6, 8, 11], snare: [4, 12], hatEvery: 2, bass: [0, 3, 6, 8, 11, 14], stabs: [0],
+    toms: [13, 14, 15], bassLine: [0, 0, 12, 0, 0, 7],
+    arpEvery: 0, bassType: 'sawtooth', stabType: 'sawtooth', arpType: 'sawtooth', pad: true, swing: 0, cutoff: 2200,
   },
   3: {
-    chords: [[38, 66, 69, 73, 74], [35, 62, 66, 69, 71], [43, 62, 66, 71, 74], [45, 64, 69, 73, 76]],
-    scale: [86, 81, 78, 74, 85, 81, 78, 76],
-    kick: [0, 8], snare: [12], hatEvery: 4, bass: [0, 8], stabs: [],
-    arpEvery: 2, bassType: 'sine', stabType: 'sine', arpType: 'sine', pad: true, swing: 0.12, cutoff: 4200,
+    chords: [[36, 60, 63, 67], [32, 60, 63, 68], [34, 58, 62, 65], [31, 59, 62, 67]],
+    scale: [72, 75, 79, 75],
+    kick: [0, 4, 8, 12], snare: [4, 12], hatEvery: 1, bass: [0, 2, 4, 6, 8, 10, 12, 14], stabs: [],
+    clank: [2, 7, 10, 13], bassLine: [0, 0, 12, 0],
+    arpEvery: 4, bassType: 'sawtooth', stabType: 'square', arpType: 'square', pad: false, swing: 0, cutoff: 2600,
   },
 };
 
@@ -70,6 +77,14 @@ function drums(v: Voice, s: Style, inBar: number, t: number, swingT: number): vo
     noise(v.ctx, v.out, { start: t, dur: 0.16, gain: 0.16, type: 'bandpass', freq: 1900, q: 0.8 });
     tone(v.ctx, v.out, { type: 'triangle', freq: 220, freqEnd: 140, start: t, dur: 0.08, gain: 0.12 });
   }
+  if (s.clank?.includes(inBar)) {
+    noise(v.ctx, v.out, { start: t, dur: 0.07, gain: 0.12, type: 'bandpass', freq: 2600, q: 9 });
+    tone(v.ctx, v.out, { type: 'square', freq: 1870, freqEnd: 1500, start: t, dur: 0.05, gain: 0.025, filter: 6000 });
+  }
+  if (s.toms?.includes(inBar)) {
+    const f = 200 - s.toms.indexOf(inBar) * 35;
+    tone(v.ctx, v.out, { type: 'sine', freq: f, freqEnd: f * 0.55, start: t, dur: 0.18, gain: 0.32 });
+  }
   if (inBar % s.hatEvery === 0) {
     const accent = inBar % 4 === 2 ? 1 : 0.6;
     noise(v.ctx, v.out, { start: swingT, dur: 0.035, gain: 0.05 * accent, type: 'highpass', freq: 7500 });
@@ -81,8 +96,9 @@ function harmony(v: Voice, s: Style, step: number, t: number, swingT: number, st
   const chord = s.chords[Math.floor(step / STEPS_PER_BAR) % s.chords.length];
   const [root, ...tones] = chord;
   if (s.bass.includes(inBar)) {
-    const oct = s.bassType === 'sawtooth' && inBar % 4 === 2 ? 12 : 0;
-    tone(v.ctx, v.out, { type: s.bassType, freq: midiToFreq(root + oct), start: t, dur: stepDur * 1.8, gain: 0.2, filter: 900 });
+    const line = s.bassLine ?? [0];
+    const oct = line[s.bass.indexOf(inBar) % line.length] ?? 0;
+    tone(v.ctx, v.out, { type: s.bassType, freq: midiToFreq(root + oct), start: t, dur: stepDur * 1.6, gain: 0.2, filter: 900 });
   }
   if (s.stabs.includes(inBar)) {
     for (const m of tones) tone(v.ctx, v.out, { type: s.stabType, freq: midiToFreq(m), start: swingT, dur: stepDur * 2.2, gain: 0.035, filter: 2800 });

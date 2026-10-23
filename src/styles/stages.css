@@ -14,7 +14,7 @@
 
 .trail__shadow {
   fill: none;
-  stroke: rgba(20, 10, 60, 0.28);
+  stroke: rgba(4, 8, 22, 0.28);
   stroke-width: 16;
   stroke-linecap: round;
 }
@@ -48,21 +48,21 @@
   font-size: 38px;
   background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.55) 0 14%, transparent 15%), linear-gradient(160deg, var(--w-a), var(--w-b));
   border: 4px solid #fff;
-  box-shadow: 0 6px 0 rgba(20, 10, 60, 0.35), 0 16px 26px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 6px 0 rgba(4, 8, 22, 0.35), 0 16px 26px -10px rgba(0, 0, 0, 0.6);
   text-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
   transition: transform 0.2s var(--ease-pop);
 }
 
 .node__disc:active {
   transform: translateY(4px) scale(0.94);
-  box-shadow: 0 2px 0 rgba(20, 10, 60, 0.35);
+  box-shadow: 0 2px 0 rgba(4, 8, 22, 0.35);
 }
 
 .node__disc.is-locked {
-  color: #fff;
+  color: #9fb0d8;
   font-size: 30px;
-  background: linear-gradient(180deg, #d6d2ee, #a39ecd);
-  border-color: rgba(255, 255, 255, 0.7);
+  background: linear-gradient(180deg, #3a4670, #222b4c);
+  border-color: rgba(150, 180, 230, 0.45);
 }
 
 .node__disc.is-next::after {
@@ -91,10 +91,10 @@
   z-index: 1;
   padding: 5px 11px;
   border-radius: 999px;
-  color: #5e2a00;
+  color: #fff;
   font-size: 15px;
-  background: linear-gradient(180deg, #ffe46b, #ffae2b);
-  box-shadow: 0 3px 0 #dc7414;
+  background: linear-gradient(180deg, #ff7488, #ff2d55);
+  box-shadow: 0 3px 0 #a90f33, 0 0 14px rgba(255, 45, 85, 0.6);
   animation: bob 1.4s ease-in-out infinite;
 }
 
@@ -128,7 +128,7 @@
   color: #fff;
   font-size: 16px;
   white-space: nowrap;
-  text-shadow: 0 2px 0 rgba(20, 10, 60, 0.5);
+  text-shadow: 0 2px 0 rgba(4, 8, 22, 0.5);
 }
 
 .node__best {
@@ -137,32 +137,6 @@
   font-size: 11.5px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-}
-
-/* rope-mode pill sitting on the disc rim */
-.node__mode {
-  position: absolute;
-  left: 50%;
-  bottom: -11px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 11.5px;
-  line-height: 1;
-  white-space: nowrap;
-  text-shadow: none;
-  background: #3a8dff;
-  border: 2px solid #fff;
-  transform: translateX(-50%);
-  box-shadow: 0 2px 0 rgba(20, 10, 60, 0.3);
-}
-
-.node__mode--solo {
-  background: #8a5cff;
-}
-
-.node__disc.is-locked .node__mode {
-  background: #8f8aba;
 }
 
 .node__moves {
@@ -199,7 +173,7 @@
   font-style: normal;
   letter-spacing: 0.04em;
   background: #ffe14d;
-  transform: translateX(-50%);
+  translate: -50% 0;
   animation: bob 1.4s ease-in-out infinite;
 }
 
@@ -238,7 +212,7 @@
   color: #fff;
   background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.6) 0 14%, transparent 15%), linear-gradient(160deg, #ffe066, #ff9a1f);
   border-color: #ffd23f;
-  box-shadow: 0 0 0 3px #fff, 0 6px 0 3px rgba(20, 10, 60, 0.3), 0 0 22px 4px rgba(255, 210, 63, 0.55);
+  box-shadow: 0 0 0 3px #fff, 0 6px 0 3px rgba(4, 8, 22, 0.3), 0 0 22px 4px rgba(255, 210, 63, 0.55);
 }
 
 .node__disc--bonus .ico {
@@ -256,7 +230,7 @@
   font-size: 46px;
   background: radial-gradient(circle at 35% 26%, rgba(255, 255, 255, 0.45) 0 12%, transparent 13%), linear-gradient(160deg, #ff5d6c, #7b1fa2);
   border-width: 5px;
-  box-shadow: 0 7px 0 rgba(20, 10, 60, 0.4), 0 0 0 6px rgba(255, 93, 108, 0.25), 0 18px 30px -10px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 7px 0 rgba(4, 8, 22, 0.4), 0 0 0 6px rgba(255, 93, 108, 0.25), 0 18px 30px -10px rgba(0, 0, 0, 0.7);
 }
 
 .node__crown {
@@ -265,21 +239,22 @@
   left: 50%;
   font-size: 38px;
   color: #ffd23f;
-  transform: translateX(-50%) rotate(-6deg);
+  translate: -50% 0;
+  rotate: -6deg;
   filter: drop-shadow(0 3px 0 #b5640a) drop-shadow(0 0 10px rgba(255, 210, 63, 0.7));
   animation: bob 1.8s ease-in-out infinite;
 }
 
 .node__disc--boss.is-locked .node__crown {
-  color: #c9c4e6;
-  filter: drop-shadow(0 3px 0 #8f8aba);
+  color: #5d6a95;
+  filter: drop-shadow(0 3px 0 #1a2240);
 }
 
 .node__disc.is-locked.node__disc--bonus,
 .node__disc.is-locked.node__disc--boss {
-  background: linear-gradient(180deg, #d6d2ee, #a39ecd);
-  border-color: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 6px 0 rgba(20, 10, 60, 0.35);
+  background: linear-gradient(180deg, #3a4670, #222b4c);
+  border-color: rgba(150, 180, 230, 0.45);
+  box-shadow: 0 6px 0 rgba(4, 8, 22, 0.35);
 }
 
 /* ---------- difficulty meter (1..5) ---------- */

@@ -1,12 +1,12 @@
 /**
- * Save data persistence (localStorage key 'taprope.save.v1').
+ * Save data persistence (localStorage key 'laserescape.save.v1'), incl. briefed chapters.
  * parseSave validates untrusted JSON field by field and never throws; load/write
  * swallow storage errors (private mode, quota). All updates return new objects.
  */
 import type { SaveData, Settings, SkinId } from '../types';
-import { SKINS, STAGES } from './content';
+import { CHAPTERS, SKINS, STAGES } from './content';
 
-const KEY = 'taprope.save.v1';
+const KEY = 'laserescape.save.v1'; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
 const SKIN_IDS: readonly SkinId[] = SKINS.map((s) => s.id);
 const DEFAULT_SETTINGS: Settings = { sound: true, music: true, vibration: true, reducedMotion: false };
 
@@ -21,7 +21,7 @@ const clampStars = (n: number) => Math.min(3, Math.max(0, Math.floor(n)));
 export function defaultSave(): SaveData {
   return {
     version: 1, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
-    settings: DEFAULT_SETTINGS, tutorialDone: false,
+    settings: DEFAULT_SETTINGS, tutorialDone: false, briefed: [],
   };
 }
 
@@ -60,7 +60,22 @@ export function parseSave(raw: unknown): SaveData {
     skin: isSkin(raw.skin) && ownedSkins.includes(raw.skin) ? raw.skin : 'kid',
     settings: parseSettings(raw.settings),
     tutorialDone: raw.tutorialDone === true,
+    briefed: parseBriefed(raw.briefed),
   };
+}
+
+const isChapter = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < CHAPTERS.length;
+
+/** chapter ids whose briefing was shown: valid ids only, unique, ascending */
+function parseBriefed(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter(isChapter))].sort((a, b) => a - b);
+}
+
+/** Records that a chapter's briefing card was shown (no-op for unknown or already-briefed chapters). */
+export function markBriefed(save: SaveData, chapter: number): SaveData {
+  if (!isChapter(chapter) || save.briefed.includes(chapter)) return save;
+  return { ...save, briefed: [...save.briefed, chapter].sort((a, b) => a - b) };
 }
 
 function defaultStore(): Storage | undefined {
