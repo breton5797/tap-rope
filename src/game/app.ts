@@ -15,7 +15,7 @@ import { createSession, sessionStars, step, swipe, tap, type Session } from './s
 import { botAction, type BotAction } from './bot';
 import { toHud, toSnapshot } from './snapshot';
 import { playFeedback } from './feedback';
-import { HINT_DURATION, upcomingHint } from './hints';
+import { HINT_DURATION, introducedMoves, upcomingHint } from './hints';
 import { bindInput } from './input';
 
 type Screen = 'menu' | 'countdown' | 'play' | 'paused' | 'result';
@@ -241,7 +241,7 @@ export function startApp(): void {
       return;
     }
     if (run.mode !== 'stage' || hintsSkipped) return;
-    const h = upcomingHint(session, seenHints);
+    const h = upcomingHint(session, seenHints, new Set(introducedMoves(session.stage)));
     if (h === null) return;
     seenHints.add(h);
     ui.showTutorial(h);

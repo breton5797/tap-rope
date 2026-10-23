@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AudioApi, Beat, EffectsApi, JudgeResult } from '../../src/types';
 import { STAGES } from '../../src/core/content';
 import { createSession, type GameEvent, type Session } from '../../src/game/session';
-import { hintForBeat, upcomingHint } from '../../src/game/hints';
+import { hintForBeat, introducedMoves, upcomingHint } from '../../src/game/hints';
 import { playFeedback } from '../../src/game/feedback';
 import { toHud, toSnapshot } from '../../src/game/snapshot';
 
@@ -38,9 +38,29 @@ describe('hints', () => {
   it('finds the next unseen hint inside the lookahead only', () => {
     const base = createSession('stage', STAGES[0]);
     const s: Session = { ...base, beats: [beat(1, [{ kind: 'rope', level: 2 }], 2), beat(1.5, [{ kind: 'bird', level: 1 }], 0), beat(9, [{ kind: 'rope', level: 3 }], 3)] };
-    expect(upcomingHint(s, new Set())).toBe('double');
-    expect(upcomingHint(s, new Set(['double'] as const))).toBe('bird');
-    expect(upcomingHint(s, new Set(['double', 'bird'] as const))).toBeNull();
+    const any = new Set(['double', 'bird'] as const);
+    expect(upcomingHint(s, new Set(), any)).toBe('double');
+    expect(upcomingHint(s, new Set(['double'] as const), any)).toBe('bird');
+    expect(upcomingHint(s, new Set(['double', 'bird'] as const), any)).toBeNull();
+  });
+});
+
+describe('intro-only hints', () => {
+  it('a stage only teaches the moves it introduces', () => {
+    const stage = (n: number) => STAGES[n - 1];
+    expect(introducedMoves(stage(1))).toContain('jump');
+    expect(introducedMoves(stage(4))).toEqual(['double']);
+    expect(introducedMoves(stage(11))).toContain('tumble');
+    expect(introducedMoves(stage(100))).toEqual([]);
+    const all = new Set(STAGES.flatMap((st) => introducedMoves(st)));
+    expect(all.size).toBe(new Set(STAGES.flatMap((st) => st.moves)).size);
+  });
+
+  it('upcomingHint ignores moves outside the allowed set', () => {
+    const base = createSession('stage', STAGES[0]);
+    const s: Session = { ...base, beats: [beat(1, [{ kind: 'rope', level: 3 }], 3)] };
+    expect(upcomingHint(s, new Set(), new Set(['triple'] as const))).toBe('triple');
+    expect(upcomingHint(s, new Set(), new Set())).toBeNull();
   });
 });
 
