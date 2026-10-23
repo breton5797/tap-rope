@@ -5,13 +5,16 @@ import type { ChapterMeta, SaveData, StageDef } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
 import { firstIntroductions, stageNode, trailHeight, trailPath } from './stage-node';
+import { zoneArt, zoneKey } from './zone-art';
 
 let selectedChapter: number | null = null;
 
-/** CSS skin for a chapter: the variant wins over the base theme. */
+/** CSS skin for a zone (theme × variant palette). */
 export function chapterSkin(c: Pick<ChapterMeta, 'theme' | 'variant'>): string {
-  return `chap--t${c.theme} chap--${c.variant === 'base' ? `t${c.theme}` : c.variant}`;
+  return `zone--${zoneKey(c.theme, c.variant)}`;
 }
+
+const PART_LABEL: Readonly<Record<1 | 2, string>> = { 1: '1부 구출작전', 2: '2부 탈출작전' };
 
 function chapterStages(chapter: number): StageDef[] {
   return STAGES.filter((s) => s.chapter === chapter);
@@ -32,8 +35,10 @@ function starsOf(save: SaveData, stages: readonly StageDef[]): number {
 }
 
 function chapterTabs(ctx: Ctx, save: SaveData, active: number, onPick: (c: number) => void): HTMLElement {
-  const row = h('nav', { cls: 'chaps', attrs: { role: 'tablist', 'aria-label': '월드' } });
+  const row = h('nav', { cls: 'chaps', attrs: { role: 'tablist', 'aria-label': '구역' } });
+  const tabs: HTMLElement[] = [];
   for (const c of CHAPTERS) {
+    if (c.id === 0 || CHAPTERS[c.id - 1]?.part !== c.part) row.appendChild(h('span', { cls: `chaps__part chaps__part--${c.part}`, text: PART_LABEL[c.part] }));
     const open = chapterUnlocked(save, c.id);
     const on = c.id === active;
     const tab = h(
@@ -43,10 +48,11 @@ function chapterTabs(ctx: Ctx, save: SaveData, active: number, onPick: (c: numbe
     );
     tab.addEventListener('click', ctx.tap(() => onPick(c.id)));
     row.appendChild(tab);
+    tabs.push(tab);
   }
   // centre the active chip once laid out
   requestAnimationFrame(() => {
-    const el = row.children[active] as HTMLElement | undefined;
+    const el = tabs[active];
     if (el) row.scrollLeft = el.offsetLeft - (row.clientWidth - el.offsetWidth) / 2;
   });
   return row;
@@ -55,13 +61,16 @@ function chapterTabs(ctx: Ctx, save: SaveData, active: number, onPick: (c: numbe
 function chapterCard(save: SaveData, c: ChapterMeta, stages: readonly StageDef[]): HTMLElement {
   const open = chapterUnlocked(save, c.id);
   return h('div', { cls: `world__hero ${chapterSkin(c)}` }, [
-    h('div', { cls: 'world__deco' }),
-    h('div', { cls: 'world__kicker', text: `WORLD ${c.id + 1}` }),
+    h('div', { cls: 'world__deco' }, [zoneArt(c.theme, c.variant)]),
+    h('div', { cls: 'world__kicker' }, [
+      h('span', { cls: `world__part world__part--${c.part}`, text: PART_LABEL[c.part] }),
+      h('span', { text: `ZONE ${String(c.id + 1).padStart(2, '0')}` }),
+    ]),
     h('h2', { cls: 'world__name', text: c.name }),
     h('p', { cls: 'world__sub', text: c.subtitle }),
     h('div', { cls: 'world__meta' }, [
       h('span', { cls: 'world__stars' }, [icons.star(), h('span', { text: `${starsOf(save, stages)} / ${stages.length * 3}` })]),
-      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: '이전 월드 보스를 깨면 열려요' })]),
+      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: '이전 구역 보스를 깨면 열려요' })]),
     ]),
   ]);
 }
@@ -104,7 +113,7 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
   ]);
   requestAnimationFrame(() => centreNextNode(screen, ctx.reducedMotion()));
   screen.append(
-    header(ctx, '스테이지', onBack, [total], icons.back()),
+    header(ctx, '작전 지도', onBack, [total], icons.back()),
     chapterTabs(ctx, save, active, pick),
     h('div', { cls: 'scroll' }, [chapterBody(ctx, save, active)]),
   );

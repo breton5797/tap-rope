@@ -3,36 +3,45 @@
   --font-display: 'Jua', 'Black Han Sans', ui-rounded, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
   --font-body: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
 
-  --ink: #241d5c;
-  --ink-soft: #5d5a94;
-  --ink-faint: #8f8cbc;
-  --paper: #fbfaff;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 
-  --sun: #ffcf3f;
-  --sun-deep: #f08a1c;
-  --pink: #ff5da2;
-  --pink-deep: #d6306f;
-  --mint: #2fd6a6;
-  --mint-deep: #13a27a;
-  --sky: #45b6ff;
-  --sky-deep: #1f7fd6;
-  --violet: #8a6bff;
-  --violet-deep: #5a3fd6;
+  /* spy palette: navy panels, neon red + cyan accents */
+  --ink: #eef4ff;
+  --ink-soft: #a9b7da;
+  --ink-faint: #7080a8;
+  --bg-0: #070b18;
+  --bg-1: #0f1630;
+  --panel: #151e3a;
+  --panel-2: #1d2850;
+  --line: rgba(110, 200, 255, 0.2);
+
+  --sun: #ffc53d;
+  --sun-deep: #d9890b;
+  --pink: #ff3b5c;
+  --pink-deep: #c4123a;
+  --mint: #3ff0a6;
+  --mint-deep: #0fae6c;
+  --sky: #2ee6ff;
+  --sky-deep: #0a9fc0;
+  --violet: #8f7bff;
+  --violet-deep: #5b45e0;
   --heart: #ff4d6d;
+  --red: var(--pink);
+  --cyan: var(--sky);
 
-  --glass: rgba(255, 255, 255, 0.74);
-  --glass-strong: rgba(255, 255, 255, 0.92);
-  --glass-dim: rgba(255, 255, 255, 0.18);
-  --glass-line: rgba(255, 255, 255, 0.85);
-  --scrim: rgba(22, 14, 64, 0.55);
+  --glass: rgba(21, 30, 58, 0.78);
+  --glass-strong: rgba(21, 30, 58, 0.94);
+  --glass-dim: rgba(255, 255, 255, 0.1);
+  --glass-line: rgba(110, 200, 255, 0.24);
+  --scrim: rgba(4, 8, 20, 0.6);
 
   --r-xl: 32px;
   --r-lg: 24px;
   --r-md: 18px;
   --r-sm: 12px;
 
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 24px 48px -18px rgba(28, 16, 84, 0.55), 0 6px 14px -6px rgba(28, 16, 84, 0.25);
-  --shadow-soft: 0 10px 24px -10px rgba(28, 16, 84, 0.45);
+  --shadow-card: 0 1px 0 rgba(160, 220, 255, 0.18) inset, 0 0 0 1px rgba(46, 230, 255, 0.06), 0 24px 48px -18px rgba(0, 0, 0, 0.75), 0 0 40px -18px rgba(46, 230, 255, 0.35);
+  --shadow-soft: 0 10px 24px -10px rgba(0, 0, 0, 0.6);
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -56,7 +65,7 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #1b1446;
+  background: var(--bg-0);
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -80,7 +89,7 @@ body,
   height: 100dvh;
   overflow: hidden;
   touch-action: manipulation;
-  background: radial-gradient(120% 80% at 50% 0%, #4b3bb0 0%, #2a1f6b 55%, #160f3d 100%);
+  background: radial-gradient(120% 80% at 50% 0%, #1d2a56 0%, #0f1630 55%, #070b18 100%);
 }
 
 #game {

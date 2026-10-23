@@ -58,9 +58,8 @@ export function renderTutorial(layer: HTMLElement, ctx: Ctx, move: MoveId | null
     ctx.cb.onUiClick();
     ctx.cb.onTutorialDone();
   });
-  const warn = move === 'bird';
   layer.replaceChildren(
-    h('div', { cls: `tut tone--${info.tone}${warn ? ' tut--warn' : ''}`, attrs: { role: 'status' } }, [
+    h('div', { cls: `tut tone--${info.tone}${info.warn ? ' tut--warn' : ''}`, attrs: { role: 'status' } }, [
       h('div', { cls: 'tut__card' }, [
         moveArt(move),
         h('div', { cls: 'tut__body' }, [

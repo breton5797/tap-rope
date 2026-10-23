@@ -2,6 +2,7 @@
 import type { HudState, ResultInfo, SaveData, Settings, Ui, UiCallbacks } from '../types';
 import { h, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
+import { renderBriefing } from './briefing';
 import { buildGuide } from './guide';
 import { buildPause, renderCountdown, renderTutorial, showToast } from './overlays';
 import { buildResult } from './result';
@@ -15,6 +16,7 @@ interface Layers {
   readonly hud: HTMLElement;
   readonly fx: HTMLElement;
   readonly tutorial: HTMLElement;
+  readonly briefing: HTMLElement;
   readonly toast: HTMLElement;
 }
 
@@ -23,11 +25,12 @@ function createLayers(root: HTMLElement): Layers {
     hud: h('div', { cls: 'layer layer--hud', attrs: { hidden: '' } }),
     fx: h('div', { cls: 'layer layer--fx', attrs: { 'aria-live': 'assertive' } }),
     tutorial: h('div', { cls: 'layer layer--tutorial', attrs: { 'aria-live': 'polite' } }),
+    briefing: h('div', { cls: 'layer layer--briefing', attrs: { 'aria-live': 'polite' } }),
     screen: h('div', { cls: 'layer layer--screen' }),
     toast: h('div', { cls: 'layer layer--toast', attrs: { 'aria-live': 'polite' } }),
   };
   swallowInput(layers.screen);
-  root.replaceChildren(layers.hud, layers.fx, layers.tutorial, layers.screen, layers.toast);
+  root.replaceChildren(layers.hud, layers.briefing, layers.fx, layers.tutorial, layers.screen, layers.toast);
   return layers;
 }
 
@@ -92,15 +95,18 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
     showResult(r: ResultInfo) {
       setHud(false);
       renderTutorial(layers.tutorial, ctx, null);
+      renderBriefing(layers.briefing, null, true);
       mount(buildResult(ctx, r), 'result');
     },
     showTutorial: (step) => renderTutorial(layers.tutorial, ctx, step),
+    showBriefing: (chapter) => renderBriefing(layers.briefing, chapter, ctx.reducedMotion()),
     showCountdown: (n) => renderCountdown(layers.fx, n),
     hideAll() {
       setHud(false);
       mount(null, 'none');
       renderCountdown(layers.fx, null);
       renderTutorial(layers.tutorial, ctx, null);
+      renderBriefing(layers.briefing, null, true);
     },
     toast: (msg) => showToast(layers.toast, msg),
   };

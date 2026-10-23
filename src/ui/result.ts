@@ -57,25 +57,36 @@ function statTile(label: string, value: number, cls: string): HTMLElement {
   ]);
 }
 
-function headline(r: ResultInfo): { kicker: string; title: string; tone: string } {
+function headline(r: ResultInfo): { kicker: string; title: string; tone: string; sub?: string } {
   if (r.mode !== 'stage') {
-    return { kicker: r.title, title: r.newRecord ? '최고 기록!' : 'GAME OVER', tone: r.newRecord ? 'win' : 'lose' };
+    return { kicker: r.title, title: r.newRecord ? '최고 기록!' : '작전 종료', tone: r.newRecord ? 'win' : 'lose' };
   }
   return r.cleared
-    ? { kicker: r.title, title: 'STAGE CLEAR!', tone: 'win' }
-    : { kicker: r.title, title: '아쉬워요!', tone: 'lose' };
+    ? { kicker: r.title, title: 'MISSION CLEAR!', tone: 'win' }
+    : { kicker: '작전 실패', title: '아쉬워요!', tone: 'lose', sub: r.title };
 }
 
-/** Banner shown after beating a chapter's boss stage. */
-function chapterClear(r: ResultInfo): HTMLElement | null {
+interface StoryBeat {
+  readonly ribbon: string;
+  readonly line: string;
+  readonly icon: () => SVGElement;
+}
+
+/** Story banner after a boss: rescue (zone 5), final escape (zone 10), or the next zone opening. */
+function storyBeat(r: ResultInfo): StoryBeat | null {
   const stage = STAGES.find((s) => s.id === r.stageId);
   if (r.mode !== 'stage' || !r.cleared || stage?.kind !== 'boss') return null;
+  if (r.stageId === 'w5-s10') return { ribbon: '포로 구출 성공!', line: '2부 탈출작전 개시 · ZONE 06', icon: icons.unlock };
+  if (r.stageId === 'w10-s10' || !r.hasNext) return { ribbon: '탈출 성공! 임무 완료', line: '모든 작전 완료! 최고의 요원이에요', icon: icons.star };
+  return { ribbon: '구역 돌파!', line: `다음 구역 열림 · ZONE ${String(stage.chapter + 2).padStart(2, '0')}`, icon: icons.unlock };
+}
+
+function chapterClear(r: ResultInfo): HTMLElement | null {
+  const beat = storyBeat(r);
+  if (!beat) return null;
   return h('div', { cls: 'chapter-clear' }, [
-    h('span', { cls: 'chapter-clear__ribbon' }, [icons.crown(), h('span', { text: '챕터 클리어!' })]),
-    h('span', { cls: 'chapter-clear__line' }, [
-      r.hasNext ? icons.unlock() : icons.star(),
-      h('span', { text: r.hasNext ? `다음 월드 열림 · WORLD ${stage.chapter + 2}` : '모든 월드 클리어! 최고예요!' }),
-    ]),
+    h('span', { cls: 'chapter-clear__ribbon' }, [icons.crown(), h('span', { text: beat.ribbon })]),
+    h('span', { cls: 'chapter-clear__line' }, [beat.icon(), h('span', { text: beat.line })]),
   ]);
 }
 
@@ -92,10 +103,10 @@ function actions(ctx: Ctx, r: ResultInfo): HTMLElement {
     onPress: ctx.tap(() => ctx.cb.onRetry()),
   });
   const quit = button({
-    label: r.mode !== 'stage' ? '메뉴로' : next ? '스테이지' : '스테이지 선택',
+    label: r.mode !== 'stage' ? '메뉴로' : '작전 지도',
     variant: 'glass',
     icon: icons.grid(),
-    aria: r.mode === 'stage' ? '스테이지 선택' : '메뉴로',
+    aria: r.mode === 'stage' ? '작전 지도' : '메뉴로',
     onPress: ctx.tap(() => ctx.cb.onQuit()),
   });
   return next ? h('div', { cls: 'stack' }, [next, h('div', { cls: 'row' }, [retry, quit])]) : h('div', { cls: 'stack' }, [retry, quit]);
@@ -110,6 +121,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
   const card = h('div', { cls: `result card pop-in result--${head.tone}` }, [
     h('div', { cls: 'result__kicker', text: head.kicker }),
     h('h2', { cls: 'result__title', text: head.title }),
+    head.sub ? h('div', { cls: 'result__sub', text: head.sub }) : null,
     chapterClear(r),
     r.mode === 'stage' ? stars(r.stars) : h('div', { cls: 'result__trophy' }, [icons.infinity()]),
     h('div', { cls: 'result__scorebox' }, [

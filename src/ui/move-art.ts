@@ -1,126 +1,116 @@
-// Animated gesture illustrations (80x80) for each move: tutorial cards + guide sheet.
+// Animated 80x80 gesture illustrations for each v4 move (tutorial cards + guide sheet).
 import type { MoveId } from '../types';
 import { svg } from './dom';
 
 const GROUND = 64;
-const BLUE = '#4f6bff';
+const RED = '#ff3b5c';
+const CYAN = '#2ee6ff';
+const FINGER = '#2ee6ff';
 let uid = 0;
 
-type Swipe = 'up' | 'down' | 'h';
-
 interface Scene {
-  readonly bg: readonly [string, string];
-  readonly lift: number; // figure height above ground
-  readonly x?: number; // figure x (default 40)
+  readonly lift: number; // agent height above the floor (ignored when sliding)
+  readonly x?: number;
+  readonly slide?: boolean;
   readonly taps?: number;
-  readonly swipe?: Swipe;
+  readonly swipe?: boolean; // swipe-down gesture instead of taps
   readonly at: readonly [number, number]; // gesture anchor
-  readonly extras?: () => SVGElement[];
-  readonly flip?: boolean;
-  readonly crossArms?: boolean;
-  readonly rope?: 'normal' | 'none' | 'double' | 'back';
+  readonly layers: () => SVGElement[]; // lasers / drones drawn behind the agent
+  readonly warnTint?: boolean;
 }
 
-function bird(): SVGElement {
-  return svg('g', { transform: 'translate(44 13)' }, [
-    svg('ellipse', { cx: 0, cy: 0, rx: 9, ry: 6.5, fill: '#5b8cff' }),
-    svg('path', { d: 'M-3 -2 L4 -11 L6 -1z', fill: '#3d6be0', class: 'tut__wing' }),
-    svg('path', { d: 'M-8 -1 L-14 1 L-8 3z', fill: '#ffb020' }),
-    svg('circle', { cx: -4, cy: -1.5, r: 1.6, fill: '#1f1a4d' }),
+/** Neon beam: soft glow under a bright core. */
+function laser(d: string, cls = ''): SVGElement {
+  return svg('g', { class: `tut__laser ${cls}`.trim() }, [
+    svg('path', { d, stroke: RED, 'stroke-width': 6, 'stroke-linecap': 'round', opacity: 0.3 }),
+    svg('path', { d, stroke: '#ff8fa0', 'stroke-width': 2.2, 'stroke-linecap': 'round' }),
   ]);
 }
 
-function ring(id: string): SVGElement[] {
+function floorLaser(x: number, top = 48, cls = ''): SVGElement[] {
+  return [svg('rect', { x: x - 4, y: GROUND - 1, width: 8, height: 4, rx: 1.5, fill: '#4a5680' }), laser(`M${x} ${GROUND} V${top}`, cls)];
+}
+
+function beams(count: number, fromLeft = false): SVGElement[] {
+  return Array.from({ length: count }, (_, i) => {
+    const y = GROUND - 8 - i * 10;
+    return laser(fromLeft ? `M2 ${y} H30` : `M48 ${y} H80`, 'tut__laser--fly');
+  });
+}
+
+function drone(x: number, y: number): SVGElement {
+  return svg('g', { class: 'tut__drone', transform: `translate(${x} ${y})` }, [
+    svg('path', { d: 'M-5 4 L-12 22 H12 L5 4z', fill: CYAN, opacity: 0.16 }),
+    svg('path', { d: 'M-12 -4 H-4 M4 -4 H12', stroke: '#9fb0d8', 'stroke-width': 2, 'stroke-linecap': 'round' }),
+    svg('ellipse', { cx: 0, cy: 1, rx: 8, ry: 5, fill: '#3b4670' }),
+    svg('circle', { cx: 0, cy: 2, r: 2.6, fill: CYAN }),
+  ]);
+}
+
+function agentBody(): SVGElement[] {
   return [
-    svg('defs', {}, [
-      svg('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 }, ['#ff5d6c', '#ffb340', '#ffe14d', '#3fe0a0', '#45b6ff', '#8a6bff'].map((c, i) =>
-        svg('stop', { offset: i / 5, 'stop-color': c }),
-      )),
-    ]),
-    svg('ellipse', { cx: 40, cy: 38, rx: 13, ry: 24, fill: 'none', stroke: `url(#${id})`, 'stroke-width': 4.5, opacity: 0.9 }),
+    svg('rect', { x: -6.5, y: 2, width: 13, height: 14, rx: 5, fill: '#4a5fa8', stroke: '#9fd8ff', 'stroke-width': 0.8 }),
+    svg('path', { d: 'M-3 2 L0 7 L3 2z', fill: '#fff' }),
+    svg('path', { d: 'M-1 4 L0 10 L1 4z', fill: RED }),
+    svg('circle', { cx: 0, cy: -5, r: 7.5, fill: '#ffd9b8' }),
+    svg('path', { d: 'M-7.5 -6 Q0 -16 7.5 -6 Q0 -10 -7.5 -6z', fill: '#1d2238' }),
+    svg('rect', { x: -7, y: -7, width: 14, height: 4, rx: 2, fill: CYAN, opacity: 0.85 }),
+    svg('circle', { cx: -2.6, cy: -2.5, r: 1.1, fill: '#1d2238' }),
+    svg('circle', { cx: 2.6, cy: -2.5, r: 1.1, fill: '#1d2238' }),
+    svg('circle', { cx: 7.6, cy: -3, r: 1.4, fill: '#9fb0d8' }),
   ];
 }
 
-function ball(): SVGElement {
-  return svg('g', { class: 'tut__ball', transform: `translate(58 ${GROUND - 8})` }, [
-    svg('circle', { r: 8, fill: '#ff8a3d' }),
-    svg('path', { d: 'M-8 0h16M0 -8v16', stroke: '#fff', 'stroke-width': 2, opacity: 0.8 }),
-    svg('circle', { cx: -2.5, cy: -3, r: 2, fill: '#fff', opacity: 0.6 }),
-  ]);
-}
-
-function figure(s: Scene): SVGElement {
-  const y = GROUND - 22 - s.lift;
-  const arms = s.crossArms
-    ? [svg('path', { d: 'M-9 4 L9 13 M9 4 L-9 13', stroke: '#ffd9b8', 'stroke-width': 3, 'stroke-linecap': 'round' })]
-    : [];
-  return svg('g', { transform: `translate(${s.x ?? 40} ${y})` }, [
-    svg('g', { class: s.flip ? 'tut__fig tut__fig--flip' : 'tut__fig' }, [
-      svg('rect', { x: -6.5, y: 2, width: 13, height: 14, rx: 5.5, fill: '#ff5d6c' }),
-      ...arms,
-      svg('circle', { cx: 0, cy: -5, r: 7.5, fill: '#ffd9b8' }),
-      svg('path', { d: 'M-7.5 -6 Q0 -16 7.5 -6 Q0 -10 -7.5 -6z', fill: '#4a2c2a' }),
-      svg('circle', { cx: -2.6, cy: -4, r: 1.1, fill: '#2a2350' }),
-      svg('circle', { cx: 2.6, cy: -4, r: 1.1, fill: '#2a2350' }),
-    ]),
-  ]);
-}
-
-function rope(kind: Scene['rope']): SVGElement[] {
-  const low = `M6 ${GROUND - 14} Q40 ${GROUND + 14} 74 ${GROUND - 14}`;
-  const base = { fill: 'none', 'stroke-width': 3, 'stroke-linecap': 'round' };
-  if (kind === 'none') return [];
-  if (kind === 'double') {
-    return [
-      svg('path', { ...base, d: low, stroke: '#ff5da2' }),
-      svg('path', { ...base, d: `M6 ${GROUND - 14} Q40 0 74 ${GROUND - 14}`, stroke: '#45b6ff', 'stroke-dasharray': '1 0' }),
-    ];
+function agent(s: Scene): SVGElement {
+  const x = s.x ?? 36;
+  if (s.slide) {
+    // feet-first slide: rotate the standing pose back around the feet
+    return svg('g', { transform: `translate(${x} ${GROUND}) rotate(-78) translate(0 -16)` }, [
+      svg('g', { class: 'tut__fig tut__fig--slide' }, agentBody()),
+    ]);
   }
-  if (kind === 'back') {
-    // rope plus a counter-clockwise "rewind" arrow around the kid
-    return [
-      svg('path', { ...base, d: low, stroke: '#8a6bff' }),
-      svg('path', { ...base, 'stroke-width': 2.6, stroke: '#ff5da2', d: 'M48 40 A17 17 0 1 0 16 40' }),
-      svg('path', { d: 'M10.5 37 L21.5 37 L16 44.5z', fill: '#ff5da2' }),
-    ];
-  }
-  return [svg('path', { ...base, d: low, stroke: '#ff5da2' })];
+  return svg('g', { transform: `translate(${x} ${GROUND - 16 - s.lift})` }, [svg('g', { class: 'tut__fig' }, agentBody())]);
 }
 
 function taps(n: number): SVGElement[] {
   return [
     ...Array.from({ length: n }, (_, i) =>
-      svg('circle', { r: 5 + i * 3.5, fill: 'none', stroke: BLUE, 'stroke-width': 1.8, class: 'tut__ring', style: `animation-delay:${i * 0.16}s` }),
+      svg('circle', { r: 5 + i * 3.5, fill: 'none', stroke: FINGER, 'stroke-width': 1.8, class: 'tut__ring', style: `animation-delay:${i * 0.16}s` }),
     ),
-    svg('circle', { r: 4, fill: BLUE }),
+    svg('circle', { r: 4, fill: FINGER }),
   ];
 }
 
-function swipe(dir: Swipe): SVGElement[] {
-  const arrow = {
-    up: 'M0 10 V-10 M-5 -5 L0 -10 L5 -5',
-    down: 'M0 -10 V10 M-5 5 L0 10 L5 5',
-    h: 'M-12 0 H12 M-7 -5 L-12 0 L-7 5 M7 -5 L12 0 L7 5',
-  }[dir];
+function swipeDown(): SVGElement[] {
   return [
-    svg('path', { d: arrow, fill: 'none', stroke: BLUE, 'stroke-width': 2.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.55 }),
-    svg('circle', { r: 4.6, fill: BLUE, stroke: '#fff', 'stroke-width': 1.6, class: `tut__finger tut__finger--${dir}` }),
+    svg('path', { d: 'M0 -10 V10 M-5 5 L0 10 L5 5', fill: 'none', stroke: FINGER, 'stroke-width': 2.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.55 }),
+    svg('circle', { r: 4.6, fill: FINGER, stroke: '#fff', 'stroke-width': 1.4, class: 'tut__finger tut__finger--down' }),
   ];
 }
 
 const SCENES: Readonly<Record<MoveId, Scene>> = {
-  jump: { bg: ['#e8f6ff', '#bfe4ff'], lift: 8, taps: 1, at: [64, 18] },
-  double: { bg: ['#efe9ff', '#d6c9ff'], lift: 18, taps: 2, at: [64, 18] },
-  triple: { bg: ['#efe9ff', '#cbb9ff'], lift: 27, taps: 3, at: [64, 18] },
-  bird: {
-    bg: ['#ffe9ee', '#ffc7d4'], lift: 4, taps: 1, at: [66, 44],
-    extras: () => [svg('path', { d: 'M4 25 H76', stroke: '#ff4d6d', 'stroke-width': 2, 'stroke-dasharray': '3 4', 'stroke-linecap': 'round' }), bird()],
+  jump: { lift: 18, x: 54, at: [18, 18], taps: 1, layers: () => floorLaser(56) },
+  beam: { lift: 14, x: 60, at: [18, 18], taps: 1, layers: () => beams(1) },
+  double: { lift: 24, x: 60, at: [18, 18], taps: 2, layers: () => beams(2) },
+  triple: { lift: 33, x: 60, at: [18, 20], taps: 3, layers: () => beams(3) },
+  slide: {
+    lift: 0, slide: true, swipe: true, x: 48, at: [16, 22],
+    layers: () => [svg('rect', { x: 50, y: 0, width: 12, height: 5, rx: 2, fill: '#4a5680' }), laser('M56 5 V46')],
   },
-  tumble: { bg: ['#fff6dc', '#ffe08a'], lift: 18, swipe: 'up', at: [67, 30], flip: true, rope: 'none', extras: () => ring(`tut-ring-${uid}`) },
-  side: { bg: ['#e2fbf3', '#aef0d8'], lift: 12, x: 26, swipe: 'h', at: [52, 14], extras: () => [ball()] },
-  cross: { bg: ['#ffe9f3', '#ffc4de'], lift: 16, x: 26, swipe: 'h', at: [58, 34], crossArms: true },
-  back: { bg: ['#e8f0ff', '#c4d6ff'], lift: 8, x: 32, swipe: 'down', at: [67, 30], rope: 'back' },
-  dd: { bg: ['#e2fbf3', '#bdf3e2'], lift: 14, taps: 1, at: [66, 14], rope: 'double' },
+  high: { lift: 0, slide: true, swipe: true, x: 40, at: [16, 22], layers: () => [laser('M36 44 H80', 'tut__laser--fly')] },
+  drone: {
+    lift: 6, at: [66, 44], taps: 1, warnTint: true,
+    layers: () => [svg('path', { d: 'M4 30 H76', stroke: RED, 'stroke-width': 1.6, 'stroke-dasharray': '3 4', opacity: 0.8 }), drone(46, 18)],
+  },
+  rear: {
+    lift: 16, x: 50, at: [68, 16], taps: 1, warnTint: true,
+    layers: () => [...beams(1, true), svg('path', { d: 'M4 30 L10 20 L16 30z', fill: '#ffc53d', class: 'tut__blink' }), svg('rect', { x: 9.2, y: 23, width: 1.6, height: 4, fill: '#1d2238' })],
+  },
+  gate: { lift: 18, x: 30, at: [16, 16], taps: 1, warnTint: true, layers: () => [...floorLaser(58), drone(58, 16)] },
+  pulse: {
+    lift: 16, x: 24, at: [66, 14], taps: 1,
+    layers: () => [44, 58, 72].flatMap((x, i) => floorLaser(x, 50, `tut__pulse tut__pulse--${i}`)),
+  },
 };
 
 /** Returns a fresh animated illustration for a move. */
@@ -129,22 +119,23 @@ export function moveArt(id: MoveId): SVGElement {
   uid += 1;
   const bg = `tut-bg-${uid}`;
   const clip = `tut-clip-${uid}`;
-  const gesture = s.swipe ? swipe(s.swipe) : taps(s.taps ?? 1);
+  const top = s.warnTint ? '#3a1630' : '#1c2750';
   return svg('svg', { class: `tut__art tut__art--${id}`, viewBox: '0 0 80 80', 'aria-hidden': 'true' }, [
     svg('defs', {}, [
       svg('clipPath', { id: clip }, [svg('rect', { width: 80, height: 80, rx: 22 })]),
       svg('linearGradient', { id: bg, x1: 0, y1: 0, x2: 0, y2: 1 }, [
-        svg('stop', { offset: 0, 'stop-color': s.bg[0] }),
-        svg('stop', { offset: 1, 'stop-color': s.bg[1] }),
+        svg('stop', { offset: 0, 'stop-color': top }),
+        svg('stop', { offset: 1, 'stop-color': '#0c1228' }),
       ]),
     ]),
     svg('g', { 'clip-path': `url(#${clip})` }, [
       svg('rect', { width: 80, height: 80, fill: `url(#${bg})` }),
-      svg('rect', { y: GROUND, width: 80, height: 16, fill: '#7fd68a' }),
-      ...rope(s.rope ?? 'normal'),
-      ...(s.extras?.() ?? []),
-      figure(s),
+      svg('path', { d: 'M20 0V64M40 0V64M60 0V64', stroke: '#ffffff', 'stroke-opacity': 0.05, 'stroke-width': 1 }),
+      svg('rect', { y: GROUND, width: 80, height: 16, fill: '#202a4d' }),
+      svg('path', { d: `M0 ${GROUND} H80`, stroke: CYAN, 'stroke-width': 1.2, opacity: 0.55 }),
+      ...s.layers(),
+      agent(s),
     ]),
-    svg('g', { transform: `translate(${s.at[0]} ${s.at[1]})` }, gesture),
+    svg('g', { transform: `translate(${s.at[0]} ${s.at[1]})` }, s.swipe ? swipeDown() : taps(s.taps ?? 1)),
   ]);
 }

@@ -12,9 +12,9 @@ interface ToggleDef {
 }
 
 const TOGGLES: readonly ToggleDef[] = [
-  { key: 'sound', label: '효과음', desc: '점프, 코인, 판정 소리', icon: icons.sound, tone: 'sun' },
-  { key: 'music', label: '배경음악', desc: '리듬에 맞춘 신나는 음악', icon: icons.music, tone: 'pink' },
-  { key: 'vibration', label: '진동', desc: '부딪힐 때 손끝으로 느껴요', icon: icons.vibrate, tone: 'sky' },
+  { key: 'sound', label: '효과음', desc: '점프, 코인, 경보 소리', icon: icons.sound, tone: 'sun' },
+  { key: 'music', label: '배경음악', desc: '박자에 맞춘 긴장감 넘치는 작전 음악', icon: icons.music, tone: 'pink' },
+  { key: 'vibration', label: '진동', desc: '레이저에 닿으면 손끝으로 느껴요', icon: icons.vibrate, tone: 'sky' },
   { key: 'reducedMotion', label: '모션 줄이기', desc: '흔들림과 화려한 효과를 줄여요', icon: icons.sparkle, tone: 'violet' },
 ];
 
@@ -51,9 +51,9 @@ export function buildSettings(ctx: Ctx, save: SaveData, onBack: () => void, onLo
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'card settings' }, TOGGLES.map((d) => toggleRow(ctx, d, () => current, set))),
       h('div', { cls: 'credits' }, [
-        h('div', { cls: 'credits__logo', text: '탭탭 줄넘기' }),
-        h('p', { text: 'TAP ROPE v1.0 · 모든 그래픽과 사운드는 코드로 직접 만들었어요.' }),
-        h('p', { cls: 'credits__small', text: 'Made with ♥ and a long rope' }),
+        h('div', { cls: 'credits__logo', text: '레이저 탈출작전' }),
+        h('p', { text: 'LASER ESCAPE v4 · 모든 그래픽과 사운드는 코드로 직접 만들었어요.' }),
+        h('p', { cls: 'credits__small', text: 'Agent K, 오늘도 무사히 귀환하길.' }),
       ]),
     ]),
   ]);
