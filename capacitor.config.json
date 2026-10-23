@@ -1,8 +1,8 @@
 {
   "appId": "com.heesookyang.taprope",
-  "appName": "탭탭 줄넘기",
+  "appName": "레이저 탈출작전",
   "webDir": "dist",
-  "backgroundColor": "#1b1446",
+  "backgroundColor": "#0e1424",
   "ios": {
     "contentInset": "never",
     "scrollEnabled": false
