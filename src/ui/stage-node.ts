@@ -1,6 +1,9 @@
 // One chapter's winding trail of stage nodes (normal / bonus / boss).
 import { STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
+import { stageDifficulty } from '../core/difficulty';
+import { generateBeats } from '../core/levels';
+import { physicsForWorld } from '../core/physics';
 import type { MoveId, SaveData, StageDef } from '../types';
 import { formatNumber, h, svg, type Ctx } from './dom';
 import { icons } from './icons';
@@ -35,10 +38,9 @@ export function firstIntroductions(): ReadonlyMap<string, ReadonlySet<MoveId>> {
   );
 }
 
-/** Locked stages only tease the moves they introduce, to keep the trail calm. */
-function moveBadges(stage: StageDef, fresh: ReadonlySet<MoveId>, unlocked: boolean): HTMLElement | null {
-  const listed = (stage.moves ?? []).filter((m) => unlocked || fresh.has(m));
-  const moves = [...listed].sort((a, b) => Number(fresh.has(b)) - Number(fresh.has(a)));
+/** Only stages that introduce a move get glyphs (each tagged NEW). */
+function moveBadges(stage: StageDef, fresh: ReadonlySet<MoveId>): HTMLElement | null {
+  const moves = (stage.moves ?? []).filter((m) => fresh.has(m));
   if (moves.length === 0) return null;
   const shown = moves.slice(0, MAX_MOVE_ICONS);
   const extra = moves.length - shown.length;
@@ -51,6 +53,32 @@ function moveBadges(stage: StageDef, fresh: ReadonlySet<MoveId>, unlocked: boole
     ),
     extra > 0 ? h('span', { cls: 'mv mv--more', text: `+${extra}` }) : null,
   ]);
+}
+
+/** Cheap 1..5 difficulty estimate from the stage definition (no beat generation). */
+const difficultyCache = new Map<string, number>();
+/** campaign difficulty scores span ≈ 0.27 (easy) … 0.77 (hardest boss); 0.1 per dot */
+const DIFF_FLOOR = 0.3;
+const DIFF_STEP = 0.1;
+
+/** 1–5 dots from the same difficulty score the balance tests use (cached; bonus always 1). */
+export function difficulty(stage: StageDef): number {
+  if (stage.kind === 'bonus') return 1;
+  let score = difficultyCache.get(stage.id);
+  if (score === undefined) {
+    score = stageDifficulty(stage, generateBeats(stage, physicsForWorld(stage.world)));
+    difficultyCache.set(stage.id, score);
+  }
+  return Math.max(1, Math.min(5, 1 + Math.floor((score - DIFF_FLOOR) / DIFF_STEP)));
+}
+
+function difficultyMeter(stage: StageDef): HTMLElement {
+  const level = difficulty(stage);
+  return h(
+    'div',
+    { cls: `node__diff diff--${level}`, attrs: { 'aria-label': `난이도 ${level}/5` } },
+    [1, 2, 3, 4, 5].map((i) => h('i', { cls: i <= level ? 'is-on' : '' })),
+  );
 }
 
 function starRow(n: number): HTMLElement {
@@ -75,6 +103,11 @@ function discFace(stage: StageDef, unlocked: boolean): Node {
   if (!unlocked) return icons.lock();
   if (stage.kind === 'bonus') return icons.gift();
   return h('span', { cls: 'node__num', text: String(stage.index + 1) });
+}
+
+/** Core names bonus/boss stages "보너스 …"/"보스 …"; the kind pill already says so. */
+function displayName(stage: StageDef): string {
+  return stage.name.replace(/^(보너스|보스)\s+/, '');
 }
 
 const KIND_LABEL: Readonly<Record<string, string>> = { bonus: '보너스', boss: 'BOSS' };
@@ -110,8 +143,9 @@ export function stageNode(ctx: Ctx, save: SaveData, stage: StageDef, isNext: boo
       isNext ? h('span', { cls: 'node__flag', text: '도전!' }) : null,
       stageDisc(ctx, stage, unlocked, isNext),
       starRow(unlocked ? save.stars[stage.id] ?? 0 : 0),
-      h('div', { cls: 'node__name' }, [kindLabel ? h('span', { cls: `node__kind node__kind--${kind}`, text: kindLabel }) : null, stage.name]),
-      moveBadges(stage, fresh, unlocked),
+      unlocked ? difficultyMeter(stage) : null,
+      h('div', { cls: 'node__name' }, [kindLabel ? h('span', { cls: `node__kind node__kind--${kind}`, text: kindLabel }) : null, displayName(stage)]),
+      moveBadges(stage, fresh),
       best > 0 ? h('div', { cls: 'node__best', text: `최고 ${formatNumber(best)}` }) : null,
     ],
   );

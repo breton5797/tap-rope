@@ -80,6 +80,17 @@ function chapterBody(ctx: Ctx, save: SaveData, chapter: number): HTMLElement {
   ]);
 }
 
+/** Scrolls the trail so the "도전!" node sits mid-screen (instant under reduced motion). */
+function centreNextNode(screen: HTMLElement, reduced: boolean): void {
+  const scroller = screen.querySelector<HTMLElement>('.scroll');
+  const node = screen.querySelector<HTMLElement>('.node__flag')?.parentElement;
+  if (!scroller || !node) return;
+  const box = scroller.getBoundingClientRect();
+  const r = node.getBoundingClientRect();
+  const top = scroller.scrollTop + r.top - box.top - (scroller.clientHeight - r.height) / 2;
+  scroller.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'auto' : 'smooth' });
+}
+
 export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): HTMLElement {
   const active = selectedChapter ?? currentChapter(save);
   const screen = h('section', { cls: 'screen screen--stages', attrs: { 'aria-label': '스테이지 선택' } });
@@ -91,6 +102,7 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
     icons.star(),
     h('span', { cls: 'chip__value', text: `${starsOf(save, STAGES)}/${STAGES.length * 3}` }),
   ]);
+  requestAnimationFrame(() => centreNextNode(screen, ctx.reducedMotion()));
   screen.append(
     header(ctx, '스테이지', onBack, [total], icons.back()),
     chapterTabs(ctx, save, active, pick),

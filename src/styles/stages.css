@@ -281,3 +281,28 @@
   border-color: rgba(255, 255, 255, 0.7);
   box-shadow: 0 6px 0 rgba(20, 10, 60, 0.35);
 }
+
+/* ---------- difficulty meter (1..5) ---------- */
+.node__diff {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+  --diff: #5fe3a1;
+}
+
+.node__diff i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.node__diff i.is-on {
+  background: var(--diff);
+  box-shadow: 0 0 6px var(--diff);
+}
+
+.diff--2 { --diff: #a8e45c; }
+.diff--3 { --diff: #ffd23f; }
+.diff--4 { --diff: #ff9a3c; }
+.diff--5 { --diff: #ff4d6d; }
