@@ -1,9 +1,17 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg'];
+/** v6 photographic art in public/art is precached too (the game must work offline) */
+const artFiles = (): string[] => {
+  try {
+    return readdirSync(new URL('./public/art', import.meta.url)).filter((f) => f.endsWith('.webp')).sort().map((f) => `./art/${f}`);
+  } catch {
+    return [];
+  }
+};
 
 /** Emits sw.js with a content-derived cache version and the full hashed-asset precache list. */
 function serviceWorker(): Plugin {
@@ -13,8 +21,12 @@ function serviceWorker(): Plugin {
     enforce: 'post',
     generateBundle(_options, bundle) {
       const built = Object.keys(bundle).filter((f) => !f.endsWith('.map')).sort();
-      const precache = ['./', ...built.map((f) => `./${f}`), ...PUBLIC_FILES];
-      const version = createHash('sha256').update(built.join('|')).digest('hex').slice(0, 12);
+      const art = artFiles();
+      const precache = ['./', ...built.map((f) => `./${f}`), ...PUBLIC_FILES, ...art];
+      const hash = createHash('sha256').update(built.join('|'));
+      // art keeps its file names across edits, so its bytes go into the cache version
+      for (const f of art) hash.update(readFileSync(new URL(`./public/${f.slice(2)}`, import.meta.url)));
+      const version = hash.digest('hex').slice(0, 12);
       const source = readFileSync(new URL('./sw/sw.template.js', import.meta.url), 'utf8')
         .replace('__VERSION__', version)
         .replace('__PRECACHE__', JSON.stringify(precache));

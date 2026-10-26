@@ -325,6 +325,11 @@ export interface EffectsApi {
 }
 
 export interface Renderer {
+  /**
+   * v6: load the photographic art (public/art/*.webp, GDD-v6 §2). Resolves when every image has settled;
+   * never rejects — a missing image falls back to the procedural look. render() works before and during loading.
+   */
+  load(onProgress?: (done: number, total: number) => void): Promise<void>;
   resize(cssWidth: number, cssHeight: number, dpr: number): void;
   render(snap: RenderSnapshot): void;
   readonly fx: EffectsApi;
@@ -402,6 +407,8 @@ export interface Ui {
   showCountdown(n: number | null): void; // 3,2,1, 0 = "GO!", null = hide
   hideAll(): void;
   toast(msg: string): void;
+  /** v6: boot loading overlay, progress 0..1; null = hide */
+  showLoading(progress: number | null): void;
 }
 
 // ---------- Audio contract ----------
