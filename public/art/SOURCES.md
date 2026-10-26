@@ -5,7 +5,7 @@ Apache-2.0) through mflux (`mflux-generate-z-image-turbo`, 9 steps, `-q 8`). GDD
 but that model is HF-gated and was not on this machine, so Z-Image-Turbo was used with the same §2.1 prompt
 style. All output is AI-generated: no people, no stock photos, no third-party assets.
 
-Encoding: `cwebp -q 88 -m 6 -sharp_yuv`. Total about 1.4 MB.
+Encoding: `cwebp -q 88 -m 6 -sharp_yuv`. Total about 1.7 MB (39 files).
 
 ## Shared prompt pieces
 - `STYLE` = `straight-on flat frontal elevation, orthographic, symmetrical, no people, no text, no logos, moody teal shadows, warm amber practical lights, subtle haze, 35mm film, highly detailed, realistic materials`
@@ -78,3 +78,29 @@ Prompt: `cinematic film still, wide shot, <subject>, no people, no text, no logo
 | zone-9 | 61 | rooftop helipad at dawn with a black helicopter, city skyline, low sun |
 
 Rejected: zone-7 s61 (tiny people in the background) and zone-6 s61 (an exit sign with a small legible word).
+
+## Theme 0 exterior sets (zones 9 "rooftop" night, 10 "helipad" dawn)
+Wall prompt = `cinematic photograph, exterior rooftop of a high-security facility, <subject>, the scene fills the whole frame edge to edge, plain concrete stair-tower wall sections at the far left and far right edges, camera at horizon level, only a thin strip of roof deck at the very bottom, ` + STYLE
+Raw 1280×864 → 1024×640, all seed 11 (seed 23 rejected to keep framing consistent).
+| file | floor line (raw y) | subject |
+|---|---|---|
+| wall-0-night-a | 824 | at night, low concrete parapet wall with a steel safety railing, two large HVAC units on the roof, the city skyline with lit windows and a dark night sky beyond in the upper half |
+| wall-0-night-b | 824 | at night, low concrete parapet wall with a steel safety railing, tall antenna masts with red aircraft warning lights, ventilation stacks, the city skyline with lit windows and a dark night sky beyond in the upper half |
+| wall-0-night-c | 768 | at night, low concrete parapet wall with a steel safety railing, caged amber wall lamps, rooftop access door housing, cable conduits, the city skyline and dark teal night sky beyond in the upper half |
+| wall-0-dawn-a | 778 | at dawn, helipad edge, low concrete parapet with a row of small helipad perimeter lights, steel safety net frame, distant city skyline silhouette, dawn sky gradient from amber horizon to teal above in the upper half |
+| wall-0-dawn-b | 720 | at dawn, helipad edge, low concrete parapet with helipad perimeter lights, a windsock on a slim steel mast, distant city skyline silhouette, dawn sky gradient from amber horizon to teal above in the upper half |
+| wall-0-dawn-c | 712 | at dawn, helipad edge, low concrete parapet with helipad perimeter lights, floodlight mast, small equipment cabinet, distant city skyline silhouette, dawn sky gradient from amber horizon to teal above in the upper half |
+
+Post-processing:
+1. Crop and resize as for the interior walls, with the bottom edge on the parapet/deck line.
+2. Per-row tone of b and c pulled 80% toward a (49-row box-smoothed), so sky gradients match.
+3. Every variant gets variant a's own left/right 128-px pillar strips (24-px feather), because the generated pillars differ in height.
+4. Same shared edge-column profile as the interior walls.
+
+Floors (tileable both axes; same flatten → best window → seam-cut x/y → edge-ramp pipeline as the interior floors):
+| file | seed | prompt subject | notes |
+|---|---|---|---|
+| floor-0-night | 47 | `top-down orthographic photograph looking straight down at a dark weathered rooftop concrete with grey waterproofing membrane patches and seams, wet, night, lit by cool teal light, flat even lighting, seamless texture, uniform pattern, no objects, no text, no numbers, highly detailed, realistic material` | rows 160–768 only (skips the roof edge), y-overlap 96 |
+| floor-0-dawn | 127 | *(re-prompted)* `flat top-down orthographic photograph looking straight down at weathered grey rooftop concrete helipad surface, a few long straight faded worn white and yellow painted stripes running horizontally across the whole width, peeling paint, cracks, stains, uniform even dawn light, seamless texture, no circles, no letters, no numbers, no objects, highly detailed, realistic material` | gain 0.62 |
+
+Rejected: the first dawn floors (s31 had perspective, s47 had a single large circle that would repeat visibly) and dawn re-prompt seeds 101/113 (stripes too saturated).
