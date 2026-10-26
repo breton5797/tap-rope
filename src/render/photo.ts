@@ -5,7 +5,7 @@
 import { GROUND_Y, type Variant } from '../types';
 import { CEIL_Y, FLOOR_BACK, FLOOR_FRONT, laneY } from './layout';
 import type { Photo } from './art';
-import { vGrad, type Ctx } from './util';
+import { seeded, vGrad, type Ctx } from './util';
 
 /** logical tile sizes for the photo layers (keep the photos' aspect ratios) */
 export const WALL_PW = 512; // 1024×640 over the 320-tall wall bake
@@ -45,12 +45,12 @@ interface GradeSpec {
 
 /** Scene variants = lighting + colour grade (teal shadows, warm highlights), never separate images. */
 const GRADES: Readonly<Record<Variant, GradeSpec>> = {
-  base: { mul: '#8FAAB2', mulA: 0.26, add: '#FF9A50', addA: 0.05 },
-  alarm: { mul: '#8A3038', mulA: 0.42, add: '#FF2A3A', addA: 0.05 },
-  dark: { mul: '#1C2638', mulA: 0.7, add: '#3FE0D0', addA: 0.02 },
-  steam: { mul: '#9AAAB0', mulA: 0.38, add: '#B8C4C8', addA: 0.16 },
-  night: { mul: '#26365E', mulA: 0.72, add: '#4A70C0', addA: 0.05 },
-  dawn: { mul: '#B88A6A', mulA: 0.4, add: '#FF9040', addA: 0.14 },
+  base: { mul: '#8FAAB2', mulA: 0.12, add: '#FF9A50', addA: 0.05 },
+  alarm: { mul: '#8A3038', mulA: 0.26, add: '#FF2A3A', addA: 0.05 },
+  dark: { mul: '#1C2638', mulA: 0.4, add: '#3FE0D0', addA: 0.03 },
+  steam: { mul: '#9AAAB0', mulA: 0.26, add: '#B8C4C8', addA: 0.16 },
+  night: { mul: '#26365E', mulA: 0.48, add: '#4A70C0', addA: 0.05 },
+  dawn: { mul: '#B88A6A', mulA: 0.26, add: '#FF9040', addA: 0.14 },
 };
 
 /** Apply the variant grade over a baked region (tiles are opaque, so plain blend modes are safe);
@@ -154,13 +154,13 @@ export function photoFloor(ctx: Ctx, img: Photo, bottom: number, theme: number):
   }
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   for (const d of [0.5, 1.5]) ctx.fillRect(0, laneY(d) + 1, FLOOR_PW, 1);
-  // front edge: steel nosing + dark face
-  ctx.fillStyle = vGrad(ctx, front, bottom, [[0, '#2A2F35'], [0.06, '#15181C'], [1, '#050608']]);
+  // apron in front of the lanes: the same floor continues toward the camera (fills tall screens),
+  // falling off into shadow, behind a worn painted edge line
+  for (let y = front; y < bottom; y += front - back) ctx.drawImage(img, 0, y, FLOOR_PW, front - back);
+  ctx.fillStyle = vGrad(ctx, front, bottom, [[0, 'rgba(0,0,0,0.25)'], [0.45, 'rgba(0,0,0,0.6)'], [1, 'rgba(0,0,0,0.88)']]);
   ctx.fillRect(0, front, FLOOR_PW, bottom - front);
-  ctx.fillStyle = '#5A626C';
+  ctx.fillStyle = 'rgba(255,176,32,0.32)';
   ctx.fillRect(0, front - 1, FLOOR_PW, 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  for (let x = 30; x < FLOOR_PW; x += 85) ctx.fillRect(x, front + 6, 3, 30);
 }
 
 /** Ceiling strip above the back wall (tile y 0..PHOTO_TOP_H): the photo, fading into darkness at the top. */
@@ -168,4 +168,26 @@ export function photoTop(ctx: Ctx, img: Photo): void {
   ctx.drawImage(img, 0, 0, TOP_PW, PHOTO_TOP_H);
   ctx.fillStyle = vGrad(ctx, 0, 60, [[0, 'rgba(5,6,10,1)'], [1, 'rgba(5,6,10,0)']]);
   ctx.fillRect(0, 0, TOP_PW, 60);
+}
+
+/** Open sky above an exterior wall (tile y 0..PHOTO_TOP_H, horizon at the bottom): night = deep
+ * navy with sparse stars and a faint city glow; dawn = indigo fading into an amber horizon. */
+export function skyBand(ctx: Ctx, kind: 'night' | 'dawn'): void {
+  const h = PHOTO_TOP_H;
+  ctx.fillStyle = kind === 'night'
+    ? vGrad(ctx, 0, h, [[0, '#03050B'], [0.6, '#0B1428'], [1, '#1C2A44']])
+    : vGrad(ctx, 0, h, [[0, '#0E1226'], [0.45, '#3A2E48'], [0.8, '#B4643C'], [1, '#F0A050']]);
+  ctx.fillRect(0, 0, TOP_PW, h);
+  if (kind === 'night') {
+    const rnd = seeded(41);
+    ctx.fillStyle = '#DDE6FF';
+    for (let i = 0; i < 40; i++) {
+      ctx.globalAlpha = 0.25 + rnd() * 0.55;
+      ctx.fillRect(rnd() * TOP_PW, rnd() * h * 0.7, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+  }
+  // haze at the horizon line (where the wall top meets the sky)
+  ctx.fillStyle = vGrad(ctx, h - 30, h, [[0, 'rgba(255,190,140,0)'], [1, kind === 'night' ? 'rgba(90,110,160,0.35)' : 'rgba(255,200,140,0.45)']]);
+  ctx.fillRect(0, h - 30, TOP_PW, 30);
 }

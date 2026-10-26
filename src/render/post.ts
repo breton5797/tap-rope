@@ -37,6 +37,17 @@ const SHAFT: Readonly<Record<Variant, string | null>> = {
   dawn: 'rgba(255,190,130,1)',
 };
 
+/** world grade per variant: multiply tint applied over corridor + hazards + characters together
+ * (the tiles carry the rest of the grade, see photo.GRADES) */
+const WORLD_GRADE: Readonly<Record<Variant, readonly [string, number]>> = {
+  base: ['#8FAAB2', 0.16],
+  alarm: ['#B04048', 0.2],
+  dark: ['#33415A', 0.22],
+  steam: ['#A8B6BC', 0.12],
+  night: ['#3A4C80', 0.24],
+  dawn: ['#C8946C', 0.16],
+};
+
 export class Post {
   private key = '';
   private vignette: HTMLCanvasElement | null = null;
@@ -77,6 +88,18 @@ export class Post {
       base += step;
       m++;
     }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /** The shared world grade (multiply) over everything drawn so far, up to the floor's front. */
+  gradeWorld(ctx: Ctx, v: View, variant: Variant, fade: number): void {
+    const g = WORLD_GRADE[variant] ?? WORLD_GRADE.base;
+    if (fade <= 0.01) return;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = g[1] * fade;
+    ctx.fillStyle = g[0];
+    ctx.fillRect(v.x0, v.y0, v.w, v.h);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
   }

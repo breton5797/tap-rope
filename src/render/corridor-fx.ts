@@ -34,33 +34,66 @@ function forEachTileX(v: View, scroll: number, xs: readonly number[], fn: (x: nu
   }
 }
 
-/** Rotating siren beams + glowing domes. */
-export function sirens(ctx: Ctx, v: View, scroll: number, t: number): void {
+/** Soft beacon beam pointing along +y (apex at 0,0): fades along its length and at its edges. */
+function beaconSprite(ctx: Ctx): void {
+  const len = 180;
+  const g = ctx.createLinearGradient(0, 0, 0, len);
+  g.addColorStop(0, 'rgba(255,50,60,0.55)');
+  g.addColorStop(0.4, 'rgba(255,40,55,0.2)');
+  g.addColorStop(1, 'rgba(255,30,50,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-3, 0);
+  ctx.lineTo(3, 0);
+  ctx.lineTo(40, len);
+  ctx.lineTo(-40, len);
+  ctx.closePath();
+  ctx.fill();
+  // feather the cone's sides
+  ctx.globalCompositeOperation = 'destination-out';
+  for (const side of [-1, 1]) {
+    const e = ctx.createLinearGradient(side * 40, 0, side * 10, 0);
+    e.addColorStop(0, 'rgba(0,0,0,1)');
+    e.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = e;
+    ctx.fillRect(Math.min(side * 40, side * 10), 0, 30, len);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function domeSprite(ctx: Ctx): void {
+  ctx.fillStyle = radGrad(ctx, 0, 0, 1, 16, [[0, 'rgba(255,120,120,0.95)'], [0.35, 'rgba(255,40,60,0.5)'], [1, 'rgba(255,30,50,0)']]);
+  ctx.fillRect(-16, -16, 32, 32);
+}
+
+/** Rotating beacon beams (soft additive cones with falloff) + glowing domes. */
+export function sirens(ctx: Ctx, v: View, scroll: number, t: number, sprites: SpriteCache): void {
+  const beam = sprites.get('beacon', 84, 184, 42, 2, beaconSprite);
+  const dome = sprites.get('beaconDome', 32, 32, 16, 16, domeSprite);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   forEachTileX(v, scroll, SIREN_X, (x) => {
-    const a = t * 5 + x * 0.01;
+    const a = t * 4 + x * 0.01;
     for (let k = 0; k < 2; k++) {
-      const ang = a + k * Math.PI;
-      const dx = Math.cos(ang);
-      const reach = 150 * Math.abs(Math.sin(ang * 0.5 + 0.7));
-      ctx.fillStyle = 'rgba(255,40,60,0.10)';
-      ctx.beginPath();
-      ctx.moveTo(x, SIREN_Y);
-      ctx.lineTo(x + dx * reach - 30, SIREN_Y + 170);
-      ctx.lineTo(x + dx * reach + 30, SIREN_Y + 170);
-      ctx.closePath();
-      ctx.fill();
+      // the beam sweeps around the dome: we see it swinging left/right and shortening
+      const ang = Math.sin(a + k * Math.PI) * 0.9;
+      const reach = 0.45 + 0.55 * Math.abs(Math.cos(a + k * Math.PI));
+      ctx.save();
+      ctx.translate(x, SIREN_Y);
+      ctx.rotate(ang);
+      ctx.globalAlpha = 0.55;
+      blitScaled(ctx, beam, 0, 0, 1, reach);
+      ctx.restore();
     }
-    ctx.fillStyle = 'rgba(255,60,80,0.55)';
-    circle(ctx, x, SIREN_Y - 1, 7 + Math.sin(t * 10) * 1.5);
-    ctx.fill();
+    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(t * 10);
+    blitScaled(ctx, dome, x, SIREN_Y - 1, 1, 1);
   });
   ctx.restore();
 }
 
+/** Red alarm wash over the background only (drawn before hazards and characters). */
 export function alarmWash(ctx: Ctx, v: View, t: number): void {
-  // the corridor only (not the HUD strip / void below the floor)
+  // the corridor background only (not the HUD strip / void below the floor)
   ctx.fillStyle = `rgba(255,20,50,${(0.025 + 0.04 * (0.5 + 0.5 * Math.sin(t * 5))).toFixed(3)})`;
   ctx.fillRect(v.x0, v.y0, v.w, FLOOR_FRONT - v.y0);
 }
@@ -127,12 +160,12 @@ export class Darkness {
     const h = v.h + this.pad * 2;
     const { canvas, ctx } = makeCanvas(v.w * this.res, h * this.res);
     ctx.setTransform(this.res, 0, 0, this.res, -v.x0 * this.res, (this.pad - v.y0) * this.res);
-    ctx.fillStyle = 'rgba(2,4,14,0.6)';
+    ctx.fillStyle = 'rgba(2,4,14,0.45)';
     ctx.fillRect(v.x0, v.y0 - this.pad, v.w, h);
     ctx.globalCompositeOperation = 'destination-out';
     const cy = GROUND_Y - 30;
-    ctx.fillStyle = radGrad(ctx, PLAYER_X, cy, 10, 90, [[0, 'rgba(0,0,0,1)'], [1, 'rgba(0,0,0,0)']]);
-    circle(ctx, PLAYER_X, cy, 90);
+    ctx.fillStyle = radGrad(ctx, PLAYER_X, cy, 10, 130, [[0, 'rgba(0,0,0,1)'], [1, 'rgba(0,0,0,0)']]);
+    circle(ctx, PLAYER_X, cy, 130);
     ctx.fill();
     const g = ctx.createLinearGradient(PLAYER_X, 0, PLAYER_X + 300, 0);
     g.addColorStop(0, 'rgba(0,0,0,0.95)');

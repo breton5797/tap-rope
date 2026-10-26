@@ -111,14 +111,16 @@ export function drawBackground(
     const ox = -e * (v.w + 24);
     corridor.drawScene(ctx, v, door.from, scroll, t, ox, 0);
     corridor.drawScene(ctx, v, cur, scroll, t, ox + v.w + 24, 0);
-    cornerSeam(ctx, v, v.x0 - 12 + ox + v.w + 24);
+    seam(ctx, v, v.x0 - 12 + ox + v.w + 24, true);
+    dip(ctx, v, e);
     return offset(ox, 0, 1);
   }
   if (door.transition === 'stairs') {
     const oy = -e * (v.h + 24);
     corridor.drawScene(ctx, v, door.from, scroll, t, 0, oy);
     corridor.drawScene(ctx, v, cur, scroll, t, 0, oy + v.h + 24);
-    stairSeam(ctx, v, v.y0 - 12 + oy + v.h + 24);
+    seam(ctx, v, v.y0 - 12 + oy + v.h + 24, false);
+    dip(ctx, v, e);
     return offset(0, oy, 1);
   }
   // elevator: close 0..0.4, closed + shake 0.4..0.6, open 0.6..1; the scene swaps while closed
@@ -129,26 +131,27 @@ export function drawBackground(
   return offset(0, 0, p < 0.5 ? 1 - close : 0);
 }
 
-function cornerSeam(ctx: Ctx, v: View, x: number): void {
-  const g = ctx.createLinearGradient(x - 26, 0, x + 10, 0);
-  g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(0.7, 'rgba(0,0,0,0.55)');
-  g.addColorStop(1, 'rgba(0,0,0,0)');
+const SEAM_W = 90;
+
+/** A wide dark falloff where the two scenes meet (no hard cut): vertical for turn, horizontal for stairs. */
+function seam(ctx: Ctx, v: View, at: number, vertical: boolean): void {
+  const g = vertical
+    ? ctx.createLinearGradient(at - SEAM_W, 0, at + SEAM_W, 0)
+    : ctx.createLinearGradient(0, at - SEAM_W, 0, at + SEAM_W);
+  g.addColorStop(0, 'rgba(3,4,6,0)');
+  g.addColorStop(0.5, 'rgba(3,4,6,0.92)');
+  g.addColorStop(1, 'rgba(3,4,6,0)');
   ctx.fillStyle = g;
-  ctx.fillRect(x - 26, v.y0, 36, v.h);
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.fillRect(x + 2, v.y0, 2, v.h);
+  if (vertical) ctx.fillRect(at - SEAM_W, v.y0, SEAM_W * 2, v.h);
+  else ctx.fillRect(v.x0, at - SEAM_W, v.w, SEAM_W * 2);
 }
 
-function stairSeam(ctx: Ctx, v: View, y: number): void {
-  // a few steps rushing past at the seam between the two floors
-  for (let i = 0; i < 4; i++) {
-    const sy = y - 16 + i * 8;
-    ctx.fillStyle = i % 2 === 0 ? 'rgba(14,16,18,0.92)' : 'rgba(70,76,84,0.92)';
-    ctx.fillRect(v.x0, sy, v.w, 8);
-  }
-  ctx.fillStyle = 'rgba(255,176,32,0.7)';
-  ctx.fillRect(v.x0, y + 15, v.w, 1.5);
+/** Brief dip toward black in the middle of a push transition. */
+function dip(ctx: Ctx, v: View, e: number): void {
+  ctx.fillStyle = '#030406';
+  ctx.globalAlpha = 0.45 * Math.sin(e * Math.PI);
+  ctx.fillRect(v.x0, v.y0, v.w, v.h);
+  ctx.globalAlpha = 1;
 }
 
 function elevatorDoors(ctx: Ctx, v: View, close: number, shake: number): void {
@@ -200,45 +203,66 @@ function opening(tu: number): number {
   return clamp((1.0 - tu) / 0.7, 0, 1);
 }
 
-/** Blast-door leaf between depths da..db (clipped to lo..hi): thick steel with an edge face,
- * hazard-striped bands, rivets and a narrow viewing slot. */
-function panel(ctx: Ctx, x: number, da: number, db: number, lo: number, hi: number): void {
-  const a = Math.max(da, lo);
-  const b = Math.min(db, hi);
-  if (b - a < 0.02) return;
-  // edge face (door thickness) toward the agent
-  quad(ctx, x - DOOR_T, a, b, 0, DOOR_H);
-  ctx.fillStyle = '#1C2024';
+/**
+ * Guillotine blast door: one thick steel leaf across the whole corridor (depth WALL_DEPTH..NEAR_D)
+ * that slides UP into the lintel as it opens (o = 0 shut .. 1 open). Its thickness reads from the
+ * dark face toward the agent, the lit underside once it lifts, and the slab end facing the camera.
+ */
+function leaf(ctx: Ctx, x: number, o: number): void {
+  const h0 = o * DOOR_H;
+  if (h0 >= DOOR_H - 1) return;
+  const a = WALL_DEPTH;
+  const b = NEAR_D;
+  // face toward the agent (thickness), then the main face
+  quad(ctx, x - DOOR_T, a, b, h0, DOOR_H);
+  ctx.fillStyle = '#1A1E22';
   ctx.fill();
-  quad(ctx, x, a, b, 0, DOOR_H);
-  ctx.fillStyle = '#495159';
+  quad(ctx, x, a, b, h0, DOOR_H);
+  ctx.fillStyle = '#464E56';
   ctx.fill();
-  ctx.strokeStyle = '#121518';
+  ctx.strokeStyle = '#111417';
   ctx.lineWidth = 1.2;
   ctx.stroke();
-  const n = Math.max(1, Math.round((b - a) / 0.22));
-  for (const [h0, h1] of STRIPE_BANDS) {
-    for (let i = 0; i < n; i++) {
-      quad(ctx, x, a + ((b - a) * i) / n, a + ((b - a) * (i + 1)) / n, h0, h1);
-      ctx.fillStyle = i % 2 === 0 ? '#B98A1E' : '#15171A';
-      ctx.fill();
-    }
+  // hazard band along the leading (bottom) edge, rivet rows, viewing slot — they ride up with it
+  const n = 10;
+  const band = Math.min(DOOR_H, h0 + 14);
+  for (let i = 0; i < n; i++) {
+    quad(ctx, x, a + ((b - a) * i) / n, a + ((b - a) * (i + 1)) / n, h0, band);
+    ctx.fillStyle = i % 2 === 0 ? '#B98A1E' : '#15171A';
+    ctx.fill();
   }
-  // rivet rows + viewing slot
   ctx.fillStyle = '#6E777F';
-  for (let h = 40; h <= 110; h += 70) {
+  for (let h = h0 + 40; h < DOOR_H - 4; h += 70) {
     for (let i = 1; i < n * 2; i++) {
       const d = a + ((b - a) * i) / (n * 2);
       ctx.fillRect(projX(x, d) - 0.6, projY(d, h) - 0.6, 1.2, 1.2);
     }
   }
-  quad(ctx, x, a + 0.3 * (b - a), b - 0.3 * (b - a), 118, 126);
-  ctx.fillStyle = '#0A0C0E';
-  ctx.fill();
+  if (h0 + 126 < DOOR_H) {
+    quad(ctx, x, a + 0.4 * (b - a), b - 0.4 * (b - a), h0 + 118, h0 + 126);
+    ctx.fillStyle = '#0A0C0E';
+    ctx.fill();
+  }
+  // underside of the lifting leaf (lit edge) + the slab end facing the camera
+  if (h0 > 0.5) {
+    ctx.fillStyle = '#5C656E';
+    ctx.beginPath();
+    ctx.moveTo(projX(x - DOOR_T, a), projY(a, h0));
+    ctx.lineTo(projX(x, a), projY(a, h0));
+    ctx.lineTo(projX(x, b), projY(b, h0));
+    ctx.lineTo(projX(x - DOOR_T, b), projY(b, h0));
+    ctx.closePath();
+    ctx.fill();
+  }
+  const ex0 = projX(x - DOOR_T, b);
+  const ex1 = projX(x, b);
+  const ey0 = projY(b, DOOR_H);
+  const ey1 = projY(b, h0);
+  ctx.fillStyle = '#2E343A';
+  ctx.fillRect(Math.min(ex0, ex1), ey0, Math.abs(ex1 - ex0) + 0.5, ey1 - ey0);
 }
 
-const DOOR_T = 9;
-const STRIPE_BANDS: readonly (readonly [number, number])[] = [[0, 14], [DOOR_H - 12, DOOR_H]];
+const DOOR_T = 12;
 
 /** Back part: far post and the two sliding panels (drawn before the lanes). */
 export function drawDoorBack(ctx: Ctx, d: DoorView, off: DoorOffset, t: number, sprites: SpriteCache, reduced: boolean): void {
@@ -252,26 +276,25 @@ export function drawDoorBack(ctx: Ctx, d: DoorView, off: DoorOffset, t: number, 
   ctx.fillStyle = '#23272C';
   ctx.fill();
   const o = opening(d.timeUntil);
-  const mid = 1;
-  panel(ctx, x, WALL_DEPTH - (mid - WALL_DEPTH) * o, mid - (mid - WALL_DEPTH) * o, WALL_DEPTH, NEAR_D);
-  panel(ctx, x, mid + (NEAR_D - mid) * o, NEAR_D + (NEAR_D - mid) * o, WALL_DEPTH, NEAR_D);
+  leaf(ctx, x, o);
   if (o > 0 && o < 1) steam(ctx, x, o, t, sprites, reduced);
   ctx.restore();
 }
 
 const STEAM_DEPTHS: readonly number[] = [1, -0.2, 2.3];
 
-/** Hydraulic vent steam bursting from the seam while the leaves part. */
+/** Hydraulic steam venting from under the rising leaf (strongest as it breaks the seal). */
 function steam(ctx: Ctx, x: number, o: number, t: number, sprites: SpriteCache, reduced: boolean): void {
   const sp = sprites.get('puff', 62, 62, 31, 31, puffSprite);
   const n = reduced ? 2 : 5;
-  const strength = Math.sin(o * Math.PI);
+  const strength = o < 0.25 ? o / 0.25 : 1 - (o - 0.25) / 0.75;
   for (const d of STEAM_DEPTHS) {
     for (let i = 0; i < n; i++) {
-      const f = (i / n + (reduced ? 0 : t * 1.3)) % 1;
-      ctx.globalAlpha = (1 - f) * 0.32 * strength;
-      const sc = (0.25 + f * 0.8) * depthScale(d);
-      blitScaled(ctx, sp, projX(x, d) + f * 18, projY(d, 8 + f * 60), sc * 1.4, sc);
+      const f = (i / n + (reduced ? 0 : t * 1.1)) % 1;
+      ctx.globalAlpha = (1 - f) * 0.3 * strength;
+      const sc = (0.3 + f * 0.9) * depthScale(d);
+      // rolls out along the floor on both sides of the threshold, rising slowly
+      blitScaled(ctx, sp, projX(x, d) + (i % 2 ? 1 : -1) * f * 26, projY(d, 6 + f * 26), sc * 1.6, sc * 0.8);
     }
   }
   ctx.globalAlpha = 1;

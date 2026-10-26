@@ -10,7 +10,7 @@
 import { GROUND_Y, PLAYER_X, type Scene, type Variant, type WorldId } from '../types';
 import type { ArtStore, Photo, PhotoSet } from './art';
 import {
-  FLOOR_PW, grade, lampsOf, PHOTO_TOP_H, photoFloor, photoTop, photoWall, plainWall, themeDim, TOP_PW, WALL_PW,
+  FLOOR_PW, grade, lampsOf, PHOTO_TOP_H, photoFloor, photoTop, photoWall, plainWall, skyBand, themeDim, TOP_PW, WALL_PW,
 } from './photo';
 import { sirenHousing, SIREN_X } from './corridor-fx';
 import { CEIL_Y, depthAtY, depthScale, FLOOR_BACK, FLOOR_FRONT, FRONT_DEPTH, WALL_DEPTH } from './layout';
@@ -32,6 +32,7 @@ const PHOTO_FLOOR_RES = 0.8;
 const PHOTO_TOP_RES = 0.5;
 /** floor surface strips (more = smoother converging seams) */
 const FLOOR_STRIPS = 20;
+const APRON_STRIPS = 6;
 const WALL_S = depthScale(WALL_DEPTH);
 const WALL_H = GROUND_Y - CEIL_Y;
 const TOP_H = CEIL_Y + 6 - TOP_Y;
@@ -49,6 +50,8 @@ export interface ShaftRig {
 
 /** procedural ceiling band fixtures: x = 40 + 160k, 60 wide (see plane.drawCeiling) */
 const PROC_RIG: ShaftRig = { w: PLANE_W, xs: [70, 230, 390], s: 1, y: CEIL_BOT - 2 };
+/** no light shafts (open sky / nothing drawn yet) */
+const NO_RIG: ShaftRig = { w: PLANE_W, xs: [], s: 1, y: CEIL_BOT };
 
 function tileHash(i: number, salt: number): number {
   let h = (i * 374761393 + salt * 668265263) | 0;
@@ -108,7 +111,7 @@ class SceneCache {
     this.k = Math.min(v.s * Math.min(v.dpr, MAX_TILE_DPR), MAX_TILE_K);
     const walls = photo?.walls.length ?? 0;
     this.spec = [
-      photo?.ceiling ? { count: 1, w: TOP_PW } : { count: TOP_VARIANTS, w: WALL_W },
+      photo?.ceiling || photo?.sky ? { count: 1, w: TOP_PW } : { count: TOP_VARIANTS, w: WALL_W },
       walls > 0 ? { count: walls, w: WALL_PW } : { count: 1, w: WALL_W },
       { count: 1, w: PLANE_W },
       photo?.floor ? { count: 1, w: FLOOR_PW } : { count: 1, w: PLANE_W },
@@ -219,12 +222,14 @@ class SceneCache {
     const variant = this.variant;
     const w = this.spec[layer].w;
     let c: HTMLCanvasElement;
-    if (layer === L.Top) c = this.bakeOne(w, TOP_Y, TOP_H, TOP_RES, (ctx) => drawTop(ctx, w, th, i));
+    const sky = this.photo?.sky;
+    if (layer === L.Top && sky) c = this.bakeOne(w, 0, PHOTO_TOP_H, PHOTO_TOP_RES, (ctx) => skyBand(ctx, sky));
+    else if (layer === L.Top) c = this.bakeOne(w, TOP_Y, TOP_H, TOP_RES, (ctx) => drawTop(ctx, w, th, i));
     else if (layer === L.Wall) c = this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => plainWall(ctx, th.base, w));
     else if (layer === L.Ceil) {
       // only the opaque girder band is graded; the light glow below it stays transparent. With a
       // photo ceiling the band is dropped (the photo has the ceiling + lamps); alarm keeps its sirens.
-      const band = !this.photo?.ceiling;
+      const band = !this.photo?.ceiling && !this.photo?.sky;
       c = this.bakeOne(w, CEIL_TOP, CEIL_LAYER_H, 1, (ctx) => {
         if (band) drawCeiling(ctx, w, th);
         if (variant === 'alarm') for (const x of SIREN_X) sirenHousing(ctx, x);
@@ -273,22 +278,36 @@ export class Corridor {
 
   /** Make sure scene s has its target cache (building) and return the cache to draw (maybe null). */
   private ensure(v: View, s: Scene, mustDraw: boolean): SceneCache | null {
-    const photo = this.art.photoSet(s.world);
+    // while the art is still downloading the photo set isn't final: draw the neutral stand-in
+    // rather than baking a partial set (that is how a photo wall over a procedural floor used to stick)
+    if (this.art.fetching()) return null;
+    const photo = this.art.photoSet(s.world, s.variant);
     let target: SceneCache | null = null;
     let stand: SceneCache | null = null;
     for (const c of this.caches) {
       if (!c.matches(s) || !c.valid()) continue;
-      const exact = c.viewKey === v.key && (c.photo !== null) === (photo !== null);
+      // exact = same view AND the same photo set (a cache built while files were still arriving is stale)
+      const exact = c.viewKey === v.key && c.photo === photo;
       if (exact) target = c;
-      else if (c.drawable() && (!stand || c.photo)) stand = c;
+      else if (c.drawable() && (c.photo || !photo) && (!stand || c.photo)) stand = c;
     }
     if (!target) target = new SceneCache(s.world, s.variant, v, photo, this.art);
     this.keep.push(target);
+    // up to two tiles per frame (photo tiles still wait for their decode)
+    if (!target.complete()) target.step();
     if (!target.complete()) target.step();
     if (target.drawable()) return target;
-    if (!stand && mustDraw) stand = new SceneCache(s.world, s.variant, v, null, this.art);
+    // never show the procedural look when photos exist (or may still arrive): the caller draws a
+    // dark neutral stand-in instead until the photo cache is complete
+    if (!stand && mustDraw && !photo) stand = new SceneCache(s.world, s.variant, v, null, this.art);
     if (stand) this.keep.push(stand);
     return stand;
+  }
+
+  /** Debug / test probe: what is drawn for scene s (null = the dark neutral stand-in). */
+  probe(s: Scene): { photo: boolean; complete: boolean; sky: boolean } | null {
+    const c = this.cacheFor(s);
+    return c ? { photo: c.photo !== null, complete: c.complete(), sky: !!c.photo?.sky } : null;
   }
 
   /** After drawing: trim the door scene's cache (e.g. the outgoing one) to the tiles it showed. */
@@ -303,7 +322,8 @@ export class Corridor {
    */
   shaftRig(s: Scene): ShaftRig {
     const c = this.cacheFor(s);
-    return c?.photo?.ceiling ? this.rigs[s.world] : PROC_RIG;
+    if (!c || c.photo?.sky) return NO_RIG;
+    return c.photo?.ceiling ? this.rigs[s.world] : PROC_RIG;
   }
 
   private cacheFor(s: Scene): SceneCache | null {
@@ -328,7 +348,6 @@ export class Corridor {
       this.sync(v, s, null);
       c = this.drawn[0];
     }
-    if (!c) return;
     const shifted = ox !== 0 || oy !== 0;
     if (shifted) {
       ctx.save();
@@ -341,6 +360,11 @@ export class Corridor {
     const xMax = v.x0 + v.w + 12 - ox;
     ctx.fillStyle = '#05060A';
     ctx.fillRect(xMin, v.y0 - 12 - oy, xMax - xMin, v.h + 24);
+    if (!c) {
+      neutral(ctx, xMin, xMax);
+      if (shifted) ctx.restore();
+      return;
+    }
     this.drawTop(ctx, v, c, scroll, t, xMin, xMax);
     const ww = c.spec[L.Wall].w;
     const wn = c.spec[L.Wall].count;
@@ -348,7 +372,8 @@ export class Corridor {
       const img = c.tile(L.Wall, tileHash(m, 5) % wn);
       ctx.drawImage(img, sx, FLOOR_BACK - WALL_H * WALL_S, ww * WALL_S, WALL_H * WALL_S);
     });
-    if (!c.photo?.ceiling || c.variant === 'alarm') {
+    if (c.photo?.ceiling || c.photo?.sky) soffit(ctx, xMin, xMax);
+    if ((!c.photo?.ceiling && !c.photo?.sky) || c.variant === 'alarm') {
       const ceil = c.tile(L.Ceil, 0);
       eachTile(xMin, xMax, PLANE_W, scroll, 1, (_m, sx) => ctx.drawImage(ceil, sx, CEIL_TOP, PLANE_W, CEIL_LAYER_H));
     }
@@ -361,9 +386,9 @@ export class Corridor {
     const th = themeOf(c.world);
     const tw = c.spec[L.Top].w;
     const tn = c.spec[L.Top].count;
-    const photo = !!c.photo?.ceiling;
+    const photo = !!c.photo?.ceiling || !!c.photo?.sky;
     if (photo) {
-      // the photo ceiling hangs right above the back wall, at its depth and scroll
+      // the photo ceiling (or open sky) hangs right above the back wall, at its depth and scroll
       const h = PHOTO_TOP_H * WALL_S;
       eachTile(xMin, xMax, tw, scroll, WALL_S, (_m, sx) => ctx.drawImage(c.tile(L.Top, 0), sx, WALL_TOP_Y - h, tw * WALL_S + 0.5, h));
       return;
@@ -391,11 +416,45 @@ export class Corridor {
       const y0 = FLOOR_BACK + i * step;
       strip(y0, y0 + step, depthScale(depthAtY(y0 + step / 2)));
     }
-    strip(FLOOR_FRONT, FLOOR_BOT, depthScale(FRONT_DEPTH));
+    // the apron in front of the lanes continues down to the bottom of tall screens
+    const apron = (FLOOR_BOT - FLOOR_FRONT) / APRON_STRIPS;
+    for (let i = 0; i < APRON_STRIPS; i++) {
+      const y0 = FLOOR_FRONT + i * apron;
+      strip(y0, y0 + apron, i === 0 ? depthScale(FRONT_DEPTH) : depthScale(depthAtY(y0 + apron / 2)));
+    }
   }
 
   release(): void {
     for (const c of this.caches) c.release();
     this.caches = [];
   }
+}
+
+/** Dark neutral stand-in while a photo scene is still baking: no procedural detail, just the
+ * room's masses (wall, floor) in near-black so nothing pops when the photos arrive. */
+function neutral(ctx: Ctx, xMin: number, xMax: number): void {
+  ctx.fillStyle = '#121619';
+  ctx.fillRect(xMin, WALL_TOP_Y, xMax - xMin, FLOOR_BACK - WALL_TOP_Y);
+  ctx.fillStyle = '#1A1E21';
+  ctx.fillRect(xMin, FLOOR_BACK, xMax - xMin, FLOOR_FRONT - FLOOR_BACK);
+  ctx.fillStyle = '#0B0D0F';
+  ctx.fillRect(xMin, FLOOR_FRONT, xMax - xMin, FLOOR_BOT - FLOOR_FRONT);
+}
+
+/** cached soffit gradient (per context): the shadow where the ceiling strip meets the wall */
+let SOFFIT: { ctx: Ctx; g: CanvasGradient } | null = null;
+const SOFFIT_H = 30;
+
+/** Soft shadow + feathered overlap hiding the hard seam between the ceiling photo and the wall. */
+function soffit(ctx: Ctx, xMin: number, xMax: number): void {
+  if (!SOFFIT || SOFFIT.ctx !== ctx) {
+    const g = ctx.createLinearGradient(0, WALL_TOP_Y - 8, 0, WALL_TOP_Y + SOFFIT_H);
+    g.addColorStop(0, 'rgba(4,6,8,0)');
+    g.addColorStop(0.2, 'rgba(4,6,8,0.62)');
+    g.addColorStop(0.45, 'rgba(4,6,8,0.4)');
+    g.addColorStop(1, 'rgba(4,6,8,0)');
+    SOFFIT = { ctx, g };
+  }
+  ctx.fillStyle = SOFFIT.g;
+  ctx.fillRect(xMin, WALL_TOP_Y - 8, xMax - xMin, SOFFIT_H + 8);
 }
