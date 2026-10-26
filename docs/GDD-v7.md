@@ -16,7 +16,7 @@ v6(`docs/GDD-v6.md`)의 아트 원칙(§1: 시네마틱 잠입, 유치함 금지
 | 8 | crane | 공장 크레인·프레스 / TITAN | 천장 크레인 + 프레스 | 화물 낙하 → lane(drop), 프레스 → ceiling |
 | 9 | sniper | 옥상 저격 드론 / RAVEN | 저격 소총 단 고고도 드론 | 조준선(레이저 사이트) → beam, 섬광 → floor |
 | 10 | gunship | 무장 헬기 / VULTURE | 무장 헬기(배경 하늘) | 기관포 → beam, 로켓 착탄 → lane |
-- **판정·박자는 v6 그대로**. 보스는 연출 레이어: 다음 하자드 beat를 `BossAttackKind`로 매핑(`beam`: beam/high, `floor`: floor/pulse/gate의 floor, `ceiling`: ceiling, `drone`: drone(단독), `lane`: guard/drop/chaser)하고 도착 1.2s 전부터 **예고(차지)** 애니메이션 → 발사 연출이 실제 장애물과 동기.
+- **판정·박자는 v6 그대로**. 보스는 연출 레이어: 다음 하자드 beat를 `BossAttackKind`로 매핑(`beam`: beam/high, `floor`: floor/pulse/gate의 floor, `ceiling`: ceiling, `drone`: drone(단독), `lane`: guard/drop/chaser)하고 도착 1.6s 전부터 **예고(차지)** 애니메이션 → 발사 연출이 실제 장애물과 동기.
 - HP = 1 − (처리한 하자드 / 전체 하자드). 페이즈 = section(문). 문 통과 시 `stagger`(피격·파손 연출 1.2s, 'boss-stagger' 효과음), 마지막 beat 후 `defeated`(폭발·쓰러짐 2s, 'boss-down'), 첫 beat 2s 전 `intro`('boss-intro').
 - 화면 배치: 보스는 레인 뒤(배경 깊이) 또는 상단에 그려 레인 가독성을 가리지 않는다. 크기 ~화면 폭 40–60%. 실사 톤: AI 생성 보스 이미지(`public/art/boss-<id>.webp`, 투명 배경 PNG→WebP 알파) + 코드 애니메이션(관절 회전, 발광 센서, 머즐 플래시). 이미지가 없으면 절차 실루엣.
 - HUD: 상단 보스 바(코드명 · 이름 · HP 게이지 · 페이즈 칸 3).

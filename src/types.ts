@@ -287,7 +287,7 @@ export interface BossView {
   readonly state: BossState;
   /** seconds since the state began (intro ~2s before the first beat, stagger after a phase door, defeated at the end) */
   readonly stateAge: number;
-  /** the next hazard beat as a boss attack (telegraph from ~1.2s before), null when none is close */
+  /** the next hazard beat as a boss attack (telegraph from ~1.6s before), null when none is close */
   readonly attack: { readonly kind: BossAttackKind; readonly timeUntil: number; readonly lanes: readonly LaneId[] | null } | null;
 }
 
