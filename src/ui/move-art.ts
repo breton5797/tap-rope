@@ -37,13 +37,23 @@ function laser(d: string, cls = ''): SVGElement {
   ]);
 }
 
-/** Jump lasers as in-game: horizontal tripwires strung between two floor posts, N stacked beams for level N. */
+/** Jump lasers as in-game: bright tripwires (white core + red bloom) strung between two floor posts with red
+ * cap lights, N stacked beams for level N. */
 function tripwire(x0: number, x1: number, count: number, cls = ''): SVGElement[] {
   const top = GROUND - 6 - (count - 1) * 8;
+  const wire = (y: number): SVGElement =>
+    svg('g', { class: `tut__laser ${cls}`.trim() }, [
+      svg('path', { ...STROKE, d: `M${x0 + 1.5} ${y} H${x1 - 1.5}`, stroke: RED, 'stroke-width': 5, opacity: 0.4 }),
+      svg('path', { ...STROKE, d: `M${x0 + 1.5} ${y} H${x1 - 1.5}`, stroke: RED, 'stroke-width': 2.6, opacity: 0.8 }),
+      svg('path', { ...STROKE, d: `M${x0 + 1.5} ${y} H${x1 - 1.5}`, stroke: '#ffffff', 'stroke-width': 1.3 }),
+    ]);
   return [
     ...[x0, x1].map((x) => svg('rect', { x: x - 1.5, y: top - 6, width: 3, height: GROUND - top + 6, fill: '#1b2329', stroke: STEEL, 'stroke-width': 0.7 })),
-    ...[x0, x1].map((x) => svg('rect', { x: x - 1, y: top - 6, width: 2, height: 1.5, fill: RED })),
-    ...Array.from({ length: count }, (_, i) => laser(`M${x0 + 1.5} ${GROUND - 6 - i * 8} H${x1 - 1.5}`, cls)),
+    ...[x0, x1].flatMap((x) => [
+      svg('circle', { cx: x, cy: top - 6.5, r: 2.6, fill: RED, opacity: 0.35 }),
+      svg('circle', { cx: x, cy: top - 6.5, r: 1.1, fill: '#ffd0d4' }),
+    ]),
+    ...Array.from({ length: count }, (_, i) => wire(GROUND - 6 - i * 8)),
   ];
 }
 
@@ -76,28 +86,65 @@ function drone(x: number, y: number, scan = RED): SVGElement {
   ]);
 }
 
-/** Operator silhouette, feet at the origin, ~32 units tall (≈ 7.5 heads). */
-function figure(pose: Pose): SVGElement[] {
-  const P: Readonly<Record<Pose, { body: string; head: readonly [number, number] }>> = {
-    run: {
-      body: 'M0 -26 L-1 -15 M-1 -15 L3 -8 L1 0 M-1 -15 L-4 -8 L-7 -2 M0 -25 L-4 -19 L-2 -14 M0 -25 L4 -20 L7 -22',
-      head: [0.5, -29.5],
-    },
-    tuck: {
-      body: 'M0 -26 L0 -15 M0 -15 L5 -10 L1 -5 M0 -15 L-3 -9 L-6 -6 M0 -25 L5 -27 L8 -31 M0 -25 L-3 -21 L-1 -17',
-      head: [0.8, -29.5],
-    },
-    slide: {
-      body: 'M0 -5 L-9 -12 M0 -5 L8 -3 L14 0 M0 -5 L-1 0 L5 0 M-7 -11 L-12 -4 L-14 0 M-7 -11 L-3 -15 L2 -16',
-      head: [-11, -15],
-    },
-  };
-  const p = P[pose];
+/** Operator silhouette, feet at the origin, ~32 units tall (≈ 7.5 heads): near-black body with a thin teal
+ * rim (each stroke is laid twice — teal underneath, slightly wider), helmet + NVG head, no face. */
+const BODY = '#12171b';
+const RIM = TEAL;
+
+interface PoseDef {
+  readonly torso: string; // thick stroke: chest + plate carrier
+  readonly limbs: string;
+  readonly head: readonly [number, number];
+  readonly facing: 1 | -1; // which side the NVG block sits on
+}
+
+const POSES: Readonly<Record<Pose, PoseDef>> = {
+  run: {
+    torso: 'M0.4 -25.5 L-0.8 -15.5',
+    limbs: 'M-0.8 -15 L3 -8 L1 0 L3 0 M-0.8 -15 L-4 -8 L-7.5 -2.5 M0 -25 L-4 -19.5 L-2.5 -14.5 M0 -25 L4 -20.5 L7 -22.5',
+    head: [0.6, -29.3],
+    facing: 1,
+  },
+  tuck: {
+    torso: 'M0.3 -25.5 L0 -15.5',
+    limbs: 'M0 -15 L5 -10.5 L1.5 -5.5 L3 -5 M0 -15 L-3 -9 L-6 -6.5 M0 -25 L5 -27.5 L8 -31 M0 -25 L-3 -21 L-1 -17',
+    head: [0.9, -29.3],
+    facing: 1,
+  },
+  slide: {
+    torso: 'M-0.5 -5.5 L-8.5 -11.5',
+    limbs: 'M0 -5 L8 -3 L14 -0.5 L15.5 -0.5 M0 -5 L-1 0 L5 0 M-7 -11 L-12 -4.5 L-14 0 M-7 -11 L-3 -15 L2 -16',
+    head: [-11, -14.8],
+    facing: 1,
+  },
+};
+
+const ROUND = { fill: 'none', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
+
+function helmet(cx: number, cy: number, facing: 1 | -1, fill: string, grow = 0): SVGElement[] {
   return [
-    svg('path', { ...STROKE, d: p.body, stroke: INK, 'stroke-width': 2.6 }),
-    svg('circle', { cx: p.head[0], cy: p.head[1], r: 2.4, fill: INK }),
-    // earpiece / NVG mount: a single teal point, no face
-    svg('circle', { cx: p.head[0] + 1.4, cy: p.head[1] - 0.6, r: 0.8, fill: TEAL }),
+    svg('path', { d: `M${cx - 2.9 - grow} ${cy + 0.6} Q${cx - 2.9 - grow} ${cy - 3.4 - grow} ${cx} ${cy - 3.4 - grow} Q${cx + 2.9 + grow} ${cy - 3.4 - grow} ${cx + 2.9 + grow} ${cy + 0.6} L${cx + 2.2 + grow} ${cy + 2.8 + grow} L${cx - 2.2 - grow} ${cy + 2.8 + grow} Z`, fill }),
+    // NVG block on the helmet front
+    svg('rect', { x: cx + facing * 1.4 - (facing < 0 ? 2.6 : 0) - grow, y: cy - 2.6 - grow, width: 2.6 + grow * 2, height: 1.9 + grow * 2, fill }),
+  ];
+}
+
+function figure(pose: Pose): SVGElement[] {
+  const p = POSES[pose];
+  const [hx, hy] = p.head;
+  return [
+    // teal rim (underlay)
+    svg('g', { opacity: 0.6 }, [
+      svg('path', { ...ROUND, d: p.torso, stroke: RIM, 'stroke-width': 5.6 }),
+      svg('path', { ...ROUND, d: p.limbs, stroke: RIM, 'stroke-width': 3.3 }),
+      ...helmet(hx, hy, p.facing, RIM, 0.55),
+    ]),
+    // dark silhouette
+    svg('path', { ...ROUND, d: p.torso, stroke: BODY, 'stroke-width': 4.6 }),
+    svg('path', { ...ROUND, d: p.limbs, stroke: BODY, 'stroke-width': 2.3 }),
+    ...helmet(hx, hy, p.facing, BODY),
+    // NVG lens
+    svg('circle', { cx: hx + p.facing * 2.8, cy: hy - 1.7, r: 0.55, fill: TEAL }),
   ];
 }
 
@@ -139,10 +186,10 @@ function warnMark(x: number, y: number, cls = 'tut__warn-pulse'): SVGElement {
 }
 
 const SCENES: Readonly<Record<SideMove, Scene>> = {
-  jump: { lift: 16, x: 58, at: [18, 18], taps: 1, layers: () => tripwire(44, 74, 1) },
-  beam: { lift: 16, x: 58, at: [18, 18], taps: 1, layers: () => tripwire(44, 74, 1) },
-  double: { lift: 22, x: 58, at: [18, 18], taps: 2, layers: () => tripwire(44, 74, 2) },
-  triple: { lift: 29, x: 58, at: [18, 16], taps: 3, layers: () => tripwire(44, 74, 3) },
+  jump: { lift: 16, x: 58, at: [16, 18], taps: 1, layers: () => tripwire(38, 78, 1) },
+  beam: { lift: 16, x: 58, at: [16, 18], taps: 1, layers: () => tripwire(38, 78, 1) },
+  double: { lift: 22, x: 58, at: [16, 18], taps: 2, layers: () => tripwire(38, 78, 2) },
+  triple: { lift: 29, x: 58, at: [16, 16], taps: 3, layers: () => tripwire(38, 78, 3) },
   slide: {
     lift: 0, slide: true, swipe: true, x: 50, at: [16, 22],
     layers: () => ceilingCurtain(44, 70, 44),
