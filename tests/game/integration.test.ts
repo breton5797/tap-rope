@@ -178,6 +178,21 @@ describe('snapshot / hud', () => {
     expect(snap.player.lane).toBe(1);
   });
 
+  it('v7: boss stages carry a boss view and a boss HUD bar; other stages none', () => {
+    const boss = createSession('stage', STAGES.find((st) => st.id === 'w1-s10')!);
+    const snap = toSnapshot(boss, 'kid', opts);
+    expect(snap.boss?.id).toBe('warden');
+    expect(snap.boss?.hp).toBe(1);
+    expect(snap.boss?.phase).toBe(0);
+    const hud = toHud(boss);
+    expect(hud.boss?.codename).toBe('SENTINEL-01');
+    expect(hud.boss?.hp).toBe(1);
+    const half = { ...boss, hazardDone: Math.floor(boss.hazardTotal / 2) };
+    expect(toHud(half).boss?.hp).toBeCloseTo(1 - Math.floor(boss.hazardTotal / 2) / boss.hazardTotal, 6);
+    expect(toSnapshot(createSession('stage', STAGES[0]), 'kid', opts).boss).toBeNull();
+    expect(toHud(createSession('endless', null, { seed: 3 })).boss).toBeNull();
+  });
+
   it('shows doors near the agent and the section count advances past them', () => {
     const stage = STAGES.find((st) => st.sections === 3)!;
     const s = createSession('stage', stage);
