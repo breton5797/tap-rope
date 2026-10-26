@@ -4,26 +4,9 @@ export type Ctx = CanvasRenderingContext2D;
 export type Stops = readonly (readonly [number, string])[];
 
 export const TAU = Math.PI * 2;
-export const FONT = '"Rajdhani", "IBM Plex Sans KR", sans-serif';
-
-/** Colors per jump level (index 1..3); index 0 is a neutral fallback. */
-export const LEVEL_FILL: readonly string[] = ['#A7B4C8', '#3DDC97', '#FFB627', '#FF5E5B'];
-export const LEVEL_DARK: readonly string[] = ['#5D6A80', '#138456', '#B06F00', '#B32D2B'];
-export const LEVEL_LIGHT: readonly string[] = ['#E3E9F2', '#B9F7DA', '#FFE5A1', '#FFB8B6'];
 
 export function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
-}
-
-export function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
-export function easeOutBack(t: number): number {
-  const c1 = 1.70158;
-  const c3 = c1 + 1;
-  const u = t - 1;
-  return 1 + c3 * u * u * u + c1 * u * u;
 }
 
 export function easeOutCubic(t: number): number {
@@ -63,22 +46,6 @@ export function oval(ctx: Ctx, x: number, y: number, rx: number, ry: number, rot
   ctx.beginPath();
   ctx.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), rot, 0, TAU);
 }
-
-/** Star path with `points` tips. */
-export function starPath(ctx: Ctx, x: number, y: number, r: number, inner: number, points: number): void {
-  ctx.beginPath();
-  const n = points * 2;
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * TAU - Math.PI / 2;
-    const rad = i % 2 === 0 ? r : inner;
-    const px = x + Math.cos(a) * rad;
-    const py = y + Math.sin(a) * rad;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-}
-
 export function vGrad(ctx: Ctx, y0: number, y1: number, stops: Stops): CanvasGradient {
   const g = ctx.createLinearGradient(0, y0, 0, y1);
   for (const [o, c] of stops) g.addColorStop(o, c);
@@ -110,14 +77,4 @@ export function makeCanvas(pw: number, ph: number): Surface {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('2D canvas context unavailable');
   return { canvas, ctx };
-}
-
-/** Text with a thick rounded outline. Caller sets font/textAlign/baseline. */
-export function outlinedText(ctx: Ctx, text: string, x: number, y: number, fill: string | CanvasGradient, stroke: string, lw: number): void {
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = lw;
-  ctx.strokeStyle = stroke;
-  ctx.strokeText(text, x, y);
-  ctx.fillStyle = fill;
-  ctx.fillText(text, x, y);
 }

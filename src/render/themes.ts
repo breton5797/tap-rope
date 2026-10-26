@@ -1,15 +1,12 @@
 // Corridor themes: 0 security outpost, 1 research lab, 2 prison block, 3 industrial / sewer.
-// A wall tile = the theme's base (surface, panels, pipes, trim) + three slots filled with
-// features picked from a seed, so each of the WALL_VARIANTS tiles looks different.
-import { GROUND_Y, type Variant } from '../types';
+// Each theme's procedural base finish (surface, panels, pipes, trim) is the fallback back wall when
+// its photo art is missing; colours here also drive the ceiling band, floor and service space.
+import { GROUND_Y } from '../types';
 import { CEIL_Y } from './layout';
-import { seeded, vGrad, type Ctx, type Stops } from './util';
-import { at, FEATURES } from './wall-features';
-import { hazardBand, panels, pipe, wallLamp } from './wall-kit';
+import { circle, roundRect, vGrad, type Ctx, type Stops } from './util';
 
 export const WALL_W = 480;
 export const PLANE_W = 480;
-export const WALL_VARIANTS = 5;
 
 export interface ThemeArt {
   readonly top: Stops; // structure above the ceiling
@@ -26,9 +23,59 @@ export interface ThemeArt {
   base(ctx: Ctx, w: number): void;
 }
 
+function panels(ctx: Ctx, x0: number, w: number, y0: number, y1: number, pw: number, fill: string, edge: string, light: string): void {
+  for (let x = x0; x < x0 + w; x += pw) {
+    ctx.fillStyle = fill;
+    roundRect(ctx, x + 1.5, y0 + 1.5, pw - 3, y1 - y0 - 3, 4);
+    ctx.fill();
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = light;
+    ctx.fillRect(x + 4, y0 + 4, pw - 8, 2);
+    ctx.fillStyle = edge;
+    for (const [bx, by] of [[x + 6, y0 + 8], [x + pw - 6, y0 + 8], [x + 6, y1 - 8], [x + pw - 6, y1 - 8]] as const) {
+      circle(ctx, bx, by, 1.3);
+      ctx.fill();
+    }
+  }
+}
+
+function pipe(ctx: Ctx, x0: number, w: number, y: number, r: number, c0: string, c1: string, joint: string): void {
+  ctx.fillStyle = vGrad(ctx, y - r, y + r, [[0, c0], [0.45, c0], [1, c1]]);
+  ctx.fillRect(x0, y - r, w, r * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.fillRect(x0, y - r + 1.5, w, Math.max(1, r * 0.35));
+  ctx.fillStyle = joint;
+  for (let x = x0 + 30; x < x0 + w; x += 120) {
+    roundRect(ctx, x, y - r - 2, 8, r * 2 + 4, 2);
+    ctx.fill();
+  }
+}
+
+function hazardBand(ctx: Ctx, x0: number, w: number, y: number, h: number): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x0, y, w, h);
+  ctx.clip();
+  ctx.fillStyle = '#FFC93C';
+  ctx.fillRect(x0, y, w, h);
+  ctx.fillStyle = '#26232E';
+  for (let x = x0 - h; x < x0 + w + h; x += h * 2) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + h);
+    ctx.lineTo(x + h, y);
+    ctx.lineTo(x + h * 2, y);
+    ctx.lineTo(x + h, y + h);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 const WALL_TOP = CEIL_Y + 4;
 const MID = Math.round((CEIL_Y + GROUND_Y) / 2);
-const SLOTS: readonly (readonly [number, number])[] = [[14, 150], [184, 112], [318, 148]];
+/** y at fraction f of the way from the ceiling to the floor line */
+const at = (f: number): number => Math.round(CEIL_Y + (GROUND_Y - CEIL_Y) * f);
 
 function outpostBase(ctx: Ctx, w: number): void {
   ctx.fillStyle = vGrad(ctx, WALL_TOP, GROUND_Y, [[0, '#2A3450'], [1, '#1E2640']]);
@@ -106,26 +153,4 @@ export const THEMES: readonly ThemeArt[] = [
 
 export function themeOf(world: number): ThemeArt {
   return THEMES[world] ?? THEMES[0];
-}
-
-const outdoor = (v: Variant): boolean => v === 'night' || v === 'dawn';
-
-/** One wall tile: theme base + seeded features in three slots. */
-export function drawWall(ctx: Ctx, world: number, w: number, variant: Variant, seed: number): void {
-  const th = themeOf(world);
-  const set = FEATURES[world] ?? FEATURES[0];
-  const rnd = seeded(seed * 7919 + world * 131 + 17);
-  th.base(ctx, w);
-  let prev = -1;
-  SLOTS.forEach(([x, sw], i) => {
-    if (outdoor(variant) && i !== 1) {
-      set.window(ctx, x, sw, rnd, variant);
-      return;
-    }
-    let k = Math.floor(rnd() * set.list.length);
-    if (k === prev) k = (k + 1) % set.list.length;
-    prev = k;
-    set.list[k](ctx, x, sw, rnd, variant);
-  });
-  for (const lx of [174, 308]) if (rnd() < 0.75) wallLamp(ctx, lx, at(0.1), th.lamp);
 }
