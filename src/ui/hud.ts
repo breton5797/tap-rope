@@ -16,6 +16,9 @@ interface Refs {
   readonly score: HTMLElement;
   readonly coins: HTMLElement;
   readonly progress: HTMLElement;
+  /** v5: section track over the progress bar (door markers + current-section highlight) */
+  readonly progressWrap: HTMLElement;
+  readonly sections: HTMLElement;
   readonly feverBar: HTMLElement;
   readonly feverFill: HTMLElement;
   readonly feverLabel: HTMLElement;
@@ -47,6 +50,8 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     score: h('div', { cls: 'hud__score', text: '0' }),
     coins: h('span', { cls: 'chip__value', text: '0' }),
     progress: h('div', { cls: 'bar__fill' }),
+    progressWrap: h('div', { cls: 'prog', attrs: { role: 'progressbar', 'aria-label': '진행도', 'aria-valuemin': '0', 'aria-valuemax': '100' } }),
+    sections: h('div', { cls: 'prog__sections', attrs: { 'aria-hidden': 'true' } }),
     feverBar: h('div', { cls: 'bar bar--fever' }),
     feverFill: h('div', { cls: 'bar__fill' }),
     feverLabel: h('span', { cls: 'bar__label', text: 'FEVER' }),
@@ -58,6 +63,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
   };
   refs.feverBar.append(refs.feverFill, refs.feverLabel, icons.fire());
   refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'COMBO' }));
+  refs.progressWrap.append(h('div', { cls: 'bar bar--progress' }, [refs.progress]), refs.sections);
   const el = h('div', { cls: 'hud' }, [
     h('div', { cls: 'hud__top' }, [
       pause,
@@ -68,7 +74,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
       h('div', { cls: 'hud__left' }, [refs.hearts, refs.slide]),
       h('div', { cls: 'hud__status' }, [refs.shield, refs.slow]),
     ]),
-    h('div', { cls: 'hud__bars' }, [h('div', { cls: 'bar bar--progress' }, [refs.progress]), refs.feverBar]),
+    h('div', { cls: 'hud__bars' }, [refs.progressWrap, refs.feverBar]),
     refs.combo,
   ]);
   return { el, refs };
@@ -116,6 +122,27 @@ function renderFever(refs: Refs, s: HudState, prev: Prev): void {
   if (wasFull !== full || prev.feverGauge === undefined) refs.feverBar.classList.toggle('is-full', full);
 }
 
+/** Section pips: a highlighted segment per section and a door marker between sections (hidden for 1). */
+function renderSections(refs: Refs, section: number, sections: number, prev: Prev): void {
+  const n = Math.max(1, Math.floor(sections));
+  const cur = Math.max(0, Math.min(n - 1, Math.floor(section)));
+  if (prev.sections !== sections) {
+    refs.progressWrap.classList.toggle('has-sections', n > 1);
+    refs.sections.replaceChildren(
+      ...(n > 1 ? Array.from({ length: n }, (_, i) => h('i', { cls: 'prog__seg', style: { left: `${(i / n) * 100}%`, width: `${100 / n}%` } })) : []),
+      ...Array.from({ length: n - 1 }, (_, i) => h('i', { cls: 'prog__door', style: { left: `${((i + 1) / n) * 100}%` } })),
+    );
+  }
+  const segs = refs.sections.querySelectorAll('.prog__seg');
+  const doors = refs.sections.querySelectorAll('.prog__door');
+  segs.forEach((el, i) => {
+    el.classList.toggle('is-current', i === cur);
+    el.classList.toggle('is-done', i < cur);
+  });
+  doors.forEach((el, i) => el.classList.toggle('is-open', i < cur));
+  refs.progressWrap.setAttribute('aria-valuetext', n > 1 ? `구간 ${cur + 1}/${n}` : '');
+}
+
 /** "7-3 · 이름" renders the stage number as a small badge. */
 function renderTitle(el: HTMLElement, title: string): void {
   const m = /^(\d+-\d+) · (.*)$/.exec(title);
@@ -135,7 +162,11 @@ function renderValues(refs: Refs, s: HudState, prev: Prev, reduced: boolean): vo
     if (prev.coins !== undefined) animate(refs.coins, [{ transform: 'translateY(-6px) scale(1.3)' }, { transform: 'none' }], POP, reduced);
   }
   const p = Math.round(Math.max(0, Math.min(1, s.progress)) * 400) / 400;
-  if (prev.progress !== p) refs.progress.style.transform = `scaleX(${p})`;
+  if (prev.progress !== p) {
+    refs.progress.style.transform = `scaleX(${p})`;
+    refs.progressWrap.setAttribute('aria-valuenow', String(Math.round(p * 100)));
+  }
+  if (prev.section !== s.section || prev.sections !== s.sections) renderSections(refs, s.section, s.sections, prev);
   if (prev.shield !== s.shield) refs.shield.classList.toggle('is-on', s.shield);
   if (prev.slowMo !== s.slowMo) refs.slow.classList.toggle('is-on', s.slowMo);
   if (prev.sliding !== s.sliding) {

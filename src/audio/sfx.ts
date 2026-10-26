@@ -86,6 +86,27 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     tone(ctx, out, { type: 'sawtooth', freq: midiToFreq(84), start: t + 0.34, dur: 0.7, gain: 0.04, filter: 3800, attack: 0.02 });
     noise(ctx, out, { start: t + 0.34, dur: 0.5, gain: 0.05, type: 'highpass', freq: 8000 });
   },
+  // v5: quick airy whoosh; level = target lane (0 far … 2 near) nudges the pitch down toward the camera
+  lane: (ctx, out, t, level) => {
+    const k = Math.pow(0.88, Math.max(0, Math.min(2, level)));
+    noise(ctx, out, { start: t, dur: 0.12, gain: 0.14, type: 'bandpass', freq: 1400 * k, freqEnd: 4200 * k, q: 1.6 });
+    tone(ctx, out, { type: 'sine', freq: 340 * k, freqEnd: 560 * k, start: t, dur: 0.07, gain: 0.05 });
+  },
+  // v5: sharp rising two-tone "!" ping (warn is a lower, descending square pair)
+  alert: (ctx, out, t) => {
+    [0, 0.075].forEach((dt, i) => {
+      const f = midiToFreq(i ? 96 : 91);
+      tone(ctx, out, { type: 'triangle', freq: f, start: t + dt, dur: 0.11, gain: 0.2, attack: 0.002 });
+      tone(ctx, out, { type: 'square', freq: f * 2, start: t + dt, dur: 0.05, gain: 0.04, filter: 7000, attack: 0.002 });
+    });
+  },
+  // v5: security door — hydraulic hiss, servo whine, then a heavy clunk
+  door: (ctx, out, t) => {
+    noise(ctx, out, { start: t, dur: 0.5, gain: 0.13, type: 'highpass', freq: 3200, freqEnd: 1400 });
+    tone(ctx, out, { type: 'sawtooth', freq: 170, freqEnd: 260, start: t + 0.04, dur: 0.38, gain: 0.035, filter: 900, attack: 0.04 });
+    tone(ctx, out, { type: 'sine', freq: 120, freqEnd: 42, start: t + 0.42, dur: 0.2, gain: 0.42 });
+    noise(ctx, out, { start: t + 0.42, dur: 0.07, gain: 0.16, type: 'lowpass', freq: 700 });
+  },
   count: (ctx, out, t, level) => {
     const go = level <= 0;
     tone(ctx, out, { type: 'square', freq: midiToFreq(go ? 84 : 72), start: t, dur: go ? 0.4 : 0.14, gain: 0.08, filter: 4000 });

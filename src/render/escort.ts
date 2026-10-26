@@ -3,7 +3,7 @@
 // whenever a new run starts or the escort (re)appears, so no stale moves leak across runs.
 import { PLAYER_X, type PlayerState } from '../types';
 import { AgentPainter } from './agent';
-import { ESCORT_DX } from './layout';
+import { depthScale, ESCORT_DX, laneLean, laneY, projX, visualLane } from './layout';
 import type { Ctx } from './util';
 
 const DELAY = 0.15;
@@ -11,8 +11,6 @@ const CAP = 64;
 /** a gap longer than this between frames means the escort was hidden / a new run began */
 const GAP_RESET = 0.5;
 const ESCORT_SCALE = 1.0;
-/** drawn a touch higher = a step further back in the corridor */
-const DEPTH = 4;
 
 export class EscortPainter {
   private readonly painter = new AgentPainter();
@@ -47,17 +45,28 @@ export class EscortPainter {
     return best ?? p;
   }
 
-  draw(ctx: Ctx, p: PlayerState, realTime: number, stageTime: number, scroll: number, running: boolean): void {
+  /**
+   * Record this frame's agent state and return the escort's (delayed) state; call once per frame
+   * before drawing, so the renderer knows which lane pass the escort belongs to.
+   */
+  update(p: PlayerState, realTime: number, stageTime: number): PlayerState {
     if (realTime - this.lastReal > GAP_RESET || stageTime < this.lastStage - 1e-3) this.reset();
     this.lastReal = realTime;
     this.lastStage = stageTime;
-    const q = this.delayed(p, realTime);
-    const x = PLAYER_X + ESCORT_DX;
+    return this.delayed(p, realTime);
+  }
+
+  /** Draw the escort in its own (delayed) lane, a step behind the agent. */
+  draw(ctx: Ctx, q: PlayerState, realTime: number, scroll: number, running: boolean): void {
+    const d = visualLane(q);
+    const depth = depthScale(d);
+    const x = projX(PLAYER_X + ESCORT_DX, d);
+    const floorY = laneY(d);
     ctx.globalAlpha = 0.93;
-    this.painter.shadow(ctx, x, q.height + DEPTH, q.sliding, ESCORT_SCALE);
+    this.painter.shadow(ctx, x, floorY, q.height, q.sliding, ESCORT_SCALE * depth);
     this.painter.draw(ctx, {
       x, id: 'prisoner', p: q, mood: running ? 'happy' : 'idle', t: realTime + 0.37, scroll: scroll - 23, running,
-      blink: false, torch: false, scale: ESCORT_SCALE, yOff: DEPTH,
+      blink: false, torch: false, scale: ESCORT_SCALE * depth, floorY, depth, lean: laneLean(q),
     });
     ctx.globalAlpha = 1;
   }

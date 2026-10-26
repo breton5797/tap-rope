@@ -14,6 +14,8 @@ const beat = (time: number, obstacles: Obstacle[]): Beat => {
     requiredLevel: (jumps.length ? Math.max(...jumps) : 0) as Beat['requiredLevel'],
     needsSlide: obstacles.some((o) => o.kind === 'high' || o.kind === 'ceiling'),
     pulse: false,
+    blockedLanes: [...new Set(obstacles.flatMap((o) => (o.kind === 'guard' || o.kind === 'drop' || o.kind === 'chaser' ? o.lanes ?? [] : [])))].sort(),
+    section: 0,
   };
 };
 
@@ -121,6 +123,20 @@ describe('feedback', () => {
     expect(d.audio.sfx).not.toHaveBeenCalled();
   });
 
+  it('v5 cues: lane whoosh, "!" alert, door hiss; a lane miss says which way', () => {
+    const d = mocks();
+    playFeedback(d, [
+      { type: 'lane', action: 'lane', lane: 0 }, { type: 'lane', action: 'none', lane: 0 },
+      { type: 'alert', lanes: [1] }, { type: 'door', transition: 'turn' }, judged('miss', 'lane'),
+    ]);
+    expect(d.audio.sfx).toHaveBeenCalledWith('lane');
+    expect(d.audio.sfx).toHaveBeenCalledWith('alert');
+    expect(d.audio.sfx).toHaveBeenCalledWith('door');
+    expect(vi.mocked(d.audio.sfx).mock.calls.filter((c) => c[0] === 'lane')).toHaveLength(1);
+    expect(d.fx.popup).toHaveBeenCalledWith('레인을 바꿔! ↑↓', 'miss');
+    expect(d.fx.shake).toHaveBeenCalledWith(0.12); // the edge-lane bump
+  });
+
   it('taps, moves, pickups, fever, combo and end events', () => {
     const d = mocks();
     playFeedback(d, [
@@ -157,6 +173,22 @@ describe('snapshot / hud', () => {
     expect(hud.title).toBe(`1-1 · ${STAGES[0].name}`);
     expect(hud.progress).toBe(0);
     expect(hud.sliding).toBe(false);
+    expect(hud.section).toBe(0);
+    expect(hud.sections).toBe(STAGES[0].sections);
+    expect(snap.player.lane).toBe(1);
+  });
+
+  it('shows doors near the agent and the section count advances past them', () => {
+    const stage = STAGES.find((st) => st.sections === 3)!;
+    const s = createSession('stage', stage);
+    const d = s.doors[0];
+    const near = toSnapshot({ ...s, time: d.time - 2 }, 'kid', opts);
+    expect(near.doors).toHaveLength(1);
+    expect(near.doors[0].timeUntil).toBeCloseTo(2, 6);
+    expect(near.doors[0].to).toEqual(d.to);
+    expect(toSnapshot({ ...s, time: d.time - 5 }, 'kid', opts).doors).toHaveLength(0);
+    expect(toHud({ ...s, section: 1 }).section).toBe(1);
+    expect(toHud(createSession('endless', null, { seed: 3 })).sections).toBe(1);
   });
 
   it('scroll follows stage time; escort only in part 2 (escape) zones', () => {

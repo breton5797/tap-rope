@@ -2,8 +2,8 @@
 // and the dark-variant lighting mask with the agent's flashlight cone. All stateless in
 // time / scroll; heavy shapes are cached sprites or a per-view mask canvas.
 import { GROUND_Y, PLAYER_X } from '../types';
-import { CEIL_Y } from './layout';
-import { CEIL_BOT, VENT_X } from './plane';
+import { CEIL_Y, depthAtY, depthScale, laneY } from './layout';
+import { CEIL_BOT, VENT_X, VENT_Y } from './plane';
 import { PLANE_W } from './themes';
 import { blitScaled, type SpriteCache } from './sprites';
 import { circle, makeCanvas, radGrad, releaseCanvas, roundRect, type Ctx } from './util';
@@ -71,15 +71,17 @@ function puffSprite(ctx: Ctx): void {
 }
 
 /** Steam plumes rising from the floor vents. */
-export function steamPuffs(ctx: Ctx, v: View, scroll: number, t: number, sprites: SpriteCache, reduced: boolean): void {
+export function steamPuffs(ctx: Ctx, v: View, scroll: number, t: number, sprites: SpriteCache, reduced: boolean, fade = 1): void {
   const sp = sprites.get('puff', 62, 62, 31, 31, puffSprite);
   const n = reduced ? 3 : 6;
-  forEachTileX(v, scroll, VENT_X, (x) => {
+  const ds = depthScale(depthAtY(VENT_Y));
+  forEachTileX(v, scroll, VENT_X, (raw) => {
+    const x = PLAYER_X + (raw - PLAYER_X) * ds;
     for (let k = 0; k < n; k++) {
-      const f = (t * 0.7 + k / n + x * 0.003) % 1;
-      const s = 0.3 + f * 1.4;
-      ctx.globalAlpha = (1 - f) * 0.8;
-      blitScaled(ctx, sp, x + Math.sin(t * 2 + k) * 8 + f * 14, GROUND_Y + 8 - f * 190, s, s);
+      const f = (t * 0.7 + k / n + raw * 0.003) % 1;
+      const s = (0.3 + f * 1.4) * ds;
+      ctx.globalAlpha = (1 - f) * 0.8 * fade;
+      blitScaled(ctx, sp, x + Math.sin(t * 2 + k) * 8 + f * 14, VENT_Y - f * 190, s, s);
     }
   });
   ctx.globalAlpha = 1;
@@ -91,7 +93,7 @@ export function fog(ctx: Ctx, v: View, scroll: number, t: number, sprites: Sprit
   const span = v.w + 160;
   for (let i = 0; i < 9; i++) {
     const x = v.x0 - 80 + ((i * 97 - scroll * 0.8 + t * 12) % span + span) % span;
-    const y = GROUND_Y - 6 - (i % 3) * 14;
+    const y = laneY(i % 3) - 6;
     ctx.globalAlpha = alpha;
     blitScaled(ctx, sp, x, y, 3.4, 1.4);
   }
@@ -105,7 +107,13 @@ export class Darkness {
   private readonly res = 0.5;
   private readonly pad = 260;
 
-  draw(ctx: Ctx, v: View, agentHeight: number): void {
+  bytes(): number {
+    return this.mask ? this.mask.width * this.mask.height * 4 : 0;
+  }
+
+  /** lift = how far the agent's feet are above GROUND_Y on screen (lane + jump height). */
+  draw(ctx: Ctx, v: View, lift: number): void {
+    const agentHeight = lift;
     if (this.key !== v.key || !this.mask) {
       releaseCanvas(this.mask);
       this.mask = this.build(v);

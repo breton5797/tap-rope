@@ -27,8 +27,17 @@ describe('defaultSave', () => {
     expect(defaultSave()).toEqual({
       version: 1, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
       settings: { sound: true, music: true, vibration: true, reducedMotion: false },
-      tutorialDone: false, briefed: [],
+      tutorialDone: false, briefed: [], controlsSeen: false,
     });
+  });
+});
+
+describe('controlsSeen (v5)', () => {
+  it('migrates old saves (no field) to false and keeps true', () => {
+    const { controlsSeen: _drop, ...old } = { ...defaultSave(), coins: 12, tutorialDone: true };
+    expect(parseSave(JSON.parse(JSON.stringify(old)))).toEqual({ ...defaultSave(), coins: 12, tutorialDone: true });
+    expect(parseSave({ ...old, controlsSeen: true }).controlsSeen).toBe(true);
+    expect(parseSave({ ...old, controlsSeen: 'yes' }).controlsSeen).toBe(false);
   });
 });
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CHAPTERS, DESIGNED_LOOKS, movesForMix, STAGES } from '../../src/core/content';
-import { dailyStage, endlessStage, generateBeats } from '../../src/core/levels';
+import { CHAPTERS, DESIGNED_LOOKS, movesForMix, sceneFor, STAGES, transitionFor } from '../../src/core/content';
+import { DOOR_BREAK, dailyStage, endlessStage, generateBeats, generateStage } from '../../src/core/levels';
 import { airtimeForLevel, DEFAULT_PHYSICS, physicsForWorld } from '../../src/core/physics';
 import { moveForBeat } from '../../src/core/timeline';
-import type { Beat, Level, ObstacleKind, PhysicsConfig, StageDef } from '../../src/types';
-import { HAZARD_KINDS } from '../../src/types';
+import type { Beat, LaneId, Level, MoveId, ObstacleKind, PhysicsConfig, StageDef } from '../../src/types';
+import { HAZARD_KINDS, LANE_HAZARD_KINDS, LANES } from '../../src/types';
 
 const EPS = 1e-6;
 const S = 0.18;
@@ -14,13 +14,19 @@ const isJump = (b: Beat) => has(b, 'floor') || has(b, 'beam');
 const isSlide = (b: Beat) => has(b, 'high') || has(b, 'ceiling');
 const droneOnly = (b: Beat) => has(b, 'drone') && !isJump(b);
 const isRear = (b: Beat) => b.obstacles.some((o) => o.kind === 'beam' && o.from === 'back');
+const isLane = (b: Beat) => b.obstacles.some((o) => LANE_HAZARD_KINDS.includes(o.kind));
+const safeLanes = (b: Beat): LaneId[] => LANES.filter((l) => !b.blockedLanes.includes(l));
+const JUMP_ONLY: readonly MoveId[] = ['jump', 'beam', 'double', 'triple', 'rear', 'pulse'];
 
-/** v4 spacing rule (§4): minimum seconds the generator must leave after `prev` before `next`. */
+/** v4 spacing rule (§4) + v5 lane gaps (§5): minimum seconds the generator must leave after `prev` before `next`. */
 function minGap(prev: Beat, next: Beat, cfg: PhysicsConfig): number {
-  if (prev.requiredLevel > 0) return airtimeForLevel(prev.requiredLevel as Level, cfg) + S;
-  if (prev.needsSlide) return 0.6;
-  if (droneOnly(prev)) return next.requiredLevel >= 2 ? airtimeForLevel(1, cfg) + S : 0.5;
-  return 0;
+  const lane = isLane(prev) ? 0.45 : 0;
+  const swap = isLane(prev) && isLane(next) && !safeLanes(prev).some((l) => safeLanes(next).includes(l)) ? 0.6 : 0;
+  let v4 = 0;
+  if (prev.requiredLevel > 0) v4 = airtimeForLevel(prev.requiredLevel as Level, cfg) + S;
+  else if (prev.needsSlide) v4 = 0.6;
+  else if (droneOnly(prev)) v4 = next.requiredLevel >= 2 ? airtimeForLevel(1, cfg) + S : 0.5;
+  return Math.max(v4, lane, swap);
 }
 
 function runs(beats: readonly Beat[], f: (b: Beat) => boolean): number[] {
@@ -41,6 +47,7 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
   const cfg = physicsForWorld(stage.world);
   const beats = generateBeats(stage, cfg);
   const hazards = beats.filter(isHazard);
+  const { doors } = generateStage(stage, cfg);
 
   it('has exactly hazardBeats hazard beats, sorted, sequential ids, on the half-beat grid', () => {
     expect(hazards).toHaveLength(stage.hazardBeats);
@@ -54,7 +61,7 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
     }
   });
 
-  it('respects v4 spacing and the 0.45s reaction floor between hazards', () => {
+  it('respects v4/v5 spacing and the 0.45s reaction floor between hazards', () => {
     for (let i = 1; i < hazards.length; i++) {
       const gap = hazards[i].time - hazards[i - 1].time;
       expect(gap).toBeGreaterThanOrEqual(minGap(hazards[i - 1], hazards[i], cfg) - EPS);
@@ -71,7 +78,81 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
       if (next) expect(next.time - b.time).toBeGreaterThanOrEqual(airtimeForLevel(o.level, cfg) + S - EPS);
       const prev = beats.slice(0, i).reverse().find(isHazard);
       if (prev) expect(b.time - prev.time).toBeGreaterThanOrEqual(minGap(prev, b, cfg) - EPS);
+      expect(o.lanes).toHaveLength(1);
+      if (next && isLane(next)) expect(next.blockedLanes).not.toContain(o.lanes?.[0]);
     });
+  });
+
+  it('v5 lane hazards: one kind per beat, 1–2 lanes (chaser 1), never all 3, never in a pulse', () => {
+    for (const b of beats) {
+      const lane = b.obstacles.filter((o) => LANE_HAZARD_KINDS.includes(o.kind));
+      const union = [...new Set(lane.flatMap((o) => o.lanes ?? []))].sort();
+      expect(b.blockedLanes).toEqual(union);
+      expect(safeLanes(b).length).toBeGreaterThanOrEqual(1);
+      expect(lane.length).toBeLessThanOrEqual(1);
+      for (const o of lane) {
+        expect(o.level).toBe(1);
+        expect(o.lanes?.length).toBeGreaterThanOrEqual(1);
+        expect(o.lanes?.length).toBeLessThanOrEqual(o.kind === 'chaser' ? 1 : 2);
+        expect([...(o.lanes ?? [])]).toEqual([...new Set(o.lanes)].sort());
+      }
+      if (lane.length > 0) {
+        expect(b.pulse).toBe(false);
+        expect(has(b, 'drone')).toBe(false);
+        expect(b.requiredLevel).toBeLessThanOrEqual(1);
+        expect(b.obstacles.filter((o) => !LANE_HAZARD_KINDS.includes(o.kind)).length).toBeLessThanOrEqual(1);
+      }
+      for (const o of b.obstacles) if (!LANE_HAZARD_KINDS.includes(o.kind) && HAZARD_KINDS.includes(o.kind)) expect(o.lanes).toBeUndefined();
+    }
+  });
+
+  it('the first lane beat blocks the start lane (1), so a lane change is really needed', () => {
+    const first = hazards.find(isLane);
+    if (stage.mix.lane > 0) expect(first, 'stage has lane beats').toBeDefined();
+    if (first) expect(first.blockedLanes).toContain(1);
+  });
+
+  it('always leaves a reachable safe lane: non-overlapping consecutive lane beats ≥ 0.6s apart', () => {
+    const laneBeats = hazards.filter(isLane);
+    for (let i = 1; i < laneBeats.length; i++) {
+      const [a, b] = [laneBeats[i - 1], laneBeats[i]];
+      const overlap = safeLanes(a).some((l) => safeLanes(b).includes(l));
+      if (!overlap) expect(b.time - a.time, `${a.id}→${b.id}`).toBeGreaterThanOrEqual(0.6 - EPS);
+    }
+  });
+
+  it('splits into stage.sections sections with a door in the middle of each break', () => {
+    const half = 30 / stage.bpm;
+    expect(doors).toHaveLength(stage.sections - 1);
+    beats.forEach((b, i) => {
+      if (i > 0) expect(b.section).toBeGreaterThanOrEqual(beats[i - 1].section);
+      expect(b.section).toBeLessThan(stage.sections);
+    });
+    const ideal = stage.hazardBeats / stage.sections;
+    for (let k = 0; k < stage.sections; k++) {
+      const n = hazards.filter((b) => b.section === k).length;
+      expect(Math.abs(n - ideal), `section ${k}`).toBeLessThanOrEqual(4);
+    }
+    doors.forEach((door, j) => {
+      expect(door.section).toBe(j + 1);
+      const before = beats.filter((b) => b.section === j).pop() as Beat;
+      const after = beats.find((b) => b.section === j + 1) as Beat;
+      expect(after.time - before.time).toBeGreaterThanOrEqual(DOOR_BREAK);
+      expect(door.time).toBeGreaterThan(before.time + 0.8);
+      expect(door.time).toBeLessThan(after.time - 0.8);
+      const k = (door.time - 2.0) / half;
+      expect(Math.abs(k - Math.round(k))).toBeLessThan(1e-6);
+      expect(door.from).toEqual(sceneFor(stage, j));
+      expect(door.to).toEqual(sceneFor(stage, j + 1));
+      expect(door.transition).toBe(transitionFor(stage, j + 1));
+    });
+    expect(DOOR_BREAK).toBe(2.4);
+  });
+
+  it('balances section sizes (max / min hazards ≤ 1.3 from 10 hazards per section)', () => {
+    if (stage.sections < 2 || stage.hazardBeats / stage.sections < 10) return;
+    const sizes = Array.from({ length: stage.sections }, (_, k) => hazards.filter((b) => b.section === k).length);
+    expect(Math.max(...sizes) / Math.min(...sizes), sizes.join('/')).toBeLessThanOrEqual(1.3);
   });
 
   it('builds well-formed beats', () => {
@@ -112,6 +193,7 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
 
   it('is deterministic', () => {
     expect(generateBeats(stage, cfg)).toEqual(beats);
+    expect(generateStage(stage, cfg)).toEqual({ beats, doors });
   });
 });
 
@@ -126,6 +208,9 @@ describe('generateBeats details', () => {
     const a = generateBeats(s, DEFAULT_PHYSICS, 2);
     const b = generateBeats(s, DEFAULT_PHYSICS, 12);
     expect(b.map((x) => x.time - 10)).toEqual(a.map((x) => expect.closeTo(x.time, 6)));
+    const da = generateStage(STAGES[13], DEFAULT_PHYSICS, 2).doors;
+    const db = generateStage(STAGES[13], DEFAULT_PHYSICS, 12).doors;
+    expect(db.map((x) => x.time - 10)).toEqual(da.map((x) => expect.closeTo(x.time, 6)));
   });
 
   it('w1-s1 is floor lasers only', () => {
@@ -135,7 +220,11 @@ describe('generateBeats details', () => {
 
   it('introduction stages feature their new move several times (§5 numbers)', () => {
     const count = (id: string, f: (b: Beat) => boolean) => gen(id).filter(f).length;
-    expect(count('w1-s2', (b) => has(b, 'beam'))).toBeGreaterThanOrEqual(3);
+    expect(count('w1-s2', isLane)).toBeGreaterThanOrEqual(4);
+    expect(count('w1-s3', (b) => has(b, 'beam'))).toBeGreaterThanOrEqual(3);
+    expect(count('w1-s9', (b) => has(b, 'drop'))).toBeGreaterThanOrEqual(3);
+    expect(count('w2-s8', (b) => has(b, 'chaser'))).toBeGreaterThanOrEqual(3);
+    expect(count('w3-s7', (b) => isLane(b) && (isJump(b) || isSlide(b)))).toBeGreaterThanOrEqual(3);
     expect(count('w1-s4', (b) => b.requiredLevel === 2)).toBeGreaterThanOrEqual(4);
     expect(count('w1-s6', (b) => has(b, 'ceiling'))).toBeGreaterThanOrEqual(3);
     expect(count('w1-s8', (b) => has(b, 'drone'))).toBeGreaterThanOrEqual(3);
@@ -146,13 +235,92 @@ describe('generateBeats details', () => {
     expect(count('w3-s4', (b) => b.pulse)).toBeGreaterThanOrEqual(4);
   });
 
-  it('mixes jumps and slides in later stages', () => {
+  it('mixes jumps and slides in later stages (among beats with a full-width laser)', () => {
     for (const s of STAGES.filter((x) => x.chapter >= 3 && x.kind !== 'bonus')) {
-      const hz = generateBeats(s, physicsForWorld(s.world)).filter(isHazard);
+      const hz = generateBeats(s, physicsForWorld(s.world)).filter((b) => isHazard(b) && (isJump(b) || isSlide(b) || has(b, 'drone')));
       const share = hz.filter(isSlide).length / hz.length;
-      expect(share, s.id).toBeGreaterThanOrEqual(0.08);
+      expect(share, s.id).toBeGreaterThanOrEqual(0.06); // v4: 0.08 — v5 lane moves crowd the move quota
       expect(share, s.id).toBeLessThanOrEqual(0.45);
     }
+  });
+});
+
+/** lane beats a human can't reach at one lane per 0.3s (DP over the set of lanes it can be in) */
+function unreachableLaneBeats(beats: readonly Beat[]): number {
+  let can: LaneId[] = [1];
+  let t = 0;
+  let bad = 0;
+  for (const b of beats.filter(isLane)) {
+    const k = Math.min(2, Math.floor((b.time - t) / 0.3 + 1e-9));
+    const next = LANES.filter((l) => !b.blockedLanes.includes(l) && can.some((c) => Math.abs(c - l) <= k));
+    if (next.length === 0) bad++;
+    can = next.length > 0 ? next : safeLanes(b);
+    t = b.time;
+  }
+  return bad;
+}
+
+describe('lane reachability at a human pace (one lane per 0.3s)', () => {
+  const cfg = DEFAULT_PHYSICS;
+
+  it('every campaign stage', () => {
+    for (const s of STAGES) expect(unreachableLaneBeats(generateBeats(s, cfg)), s.id).toBe(0);
+  });
+
+  it('365 daily dates', () => {
+    const start = Date.UTC(2026, 0, 1);
+    for (let d = 0; d < 365; d++) {
+      const s = dailyStage(new Date(start + d * 86400000).toISOString().slice(0, 10));
+      expect(unreachableLaneBeats(generateBeats(s, cfg)), s.id).toBe(0);
+    }
+  });
+
+  it('endless seeds × chunks', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      for (let chunk = 0; chunk < 30; chunk++) {
+        const s = endlessStage(chunk, seed);
+        expect(unreachableLaneBeats(generateBeats(s, cfg)), `${seed}/${chunk}`).toBe(0);
+      }
+    }
+  });
+
+  it("a lane-only stress stage full of ['L','L'] / ['L',1,'L'] patterns stays reachable", () => {
+    let tightPairs = 0;
+    let sandwiches = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const base = STAGES[89];
+      const stress: StageDef = {
+        // 120 bpm: a half beat of 0.25s puts back-to-back lane beats at 0.5s (< LANE_SWAP_GAP)
+        ...base, id: `stress-${seed}`, seed, bpm: 120, hazardBeats: 60, moves: ['jump', 'lane', 'drop'], levelWeights: [1, 0, 0],
+        mix: { ...base.mix, lane: 1, drop: 0.5, chaser: 0, laneCombo: 0, pulse: 0 },
+      };
+      const beats = generateBeats(stress, cfg);
+      expect(unreachableLaneBeats(beats), stress.id).toBe(0);
+      const hz = beats.filter(isHazard);
+      hz.forEach((b, i) => {
+        if (i > 0 && isLane(b) && isLane(hz[i - 1]) && b.time - hz[i - 1].time < 0.6 - EPS) tightPairs++;
+        if (i > 1 && isLane(b) && !isLane(hz[i - 1]) && isLane(hz[i - 2]) && b.time - hz[i - 2].time < 1.3) sandwiches++;
+      });
+    }
+    expect(tightPairs).toBeGreaterThan(20); // ['L','L'] at LANE_GAP
+    expect(sandwiches).toBeGreaterThan(5); // ['L',1,'L']
+  });
+});
+
+describe('v5 fatigue: fewer jump-only hazards (§5)', () => {
+  const normalAfter2 = (c: number) => STAGES.filter((s) => s.chapter === c && s.kind === 'normal' && s.chapter * 10 + s.index + 1 > 2);
+  const hazardsOf = (s: StageDef) => generateBeats(s, physicsForWorld(s.world)).filter(isHazard);
+
+  it('lane beats are ≥ 15% of hazards in every chapter (normal stages after stage 2)', () => {
+    for (let c = 0; c < 10; c++) {
+      const hz = normalAfter2(c).flatMap(hazardsOf);
+      expect(hz.filter(isLane).length / hz.length, `chapter ${c + 1}`).toBeGreaterThanOrEqual(0.15);
+    }
+  });
+
+  it('jump-only hazards drop well below the v4 share (≈ 0.70)', () => {
+    const hz = Array.from({ length: 10 }, (_, c) => normalAfter2(c)).flat().flatMap(hazardsOf);
+    expect(hz.filter((b) => JUMP_ONLY.includes(moveForBeat(b))).length / hz.length).toBeLessThan(0.6);
   });
 });
 
@@ -160,7 +328,7 @@ describe('endlessStage', () => {
   it('ramps difficulty and unlocks moves by chunk', () => {
     const c0 = endlessStage(0, 1);
     const c20 = endlessStage(20, 1);
-    expect(c0).toMatchObject({ id: 'endless-0', chapter: 0, kind: 'normal', hazardBeats: 16 });
+    expect(c0).toMatchObject({ id: 'endless-0', chapter: 0, kind: 'normal', hazardBeats: 18, sections: 1 });
     expect(c20.bpm).toBeGreaterThan(c0.bpm);
     expect(c20.bpm).toBeLessThanOrEqual(140);
     expect(endlessStage(200, 1).bpm).toBe(140);
@@ -179,7 +347,7 @@ describe('dailyStage', () => {
   it('is deterministic per date and uses the campaign formula', () => {
     const a = dailyStage('2026-10-23');
     expect(a).toEqual(dailyStage('2026-10-23'));
-    expect(a).toMatchObject({ id: 'daily-2026-10-23', name: '오늘의 도전', chapter: 0, kind: 'normal' });
+    expect(a).toMatchObject({ id: 'daily-2026-10-23', name: '오늘의 도전', chapter: 0, kind: 'normal', sections: 2 });
     expect(a.hazardBeats).toBeGreaterThanOrEqual(28);
     expect(a.hazardBeats).toBeLessThanOrEqual(36);
     expect(a.seed).not.toBe(dailyStage('2026-10-24').seed);

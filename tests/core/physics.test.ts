@@ -4,6 +4,7 @@ import {
   CLEAR_H,
   DEFAULT_PHYSICS,
   initialPlayer,
+  moveLane,
   PERFECT_H,
   physicsForWorld,
   slidePlayer,
@@ -60,6 +61,7 @@ describe('initialPlayer', () => {
     expect(initialPlayer()).toEqual({
       height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, buffer: 0,
       sliding: false, slideTime: 0, slideAge: 0, pendingSlide: false, lastTap: 'none',
+      lane: 1, laneFrom: 1, laneAge: 1,
     });
   });
 });
@@ -257,5 +259,47 @@ describe('airtimeForLevel', () => {
 describe('v4 review fixes', () => {
   it('CLEAR_H matches the drawn floor fence (24px)', () => {
     expect(CLEAR_H).toBe(24);
+  });
+});
+
+describe('moveLane (v5 §2)', () => {
+  it('moves one lane toward far (−1) or near (+1) and restarts the switch animation', () => {
+    const p0 = initialPlayer();
+    const up = moveLane(p0, -1);
+    expect(up.action).toBe('lane');
+    expect(up.player).toMatchObject({ lane: 0, laneFrom: 1, laneAge: 0 });
+    const down = moveLane(p0, 1);
+    expect(down.player).toMatchObject({ lane: 2, laneFrom: 1, laneAge: 0 });
+    expect(p0.lane).toBe(1);
+  });
+
+  it('does nothing past an edge lane', () => {
+    const far = moveLane(initialPlayer(), -1).player;
+    expect(moveLane(far, -1)).toEqual({ player: far, action: 'none' });
+    const near = moveLane(initialPlayer(), 1).player;
+    expect(moveLane(near, 1)).toEqual({ player: near, action: 'none' });
+  });
+
+  it('works airborne and while sliding without touching jump/slide state', () => {
+    const air = moveLane(high(), 1);
+    expect(air.action).toBe('lane');
+    expect(air.player).toEqual({ ...high(), lane: 2, laneFrom: 1, laneAge: 0 });
+    const sl = moveLane(sliding(), -1);
+    expect(sl.player).toEqual({ ...sliding(), lane: 0, laneFrom: 1, laneAge: 0 });
+  });
+
+  it('stepPlayer advances laneAge and every transition keeps the lane', () => {
+    const moved = moveLane(initialPlayer(), 1).player;
+    expect(stepPlayer(moved, 0.05, cfg).player.laneAge).toBeCloseTo(0.05, 9);
+    expect(stepPlayer(moved, 0.05, cfg).player).toMatchObject({ lane: 2, laneFrom: 1 });
+    const inAir = tapPlayer(moved, cfg).player;
+    expect(inAir).toMatchObject({ lane: 2, laneFrom: 1 });
+    const landed = runUntil(inAir, cfg, (p) => p.grounded).player;
+    expect(landed).toMatchObject({ lane: 2, laneFrom: 1 });
+    expect(landed.laneAge).toBeGreaterThan(0.4);
+    const dived = swipePlayer(stepPlayer(inAir, 0.3, cfg).player, 'down', cfg).player;
+    const slid = runUntil(dived, cfg, (p) => p.sliding).player;
+    expect(slid.lane).toBe(2);
+    expect(slidePlayer(moved, cfg).player.lane).toBe(2);
   });
 });

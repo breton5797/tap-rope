@@ -85,6 +85,7 @@
 .tut__name {
   color: var(--ink-soft);
   font-size: 15px;
+  word-break: keep-all;
 }
 
 .tut__text {
@@ -163,6 +164,81 @@
 
 @keyframes slide-jitter {
   50% { translate: 0 1.5px; }
+}
+
+/* v5 lane moves: the agent hops to the safe lane, hazards arrive. Base styles are the end pose
+   so reduced motion (animations collapsed) still shows the dodge. */
+.tut__finger--up { animation-name: finger-up; }
+
+@keyframes finger-up {
+  0% { translate: 0 10px; opacity: 0; }
+  20% { opacity: 1; }
+  80% { translate: 0 -10px; opacity: 1; }
+  100% { translate: 0 -10px; opacity: 0; }
+}
+
+.tut__shift {
+  translate: 0 var(--dy, 0);
+  animation: lane-shift 1.6s var(--ease-out) infinite;
+}
+
+@keyframes lane-shift {
+  0%, 30% { translate: 0 0; }
+  45%, 88% { translate: 0 var(--dy, 0); }
+  100% { translate: 0 0; }
+}
+
+.tut__fig--leap {
+  animation: tut-leap 1.6s ease-in-out infinite;
+}
+
+@keyframes tut-leap {
+  0%, 38% { translate: 0 0; }
+  58% { translate: 0 -16px; }
+  78%, 100% { translate: 0 0; }
+}
+
+.tut__bang {
+  animation: bang-blink 0.4s steps(1) infinite;
+}
+
+@keyframes bang-blink {
+  50% { opacity: 0.25; }
+}
+
+.tut__drop {
+  animation: crate-drop 1.6s ease-in infinite;
+}
+
+@keyframes crate-drop {
+  0%, 20% { translate: 0 -34px; }
+  62%, 100% { translate: 0 0; }
+}
+
+.tut__shadow {
+  opacity: 0.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: shadow-grow 1.6s ease-in infinite;
+}
+
+@keyframes shadow-grow {
+  0%, 20% { opacity: 0.1; scale: 0.5; }
+  62%, 100% { opacity: 0.5; scale: 1; }
+}
+
+.tut__chase {
+  translate: 30px 0;
+  animation: chase-dash 1.6s ease-in infinite;
+}
+
+@keyframes chase-dash {
+  0%, 25% { translate: -18px 0; }
+  70%, 100% { translate: 64px 0; }
+}
+
+.tut__laser--soft {
+  opacity: 0.45;
 }
 
 .tut__skip {

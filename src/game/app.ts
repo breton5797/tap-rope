@@ -2,7 +2,7 @@
  * App controller: wires renderer, UI, audio and the pure Session together and
  * owns the screen flow (menu demo → countdown → play ⇄ pause → result).
  */
-import type { GameMode, MoveId, ResultInfo, SaveData, Settings, SkinId, StageDef, Swipe } from '../types';
+import type { GameMode, LaneDir, MoveId, ResultInfo, SaveData, Settings, SkinId, StageDef, Swipe } from '../types';
 import { createRenderer } from '../render/index';
 import { createUi } from '../ui/index';
 import { createAudio } from '../audio/index';
@@ -11,14 +11,15 @@ import { registerServiceWorker } from '../platform/pwa';
 import { nextStageId, stageById } from '../core/content';
 import { buySkin, loadSave, markBriefed, recordResult, writeSave } from '../core/storage';
 import { stepPlayer } from '../core/physics';
-import { createSession, sessionStars, slide, step, swipe, tap, type Session, type StepOutput } from './session';
+import { createSession, lane, sessionStars, slide, step, swipe, tap, type Session, type StepOutput } from './session';
 import { botAction, type BotAction } from './bot';
 import { toHud, toSnapshot } from './snapshot';
 import { playFeedback } from './feedback';
 import { HINT_DURATION, introducedMoves, upcomingHint } from './hints';
 import { bindInput } from './input';
 
-type Screen = 'menu' | 'countdown' | 'play' | 'paused' | 'result';
+/** controls = the first-run two-thumb card is up; the run starts when it is dismissed */
+type Screen = 'menu' | 'controls' | 'countdown' | 'play' | 'paused' | 'result';
 
 const COUNT_STEP = 0.6;
 /** the mission briefing card reads for this long before 3-2-1 starts */
@@ -34,16 +35,18 @@ function todayIso(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-type Input = 'tap' | 'slideKey' | Swipe;
+type Input = 'tap' | 'slideKey' | Swipe | { readonly lane: LaneDir };
 
 function botInput(a: BotAction | null): Input[] {
   if (!a) return [];
+  if (a.lane) return [{ lane: a.lane }];
   return a.swipe ? ['tap', a.swipe] : ['tap'];
 }
 
 function applyInput(s: Session, input: Input): StepOutput {
   if (input === 'tap') return tap(s);
   if (input === 'slideKey') return slide(s);
+  if (typeof input === 'object') return lane(s, input.lane);
   return swipe(s, input);
 }
 
@@ -110,6 +113,18 @@ export function startApp(): void {
   };
 
   const startRun = (mode: GameMode, stage: StageDef | null): void => {
+    if (!save.controlsSeen) {
+      // first v5 run: teach the split controls before anything moves
+      screen = 'controls';
+      session = createSession(mode, stage, { date: todayIso(), seed: 1 });
+      audio.stopMusic();
+      ui.hideAll();
+      ui.showControls(() => {
+        persist({ ...save, controlsSeen: true });
+        startRun(mode, stage);
+      });
+      return;
+    }
     jumpCardPending = false;
     const date = todayIso();
     run = { mode, stage, date };
@@ -332,6 +347,10 @@ export function startApp(): void {
     },
     onSwipe: (dir: Swipe) => {
       if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, dir];
+    },
+    onLane: (dir: LaneDir) => {
+      audio.unlock();
+      if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, { lane: dir }];
     },
     onPauseKey: () => (screen === 'paused' ? undefined : pause()),
   });

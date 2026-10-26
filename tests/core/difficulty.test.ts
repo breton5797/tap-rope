@@ -17,8 +17,8 @@ const genMs = performance.now() - t0;
 const normals = (c: number) => scored.filter((x) => x.s.chapter === c && x.s.kind === 'normal');
 const mean = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
-function mk(id: number, time: number, obstacles: Obstacle[], requiredLevel: JumpLevel): Beat {
-  return { id, time, obstacles, requiredLevel, needsSlide: false, pulse: false };
+function mk(id: number, time: number, obstacles: Obstacle[], requiredLevel: JumpLevel, section = 0): Beat {
+  return { id, time, obstacles, requiredLevel, needsSlide: false, pulse: false, blockedLanes: [], section };
 }
 /** a jump laser: floor at level 1, stacked beams above */
 const rope = (id: number, time: number, level: 1 | 2 | 3 = 1) =>
@@ -49,6 +49,19 @@ describe('stageDifficulty basics', () => {
     expect(stageDifficulty(stage, fast)).toBeGreaterThan(base);
     expect(stageDifficulty(stage, varied)).toBeGreaterThan(base);
     expect(stageDifficulty(stage, combo)).toBeGreaterThan(base);
+  });
+
+  it('v5: ignores the door break between sections (rate and tightness)', () => {
+    const one = [rope(0, 2), rope(1, 3), rope(2, 4), rope(3, 5)];
+    const split = [rope(0, 2), rope(1, 3), mk(2, 8, [{ kind: 'floor', level: 1 }], 1, 1), mk(3, 9, [{ kind: 'floor', level: 1 }], 1, 1)];
+    expect(stageDifficulty(stage, split)).toBeCloseTo(stageDifficulty(stage, one), 9);
+  });
+
+  it('v5: a lane beat counts as a move change and a lanejump as a combined beat', () => {
+    const slow = [rope(0, 2), rope(1, 3), rope(2, 4), rope(3, 5)];
+    const laned = [rope(0, 2), mk(1, 3, [{ kind: 'guard', level: 1, lanes: [1] }], 0), rope(2, 4),
+      mk(3, 5, [{ kind: 'guard', level: 1, lanes: [1] }, { kind: 'floor', level: 1 }], 1)];
+    expect(stageDifficulty(stage, laned)).toBeGreaterThan(stageDifficulty(stage, slow));
   });
 });
 

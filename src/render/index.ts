@@ -1,18 +1,32 @@
-// LASER ESCAPE canvas renderer (v4, side-scrolling corridor). Public entry: createRenderer(canvas).
-import { GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, type EffectsApi, type Renderer, type RenderSnapshot } from '../types';
+// LASER ESCAPE canvas renderer (v5, 2.5D three-lane corridor). Public entry: createRenderer(canvas).
+// Painter's order: background (+ door transition) → door back → for each lane far→near:
+// [sheet half behind the lane centre, lane hazards, pickups/drones, escort, agent, sheet half in
+// front] → door front → fog/alarm → "!" warnings → effects → rhythm lane HUD.
+import {
+  GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, SCROLL_SPEED, type EffectsApi, type PlayerState, type Renderer, type RenderSnapshot,
+  type Variant,
+} from '../types';
 import { AgentPainter } from './agent';
 import { Corridor } from './corridor';
-import { AGENT_SCALE } from './layout';
 import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
+import {
+  activeTransition, doorScene, drawBackground, drawDoorBack, drawDoorFront, drawDoorSign, nextDoor, transitionEase,
+} from './doors';
 import { Effects } from './effects';
 import { EscortPainter } from './escort';
 import { drawGadgets } from './gadgets';
+import { drawLaneHazards } from './hazards';
 import { drawLane } from './lane';
-import { drawLasers } from './lasers';
+import { drawLaserSeg, drawLaserWarnings } from './lasers';
+import { AGENT_SCALE, depthScale, laneLean, laneY, projX, visualLane } from './layout';
 import { Overlays } from './overlays';
 import { SpriteCache } from './sprites';
 import type { Ctx } from './util';
 import { computeView, type View } from './view';
+import { drawWarnings } from './warnings';
+
+const STOP_ESCORT = 3;
+const STOP_AGENT = 4;
 
 class CanvasRenderer implements Renderer {
   private readonly ctx: Ctx;
@@ -42,19 +56,32 @@ class CanvasRenderer implements Renderer {
     this.applyView();
   }
 
+  /** Debug: backing-store bytes of the main canvas and every cache (preview harness / QA). */
+  memoryBytes(): { main: number; corridor: number; sprites: number; other: number } {
+    return {
+      main: this.canvas.width * this.canvas.height * 4,
+      corridor: this.corridor.bytes(),
+      sprites: this.sprites.bytes(),
+      other: this.darkness.bytes() + this.overlays.bytes(),
+    };
+  }
+
   render(snap: RenderSnapshot): void {
     const { ctx, view: v, effects: fx } = this;
+    const p = snap.player;
+    const lane = visualLane(p);
+    const depth = depthScale(lane);
     fx.reduced = snap.reducedMotion;
     fx.anchorX = PLAYER_X;
-    fx.feetY = GROUND_Y - snap.player.height;
-    fx.bodyLift = snap.player.sliding ? 14 : 34;
+    fx.feetY = laneY(lane) - p.height * depth;
+    fx.bodyLift = (p.sliding ? 14 : 34) * depth;
     const k = v.k;
     const tx = v.ox * v.dpr;
     const ty = v.oy * v.dpr;
     ctx.setTransform(k, 0, 0, k, tx + fx.shakeX() * k, ty + fx.shakeY() * k);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    this.drawWorld(ctx, v, snap);
+    this.drawWorld(ctx, v, snap, lane);
     fx.drawWorld(ctx);
     if (snap.fever) this.overlays.fever(ctx, v, snap.realTime, snap.reducedMotion);
     if (snap.slowMo) this.overlays.slowMo(ctx, v, snap.realTime);
@@ -63,34 +90,125 @@ class CanvasRenderer implements Renderer {
     fx.drawFlash(ctx, v);
   }
 
-  private drawWorld(ctx: Ctx, v: View, snap: RenderSnapshot): void {
+  private drawWorld(ctx: Ctx, v: View, snap: RenderSnapshot, lane: number): void {
     const t = snap.realTime;
     const variant = snap.variant ?? 'base';
     const reduced = snap.reducedMotion;
+    const doors = snap.doors ?? [];
+    const next = nextDoor(doors);
+    this.corridor.sync(v, snap, doorScene(doors), snap.scroll + (next ? next.timeUntil * SCROLL_SPEED : 0));
     // reduced motion freezes decorative corridor animation (top-band fans, status LEDs)
-    this.corridor.draw(ctx, v, snap.world, variant, snap.scroll, reduced ? 0 : t);
-    if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
-    if (variant === 'steam') {
-      fog(ctx, v, snap.scroll, t, this.sprites, 0.34);
-      steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced);
-    }
-    if (variant === 'dark') this.darkness.draw(ctx, v, snap.player.height);
-    drawLasers(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced);
-    drawGadgets(ctx, snap.obstacles, t, this.sprites);
-    if (snap.escort) this.escort.draw(ctx, snap.player, t, snap.time, snap.scroll, snap.running);
-    this.drawAgent(ctx, snap, variant === 'dark');
-    if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.12);
-    if (variant === 'alarm') alarmWash(ctx, v, reduced ? 0 : t);
+    const off = drawBackground(ctx, v, this.corridor, snap, doors, snap.scroll, reduced ? 0 : t, reduced);
+    this.corridor.endFrame();
+    // variant layers: during a door transition the old look's fade out while the new look's fade in
+    const tr = activeTransition(doors);
+    const e = tr ? transitionEase(tr.p) : 1;
+    const lift = GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane));
+    if (tr && tr.door.from.variant !== variant) this.backFx(ctx, v, snap, tr.door.from.variant, 1 - e, lift);
+    this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
+    for (const d of doors) drawDoorBack(ctx, d, off);
+    this.drawLanes(ctx, v, snap, lane);
+    for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
+    if (tr && tr.door.from.variant !== variant) this.frontFx(ctx, v, snap, tr.door.from.variant, 1 - e);
+    this.frontFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1);
+    drawLaserWarnings(ctx, v, snap.obstacles, t, snap.fever, reduced, Math.round(lane));
+    drawWarnings(ctx, v, snap.obstacles, lane, t, this.sprites, reduced);
+    for (const d of doors) drawDoorSign(ctx, v, d, reduced ? 0 : t);
   }
 
-  private drawAgent(ctx: Ctx, snap: RenderSnapshot, torch: boolean): void {
-    const p = snap.player;
-    this.agent.shadow(ctx, PLAYER_X, p.height, p.sliding, AGENT_SCALE);
+  /** Variant layers behind the gameplay (sirens, steam, darkness) at opacity `fade`. */
+  private backFx(ctx: Ctx, v: View, snap: RenderSnapshot, variant: Variant, fade: number, lift: number): void {
+    if (fade <= 0.01) return;
+    const t = snap.realTime;
+    const reduced = snap.reducedMotion;
+    ctx.globalAlpha = fade;
+    if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
+    if (variant === 'dark') this.darkness.draw(ctx, v, lift);
+    ctx.globalAlpha = 1;
+    if (variant === 'steam') {
+      fog(ctx, v, snap.scroll, t, this.sprites, 0.34 * fade);
+      steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced, fade);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Variant layers over the gameplay (front fog, alarm wash) at opacity `fade`. */
+  private frontFx(ctx: Ctx, v: View, snap: RenderSnapshot, variant: Variant, fade: number): void {
+    if (fade <= 0.01) return;
+    const t = snap.realTime;
+    if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.12 * fade);
+    if (variant === 'alarm') {
+      ctx.globalAlpha = fade;
+      alarmWash(ctx, v, snap.reducedMotion ? 0 : t);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /**
+   * Painter's order by real depth: lane stops (hazards, pickups, drones) at 0 / 1 / 2 and the
+   * escort and agent at their (possibly fractional, mid lane switch) depths, sorted far → near;
+   * laser sheets are drawn in the depth slices between consecutive stops.
+   */
+  private drawLanes(ctx: Ctx, v: View, snap: RenderSnapshot, lane: number): void {
+    const t = snap.realTime;
+    const reduced = snap.reducedMotion;
+    const escortState = snap.escort ? this.escort.update(snap.player, t, snap.time) : null;
+    let n = this.addStop(0, 0, 0);
+    n = this.addStop(n, 1, 1);
+    n = this.addStop(n, 2, 2);
+    if (escortState) n = this.addStop(n, visualLane(escortState), STOP_ESCORT);
+    n = this.addStop(n, lane, STOP_AGENT);
+    const d = this.stopD;
+    const k = this.stopK;
+    let prev = -1;
+    for (let i = 0; i < n; i++) {
+      if (d[i] > prev) {
+        drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, d[i]);
+        prev = d[i];
+      }
+      const kind = k[i];
+      if (kind === STOP_AGENT) this.drawAgent(ctx, snap, lane, snap.variant === 'dark');
+      else if (kind === STOP_ESCORT && escortState) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running);
+      else {
+        drawLaneHazards(ctx, v, snap.obstacles, kind, t, this.sprites, reduced);
+        drawGadgets(ctx, snap.obstacles, t, this.sprites, kind);
+      }
+    }
+    drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, 3);
+  }
+
+  /** Insertion sort into the stop list: by depth, then lanes (0..2) < escort < agent at equal depth. */
+  private addStop(n: number, depth: number, kind: number): number {
+    const d = this.stopD;
+    const k = this.stopK;
+    let i = n;
+    while (i > 0 && (d[i - 1] > depth || (d[i - 1] === depth && k[i - 1] > kind))) {
+      d[i] = d[i - 1];
+      k[i] = k[i - 1];
+      i--;
+    }
+    d[i] = depth;
+    k[i] = kind;
+    return n + 1;
+  }
+
+  private readonly stopD = new Float64Array(5);
+  private readonly stopK = new Int8Array(5);
+
+  private drawAgent(ctx: Ctx, snap: RenderSnapshot, lane: number, torch: boolean): void {
+    const p: PlayerState = snap.player;
+    const depth = depthScale(lane);
+    const floorY = laneY(lane);
+    const x = projX(PLAYER_X, lane);
+    this.agent.shadow(ctx, x, floorY, p.height, p.sliding, AGENT_SCALE * depth);
     this.agent.draw(ctx, {
-      x: PLAYER_X, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
-      running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE, yOff: 0,
+      x, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
+      running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE * depth, floorY, depth,
+      lean: snap.reducedMotion ? 0 : laneLean(p),
     });
-    if (snap.shield) this.overlays.shield(ctx, PLAYER_X, GROUND_Y - p.height - (p.sliding ? 18 : 34), snap.realTime);
+    if (snap.shield) {
+      this.overlays.shield(ctx, x, floorY - p.height * depth - (p.sliding ? 18 : 34) * depth, snap.realTime);
+    }
   }
 
   private applyView(): void {

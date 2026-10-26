@@ -1,7 +1,7 @@
 /** Builds the renderer/HUD view-models from a Session. */
 import type { HudState, RenderSnapshot, SkinId } from '../types';
 import { SCROLL_SPEED } from '../types';
-import { laneItems, visibleObstacles } from '../core/timeline';
+import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
 import { CHAPTERS } from '../core/content';
 import { MAX_HEARTS, sessionProgress, type Session } from './session';
 
@@ -38,6 +38,7 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     reducedMotion: o.reducedMotion,
     scroll: s.time * SCROLL_SPEED,
     running: o.running,
+    doors: visibleDoors(s.doors, s.time),
   };
 }
 
@@ -62,5 +63,7 @@ export function toHud(s: Session): HudState {
     title: runTitle(s),
     coins: s.score.coins,
     sliding: s.player.sliding,
+    section: s.section,
+    sections: s.mode === 'endless' ? 1 : s.stage.sections,
   };
 }

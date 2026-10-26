@@ -27,6 +27,12 @@ export class SpriteCache {
     this.map.clear();
   }
 
+  bytes(): number {
+    let b = 0;
+    for (const sp of this.map.values()) b += sp.canvas.width * sp.canvas.height * 4;
+    return b;
+  }
+
   get(key: string, w: number, h: number, ax: number, ay: number, draw: SpriteDraw, arg = 0): Sprite {
     const hit = this.map.get(key);
     if (hit) return hit;

@@ -1,4 +1,5 @@
 // 기술 도감: an informational bottom sheet listing every move with its gesture art.
+import { controlsDiagram } from './controls';
 import { button, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
 import { moveArt } from './move-art';
@@ -38,8 +39,8 @@ export function buildGuide(ctx: Ctx, onClose: () => void): HTMLElement {
       h('div', {}, [h('div', { cls: 'sheet__kicker', text: 'AGENT MANUAL' }), h('h2', { cls: 'sheet__title', text: '기술 도감' })]),
       button({ label: '닫기', variant: 'glass', size: 'icon', icon: icons.close(), onPress: close }),
     ]),
-    h('p', { cls: 'sheet__lead', text: '탭은 바로 점프, 아래로 스와이프는 슬라이딩! 요원 필수 기술 10가지.' }),
-    h('div', { cls: 'sheet__list' }, MOVE_ORDER.map(moveCard)),
+    h('p', { cls: 'sheet__lead', text: `왼손은 레인 이동, 오른손은 점프·슬라이딩! 요원 필수 기술 ${MOVE_ORDER.length}가지.` }),
+    h('div', { cls: 'sheet__list' }, [controlsDiagram(true), ...MOVE_ORDER.map(moveCard)]),
   ]);
   const screen = h('section', { cls: 'screen screen--sheet', attrs: { 'aria-label': '기술 도감' } }, [scrim, sheet]);
   swallowInput(screen);

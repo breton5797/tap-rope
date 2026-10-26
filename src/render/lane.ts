@@ -1,7 +1,9 @@
 // Rhythm lane: translucent panel at the bottom, items flow right→left into the hit ring,
 // which sits right under the agent (PLAYER_X) so the lane lines up with the corridor.
 import { LANE_LEAD, LOGICAL_W, PLAYER_X, type LaneItem, type ObstacleKind } from '../types';
-import { beamIcon, drawChip, drawFromArrow, droneIcon, floorIcon, pickupIcon, slideIcon } from './lane-icons';
+import {
+  beamIcon, chaserIcon, drawChip, drawFromArrow, drawLaneMarker, droneIcon, dropIcon, floorIcon, guardIcon, pickupIcon, slideIcon,
+} from './lane-icons';
 import { blit, blitScaled, type SpriteCache } from './sprites';
 import { circle, clamp, radGrad, roundRect, vGrad, type Ctx } from './util';
 
@@ -15,10 +17,10 @@ const SPAN = LOGICAL_W - HIT_X - 30;
 const ICON = 32;
 
 const KIND_INDEX: Readonly<Record<ObstacleKind, number>> = {
-  floor: 0, beam: 1, high: 2, ceiling: 3, drone: 4, coin: 5, shield: 6, slow: 7, heart: 8,
+  floor: 0, beam: 1, high: 2, ceiling: 3, drone: 4, coin: 5, shield: 6, slow: 7, heart: 8, guard: 9, drop: 10, chaser: 11,
 };
 const ICON_KEYS: string[] = [];
-for (let i = 0; i < 36; i++) ICON_KEYS.push(`lane${i}`);
+for (let i = 0; i < 48; i++) ICON_KEYS.push(`lane${i}`);
 
 function panel(ctx: Ctx): void {
   ctx.fillStyle = 'rgba(0,0,10,0.3)';
@@ -50,6 +52,9 @@ function iconSprite(ctx: Ctx, arg: number): void {
   else if (kind === 1) beamIcon(ctx, level);
   else if (kind === 2 || kind === 3) slideIcon(ctx, kind === 3);
   else if (kind === 4) droneIcon(ctx);
+  else if (kind === 9) guardIcon(ctx);
+  else if (kind === 10) dropIcon(ctx);
+  else if (kind === 11) chaserIcon(ctx);
   else pickupIcon(ctx, kind - 5);
 }
 
@@ -81,7 +86,9 @@ function drawItem(ctx: Ctx, it: LaneItem, sprites: SpriteCache, t: number): void
     const y = CY + (row - (n - 1) / 2) * gap * (n > 1 ? 1 : 0);
     blitScaled(ctx, sp, x, y, scale, scale);
     if (row === 0) {
-      drawFromArrow(ctx, it.from, x, y);
+      // lane beats: the 3-lane marker replaces the direction arrow (the icon shape implies it)
+      if (it.blocked.length > 0) drawLaneMarker(ctx, it.blocked, x + 23 * scale, y + 3 * scale, Math.min(1.1, pop));
+      else drawFromArrow(ctx, it.from, x, y);
       drawChip(ctx, sprites, it.move, x + 12 * scale, y - 12 * scale, Math.min(1.15, pop));
     }
     row++;

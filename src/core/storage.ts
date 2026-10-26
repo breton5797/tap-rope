@@ -1,5 +1,6 @@
 /**
- * Save data persistence (localStorage key 'laserescape.save.v1'), incl. briefed chapters.
+ * Save data persistence (localStorage key 'laserescape.save.v1'), incl. briefed chapters and (v5) whether
+ * the controls card was seen — older saves without it load as false (same key and version).
  * parseSave validates untrusted JSON field by field and never throws; load/write
  * swallow storage errors (private mode, quota). All updates return new objects.
  */
@@ -21,7 +22,7 @@ const clampStars = (n: number) => Math.min(3, Math.max(0, Math.floor(n)));
 export function defaultSave(): SaveData {
   return {
     version: 1, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
-    settings: DEFAULT_SETTINGS, tutorialDone: false, briefed: [],
+    settings: DEFAULT_SETTINGS, tutorialDone: false, briefed: [], controlsSeen: false,
   };
 }
 
@@ -61,6 +62,7 @@ export function parseSave(raw: unknown): SaveData {
     settings: parseSettings(raw.settings),
     tutorialDone: raw.tutorialDone === true,
     briefed: parseBriefed(raw.briefed),
+    controlsSeen: raw.controlsSeen === true,
   };
 }
 
