@@ -31,10 +31,10 @@ interface Refs {
 
 type Prev = { -readonly [K in keyof HudState]?: HudState[K] };
 
-const POP: KeyframeAnimationOptions = { duration: 260, easing: 'cubic-bezier(.2,1.6,.4,1)' };
+const POP: KeyframeAnimationOptions = { duration: 200, easing: 'ease-out' };
 
 function statusChip(cls: string, icon: SVGElement, label: string): HTMLElement {
-  return h('div', { cls: `status ${cls}` }, [icon, h('span', { text: label })]);
+  return h('div', { cls: `status ${cls}`, attrs: { 'aria-label': label } }, [icon, h('span', { text: label })]);
 }
 
 function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
@@ -45,7 +45,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     ctx.cb.onPause();
   });
   const refs: Refs = {
-    hearts: h('div', { cls: 'hud__hearts', attrs: { 'aria-label': '하트' } }),
+    hearts: h('div', { cls: 'hud__hearts', attrs: { 'aria-label': '방탄', role: 'img' } }),
     title: h('div', { cls: 'hud__title' }),
     score: h('div', { cls: 'hud__score', text: '0' }),
     coins: h('span', { cls: 'chip__value', text: '0' }),
@@ -54,15 +54,15 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     sections: h('div', { cls: 'prog__sections', attrs: { 'aria-hidden': 'true' } }),
     feverBar: h('div', { cls: 'bar bar--fever' }),
     feverFill: h('div', { cls: 'bar__fill' }),
-    feverLabel: h('span', { cls: 'bar__label', text: 'FEVER' }),
+    feverLabel: h('span', { cls: 'bar__label', text: 'OVERDRIVE' }),
     combo: h('div', { cls: 'combo', attrs: { 'aria-live': 'polite' } }),
     comboNum: h('span', { cls: 'combo__num' }),
-    shield: statusChip('status--shield', icons.shield(), '실드'),
-    slow: statusChip('status--slow', icons.clock(), '슬로우'),
+    shield: statusChip('status--shield', icons.shield(), 'SHIELD'),
+    slow: statusChip('status--slow', icons.clock(), 'SLOW'),
     slide: h('span', { cls: 'hud__slide', attrs: { 'aria-label': '슬라이딩' } }, [moveGlyph('slide'), h('span', { text: 'SLIDE' })]),
   };
   refs.feverBar.append(refs.feverFill, refs.feverLabel, icons.fire());
-  refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'COMBO' }));
+  refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'CHAIN' }));
   refs.progressWrap.append(h('div', { cls: 'bar bar--progress' }, [refs.progress]), refs.sections);
   const el = h('div', { cls: 'hud' }, [
     h('div', { cls: 'hud__top' }, [
@@ -82,31 +82,33 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
 
 function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduced: boolean): void {
   if (prev.maxHearts !== max) {
-    refs.hearts.replaceChildren(...Array.from({ length: max }, () => h('span', { cls: 'heart' }, [icons.heart()])));
+    // armor gauge: one cell per heart
+    refs.hearts.replaceChildren(h('span', { cls: 'hud__armor-label mono', text: 'ARMOR' }), ...Array.from({ length: max }, () => h('i', { cls: 'heart' })));
   }
-  const nodes = Array.from(refs.hearts.children);
+  const nodes = Array.from(refs.hearts.querySelectorAll('.heart'));
   nodes.forEach((node, i) => {
     const full = i < hearts;
     const wasFull = prev.hearts === undefined ? full : i < prev.hearts;
     node.classList.toggle('is-empty', !full);
     if (wasFull === full || prev.hearts === undefined) return;
     const frames = full
-      ? [{ transform: 'scale(.4)' }, { transform: 'scale(1.35)' }, { transform: 'scale(1)' }]
-      : [{ transform: 'scale(1.5) rotate(-12deg)', filter: 'brightness(2)' }, { transform: 'scale(.9)' }, { transform: 'scale(1)' }];
-    animate(node, frames, { duration: 420, easing: 'cubic-bezier(.2,1.4,.4,1)' }, reduced);
+      ? [{ opacity: 0.3 }, { opacity: 1 }]
+      : [{ background: '#ff2a3a', boxShadow: '0 0 10px #ff2a3a' }, { background: '#ff2a3a' }, {}];
+    animate(node, frames, { duration: full ? 300 : 520, easing: 'ease-out' }, reduced);
   });
-  refs.hearts.setAttribute('aria-label', `하트 ${hearts}/${max}`);
+  refs.hearts.setAttribute('aria-label', `방탄 ${hearts}/${max}`);
+  refs.hearts.classList.toggle('is-critical', hearts === 1 && max > 1);
 }
 
 function renderCombo(refs: Refs, combo: number, prev: number | undefined, reduced: boolean): void {
   const visible = combo >= 3;
   refs.combo.classList.toggle('is-visible', visible);
   if (!visible) return;
-  refs.comboNum.textContent = String(combo);
+  refs.comboNum.textContent = `x${combo}`;
   const tier = combo >= 50 ? 3 : combo >= 25 ? 2 : combo >= 10 ? 1 : 0;
   refs.combo.dataset.tier = String(tier);
   if (prev !== undefined && combo > prev) {
-    animate(refs.combo, [{ transform: 'scale(1.4)' }, { transform: 'scale(1)' }], POP, reduced);
+    animate(refs.combo, [{ opacity: 0.55, transform: 'translateX(-4px)' }, { opacity: 1, transform: 'none' }], POP, reduced);
   }
 }
 
@@ -115,7 +117,7 @@ function renderFever(refs: Refs, s: HudState, prev: Prev): void {
   if (prev.feverGauge !== g) refs.feverFill.style.transform = `scaleX(${g})`;
   if (prev.fever !== s.fever) {
     refs.feverBar.classList.toggle('is-fever', s.fever);
-    refs.feverLabel.textContent = s.fever ? 'FEVER ×2' : 'FEVER';
+    refs.feverLabel.textContent = s.fever ? 'OVERDRIVE ×2' : 'OVERDRIVE';
   }
   const wasFull = !prev.fever && (prev.feverGauge ?? 0) >= 1;
   const full = !s.fever && g >= 1;
@@ -154,12 +156,12 @@ function renderValues(refs: Refs, s: HudState, prev: Prev, reduced: boolean): vo
   if (prev.score !== s.score) {
     refs.score.textContent = formatNumber(s.score);
     if (prev.score !== undefined && s.score > prev.score) {
-      animate(refs.score, [{ transform: 'scale(1.22)' }, { transform: 'scale(1)' }], POP, reduced);
+      animate(refs.score, [{ color: '#ffb020' }, { color: '#e6ebee' }], POP, reduced);
     }
   }
   if (prev.coins !== s.coins) {
     refs.coins.textContent = formatNumber(s.coins);
-    if (prev.coins !== undefined) animate(refs.coins, [{ transform: 'translateY(-6px) scale(1.3)' }, { transform: 'none' }], POP, reduced);
+    if (prev.coins !== undefined) animate(refs.coins, [{ color: '#ffb020' }, { color: '#e6ebee' }], POP, reduced);
   }
   const p = Math.round(Math.max(0, Math.min(1, s.progress)) * 400) / 400;
   if (prev.progress !== p) {
@@ -171,7 +173,7 @@ function renderValues(refs: Refs, s: HudState, prev: Prev, reduced: boolean): vo
   if (prev.slowMo !== s.slowMo) refs.slow.classList.toggle('is-on', s.slowMo);
   if (prev.sliding !== s.sliding) {
     refs.slide.classList.toggle('is-on', s.sliding);
-    if (s.sliding && prev.sliding !== undefined) animate(refs.slide, [{ transform: 'translateY(3px) scaleX(1.25)' }, { transform: 'none' }], POP, reduced);
+    if (s.sliding && prev.sliding !== undefined) animate(refs.slide, [{ opacity: 0.4 }, { opacity: 1 }], POP, reduced);
   }
 }
 

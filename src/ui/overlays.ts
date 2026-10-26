@@ -8,12 +8,12 @@ import { MOVES, moveGlyph } from './moves';
 export function buildPause(ctx: Ctx, close: () => void): HTMLElement {
   return h('section', { cls: 'screen screen--modal', attrs: { 'aria-label': '일시정지', role: 'dialog' } }, [
     h('div', { cls: 'modal card pop-in' }, [
-      h('div', { cls: 'modal__badge' }, [icons.pause()]),
-      h('h2', { cls: 'modal__title', text: '일시정지' }),
-      h('p', { cls: 'modal__text', text: '잠깐 숨 고르기! 준비되면 계속해요.' }),
+      h('div', { cls: 'kicker', text: 'OPERATION HOLD' }),
+      h('h2', { cls: 'modal__title', text: '작전 일시정지' }),
+      h('p', { cls: 'modal__text', text: '통신 유지 중. 준비되면 재개.' }),
       h('div', { cls: 'stack' }, [
         button({
-          label: '계속하기',
+          label: '작전 재개',
           variant: 'sun',
           size: 'lg',
           icon: icons.play(),
@@ -22,8 +22,8 @@ export function buildPause(ctx: Ctx, close: () => void): HTMLElement {
             ctx.cb.onResume();
           }),
         }),
-        button({ label: '다시하기', variant: 'sky', icon: icons.retry(), onPress: ctx.tap(() => ctx.cb.onRetry()) }),
-        button({ label: '나가기', variant: 'glass', icon: icons.grid(), onPress: ctx.tap(() => ctx.cb.onQuit()) }),
+        button({ label: '재투입', variant: 'glass', icon: icons.retry(), onPress: ctx.tap(() => ctx.cb.onRetry()) }),
+        button({ label: '작전 중단', variant: 'pink', icon: icons.grid(), onPress: ctx.tap(() => ctx.cb.onQuit()) }),
       ]),
     ]),
   ]);
@@ -39,7 +39,7 @@ export function renderCountdown(layer: HTMLElement, n: number | null): void {
   const go = n <= 0;
   const el = h('div', { cls: `countdown${go ? ' countdown--go' : ''}`, attrs: { role: 'status' } }, [
     h('div', { cls: 'countdown__ring' }),
-    h('div', { cls: 'countdown__num', text: go ? 'GO!' : String(n) }),
+    h('div', { cls: 'countdown__num', text: go ? 'GO' : String(n) }),
   ]);
   layer.replaceChildren(el);
 }
@@ -52,7 +52,7 @@ export function renderTutorial(layer: HTMLElement, ctx: Ctx, move: MoveId | null
     return;
   }
   const info = MOVES[move];
-  const skip = h('button', { cls: 'tut__skip', text: '건너뛰기', attrs: { type: 'button' } });
+  const skip = h('button', { cls: 'tut__skip', text: '건너뛰기', attrs: { type: 'button', 'aria-label': '교육 건너뛰기' } });
   swallowInput(skip);
   skip.addEventListener('click', () => {
     ctx.cb.onUiClick();
@@ -66,6 +66,7 @@ export function renderTutorial(layer: HTMLElement, ctx: Ctx, move: MoveId | null
           h('div', { cls: 'tut__head' }, [
             h('span', { cls: 'tut__tag' }, [moveGlyph(move), h('span', { text: info.gesture })]),
             h('span', { cls: 'tut__name', text: info.name }),
+            h('span', { cls: 'tut__kicker mono', text: info.warn ? 'ALERT' : 'TRAINING' }),
           ]),
           h('p', { cls: 'tut__text', text: info.hint }),
         ]),

@@ -10,6 +10,9 @@ export interface ToneOpts {
   readonly attack?: number;
   readonly detune?: number;
   readonly filter?: number; // lowpass cutoff
+  readonly filterEnd?: number; // exponential lowpass sweep target (needs `filter`)
+  readonly q?: number; // lowpass resonance
+  readonly drive?: number; // 0..1 soft-clip distortion before the filter
 }
 
 export interface NoiseOpts {
@@ -47,6 +50,23 @@ function envelope(ctx: BaseAudioContext, start: number, dur: number, peak: numbe
   return g;
 }
 
+const curveCache = new Map<number, Float32Array<ArrayBuffer>>();
+
+/** tanh soft-clip curve; drive 0..1 (cached per rounded amount). */
+function driveCurve(drive: number): Float32Array<ArrayBuffer> {
+  const key = Math.round(drive * 20) / 20;
+  const cached = curveCache.get(key);
+  if (cached) return cached;
+  const k = 1 + key * 30;
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < curve.length; i++) {
+    const x = (i / (curve.length - 1)) * 2 - 1;
+    curve[i] = Math.tanh(k * x) / Math.tanh(k);
+  }
+  curveCache.set(key, curve);
+  return curve;
+}
+
 function chain(nodes: readonly AudioNode[]): void {
   for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]);
 }
@@ -59,10 +79,17 @@ export function tone(ctx: BaseAudioContext, out: AudioNode, o: ToneOpts): void {
   if (o.detune) osc.detune.setValueAtTime(o.detune, o.start);
   const env = envelope(ctx, o.start, o.dur, o.gain ?? 0.3, o.attack ?? 0.005);
   const nodes: AudioNode[] = [osc];
+  if (o.drive) {
+    const ws = ctx.createWaveShaper();
+    ws.curve = driveCurve(o.drive);
+    nodes.push(ws);
+  }
   if (o.filter !== undefined) {
     const f = ctx.createBiquadFilter();
     f.type = 'lowpass';
     f.frequency.setValueAtTime(o.filter, o.start);
+    if (o.filterEnd !== undefined) f.frequency.exponentialRampToValueAtTime(Math.max(20, o.filterEnd), o.start + o.dur);
+    if (o.q !== undefined) f.Q.value = o.q;
     nodes.push(f);
   }
   chain([...nodes, env, out]);

@@ -1,7 +1,8 @@
-// "MISSION BRIEFING" dossier card with a typewriter reveal. Non-blocking (pointer-events none).
+// Classified dossier ("MISSION BRIEFING") with a zone photo strip and a typewriter reveal. Non-blocking.
 import { CHAPTERS } from '../core/content';
 import { h } from './dom';
 import { icons } from './icons';
+import { zoneArt } from './zone-art';
 
 const TYPE_MS = 34;
 let typing: ReturnType<typeof setInterval> | null = null;
@@ -41,15 +42,15 @@ export function renderBriefing(layer: HTMLElement, chapter: number | null, reduc
   layer.replaceChildren(
     h('div', { cls: `brief brief--p${c.part}`, attrs: { role: 'status' } }, [
       h('div', { cls: 'brief__card' }, [
-        h('span', { cls: 'brief__clip' }),
+        h('div', { cls: 'brief__photo' }, [zoneArt(c.id), h('span', { cls: 'brief__photo-tag mono', text: `ZONE ${zone} // SURVEILLANCE` })]),
         h('span', { cls: 'brief__stamp', text: 'TOP SECRET' }),
         h('div', { cls: 'brief__head' }, [
-          h('span', { cls: 'brief__kicker' }, [icons.book(), h('span', { text: 'MISSION BRIEFING' })]),
-          h('span', { cls: 'brief__part', text: c.part === 1 ? '1부 · 구출' : '2부 · 탈출' }),
+          h('span', { cls: 'brief__kicker' }, [icons.book(), h('span', { text: 'CLASSIFIED' })]),
+          h('span', { cls: 'brief__part mono', text: c.part === 1 ? 'PHASE 1 · 구출' : 'PHASE 2 · 탈출' }),
         ]),
-        h('h2', { cls: 'brief__zone' }, [h('span', { cls: 'brief__no', text: `ZONE ${zone}` }), c.name]),
+        h('h2', { cls: 'brief__zone' }, [h('span', { cls: 'brief__no mono', text: `ZONE ${zone}` }), c.name]),
         text,
-        h('div', { cls: 'brief__foot', text: `— 본부 · ${c.subtitle}` }),
+        h('div', { cls: 'brief__foot', text: `발신: 작전 본부 // ${c.subtitle}` }),
       ]),
     ]),
   );

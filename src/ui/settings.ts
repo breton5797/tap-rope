@@ -12,10 +12,10 @@ interface ToggleDef {
 }
 
 const TOGGLES: readonly ToggleDef[] = [
-  { key: 'sound', label: '효과음', desc: '점프, 코인, 경보 소리', icon: icons.sound, tone: 'sun' },
-  { key: 'music', label: '배경음악', desc: '박자에 맞춘 긴장감 넘치는 작전 음악', icon: icons.music, tone: 'pink' },
-  { key: 'vibration', label: '진동', desc: '레이저에 닿으면 손끝으로 느껴요', icon: icons.vibrate, tone: 'sky' },
-  { key: 'reducedMotion', label: '모션 줄이기', desc: '흔들림과 화려한 효과를 줄여요', icon: icons.sparkle, tone: 'violet' },
+  { key: 'sound', label: '효과음', desc: '동작음, 경보, 시스템음', icon: icons.sound, tone: 'sun' },
+  { key: 'music', label: '배경음악', desc: '작전 박자에 맞춘 신스 트랙', icon: icons.music, tone: 'sky' },
+  { key: 'vibration', label: '진동', desc: '피격 시 진동 피드백', icon: icons.vibrate, tone: 'sky' },
+  { key: 'reducedMotion', label: '모션 줄이기', desc: '화면 흔들림·그레인·플래시 해제', icon: icons.sparkle, tone: 'violet' },
 ];
 
 function toggleRow(ctx: Ctx, def: ToggleDef, get: () => Settings, set: (s: Settings) => void): HTMLElement {
@@ -51,9 +51,9 @@ export function buildSettings(ctx: Ctx, save: SaveData, onBack: () => void, onLo
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'card settings' }, TOGGLES.map((d) => toggleRow(ctx, d, () => current, set))),
       h('div', { cls: 'credits' }, [
-        h('div', { cls: 'credits__logo', text: '레이저 탈출작전' }),
-        h('p', { text: 'LASER ESCAPE v4 · 모든 그래픽과 사운드는 코드로 직접 만들었어요.' }),
-        h('p', { cls: 'credits__small', text: 'Agent K, 오늘도 무사히 귀환하길.' }),
+        h('div', { cls: 'credits__logo mono', text: 'LASER ESCAPE // 레이저 탈출작전' }),
+        h('p', { text: 'v6 · 사운드 전량 절차 합성. 시설 사진은 로컬 생성 이미지.' }),
+        h('p', { cls: 'credits__small', text: '통신 종료. 무사 귀환 바람.' }),
       ]),
     ]),
   ]);

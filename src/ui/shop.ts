@@ -1,4 +1,4 @@
-// Skin shop: preview of the equipped skin plus a grid of purchasable skins.
+// Loadout room (장비실): the deployed operator plus a grid of operators to acquire with funds (₵).
 import { SKINS } from '../core/content';
 import type { SaveData, SkinMeta } from '../types';
 import { button, formatNumber, h, header, type Ctx } from './dom';
@@ -9,15 +9,15 @@ import { coinChip } from './title';
 function priceAction(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement {
   const owned = save.ownedSkins.includes(skin.id);
   if (save.skin === skin.id) {
-    return h('div', { cls: 'skin__state', attrs: { 'aria-label': '사용 중' } }, [icons.check(), h('span', { text: '사용 중' })]);
+    return h('div', { cls: 'skin__state', attrs: { 'aria-label': '배치 중' } }, [icons.check(), h('span', { text: '배치 중' })]);
   }
   if (owned) {
-    return button({ label: '선택', variant: 'mint', size: 'sm', onPress: ctx.tap(() => ctx.cb.onSelectSkin(skin.id)) });
+    return button({ label: '배치', variant: 'mint', size: 'sm', aria: `${skin.name} 배치`, onPress: ctx.tap(() => ctx.cb.onSelectSkin(skin.id)) });
   }
   const affordable = save.coins >= skin.price;
   return button({
     label: formatNumber(skin.price),
-    aria: `${skin.name} ${skin.price}코인에 구매`,
+    aria: `${skin.name} 자금 ${skin.price}으로 확보`,
     variant: affordable ? 'sun' : 'glass',
     size: 'sm',
     icon: icons.coin(),
@@ -45,13 +45,13 @@ export function buildShop(ctx: Ctx, save: SaveData, onBack: () => void): HTMLEle
       h('div', { cls: 'shop__hero card' }, [
         h('div', { cls: 'shop__stage' }, [current ? avatar(current.id, false) : null, h('div', { cls: 'shop__floor' })]),
         h('div', { cls: 'shop__info' }, [
-          h('div', { cls: 'shop__kicker', text: '현재 출동 요원' }),
+          h('div', { cls: 'kicker', text: 'DEPLOYED OPERATOR' }),
           h('div', { cls: 'shop__name', text: current?.name ?? '' }),
-          h('div', { cls: 'shop__count', text: `컬렉션 ${owned} / ${SKINS.length}` }),
+          h('div', { cls: 'shop__count mono', text: `ROSTER ${owned}/${SKINS.length}` }),
         ]),
       ]),
       h('div', { cls: 'shop__grid' }, SKINS.map((s) => skinCard(ctx, save, s))),
-      h('p', { cls: 'shop__hint', text: '작전을 성공하고 코인을 모아 새 요원을 영입하세요!' }),
+      h('p', { cls: 'shop__hint', text: '작전 성공 시 자금(₵) 지급. 자금으로 요원을 확보한다.' }),
     ]),
   ]);
 }

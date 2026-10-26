@@ -18,17 +18,17 @@ function paintBackdrop(): void {
   canvas.width = innerWidth;
   canvas.height = innerHeight;
   const wall = ctx.createLinearGradient(0, 0, 0, innerHeight);
-  wall.addColorStop(0, '#1a2448');
-  wall.addColorStop(0.7, '#0f1630');
+  wall.addColorStop(0, '#1a2126');
+  wall.addColorStop(0.7, '#0d1114');
   ctx.fillStyle = wall;
   ctx.fillRect(0, 0, innerWidth, innerHeight);
   ctx.fillStyle = 'rgba(255,255,255,0.04)';
   for (let x = 0; x < innerWidth; x += 90) ctx.fillRect(x, 0, 3, innerHeight * 0.73);
-  ctx.fillStyle = '#1c2546';
+  ctx.fillStyle = '#14191d';
   ctx.fillRect(0, innerHeight * 0.73, innerWidth, innerHeight);
-  ctx.fillStyle = '#2ee6ff';
+  ctx.fillStyle = 'rgba(196,214,224,0.25)';
   ctx.fillRect(0, innerHeight * 0.73, innerWidth, 2);
-  ctx.fillStyle = 'rgba(255,59,92,0.85)';
+  ctx.fillStyle = 'rgba(255,42,58,0.9)';
   ctx.fillRect(innerWidth * 0.62, innerHeight * 0.6, 4, innerHeight * 0.13);
 }
 
@@ -99,7 +99,8 @@ const show: Record<string, () => void> = {
     ui.showTitle(save);
     document.querySelector<HTMLButtonElement>('.btn--guide')?.click();
   },
-  toast: () => (ui.showTitle(save), ui.toast('코인이 부족해요!')),
+  toast: () => (ui.showTitle(save), ui.toast('자금 부족')),
+  loading: () => (ui.showTitle(save), ui.showLoading(Number(params.get('p') ?? 0.42))),
   controls: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0, progress: 0 }), ui.showControls(() => ui.toast('controls done'))),
   audio: () => {
     const audio = createAudio();

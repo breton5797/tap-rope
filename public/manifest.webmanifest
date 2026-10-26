@@ -1,14 +1,14 @@
 {
   "name": "레이저 탈출작전 LASER ESCAPE",
   "short_name": "레이저탈출",
-  "description": "레이저를 넘고 미끄러지며 포로를 구출하는 스파이 액션!",
+  "description": "고보안 시설 잠입 작전 — 레이저망을 돌파해 포로를 구출하고 탈출한다.",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "portrait",
-  "theme_color": "#0b1020",
-  "background_color": "#070b18",
+  "theme_color": "#07090c",
+  "background_color": "#07090c",
   "categories": ["games"],
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },

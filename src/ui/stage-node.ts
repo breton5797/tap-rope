@@ -76,13 +76,14 @@ function difficultyMeter(stage: StageDef): HTMLElement {
   const level = difficulty(stage);
   return h(
     'div',
-    { cls: `node__diff diff--${level}`, attrs: { 'aria-label': `난이도 ${level}/5` } },
+    { cls: `node__diff diff--${level}`, attrs: { 'aria-label': `위협도 ${level}/5` } },
     [1, 2, 3, 4, 5].map((i) => h('i', { cls: i <= level ? 'is-on' : '' })),
   );
 }
 
+/** Rank: three tick marks (v6 replaces stars). */
 function starRow(n: number): HTMLElement {
-  return h('div', { cls: 'node__stars' }, [0, 1, 2].map((i) => h('span', { cls: i < n ? 'star is-on' : 'star' }, [icons.star()])));
+  return h('div', { cls: 'node__stars', attrs: { 'aria-label': `평가 ${n}/3` } }, [0, 1, 2].map((i) => h('i', { cls: i < n ? 'tick is-on' : 'tick' })));
 }
 
 export function trailPath(stages: readonly StageDef[]): SVGElement {
@@ -102,7 +103,7 @@ export function trailPath(stages: readonly StageDef[]): SVGElement {
 function discFace(stage: StageDef, unlocked: boolean): Node {
   if (!unlocked) return icons.lock();
   if (stage.kind === 'bonus') return icons.gift();
-  return h('span', { cls: 'node__num', text: String(stage.index + 1) });
+  return h('span', { cls: 'node__num mono', text: String(stage.index + 1).padStart(2, '0') });
 }
 
 /** Core names bonus/boss stages "보너스 …"/"보스 …"; the kind pill already says so. */
@@ -110,7 +111,7 @@ function displayName(stage: StageDef): string {
   return stage.name.replace(/^(보너스|보스)\s+/, '');
 }
 
-const KIND_LABEL: Readonly<Record<string, string>> = { bonus: '보너스', boss: 'BOSS' };
+const KIND_LABEL: Readonly<Record<string, string>> = { bonus: 'SUPPLY', boss: 'TARGET' };
 
 function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean): HTMLButtonElement {
   const kind = stage.kind ?? 'normal';
@@ -118,7 +119,7 @@ function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean
     'button',
     {
       cls: `node__disc node__disc--${kind}${unlocked ? '' : ' is-locked'}${isNext ? ' is-next' : ''}`,
-      attrs: { type: 'button', 'aria-label': `스테이지 ${stage.chapter + 1}-${stage.index + 1} ${stage.name}${unlocked ? '' : ' 잠김'}` },
+      attrs: { type: 'button', 'aria-label': `작전 ${stage.chapter + 1}-${stage.index + 1} ${stage.name}${unlocked ? '' : ' 잠김'}` },
     },
     [
       kind === 'boss' ? h('span', { cls: 'node__crown' }, [icons.crown()]) : null,
@@ -138,10 +139,9 @@ export function stageNode(ctx: Ctx, save: SaveData, stage: StageDef, isNext: boo
     'div',
     { cls: `node node--${kind}`, style: { left: `${TRAIL_X[stage.index] ?? 50}%`, top: `${nodeTop(stage)}px` } },
     [
-      isNext ? h('span', { cls: 'node__flag', text: '출동!' }) : null,
+      isNext ? h('span', { cls: 'node__flag mono', text: 'NEXT' }) : null,
       stageDisc(ctx, stage, unlocked, isNext),
-      starRow(unlocked ? save.stars[stage.id] ?? 0 : 0),
-      unlocked ? difficultyMeter(stage) : null,
+      h('div', { cls: 'node__meta' }, [starRow(unlocked ? save.stars[stage.id] ?? 0 : 0), unlocked ? difficultyMeter(stage) : null]),
       h('div', { cls: 'node__name' }, [kindLabel ? h('span', { cls: `node__kind node__kind--${kind}`, text: kindLabel }) : null, displayName(stage)]),
       moveBadges(stage, fresh),
       best > 0 ? h('div', { cls: 'node__best', text: `최고 ${formatNumber(best)}` }) : null,

@@ -1,4 +1,4 @@
-/* Tutorial hints, pause modal and reduced-motion countdown. */
+/* Tutorial (training) cards, pause modal and the diagram animations. */
 
 /* ---------- tutorial ---------- */
 .tut {
@@ -13,45 +13,35 @@
 }
 
 .tut__card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 16px 12px 12px;
-  border-radius: 26px;
-  background: linear-gradient(180deg, #1f2a55, #111933);
-  border: 1.5px solid rgba(46, 230, 255, 0.4);
-  box-shadow: var(--shadow-card);
-  animation: pop-in 0.5s var(--ease-pop) both;
+  padding: 10px 14px 10px 10px;
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--tone, var(--teal));
+  box-shadow: var(--shadow);
+  animation: pop-in 0.3s var(--ease-out) both;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .tut__card {
+    background: var(--panel-solid);
+  }
+}
+
+.tut--warn .tut__card {
+  border-left-color: var(--red);
 }
 
 .tut__art {
   flex: none;
-  width: 84px;
-  height: 84px;
-}
-
-.tut__fig {
-  animation: tut-hop 1.1s ease-in-out infinite;
-}
-
-.tut--warn .tut__fig {
-  animation-duration: 0.7s;
-}
-
-@keyframes tut-hop {
-  0%, 100% { translate: 0 0; }
-  50% { translate: 0 -5px; }
-}
-
-.tut__ring {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: tut-ripple 1.1s ease-out infinite;
-}
-
-@keyframes tut-ripple {
-  from { opacity: 0.9; transform: scale(0.6); }
-  to { opacity: 0; transform: scale(1.4); }
+  width: 80px;
+  height: 80px;
 }
 
 .tut__body {
@@ -59,49 +49,102 @@
 }
 
 .tut__head {
+  padding-right: 64px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
 }
 
 .tut__tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 26px;
-  padding: 0 10px 0 6px;
-  border-radius: 9px;
-  color: #fff;
-  font-size: 14px;
+  height: 22px;
+  padding: 0 7px 0 5px;
+  border-radius: 2px;
+  color: var(--tone, var(--teal));
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
-  background: linear-gradient(180deg, var(--t1, #b29bff), var(--t2, #7b5cff));
-  box-shadow: 0 2px 0 var(--t3, #4f33c9);
+  border: 1px solid var(--tone, var(--teal));
+  background: var(--tone-dim, var(--teal-dim));
 }
 
 .tut__tag .ico {
-  font-size: 17px;
+  font-size: 14px;
 }
 
 .tut__name {
-  color: var(--ink-soft);
+  color: var(--ink);
   font-size: 15px;
+  font-weight: 600;
   word-break: keep-all;
+}
+
+.tut__kicker {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+
+.tut--warn .tut__kicker {
+  color: #ff6b76;
 }
 
 .tut__text {
-  margin-top: 7px;
-  color: var(--ink);
-  font-size: 18px;
-  line-height: 1.28;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
   word-break: keep-all;
 }
 
-/* gesture: a finger dot travelling along the swipe arrow */
+.tut__skip {
+  position: absolute;
+  right: 0;
+  bottom: -42px;
+  pointer-events: auto;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+}
+
+/* ---------- diagram motion (quiet, weighted) ---------- */
+.tut__fig {
+  animation: tut-step 0.9s ease-in-out infinite;
+}
+
+@keyframes tut-step {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -1px; }
+}
+
+.tut__ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tut-ripple 1.2s ease-out infinite;
+}
+
+@keyframes tut-ripple {
+  from { opacity: 0.9; transform: scale(0.6); }
+  to { opacity: 0; transform: scale(1.4); }
+}
+
 .tut__finger {
-  animation: 1.1s var(--ease-out) infinite;
+  animation: 1.2s var(--ease-out) infinite;
 }
 
 .tut__finger--down { animation-name: finger-down; }
+.tut__finger--up { animation-name: finger-up; }
 
 @keyframes finger-down {
   0% { translate: 0 -10px; opacity: 0; }
@@ -110,23 +153,33 @@
   100% { translate: 0 10px; opacity: 0; }
 }
 
-/* lasers, drones and the sliding agent */
-.tut__laser {
-  animation: laser-flicker 0.9s steps(2) infinite;
+@keyframes finger-up {
+  0% { translate: 0 10px; opacity: 0; }
+  20% { opacity: 1; }
+  80% { translate: 0 -10px; opacity: 1; }
+  100% { translate: 0 -10px; opacity: 0; }
 }
 
-@keyframes laser-flicker {
-  50% { opacity: 0.75; }
+.tut__laser {
+  animation: laser-hum 0.12s steps(2) infinite;
+}
+
+@keyframes laser-hum {
+  50% { opacity: 0.85; }
 }
 
 .tut__laser--fly {
-  animation: laser-fly 1.1s ease-in infinite;
+  animation: laser-fly 1.1s linear infinite;
 }
 
 @keyframes laser-fly {
   from { translate: 18px 0; opacity: 0.2; }
-  60% { opacity: 1; }
+  40% { opacity: 1; }
   to { translate: -4px 0; }
+}
+
+.tut__laser--soft {
+  opacity: 0.4;
 }
 
 .tut__pulse {
@@ -138,45 +191,27 @@
 
 @keyframes pulse-on {
   0% { opacity: 1; }
-  33% { opacity: 0.12; }
+  33% { opacity: 0.1; }
 }
 
-.tut__warn-pulse {
-  animation: warn-pulse 0.7s ease-in-out infinite alternate;
+.tut__warn-pulse,
+.tut__bang {
+  animation: warn-blink 0.5s steps(1) infinite;
 }
 
-@keyframes warn-pulse {
-  from { opacity: 1; }
-  to { opacity: 0.55; }
+@keyframes warn-blink {
+  50% { opacity: 0.3; }
 }
 
 .tut__drone {
-  animation: drone-hover 1.4s ease-in-out infinite;
+  animation: drone-hover 1.6s ease-in-out infinite;
 }
 
 @keyframes drone-hover {
-  50% { translate: 0 -3px; }
+  50% { translate: 0 -2px; }
 }
 
-.tut__fig--slide {
-  animation: slide-jitter 0.5s ease-in-out infinite;
-}
-
-@keyframes slide-jitter {
-  50% { translate: 0 1.5px; }
-}
-
-/* v5 lane moves: the agent hops to the safe lane, hazards arrive. Base styles are the end pose
-   so reduced motion (animations collapsed) still shows the dodge. */
-.tut__finger--up { animation-name: finger-up; }
-
-@keyframes finger-up {
-  0% { translate: 0 10px; opacity: 0; }
-  20% { opacity: 1; }
-  80% { translate: 0 -10px; opacity: 1; }
-  100% { translate: 0 -10px; opacity: 0; }
-}
-
+/* v5 lane moves: base styles are the end pose so reduced motion still shows the dodge */
 .tut__shift {
   translate: 0 var(--dy, 0);
   animation: lane-shift 1.6s var(--ease-out) infinite;
@@ -194,20 +229,12 @@
 
 @keyframes tut-leap {
   0%, 38% { translate: 0 0; }
-  58% { translate: 0 -16px; }
+  58% { translate: 0 -14px; }
   78%, 100% { translate: 0 0; }
 }
 
-.tut__bang {
-  animation: bang-blink 0.4s steps(1) infinite;
-}
-
-@keyframes bang-blink {
-  50% { opacity: 0.25; }
-}
-
 .tut__drop {
-  animation: crate-drop 1.6s ease-in infinite;
+  animation: crate-drop 1.6s cubic-bezier(0.5, 0, 1, 1) infinite;
 }
 
 @keyframes crate-drop {
@@ -237,68 +264,30 @@
   70%, 100% { translate: 64px 0; }
 }
 
-.tut__laser--soft {
-  opacity: 0.45;
-}
-
-.tut__skip {
-  position: absolute;
-  right: 4px;
-  bottom: -44px;
-  pointer-events: auto;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 14px;
-  background: rgba(8, 14, 34, 0.5);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
-}
-
 /* ---------- modal / pause ---------- */
 .screen--modal {
   align-items: center;
   justify-content: center;
-  background: rgba(4, 8, 20, 0.58);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: rgba(4, 6, 8, 0.66);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
 
 .modal {
   position: relative;
-  width: min(350px, 100%);
-  padding: 46px 22px 24px;
-  text-align: center;
-}
-
-.modal__badge {
-  position: absolute;
-  left: 50%;
-  top: -36px;
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  border-radius: 24px;
-  color: #fff;
-  font-size: 30px;
-  color: #032536;
-  background: linear-gradient(160deg, #8af4ff, #1fc9ec);
-  border: 4px solid #0f1630;
-  box-shadow: 0 6px 0 #08799a, 0 0 24px rgba(46, 230, 255, 0.55), 0 16px 24px -10px rgba(0, 0, 0, 0.5);
-  transform: translateX(-50%) rotate(-6deg);
+  width: min(340px, 100%);
+  padding: 22px 18px 18px;
 }
 
 .modal__title {
-  font-size: 36px;
+  margin-top: 6px;
+  font-size: 24px;
 }
 
 .modal__text {
-  margin: 6px 0 22px;
+  margin: 6px 0 20px;
   color: var(--ink-soft);
-  font-family: var(--font-body);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 14px;
 }
 
 /* Countdown must stay readable when animations are collapsed. */
@@ -318,9 +307,4 @@
   .countdown__ring {
     display: none;
   }
-}
-
-.tut--warn .tut__card {
-  border-color: rgba(255, 59, 92, 0.55);
-  box-shadow: var(--shadow-card), 0 0 24px -6px rgba(255, 59, 92, 0.6);
 }

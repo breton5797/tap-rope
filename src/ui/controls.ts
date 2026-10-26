@@ -3,31 +3,31 @@
 import { button, h, svg, type Child, type Ctx } from './dom';
 import { icons } from './icons';
 
-const FINGER = '#2ee6ff';
-const LINE = { fill: 'none', stroke: FINGER, 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
+const FINGER = '#3fe0d0';
+const LINE = { fill: 'none', stroke: FINGER, 'stroke-width': 2, 'stroke-linecap': 'square', 'stroke-linejoin': 'miter' } as const;
 
 /** Left thumb: three lanes with an up/down swipe. */
 function laneThumbArt(): SVGElement {
   return svg('svg', { class: 'ctl__art', viewBox: '0 0 72 64', 'aria-hidden': 'true' }, [
-    svg('path', { d: 'M6 16H40M6 32H40M6 48H40', stroke: '#9fb0d8', 'stroke-width': 2, 'stroke-dasharray': '4 4', opacity: 0.55 }),
-    svg('circle', { cx: 22, cy: 32, r: 6, fill: '#ffd9b8', class: 'ctl__agent' }),
+    svg('path', { d: 'M6 16H40M6 32H40M6 48H40', stroke: '#85929b', 'stroke-width': 1.2, 'stroke-dasharray': '4 4' }),
+    svg('rect', { x: 18, y: 26, width: 8, height: 12, fill: '#d5dde2', class: 'ctl__agent' }),
     svg('path', { ...LINE, d: 'M56 8V56M50 14L56 8L62 14M50 50L56 56L62 50', opacity: 0.6 }),
-    svg('circle', { cx: 56, cy: 32, r: 6, fill: FINGER, stroke: '#fff', 'stroke-width': 2, class: 'ctl__finger' }),
+    svg('circle', { cx: 56, cy: 32, r: 5, fill: 'none', stroke: FINGER, 'stroke-width': 2, class: 'ctl__finger' }),
   ]);
 }
 
 /** Right thumb: tap = jump, swipe down = slide. */
 function actionThumbArt(): SVGElement {
   return svg('svg', { class: 'ctl__art', viewBox: '0 0 72 64', 'aria-hidden': 'true' }, [
-    svg('path', { d: 'M4 56H68', stroke: '#9fb0d8', 'stroke-width': 2, opacity: 0.55 }),
+    svg('path', { d: 'M4 56H68', stroke: '#85929b', 'stroke-width': 1.2 }),
     svg('g', { transform: 'translate(20 26)' }, [
-      svg('circle', { r: 8, fill: 'none', stroke: FINGER, 'stroke-width': 2, class: 'tut__ring' }),
-      svg('circle', { r: 13, fill: 'none', stroke: FINGER, 'stroke-width': 2, class: 'tut__ring', style: 'animation-delay:.18s' }),
-      svg('circle', { r: 5.5, fill: FINGER }),
+      svg('circle', { r: 8, fill: 'none', stroke: FINGER, 'stroke-width': 1.4, class: 'tut__ring' }),
+      svg('circle', { r: 13, fill: 'none', stroke: FINGER, 'stroke-width': 1.4, class: 'tut__ring', style: 'animation-delay:.18s' }),
+      svg('circle', { r: 3.5, fill: FINGER }),
     ]),
     svg('g', { transform: 'translate(52 30)' }, [
       svg('path', { ...LINE, d: 'M0 -16V12M-6 6L0 12L6 6', opacity: 0.6 }),
-      svg('circle', { r: 5.5, fill: FINGER, stroke: '#fff', 'stroke-width': 2, class: 'tut__finger tut__finger--down' }),
+      svg('circle', { r: 5, fill: 'none', stroke: FINGER, 'stroke-width': 2, class: 'tut__finger tut__finger--down' }),
     ]),
   ]);
 }
@@ -43,14 +43,13 @@ function half(side: 'left' | 'right', hand: string, art: SVGElement, label: read
 /** The split illustration (left = lanes, right = jump/slide). */
 export function controlsDiagram(compact = false): HTMLElement {
   return h('div', { cls: `ctl__split${compact ? ' ctl__split--compact' : ''}` }, [
-    half('left', '왼쪽', laneThumbArt(), [h('b', { text: '위/아래로 밀어' }), h('br'), '레인 이동'], '화면 왼쪽: 위나 아래로 밀어 레인 이동'),
+    half('left', '왼쪽', laneThumbArt(), [h('b', { text: '위·아래로 밀기' }), h('br'), '레인 이동'], '화면 왼쪽: 위나 아래로 밀어 레인 이동'),
     h('i', { cls: 'ctl__divider', attrs: { 'aria-hidden': 'true' } }),
     half(
       'right',
       '오른쪽',
       actionThumbArt(),
-      // nbsp keeps "= 슬라이딩" together when the narrow half wraps
-      [h('b', { text: '탭' }), ' = 점프', h('br'), h('b', { text: '아래로 밀기' }), ' =\u00a0슬라이딩'],
+      [h('b', { text: '탭' }), ' 점프', h('br'), h('b', { text: '아래로 밀기' }), h('br'), '슬라이딩'],
       '화면 오른쪽: 탭하면 점프, 아래로 밀면 슬라이딩',
     ),
   ]);
@@ -64,7 +63,7 @@ function keyLine(): HTMLElement {
   ]);
 }
 
-/** Keyboard while the card is open: Tab cycles inside it, Escape confirms like "알겠어!".
+/** Keyboard while the card is open: Tab cycles inside it, Escape confirms like "확인".
  * Window capture phase so the game's own Escape (= pause) never sees it. Self-removes once detached. */
 function trapKeys(screen: HTMLElement, close: () => void): () => void {
   const onKey = (e: KeyboardEvent): void => {
@@ -90,7 +89,7 @@ function trapKeys(screen: HTMLElement, close: () => void): () => void {
   return release;
 }
 
-/** Blocking first-play card. `onDone` fires once, on "알겠어!" or Escape. */
+/** Blocking first-play card. `onDone` fires once, on "확인" or Escape. */
 export function buildControls(ctx: Ctx, onDone: () => void): HTMLElement {
   let done = false;
   let release = (): void => undefined;
@@ -100,11 +99,11 @@ export function buildControls(ctx: Ctx, onDone: () => void): HTMLElement {
     release();
     onDone();
   });
-  const ok = button({ label: '알겠어!', variant: 'sun', size: 'lg', icon: icons.play(), cls: 'ctl__ok', onPress: close });
+  const ok = button({ label: '확인', variant: 'sun', size: 'lg', icon: icons.play(), cls: 'ctl__ok', onPress: close });
   const screen = h('section', { cls: 'screen screen--modal screen--controls', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'ctl-title' } }, [
     h('div', { cls: 'ctl card pop-in' }, [
-      h('div', { cls: 'ctl__kicker', text: 'AGENT CONTROLS' }),
-      h('h2', { cls: 'ctl__title', text: '양손으로 조작해요', attrs: { id: 'ctl-title' } }),
+      h('div', { cls: 'kicker', text: 'CONTROL SCHEME' }),
+      h('h2', { cls: 'ctl__title', text: '양손 조작 체계', attrs: { id: 'ctl-title' } }),
       controlsDiagram(),
       keyLine(),
       ok,

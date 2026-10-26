@@ -1,37 +1,17 @@
-// Result screen: stars, score count-up, record ribbon, stats and confetti.
+// Result = 작전 보고서 (operation report): status, rank ticks, score count-up and a stats table.
 import { STAGES } from '../core/content';
 import type { ResultInfo } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
 
-const CONFETTI_COLORS = ['#ff5da2', '#ffc93c', '#4fd8ff', '#2fd6a6', '#7b5cff', '#ff8a3d'] as const;
-const COUNT_MS = 1100;
+const COUNT_MS = 900;
 
-function confetti(): HTMLElement {
-  const pieces = Array.from({ length: 42 }, (_, i) =>
-    h('i', {
-      cls: `confetti__p confetti__p--${i % 3}`,
-      style: {
-        left: `${(i * 37) % 100}%`,
-        background: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-        'animation-delay': `${((i * 53) % 900) / 1000}s`,
-        'animation-duration': `${2.2 + ((i * 29) % 140) / 100}s`,
-        '--drift': `${((i * 41) % 120) - 60}px`,
-        '--spin': `${360 + ((i * 67) % 540)}deg`,
-      },
-    }),
-  );
-  return h('div', { cls: 'confetti', attrs: { 'aria-hidden': 'true' } }, pieces);
-}
-
-function stars(n: number): HTMLElement {
-  return h(
-    'div',
-    { cls: 'result__stars', attrs: { 'aria-label': `별 ${n}개` } },
-    [0, 1, 2].map((i) =>
-      h('span', { cls: `rstar rstar--${i}${i < n ? ' is-on' : ''}`, style: { 'animation-delay': `${0.35 + i * 0.28}s` } }, [icons.star()]),
-    ),
-  );
+/** Rank: three tick marks lit in sequence. */
+function rank(n: number): HTMLElement {
+  return h('div', { cls: 'report__rank', attrs: { 'aria-label': `평가 ${n}/3` } }, [
+    h('span', { cls: 'report__rank-label mono', text: 'RANK' }),
+    ...[0, 1, 2].map((i) => h('i', { cls: `rtick${i < n ? ' is-on' : ''}`, style: { 'animation-delay': `${0.25 + i * 0.18}s` } })),
+  ]);
 }
 
 function countUp(el: HTMLElement, target: number, reduced: boolean): void {
@@ -39,74 +19,62 @@ function countUp(el: HTMLElement, target: number, reduced: boolean): void {
     el.textContent = formatNumber(target);
     return;
   }
-  const start = performance.now() + 250;
+  const start = performance.now() + 200;
   const tick = (now: number): void => {
     const t = Math.max(0, Math.min(1, (now - start) / COUNT_MS));
-    const eased = 1 - Math.pow(1 - t, 3);
-    el.textContent = formatNumber(target * eased);
+    el.textContent = formatNumber(target * (1 - Math.pow(1 - t, 3)));
     if (t < 1 && el.isConnected) requestAnimationFrame(tick);
   };
   el.textContent = '0';
   requestAnimationFrame(tick);
 }
 
-function statTile(label: string, value: number, cls: string): HTMLElement {
-  return h('div', { cls: `stat ${cls}` }, [
-    h('span', { cls: 'stat__value', text: formatNumber(value) }),
-    h('span', { cls: 'stat__label', text: label }),
-  ]);
+/** Share of judged beats that were not misses, as a whole percent. */
+export function accuracy(r: Pick<ResultInfo, 'perfects' | 'goods' | 'misses'>): number {
+  const total = r.perfects + r.goods + r.misses;
+  return total === 0 ? 0 : Math.round(((r.perfects + r.goods) / total) * 100);
 }
 
-function headline(r: ResultInfo): { kicker: string; title: string; tone: string; sub?: string } {
-  if (r.mode !== 'stage') {
-    return { kicker: r.title, title: r.newRecord ? '최고 기록!' : '작전 종료', tone: r.newRecord ? 'win' : 'lose' };
-  }
-  return r.cleared
-    ? { kicker: r.title, title: 'MISSION CLEAR!', tone: 'win' }
-    : { kicker: '작전 실패', title: '아쉬워요!', tone: 'lose', sub: r.title };
+function statRow(label: string, value: string, cls = ''): HTMLElement {
+  return h('div', { cls: `report__row ${cls}`.trim() }, [h('dt', { text: label }), h('dd', { cls: 'mono', text: value })]);
 }
 
-interface StoryBeat {
-  readonly ribbon: string;
-  readonly line: string;
-  readonly icon: () => SVGElement;
+interface Headline {
+  readonly status: string; // latin status line
+  readonly title: string;
+  readonly tone: 'win' | 'lose';
 }
 
-/** Story banner after a boss: rescue (zone 5), final escape (zone 10), or the next zone opening. */
-function storyBeat(r: ResultInfo): StoryBeat | null {
+function headline(r: ResultInfo): Headline {
+  if (r.mode !== 'stage') return { status: r.newRecord ? 'NEW RECORD' : 'OPERATION ENDED', title: r.newRecord ? '최고 기록 갱신' : '작전 종료', tone: r.newRecord ? 'win' : 'lose' };
+  return r.cleared ? { status: 'MISSION COMPLETE', title: '임무 완료', tone: 'win' } : { status: 'MISSION FAILED', title: '임무 실패 — 재투입?', tone: 'lose' };
+}
+
+/** Story line after a boss: rescue (zone 5), final escape (zone 10), or the next zone opening. */
+function storyBeat(r: ResultInfo): string | null {
   const stage = STAGES.find((s) => s.id === r.stageId);
   if (r.mode !== 'stage' || !r.cleared || stage?.kind !== 'boss') return null;
-  if (r.stageId === 'w5-s10') return { ribbon: '포로 구출 성공!', line: '2부 탈출작전 개시 · ZONE 06', icon: icons.unlock };
-  if (r.stageId === 'w10-s10' || !r.hasNext) return { ribbon: '탈출 성공! 임무 완료', line: '모든 작전 완료! 최고의 요원이에요', icon: icons.star };
-  return { ribbon: '구역 돌파!', line: `다음 구역 열림 · ZONE ${String(stage.chapter + 2).padStart(2, '0')}`, icon: icons.unlock };
-}
-
-function chapterClear(r: ResultInfo): HTMLElement | null {
-  const beat = storyBeat(r);
-  if (!beat) return null;
-  return h('div', { cls: 'chapter-clear' }, [
-    h('span', { cls: 'chapter-clear__ribbon' }, [icons.crown(), h('span', { text: beat.ribbon })]),
-    h('span', { cls: 'chapter-clear__line' }, [beat.icon(), h('span', { text: beat.line })]),
-  ]);
+  if (r.stageId === 'w5-s10') return '포로 확보. 2단계 탈출 작전 개시 — ZONE 06';
+  if (r.stageId === 'w10-s10' || !r.hasNext) return '탈출 성공. 전 작전 종료.';
+  return `거점 제압. ZONE ${String(stage.chapter + 2).padStart(2, '0')} 개방`;
 }
 
 function actions(ctx: Ctx, r: ResultInfo): HTMLElement {
   const next =
     r.mode === 'stage' && r.cleared && r.hasNext
-      ? button({ label: '다음 스테이지', variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
+      ? button({ label: '다음 작전', variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
       : null;
   const retry = button({
-    label: '다시하기',
-    variant: next ? 'sky' : 'sun',
+    label: '재투입',
+    variant: next ? 'glass' : 'sun',
     size: next ? 'md' : 'lg',
     icon: icons.retry(),
     onPress: ctx.tap(() => ctx.cb.onRetry()),
   });
   const quit = button({
-    label: r.mode !== 'stage' ? '메뉴로' : '작전 지도',
+    label: r.mode !== 'stage' ? '메뉴' : '작전 지도',
     variant: 'glass',
     icon: icons.grid(),
-    aria: r.mode === 'stage' ? '작전 지도' : '메뉴로',
     onPress: ctx.tap(() => ctx.cb.onQuit()),
   });
   return next ? h('div', { cls: 'stack' }, [next, h('div', { cls: 'row' }, [retry, quit])]) : h('div', { cls: 'stack' }, [retry, quit]);
@@ -114,36 +82,35 @@ function actions(ctx: Ctx, r: ResultInfo): HTMLElement {
 
 export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
   const head = headline(r);
-  const reduced = ctx.reducedMotion();
-  const score = h('div', { cls: 'result__score' });
-  countUp(score, r.score, reduced);
-  const win = head.tone === 'win';
-  const card = h('div', { cls: `result card pop-in result--${head.tone}` }, [
-    h('div', { cls: 'result__kicker', text: head.kicker }),
-    h('h2', { cls: 'result__title', text: head.title }),
-    head.sub ? h('div', { cls: 'result__sub', text: head.sub }) : null,
-    chapterClear(r),
-    r.mode === 'stage' ? stars(r.stars) : h('div', { cls: 'result__trophy' }, [icons.infinity()]),
-    h('div', { cls: 'result__scorebox' }, [
-      r.newRecord ? h('div', { cls: 'ribbon', text: 'NEW RECORD' }) : null,
-      h('div', { cls: 'result__label', text: 'SCORE' }),
-      score,
-      h('div', { cls: 'result__best', text: `최고 기록 ${formatNumber(Math.max(r.best, r.score))}` }),
+  const score = h('div', { cls: 'report__score mono' });
+  countUp(score, r.score, ctx.reducedMotion());
+  const story = storyBeat(r);
+  const card = h('div', { cls: `report card pop-in report--${head.tone}` }, [
+    h('div', { cls: 'report__head' }, [
+      h('div', { cls: 'kicker', text: 'OPERATION REPORT // 작전 보고서' }),
+      h('div', { cls: 'report__op', text: r.title }),
     ]),
-    h('div', { cls: 'stats' }, [
-      statTile('PERFECT', r.perfects, 'stat--perfect'),
-      statTile('GOOD', r.goods, 'stat--good'),
-      statTile('MISS', r.misses, 'stat--miss'),
-      statTile('최대 콤보', r.maxCombo, 'stat--combo'),
-      h('div', { cls: 'stat stat--coin' }, [
-        h('span', { cls: 'stat__value' }, [icons.coin(), h('span', { text: `+${formatNumber(r.coinsEarned)}` })]),
-        h('span', { cls: 'stat__label', text: '코인' }),
+    h('div', { cls: 'report__status mono', text: head.status }),
+    h('h2', { cls: 'report__title', text: head.title }),
+    story ? h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]) : null,
+    h('div', { cls: 'report__scorebox' }, [
+      h('div', { cls: 'report__label mono', text: 'SCORE' }),
+      score,
+      h('div', { cls: 'report__best' }, [
+        h('span', { text: `최고 ${formatNumber(Math.max(r.best, r.score))}` }),
+        r.newRecord ? h('span', { cls: 'report__new mono', text: 'NEW RECORD' }) : null,
       ]),
+      r.mode === 'stage' ? rank(r.stars) : null,
+    ]),
+    h('dl', { cls: 'report__stats' }, [
+      statRow('정확도', `${accuracy(r)}%`, 'report__row--acc'),
+      statRow('PERFECT', formatNumber(r.perfects)),
+      statRow('GOOD', formatNumber(r.goods)),
+      statRow('MISS', formatNumber(r.misses), 'report__row--miss'),
+      statRow('최대 연속', `x${formatNumber(r.maxCombo)}`),
+      statRow('획득 자금', `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds'),
     ]),
     actions(ctx, r),
   ]);
-  return h('section', { cls: `screen screen--modal screen--result${win ? ' is-win' : ''}`, attrs: { 'aria-label': '결과' } }, [
-    win && !reduced ? confetti() : null,
-    card,
-  ]);
+  return h('section', { cls: `screen screen--modal screen--result is-${head.tone}`, attrs: { 'aria-label': '작전 보고서' } }, [card]);
 }

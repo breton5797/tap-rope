@@ -1,9 +1,11 @@
-// Inline SVG icon set (24x24 grid). Each call returns a fresh element.
+// Inline SVG icon set (24x24 grid): thin tactical line icons. Each call returns a fresh element.
+// Keys are kept from v4/v5 so screens stay stable; the cute ones were redrawn (heart = armor plate,
+// star = rank chevron, coin = credit ₵, gift = supply crate, crown = target reticle, fire = power bolt).
 import { svg } from './dom';
 
 type Shape = readonly [string, Readonly<Record<string, string | number>>];
 
-const STROKE = { fill: 'none', stroke: 'currentColor', 'stroke-width': 2.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+const LINE = { fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'square', 'stroke-linejoin': 'miter' };
 
 function icon(shapes: readonly Shape[], cls = ''): SVGElement {
   return svg(
@@ -13,131 +15,54 @@ function icon(shapes: readonly Shape[], cls = ''): SVGElement {
   );
 }
 
-const HEART_D = 'M12 20.6s-7.6-4.5-9.6-9.1C.9 8 3.1 4.3 6.7 4.3c2.1 0 3.9 1.2 5.3 3 1.4-1.8 3.2-3 5.3-3 3.6 0 5.8 3.7 4.3 7.2-2 4.6-9.6 9.1-9.6 9.1z';
-const STAR_D = 'M12 2.4l2.95 5.98 6.6.96-4.78 4.65 1.13 6.57L12 17.46l-5.9 3.1 1.13-6.57L2.45 9.34l6.6-.96z';
+const line = (d: string, extra: Readonly<Record<string, string | number>> = {}): Shape => ['path', { ...LINE, d, ...extra }];
+const fill = (d: string, opacity = 1): Shape => ['path', { d, fill: 'currentColor', opacity }];
 
 export const icons = {
-  heart: (): SVGElement => icon([['path', { d: HEART_D, fill: 'currentColor' }]], 'ico--heart'),
-  star: (): SVGElement => icon([['path', { d: STAR_D, fill: 'currentColor', 'stroke-linejoin': 'round' }]], 'ico--star'),
-  lock: (): SVGElement =>
-    icon([
-      ['path', { ...STROKE, d: 'M7.5 10.5V8a4.5 4.5 0 019 0v2.5' }],
-      ['rect', { x: 4.5, y: 10, width: 15, height: 11, rx: 3.5, fill: 'currentColor' }],
-      ['circle', { cx: 12, cy: 15.5, r: 1.6, fill: '#fff', opacity: 0.85 }],
-    ]),
+  /** armor plate (hearts are gone in v6) */
+  heart: (): SVGElement => icon([fill('M5 4h14v9.5L12 20l-7-6.5z', 0.9)], 'ico--armor'),
+  /** rank chevron */
+  star: (): SVGElement => icon([line('M5 15l7-6 7 6'), line('M5 20l7-6 7 6', { opacity: 0.5 })], 'ico--rank'),
+  lock: (): SVGElement => icon([line('M8 11V7.5a4 4 0 018 0V11'), line('M5 11h14v10H5z'), line('M12 15v2')]),
+  unlock: (): SVGElement => icon([line('M8 11V7.5a4 4 0 017.6-1.7'), line('M5 11h14v10H5z')]),
+  /** credit mark ₵ */
   coin: (): SVGElement =>
-    icon(
-      [
-        ['circle', { cx: 12, cy: 12, r: 10, fill: '#f5a524' }],
-        ['circle', { cx: 12, cy: 11.2, r: 9, fill: '#ffd04d' }],
-        ['circle', { cx: 12, cy: 11.2, r: 5.8, fill: 'none', stroke: '#f0a21c', 'stroke-width': 1.8 }],
-        ['path', { d: 'M10.6 8.6h2.2v5.6', fill: 'none', stroke: '#e48a12', 'stroke-width': 2, 'stroke-linecap': 'round' }],
-        ['path', { d: 'M6.2 7.4a7 7 0 013.6-2.9', fill: 'none', stroke: '#fff7d1', 'stroke-width': 1.6, 'stroke-linecap': 'round' }],
-      ],
-      'ico--coin',
-    ),
-  pause: (): SVGElement =>
-    icon([
-      ['rect', { x: 6, y: 4.5, width: 4.2, height: 15, rx: 1.6, fill: 'currentColor' }],
-      ['rect', { x: 13.8, y: 4.5, width: 4.2, height: 15, rx: 1.6, fill: 'currentColor' }],
-    ]),
-  play: (): SVGElement => icon([['path', { d: 'M8 5.2v13.6a1 1 0 001.5.86l10.6-6.8a1 1 0 000-1.72L9.5 4.34A1 1 0 008 5.2z', fill: 'currentColor' }]]),
-  back: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3, d: 'M14.5 5l-7 7 7 7' }]]),
-  close: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3, d: 'M6.5 6.5l11 11M17.5 6.5l-11 11' }]]),
-  book: (): SVGElement =>
-    icon([
-      ['path', { d: 'M4 5.2c2.6-1 5.3-.9 8 .6v14c-2.7-1.5-5.4-1.6-8-.6z', fill: 'currentColor', opacity: 0.55 }],
-      ['path', { d: 'M20 5.2c-2.6-1-5.3-.9-8 .6v14c2.7-1.5 5.4-1.6 8-.6z', fill: 'currentColor' }],
-    ]),
-  gift: (): SVGElement =>
-    icon([
-      ['rect', { x: 3.5, y: 10, width: 17, height: 11, rx: 2.5, fill: 'currentColor' }],
-      ['rect', { x: 2.5, y: 7, width: 19, height: 4.5, rx: 1.8, fill: 'currentColor', opacity: 0.8 }],
-      ['rect', { x: 10.6, y: 7, width: 2.8, height: 14, fill: '#fff', opacity: 0.85 }],
-      ['path', { d: 'M12 7c-1.5-3.2-5.6-3.9-5.6-1.4C6.4 7.2 9.6 7 12 7zm0 0c1.5-3.2 5.6-3.9 5.6-1.4C17.6 7.2 14.4 7 12 7z', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8 }],
-    ]),
+    icon([line('M12 3v18', { 'stroke-width': 1.6 }), line('M17 7.5A6 6 0 1017 16.5', { 'stroke-width': 2 })], 'ico--credit'),
+  pause: (): SVGElement => icon([fill('M7 5h3v14H7zM14 5h3v14h-3z')]),
+  play: (): SVGElement => icon([fill('M8 5l11 7-11 7z')]),
+  back: (): SVGElement => icon([line('M14 5l-7 7 7 7')]),
+  close: (): SVGElement => icon([line('M6 6l12 12M18 6L6 18')]),
+  next: (): SVGElement => icon([line('M10 5l7 7-7 7')]),
+  /** manual / dossier */
+  book: (): SVGElement => icon([line('M6 3h9l3 3v15H6z'), line('M9 9h6M9 13h6M9 17h4')]),
+  /** supply crate (bonus stages) */
+  gift: (): SVGElement => icon([line('M4 8h16v12H4z'), line('M4 8l3-4h10l3 4'), line('M10 12h4')]),
+  /** target reticle (boss stages) */
   crown: (): SVGElement =>
-    icon([
-      ['path', { d: 'M3 8.5l4.6 3.6L12 5l4.4 7.1L21 8.5l-1.8 10H4.8z', fill: 'currentColor', 'stroke-linejoin': 'round' }],
-      ['circle', { cx: 3, cy: 8, r: 1.6, fill: 'currentColor' }],
-      ['circle', { cx: 12, cy: 4.6, r: 1.6, fill: 'currentColor' }],
-      ['circle', { cx: 21, cy: 8, r: 1.6, fill: 'currentColor' }],
-      ['rect', { x: 4.8, y: 19.5, width: 14.4, height: 2, rx: 1, fill: 'currentColor' }],
-    ]),
-  unlock: (): SVGElement =>
-    icon([
-      ['path', { ...STROKE, d: 'M7.5 10.5V8a4.5 4.5 0 018.6-1.9' }],
-      ['rect', { x: 4.5, y: 10, width: 15, height: 11, rx: 3.5, fill: 'currentColor' }],
-    ]),
-  next: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3, d: 'M9.5 5l7 7-7 7' }]]),
-  retry: (): SVGElement =>
-    icon([
-      ['path', { ...STROKE, d: 'M4.8 12a7.2 7.2 0 102.3-5.3' }],
-      ['path', { ...STROKE, d: 'M5.2 3.5v4.4h4.4' }],
-    ]),
-  grid: (): SVGElement =>
-    icon([
-      ['rect', { x: 3.5, y: 3.5, width: 7.5, height: 7.5, rx: 2.2, fill: 'currentColor' }],
-      ['rect', { x: 13, y: 3.5, width: 7.5, height: 7.5, rx: 2.2, fill: 'currentColor', opacity: 0.6 }],
-      ['rect', { x: 3.5, y: 13, width: 7.5, height: 7.5, rx: 2.2, fill: 'currentColor', opacity: 0.6 }],
-      ['rect', { x: 13, y: 13, width: 7.5, height: 7.5, rx: 2.2, fill: 'currentColor' }],
-    ]),
-  calendar: (): SVGElement =>
-    icon([
-      ['rect', { x: 3.5, y: 5, width: 17, height: 15.5, rx: 3.5, fill: 'currentColor', opacity: 0.35 }],
-      ['path', { d: 'M3.5 8.5a3.5 3.5 0 013.5-3.5h10a3.5 3.5 0 013.5 3.5v1.5h-17z', fill: 'currentColor' }],
-      ['path', { ...STROKE, d: 'M8 3v4M16 3v4' }],
-      ['path', { d: 'M12 12.2l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3-2.4 1.3.5-2.6-1.9-1.8 2.6-.4z', fill: 'currentColor' }],
-    ]),
+    icon([['circle', { ...LINE, cx: 12, cy: 12, r: 7 }], line('M12 2v5M12 17v5M2 12h5M17 12h5'), ['circle', { cx: 12, cy: 12, r: 1.6, fill: 'currentColor' }]]),
+  retry: (): SVGElement => icon([line('M5 12a7 7 0 102.1-5'), line('M5 4v4h4')]),
+  /** map grid */
+  grid: (): SVGElement => icon([line('M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z'), line('M9 4v14M15 6v14')]),
+  calendar: (): SVGElement => icon([line('M4 6h16v14H4z'), line('M4 10h16M8 3v5M16 3v5'), fill('M8 13h3v3H8z')]),
   infinity: (): SVGElement =>
-    icon([['path', { ...STROKE, 'stroke-width': 2.8, d: 'M7.4 8.3C5.3 8.3 3.6 10 3.6 12s1.7 3.7 3.8 3.7c3.3 0 5.9-7.4 9.2-7.4 2.1 0 3.8 1.7 3.8 3.7s-1.7 3.7-3.8 3.7c-3.3 0-5.9-7.4-9.2-7.4z' }]]),
-  bag: (): SVGElement =>
+    icon([line('M7.5 8.5C5.5 8.5 4 10 4 12s1.5 3.5 3.5 3.5c3 0 6-7 9-7 2 0 3.5 1.5 3.5 3.5s-1.5 3.5-3.5 3.5c-3 0-6-7-9-7z', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })]),
+  /** loadout case */
+  bag: (): SVGElement => icon([line('M3 8h18v12H3z'), line('M9 8V5h6v3'), line('M3 13h18')]),
+  gear: (): SVGElement =>
     icon([
-      ['path', { d: 'M4.6 8h14.8l-1.1 10.6a2.6 2.6 0 01-2.6 2.4H8.3a2.6 2.6 0 01-2.6-2.4z', fill: 'currentColor' }],
-      ['path', { ...STROKE, d: 'M8.8 10V6.8a3.2 3.2 0 016.4 0V10' }],
+      ['circle', { ...LINE, cx: 12, cy: 12, r: 3 }],
+      line('M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1'),
     ]),
-  gear: (): SVGElement => {
-    const teeth: Shape[] = Array.from({ length: 8 }, (_, i) => [
-      'rect',
-      { x: 10.3, y: 1.8, width: 3.4, height: 5, rx: 1.2, fill: 'currentColor', transform: `rotate(${i * 45} 12 12)` },
-    ]);
-    return icon([...teeth, ['circle', { cx: 12, cy: 12, r: 7, fill: 'currentColor' }], ['circle', { cx: 12, cy: 12, r: 2.8, fill: '#fff', opacity: 0.9 }]]);
-  },
-  shield: (): SVGElement =>
-    icon([
-      ['path', { d: 'M12 2.6l7.8 2.9v5.9c0 4.9-3.3 8.5-7.8 10-4.5-1.5-7.8-5.1-7.8-10V5.5z', fill: 'currentColor' }],
-      ['path', { d: 'M8.4 12l2.5 2.5 4.8-5', fill: 'none', stroke: '#fff', 'stroke-width': 2.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }],
-    ]),
-  clock: (): SVGElement =>
-    icon([
-      ['circle', { cx: 12, cy: 13, r: 8.2, fill: 'currentColor' }],
-      ['path', { d: 'M12 8.8V13l2.8 1.8', fill: 'none', stroke: '#fff', 'stroke-width': 2.2, 'stroke-linecap': 'round' }],
-      ['path', { ...STROKE, d: 'M9.5 2.8h5' }],
-    ]),
-  check: (): SVGElement => icon([['path', { ...STROKE, 'stroke-width': 3.2, d: 'M5 12.6l4.4 4.4L19 7.4' }]]),
-  sound: (): SVGElement =>
-    icon([
-      ['path', { d: 'M4 9.3h3.4L12 5.2v13.6l-4.6-4.1H4z', fill: 'currentColor', 'stroke-linejoin': 'round' }],
-      ['path', { ...STROKE, d: 'M15.6 9a4.2 4.2 0 010 6M18.2 6.4a8 8 0 010 11.2' }],
-    ]),
-  music: (): SVGElement =>
-    icon([
-      ['path', { ...STROKE, d: 'M9 17.5V5.8l10-2.3v11.7' }],
-      ['ellipse', { cx: 6.7, cy: 17.6, rx: 2.9, ry: 2.4, fill: 'currentColor' }],
-      ['ellipse', { cx: 16.7, cy: 15.3, rx: 2.9, ry: 2.4, fill: 'currentColor' }],
-    ]),
-  vibrate: (): SVGElement =>
-    icon([
-      ['rect', { x: 7.5, y: 3.5, width: 9, height: 17, rx: 2.4, fill: 'currentColor' }],
-      ['path', { ...STROKE, 'stroke-width': 2.2, d: 'M4.2 8.5v7M19.8 8.5v7' }],
-    ]),
-  sparkle: (): SVGElement =>
-    icon([
-      ['path', { d: 'M11 2.5l1.9 5.6 5.6 1.9-5.6 1.9L11 17.5l-1.9-5.6L3.5 10l5.6-1.9z', fill: 'currentColor' }],
-      ['path', { d: 'M18.5 14.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z', fill: 'currentColor', opacity: 0.7 }],
-    ]),
-  fire: (): SVGElement =>
-    icon([['path', { d: 'M12 2.5c.6 3.2 4.8 5.2 4.8 10.3a4.8 4.8 0 01-9.6 0c0-2.2 1-3.6 2.2-4.6-.1 1.6.6 2.6 1.6 2.9C11.8 8.6 10.6 5.6 12 2.5z', fill: 'currentColor' }]]),
+  shield: (): SVGElement => icon([line('M12 3l8 3v6c0 4.5-3.3 7.7-8 9-4.7-1.3-8-4.5-8-9V6z'), line('M8.5 12l2.5 2.5 4.5-5')]),
+  clock: (): SVGElement => icon([['circle', { ...LINE, cx: 12, cy: 13, r: 8 }], line('M12 9v4l3 2M9 2h6')]),
+  check: (): SVGElement => icon([line('M5 12.5l4.5 4.5L19 7.5', { 'stroke-width': 2.2 })]),
+  sound: (): SVGElement => icon([fill('M4 9h4l5-4v14l-5-4H4z'), line('M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11')]),
+  music: (): SVGElement => icon([line('M3 12h3l2-6 3 12 3-9 2 3h5')]),
+  vibrate: (): SVGElement => icon([line('M8 3h8v18H8z'), line('M4 8v8M20 8v8')]),
+  /** motion / effects */
+  sparkle: (): SVGElement => icon([line('M3 12h4M17 12h4M12 3v4M12 17v4'), ['circle', { ...LINE, cx: 12, cy: 12, r: 2.5 }]]),
+  /** power bolt (overdrive) */
+  fire: (): SVGElement => icon([fill('M13 2L5 14h6l-1 8 8-12h-6z')]),
 } as const;
 
 export type IconName = keyof typeof icons;

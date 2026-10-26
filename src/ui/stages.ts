@@ -14,7 +14,7 @@ export function chapterSkin(c: Pick<ChapterMeta, 'theme' | 'variant'>): string {
   return `zone--${zoneKey(c.theme, c.variant)}`;
 }
 
-const PART_LABEL: Readonly<Record<1 | 2, string>> = { 1: '1부 구출작전', 2: '2부 탈출작전' };
+const PART_LABEL: Readonly<Record<1 | 2, string>> = { 1: 'PHASE 1 · 구출', 2: 'PHASE 2 · 탈출' };
 
 function chapterStages(chapter: number): StageDef[] {
   return STAGES.filter((s) => s.chapter === chapter);
@@ -61,7 +61,7 @@ function chapterTabs(ctx: Ctx, save: SaveData, active: number, onPick: (c: numbe
 function chapterCard(save: SaveData, c: ChapterMeta, stages: readonly StageDef[]): HTMLElement {
   const open = chapterUnlocked(save, c.id);
   return h('div', { cls: `world__hero ${chapterSkin(c)}` }, [
-    h('div', { cls: 'world__deco' }, [zoneArt(c.theme, c.variant)]),
+    zoneArt(c.id),
     h('div', { cls: 'world__kicker' }, [
       h('span', { cls: `world__part world__part--${c.part}`, text: PART_LABEL[c.part] }),
       h('span', { text: `ZONE ${String(c.id + 1).padStart(2, '0')}` }),
@@ -69,8 +69,11 @@ function chapterCard(save: SaveData, c: ChapterMeta, stages: readonly StageDef[]
     h('h2', { cls: 'world__name', text: c.name }),
     h('p', { cls: 'world__sub', text: c.subtitle }),
     h('div', { cls: 'world__meta' }, [
-      h('span', { cls: 'world__stars' }, [icons.star(), h('span', { text: `${starsOf(save, stages)} / ${stages.length * 3}` })]),
-      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: '이전 구역 보스를 깨면 열려요' })]),
+      h('span', { cls: 'world__stars mono', attrs: { 'aria-label': `평가 ${starsOf(save, stages)} / ${stages.length * 3}` } }, [
+        icons.star(),
+        h('span', { text: `RANK ${starsOf(save, stages)}/${stages.length * 3}` }),
+      ]),
+      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: '이전 구역 거점 제압 후 개방' })]),
     ]),
   ]);
 }
@@ -89,7 +92,7 @@ function chapterBody(ctx: Ctx, save: SaveData, chapter: number): HTMLElement {
   ]);
 }
 
-/** Scrolls the trail so the "도전!" node sits mid-screen (instant under reduced motion). */
+/** Scrolls the trail so the "NEXT" node sits mid-screen (instant under reduced motion). */
 function centreNextNode(screen: HTMLElement, reduced: boolean): void {
   const scroller = screen.querySelector<HTMLElement>('.scroll');
   const node = screen.querySelector<HTMLElement>('.node__flag')?.parentElement;
@@ -102,12 +105,12 @@ function centreNextNode(screen: HTMLElement, reduced: boolean): void {
 
 export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): HTMLElement {
   const active = selectedChapter ?? currentChapter(save);
-  const screen = h('section', { cls: 'screen screen--stages', attrs: { 'aria-label': '스테이지 선택' } });
+  const screen = h('section', { cls: 'screen screen--stages', attrs: { 'aria-label': '작전 지도' } });
   const pick = (c: number): void => {
     selectedChapter = c;
     screen.replaceWith(buildStageSelect(ctx, save, onBack));
   };
-  const total = h('div', { cls: 'chip chip--star chip--sm' }, [
+  const total = h('div', { cls: 'chip chip--star chip--sm', attrs: { 'aria-label': `전체 평가 ${starsOf(save, STAGES)}/${STAGES.length * 3}` } }, [
     icons.star(),
     h('span', { cls: 'chip__value', text: `${starsOf(save, STAGES)}/${STAGES.length * 3}` }),
   ]);
