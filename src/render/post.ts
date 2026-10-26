@@ -12,6 +12,8 @@ const GRAIN = 128;
 const VIGNETTE_RES = 0.25;
 const SHAFT_W = 96;
 const MOTES = 26;
+/** seconds the hit chromatic split lasts (~7 frames at 60fps) */
+const CHROMA_TIME = 0.12;
 
 const moteX = new Float32Array(MOTES);
 const moteY = new Float32Array(MOTES);
@@ -109,20 +111,29 @@ export class Post {
     ctx.restore();
   }
 
-  /** Brief chromatic split right after a hit: a shifted additive copy of the frame. */
-  chromatic(ctx: Ctx, canvas: HTMLCanvasElement, hitAge: number, reduced: boolean): void {
-    if (reduced || hitAge > 0.2) return;
-    const k = 1 - hitAge / 0.2;
+  /**
+   * Brief chromatic split right after a hit, kept cheap: for ~7 frames only the box around the
+   * agent is re-drawn shifted (additive) and tinted red — not the whole frame.
+   */
+  chromatic(ctx: Ctx, canvas: HTMLCanvasElement, v: View, x: number, y: number, hitAge: number, reduced: boolean): void {
+    if (reduced || hitAge > CHROMA_TIME) return;
+    const k = 1 - hitAge / CHROMA_TIME;
+    // agent box in device px (logical → device: × v.k, + offset)
+    const bx = Math.max(0, Math.floor((x - 60) * v.k + v.ox * v.dpr));
+    const by = Math.max(0, Math.floor((y - 120) * v.k + v.oy * v.dpr));
+    const bw = Math.min(canvas.width - bx, Math.ceil(120 * v.k));
+    const bh = Math.min(canvas.height - by, Math.ceil(140 * v.k));
+    if (bw <= 0 || bh <= 0) return;
+    const d = Math.max(2, Math.round(3 * v.k * k));
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.22 * k;
-    const d = Math.max(2, Math.round(canvas.width / 180)) * k;
-    ctx.drawImage(canvas, d, 0);
+    ctx.globalAlpha = 0.28 * k;
+    ctx.drawImage(canvas, bx, by, bw, bh, bx + d, by, bw, bh);
     ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.25 * k;
+    ctx.globalAlpha = 0.3 * k;
     ctx.fillStyle = '#FF6070';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(bx, by, bw + d, bh);
     ctx.restore();
   }
 

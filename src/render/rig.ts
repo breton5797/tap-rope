@@ -89,7 +89,7 @@ function solve(p: Pose): void {
   if (p.plant) {
     // lift / drop the whole body so the lowest heel or toe rests on the floor (y = 0)
     let low = -1e9;
-    for (const i of [P.Ankle0, P.Toe0, P.Ankle1, P.Toe1]) low = Math.max(low, J[i + 1] + (i === P.Ankle0 || i === P.Ankle1 ? 2 : 0.8));
+    low = Math.max(J[P.Ankle0 + 1] + 2, J[P.Toe0 + 1] + 0.8, J[P.Ankle1 + 1] + 2, J[P.Toe1 + 1] + 0.8);
     const dy = -low;
     for (let i = 1; i < 36; i += 2) J[i] += dy;
   }
@@ -102,9 +102,9 @@ const LX = 0.5;
 const LY = -0.866;
 
 export interface Paint {
-  readonly look: AgentLook;
-  readonly rim: string; // scene rim-light colour
-  readonly torch: boolean;
+  look: AgentLook;
+  rim: string; // scene rim-light colour
+  torch: boolean;
 }
 
 function limb(ctx: Ctx, a: number, b: number, wa: number, wb: number, base: string, light: string, rim: string): void {

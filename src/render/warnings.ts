@@ -2,7 +2,7 @@
 // triangular hazard sign hangs over each target lane just ahead of the agent, tied to a red laser
 // targeting ring on that lane's floor; chasers and rear beams also get a sign on the left screen
 // edge at their lane height. Reduced motion = steady signs, static ring.
-import { PLAYER_X, WARN_LEAD, type VisibleObstacle } from '../types';
+import { PLAYER_X, WARN_LEAD, type LaneId, type VisibleObstacle } from '../types';
 import { CHASE_ENTER, targetRing } from './hazards';
 import { BEAM_H, HIGH_H, depthScale, laneY, projX, projY } from './layout';
 import { blitScaled, type SpriteCache } from './sprites';
@@ -12,6 +12,8 @@ import type { View } from './view';
 const SIGN_H = 66;
 const SIGN_DX = 44;
 const CHASE_H = 34;
+/** reused single-lane list for full-width sudden obstacles (the agent's lane) */
+const AGENT_LANE: LaneId[] = [1];
 
 /** Amber warning triangle with a black "!" (anchor = centre). */
 function signSprite(ctx: Ctx): void {
@@ -58,7 +60,11 @@ export function drawWarnings(
   const a = blink(t, reduced);
   for (const o of obs) {
     if (!o.sudden || o.timeUntil > WARN_LEAD || o.timeUntil <= 0) continue;
-    const lanes = o.lanes ?? [Math.round(agentLane)];
+    let lanes = o.lanes;
+    if (!lanes) {
+      AGENT_LANE[0] = Math.round(agentLane) as LaneId;
+      lanes = AGENT_LANE;
+    }
     const k = 1 - o.timeUntil / WARN_LEAD;
     for (const l of lanes) {
       if (mask & (1 << l)) continue;

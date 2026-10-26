@@ -4,6 +4,7 @@
 // top-down texture squeezed into the 3-lane depth band (the corridor strips add the perspective).
 import { GROUND_Y, type Variant } from '../types';
 import { CEIL_Y, FLOOR_BACK, FLOOR_FRONT, laneY } from './layout';
+import type { Photo } from './art';
 import { vGrad, type Ctx } from './util';
 
 /** logical tile sizes for the photo layers (keep the photos' aspect ratios) */
@@ -124,7 +125,7 @@ export function plainWall(ctx: Ctx, base: (ctx: Ctx, w: number) => void, w: numb
 
 /** Wall tile from a photo elevation (its edges already blend into the neighbours, and its bottom
  * edge is the floor line): photo + a soft occlusion along the floor. */
-export function photoWall(ctx: Ctx, img: ImageBitmap): void {
+export function photoWall(ctx: Ctx, img: Photo): void {
   const h = GROUND_Y - CEIL_Y;
   ctx.drawImage(img, 0, CEIL_Y, WALL_PW, h);
   ctx.fillStyle = vGrad(ctx, GROUND_Y - 34, GROUND_Y, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.5)']]);
@@ -132,7 +133,7 @@ export function photoWall(ctx: Ctx, img: ImageBitmap): void {
 }
 
 /** Floor tile from the top-down photo: texture in the lane band, worn lane paint, occlusion, front face. */
-export function photoFloor(ctx: Ctx, img: ImageBitmap, bottom: number, theme: number): void {
+export function photoFloor(ctx: Ctx, img: Photo, bottom: number, theme: number): void {
   const back = FLOOR_BACK;
   const front = FLOOR_FRONT;
   ctx.drawImage(img, 0, back, FLOOR_PW, front - back);
@@ -163,7 +164,7 @@ export function photoFloor(ctx: Ctx, img: ImageBitmap, bottom: number, theme: nu
 }
 
 /** Ceiling strip above the back wall (tile y 0..PHOTO_TOP_H): the photo, fading into darkness at the top. */
-export function photoTop(ctx: Ctx, img: ImageBitmap): void {
+export function photoTop(ctx: Ctx, img: Photo): void {
   ctx.drawImage(img, 0, 0, TOP_PW, PHOTO_TOP_H);
   ctx.fillStyle = vGrad(ctx, 0, 60, [[0, 'rgba(5,6,10,1)'], [1, 'rgba(5,6,10,0)']]);
   ctx.fillRect(0, 0, TOP_PW, 60);

@@ -166,7 +166,7 @@ function claw(ctx: Ctx, x: number, y: number, s: number, open: number): void {
   ctx.lineWidth = 2.6 * s;
   ctx.lineCap = 'butt';
   ctx.beginPath();
-  for (const side of [-1, 1]) {
+  for (let side = -1; side <= 1; side += 2) {
     ctx.moveTo(x + side * 3 * s, y + 3 * s);
     ctx.lineTo(x + side * (15 + open * 5) * s, y + 9 * s);
     ctx.lineTo(x + side * (13 + open * 8) * s, y + (17 - open * 5) * s);
@@ -323,7 +323,7 @@ function chaser(ctx: Ctx, v: View, o: VisibleObstacle, lane: number, t: number, 
   blitScaled(ctx, sprites.get('chaser', 40, 18, 20, 8, chaserSprite), 0, 0, s, s);
   ctx.fillStyle = '#9AA3AD';
   ctx.globalAlpha = 0.28;
-  for (const dx of [-17, 17]) {
+  for (let dx = -17; dx <= 17; dx += 34) {
     oval(ctx, dx * s, -7 * s, 8 * s, 1 * s);
     ctx.fill();
   }

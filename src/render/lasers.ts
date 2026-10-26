@@ -100,18 +100,21 @@ function depthLine(ctx: Ctx, x: number, a: number, b: number, h: number, color: 
 }
 
 interface Seg {
-  readonly a: number;
-  readonly b: number;
+  a: number;
+  b: number;
 }
 
-function clipSeg(d0: number, d1: number): Seg | null {
-  const a = Math.max(d0, SPAN_D0);
-  const b = Math.min(d1, SPAN_D1);
-  return b - a > 1e-3 ? { a, b } : null;
+/** shared clipped segment (one drawLaserSeg call at a time) */
+const SEG: Seg = { a: 0, b: 0 };
+
+function clipSeg(d0: number, d1: number): Readonly<Seg> | null {
+  SEG.a = Math.max(d0, SPAN_D0);
+  SEG.b = Math.min(d1, SPAN_D1);
+  return SEG.b - SEG.a > 1e-3 ? SEG : null;
 }
 
 /** Steel rail along the depth carrying the emitters (floor rail h=0, ceiling rail h=CEIL_H). */
-function rail(ctx: Ctx, x: number, s: Seg, h: number): void {
+function rail(ctx: Ctx, x: number, s: Readonly<Seg>, h: number): void {
   ctx.lineCap = 'butt';
   ctx.strokeStyle = '#15181B';
   ctx.lineWidth = 5;
@@ -159,7 +162,7 @@ function guide(ctx: Ctx, x: number, d: number, h: number, half: number, a: numbe
 const DASH = [3, 2];
 const NO_DASH: number[] = [];
 
-function fence(ctx: Ctx, o: VisibleObstacle, s: Seg, t: number, fever: boolean, reduced: boolean): void {
+function fence(ctx: Ctx, o: VisibleObstacle, s: Readonly<Seg>, t: number, fever: boolean, reduced: boolean): void {
   const x = fixedX(o.timeUntil);
   const seed = seedOf(o.id);
   const floor = o.kind === 'floor';
@@ -179,8 +182,11 @@ function fence(ctx: Ctx, o: VisibleObstacle, s: Seg, t: number, fever: boolean, 
     housing(ctx, x, d, floor, half, glow, color);
     if (!on) continue;
     const cx = projX(x, d);
-    for (const px of [cx - half, cx - half / 3, cx + half / 3, cx + half]) {
-      beam(ctx, px, projY(d, baseH), px, projY(d, tipH), color, a * 0.9);
+    const y0 = projY(d, baseH);
+    const y1 = projY(d, tipH);
+    for (let j = 0; j < 4; j++) {
+      const px = cx - half + (half * 2 * j) / 3;
+      beam(ctx, px, y0, px, y1, color, a * 0.9);
     }
     if (grow >= 1) guide(ctx, x, d, floor ? FLOOR_LASER_H + 3 : CEIL_LASER_END - 3, half, a);
   }
@@ -192,7 +198,7 @@ function heightsOf(o: VisibleObstacle): readonly number[] {
   return BEAM_H.slice(0, o.level);
 }
 
-function flying(ctx: Ctx, v: View, o: VisibleObstacle, s: Seg, t: number, fever: boolean, sprites: SpriteCache, reduced: boolean): void {
+function flying(ctx: Ctx, v: View, o: VisibleObstacle, s: Readonly<Seg>, t: number, fever: boolean, sprites: SpriteCache, reduced: boolean): void {
   if (o.timeUntil > ENTER_TIME) return;
   const from: LaserFrom = o.from === 'back' ? 'back' : 'front';
   const head = flyingX(from, o.timeUntil, v);

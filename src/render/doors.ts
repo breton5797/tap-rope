@@ -14,7 +14,7 @@ import type { View } from './view';
 
 export const TRANSITION_TIME = 0.6;
 /** start pre-baking the next scene this long before the door (one tile per frame) */
-const PREWARM_LEAD = 1.6;
+const PREWARM_LEAD = 2.8;
 const DOOR_H = 150;
 const NEAR_D = 2.6;
 const POST_W = 12;
@@ -69,7 +69,7 @@ export function doorScene(doors: readonly DoorView[]): Scene | null {
 }
 
 /** The upcoming door inside the pre-warm window, if any. */
-export function nextDoor(doors: readonly DoorView[]): DoorView | null {
+function nextDoor(doors: readonly DoorView[]): DoorView | null {
   return doors.find((d) => d.timeUntil > 0 && d.timeUntil <= PREWARM_LEAD) ?? null;
 }
 
@@ -157,7 +157,7 @@ function elevatorDoors(ctx: Ctx, v: View, close: number, shake: number): void {
   const w = half * close;
   const top = v.y0 - 12 + shake;
   const h = v.h + 24;
-  for (const side of [0, 1]) {
+  for (let side = 0; side < 2; side++) {
     const x = side === 0 ? v.x0 - 12 : v.x0 + v.w + 12 - w;
     ctx.save();
     ctx.translate(0, top);
@@ -226,7 +226,7 @@ function panel(ctx: Ctx, x: number, da: number, db: number, lo: number, hi: numb
   }
   // rivet rows + viewing slot
   ctx.fillStyle = '#6E777F';
-  for (const h of [40, 110]) {
+  for (let h = 40; h <= 110; h += 70) {
     for (let i = 1; i < n * 2; i++) {
       const d = a + ((b - a) * i) / (n * 2);
       ctx.fillRect(projX(x, d) - 0.6, projY(d, h) - 0.6, 1.2, 1.2);
@@ -259,12 +259,14 @@ export function drawDoorBack(ctx: Ctx, d: DoorView, off: DoorOffset, t: number, 
   ctx.restore();
 }
 
+const STEAM_DEPTHS: readonly number[] = [1, -0.2, 2.3];
+
 /** Hydraulic vent steam bursting from the seam while the leaves part. */
 function steam(ctx: Ctx, x: number, o: number, t: number, sprites: SpriteCache, reduced: boolean): void {
   const sp = sprites.get('puff', 62, 62, 31, 31, puffSprite);
   const n = reduced ? 2 : 5;
   const strength = Math.sin(o * Math.PI);
-  for (const d of [1, -0.2, 2.3]) {
+  for (const d of STEAM_DEPTHS) {
     for (let i = 0; i < n; i++) {
       const f = (i / n + (reduced ? 0 : t * 1.3)) % 1;
       ctx.globalAlpha = (1 - f) * 0.32 * strength;
@@ -294,7 +296,7 @@ export function drawDoorFront(ctx: Ctx, d: DoorView, t: number, off: DoorOffset)
   ctx.fillStyle = '#5A626B';
   ctx.fillRect(px - POST_W * 0.6, top, 1.2, bot - top);
   // hydraulic pistons: dark cylinders with chrome rods
-  for (const dx of [-3, 3]) {
+  for (let dx = -3; dx <= 3; dx += 6) {
     ctx.fillStyle = '#121416';
     ctx.fillRect(px + dx - 1.6, top + 26, 3.2, 40);
     ctx.fillStyle = '#B9C0C6';

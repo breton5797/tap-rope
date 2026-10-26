@@ -3,13 +3,12 @@
 // is drawn at that depth's scale (perspective around PLAYER_X); the ceiling band scrolls 1:1; the
 // floor is drawn in thin depth strips so it reads as a plane seen from ~20° above.
 // Memory: only the current scene is kept, plus at most ONE other scene while a door transition
-// needs it. The incoming scene pre-bakes only the tiles visible at the door (one per frame); the
-// outgoing scene is trimmed to the tiles it still shows each frame and released when done.
-// v6: when the theme's photo art is decoded (ArtStore) the wall / floor / top layers bake from the
-// photos (3 wall variants); until then (or without art) they bake procedurally. Every tile gets the
-// variant's cinematic grade baked in.
+// needs it (the next scene is built in the background before the door; the outgoing procedural
+// scene is trimmed to the tiles it still shows). v6: themes with photo art (ArtStore) bake their
+// wall / floor / ceiling-strip tiles from the photos, one photo decoded at a time; every tile gets
+// the variant's cinematic grade baked in.
 import { GROUND_Y, PLAYER_X, type Scene, type Variant, type WorldId } from '../types';
-import type { ArtStore, ThemeArt } from './art';
+import type { ArtStore, Photo, PhotoSet } from './art';
 import {
   FLOOR_PW, grade, lampsOf, PHOTO_TOP_H, photoFloor, photoTop, photoWall, plainWall, themeDim, TOP_PW, WALL_PW,
 } from './photo';
@@ -57,10 +56,6 @@ function tileHash(i: number, salt: number): number {
   return (h ^ (h >>> 16)) >>> 0;
 }
 
-export function sceneKey(s: Scene, v: View): string {
-  return `${s.world}|${s.variant}|${v.key}`;
-}
-
 /** Calls fn(m, screenX) for every tile m whose projected span overlaps [xMin, xMax]. */
 function eachTile(xMin: number, xMax: number, w: number, scroll: number, s: number, fn: (m: number, sx: number) => void): void {
   let m = Math.floor((PLAYER_X + (xMin - PLAYER_X) / s + scroll) / w);
@@ -84,74 +79,91 @@ interface LayerSpec {
   readonly w: number;
 }
 
-/** All baked tiles of one look; tiles bake lazily (on demand or one per warm() call). */
+/** stand-in for a photo tile that is not baked yet (never drawn: photo caches draw when complete) */
+let EMPTY: HTMLCanvasElement | null = null;
+
+function empty(): HTMLCanvasElement {
+  if (!EMPTY) EMPTY = makeCanvas(1, 1).canvas;
+  return EMPTY;
+}
+
+/**
+ * All baked tiles of one look. Procedural tiles bake lazily and synchronously. Photo tiles bake in
+ * the background, one per step(): the tile's photo is requested (decoded off-thread), baked when
+ * ready and released immediately, so a photo cache never holds more than one decoded photo.
+ */
 class SceneCache {
   private readonly tiles: (HTMLCanvasElement | null)[][];
   readonly spec: readonly LayerSpec[];
   private readonly k: number;
   /** tiles drawn since the last trim (layer * 8 + index) */
   private readonly used = new Set<number>();
-  private readonly viewKey: string;
+  readonly viewKey: string;
 
-  /** `art` = decoded photos for this theme (null = procedural look) */
+  /** `photo` = the theme's usable photo files (null = procedural look) */
   constructor(
-    readonly key: string, readonly world: WorldId, readonly variant: Variant, v: View, readonly art: ThemeArt | null,
+    readonly world: WorldId, readonly variant: Variant, v: View, readonly photo: PhotoSet | null, private readonly art: ArtStore,
   ) {
     this.viewKey = v.key;
     this.k = Math.min(v.s * Math.min(v.dpr, MAX_TILE_DPR), MAX_TILE_K);
-    const walls = art?.walls.length ?? 0;
+    const walls = photo?.walls.length ?? 0;
     this.spec = [
-      art?.ceiling ? { count: 1, w: TOP_PW } : { count: TOP_VARIANTS, w: WALL_W },
+      photo?.ceiling ? { count: 1, w: TOP_PW } : { count: TOP_VARIANTS, w: WALL_W },
       walls > 0 ? { count: walls, w: WALL_PW } : { count: 1, w: WALL_W },
       { count: 1, w: PLANE_W },
-      art?.floor ? { count: 1, w: FLOOR_PW } : { count: 1, w: PLANE_W },
+      photo?.floor ? { count: 1, w: FLOOR_PW } : { count: 1, w: PLANE_W },
     ];
     this.tiles = this.spec.map((l) => new Array<HTMLCanvasElement | null>(l.count).fill(null));
   }
 
-  /** true once every tile is baked (the photos are no longer needed) */
+  /** true once every tile is baked */
   complete(): boolean {
     return this.tiles.every((row) => row.every((c) => c !== null));
   }
 
-  matches(s: Scene, v: View): boolean {
-    return this.world === s.world && this.variant === s.variant && this.viewKey === v.key;
+  /** a photo cache can draw only when complete; a procedural one always (it bakes on demand) */
+  drawable(): boolean {
+    return !this.photo || this.complete();
+  }
+
+  /** false once one of its photos failed to decode (the cache must be rebuilt without it) */
+  valid(): boolean {
+    const p = this.photo;
+    if (!p) return true;
+    return p.walls.every((n) => this.art.ok(n)) && (!p.floor || this.art.ok(p.floor)) && (!p.ceiling || this.art.ok(p.ceiling));
+  }
+
+  matches(s: Scene): boolean {
+    return this.world === s.world && this.variant === s.variant;
   }
 
   tile(layer: L, i: number): HTMLCanvasElement {
     this.used.add(layer * 8 + i);
-    return this.tiles[layer][i] ?? this.bake(layer, i);
+    return this.tiles[layer][i] ?? (this.photoFile(layer, i) ? empty() : this.bakeProcedural(layer, i));
   }
 
-  /** Bake the first missing tile among `needed` (layer * 8 + index); false when none is missing. */
-  warm(needed: readonly number[]): boolean {
-    for (const n of needed) {
-      const l = Math.floor(n / 8) as L;
-      if (!this.tiles[l][n % 8]) {
-        this.bake(l, n % 8);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /** Bake the first missing tile of any layer; false when complete. */
-  warmAny(): boolean {
+  /** Bake the next missing tile (photo tiles: once their photo has decoded). */
+  step(): void {
     for (let l = 0; l < this.tiles.length; l++) {
       const i = this.tiles[l].indexOf(null);
-      if (i >= 0) {
-        this.bake(l as L, i);
-        return true;
+      if (i < 0) continue;
+      const file = this.photoFile(l as L, i);
+      if (!file) {
+        this.bakeProcedural(l as L, i);
+        return;
       }
+      const img = this.art.request(file);
+      if (!img) return; // decoding; try again next frame
+      this.tiles[l][i] = this.bakePhoto(l as L, img);
+      this.art.release(file);
+      return;
     }
-    return false;
   }
 
-  /** Release every tile not drawn since the previous trim (no-op if nothing was drawn). */
+  /** Release every tile not drawn since the previous trim (procedural caches only). */
   trimToUsed(): void {
-    // photo caches are never trimmed: their photos are closed once baked, so a trimmed tile
-    // could not be re-baked (and a photo scene is only 6 tiles)
-    if (this.used.size === 0 || this.art) {
+    // photo tiles are never trimmed: re-baking one would need its photo decoded again
+    if (this.used.size === 0 || this.photo) {
       this.used.clear();
       return;
     }
@@ -185,36 +197,39 @@ class SceneCache {
     }
   }
 
-  private bake(layer: L, i: number): HTMLCanvasElement {
+  /** The photo file a tile is baked from (null = procedural tile). */
+  private photoFile(layer: L, i: number): string | null {
+    const p = this.photo;
+    if (!p) return null;
+    if (layer === L.Top) return p.ceiling;
+    if (layer === L.Wall) return p.walls[i] ?? null;
+    if (layer === L.Floor) return p.floor;
+    return null;
+  }
+
+  private bakePhoto(layer: L, img: Photo): HTMLCanvasElement {
+    const w = this.spec[layer].w;
+    if (layer === L.Top) return this.bakeOne(w, 0, PHOTO_TOP_H, PHOTO_TOP_RES, (ctx) => photoTop(ctx, img));
+    if (layer === L.Wall) return this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => photoWall(ctx, img));
+    return this.bakeOne(w, FLOOR_TOP, FLOOR_BOT - FLOOR_TOP, PHOTO_FLOOR_RES, (ctx) => photoFloor(ctx, img, FLOOR_BOT, this.world));
+  }
+
+  private bakeProcedural(layer: L, i: number): HTMLCanvasElement {
     const th = themeOf(this.world);
     const variant = this.variant;
-    const art = this.art;
     const w = this.spec[layer].w;
     let c: HTMLCanvasElement;
-    if (layer === L.Top) {
-      const img = art?.ceiling;
-      c = img
-        ? this.bakeOne(w, 0, PHOTO_TOP_H, PHOTO_TOP_RES, (ctx) => photoTop(ctx, img))
-        : this.bakeOne(w, TOP_Y, TOP_H, TOP_RES, (ctx) => drawTop(ctx, w, th, i));
-    } else if (layer === L.Wall) {
-      const img = art?.walls[i];
-      c = img
-        ? this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => photoWall(ctx, img))
-        : this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => plainWall(ctx, th.base, w));
-    } else if (layer === L.Ceil) {
+    if (layer === L.Top) c = this.bakeOne(w, TOP_Y, TOP_H, TOP_RES, (ctx) => drawTop(ctx, w, th, i));
+    else if (layer === L.Wall) c = this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => plainWall(ctx, th.base, w));
+    else if (layer === L.Ceil) {
       // only the opaque girder band is graded; the light glow below it stays transparent. With a
       // photo ceiling the band is dropped (the photo has the ceiling + lamps); alarm keeps its sirens.
-      const band = !art?.ceiling;
+      const band = !this.photo?.ceiling;
       c = this.bakeOne(w, CEIL_TOP, CEIL_LAYER_H, 1, (ctx) => {
         if (band) drawCeiling(ctx, w, th);
         if (variant === 'alarm') for (const x of SIREN_X) sirenHousing(ctx, x);
       }, band ? CEIL_BOT - CEIL_TOP : 0);
-    } else {
-      const img = art?.floor;
-      c = img
-        ? this.bakeOne(w, FLOOR_TOP, FLOOR_BOT - FLOOR_TOP, PHOTO_FLOOR_RES, (ctx) => photoFloor(ctx, img, FLOOR_BOT, this.world))
-        : this.bakeOne(w, FLOOR_TOP, FLOOR_BOT - FLOOR_TOP, 1, (ctx) => drawFloor(ctx, w, th, variant));
-    }
+    } else c = this.bakeOne(w, FLOOR_TOP, FLOOR_BOT - FLOOR_TOP, 1, (ctx) => drawFloor(ctx, w, th, variant));
     this.tiles[layer][i] = c;
     return c;
   }
@@ -230,97 +245,70 @@ class SceneCache {
 }
 
 export class Corridor {
+  /** every live cache (≤ 2 scenes, each with at most a drawable cache + one being built) */
   private caches: SceneCache[] = [];
+  /** the cache drawn for slot 0 (current scene) and slot 1 (door scene) this frame */
+  private readonly drawn: (SceneCache | null)[] = [null, null];
+  private readonly keep: SceneCache[] = [];
 
   constructor(private readonly art: ArtStore) {}
 
   /**
-   * Keep exactly the current scene (slot 0) and at most one door scene (slot 1); release the rest.
-   * The door scene pre-bakes, one tile per call, the tiles visible at `warmScroll` (the corridor
-   * scroll at the door), so the transition never stalls a frame. No per-frame allocations once
-   * both caches exist.
+   * Keep the current scene (slot 0) and at most one door scene (slot 1) and release every other
+   * cache. Per scene the target is a photo cache (when the theme has usable photos) built in the
+   * background one tile per frame; until it is complete the scene draws whatever it already has
+   * (the previous view's cache after a resize, or a procedural cache) — so photos never pop in
+   * over a procedural look, except at boot before the first photo cache is ready. A door scene is
+   * only built in the background; it gets a procedural stand-in only if it must be drawn first.
    */
-  sync(v: View, cur: Scene, extra: Scene | null, warmScroll = 0): void {
-    const a = this.take(v, cur, true) as SceneCache;
-    const b = extra && !(extra.world === cur.world && extra.variant === cur.variant) ? this.take(v, extra, false) : null;
-    for (const c of this.caches) if (c !== a && c !== b) c.release();
+  sync(v: View, cur: Scene, extra: Scene | null): void {
+    const k = this.keep;
+    k.length = 0;
+    this.drawn[0] = this.ensure(v, cur, true);
+    this.drawn[1] = extra && !(extra.world === cur.world && extra.variant === cur.variant) ? this.ensure(v, extra, false) : null;
+    for (const c of this.caches) if (!k.includes(c)) c.release();
     this.caches.length = 0;
-    this.caches.push(a);
-    // photo caches finish baking (one tile per frame) so their decoded photos can be closed
-    if (a.art && !a.complete()) a.warmAny();
-    if (b) {
-      this.caches.push(b);
-      this.fillVisibleTiles(v, b, warmScroll);
-      if (!b.warm(this.needed) && b.art) b.warmAny();
-    }
-    // photos stay decoded only while a cache of that theme still has tiles to bake
-    this.keep.length = 0;
-    for (const c of this.caches) if (c.art && !c.complete() && !this.keep.includes(c.world)) this.keep.push(c.world);
-    if (b && !b.art && this.art.has(b.world)) this.keep.push(b.world);
-    if (!a.art && this.art.has(a.world)) this.keep.push(a.world);
-    this.art.keepOnly(this.keep);
+    for (const c of k) this.caches.push(c);
   }
 
-  private readonly keep: WorldId[] = [];
-
-  /**
-   * The cache for scene s (existing or new; not yet placed in a slot). A procedural cache is
-   * replaced once its theme's photos are decoded. A door scene with photos still decoding is not
-   * created yet (null), so it never bakes a procedural look that would pop to photo later.
-   */
-  private take(v: View, s: Scene, current: boolean): SceneCache | null {
+  /** Make sure scene s has its target cache (building) and return the cache to draw (maybe null). */
+  private ensure(v: View, s: Scene, mustDraw: boolean): SceneCache | null {
+    const photo = this.art.photoSet(s.world);
+    let target: SceneCache | null = null;
+    let stand: SceneCache | null = null;
     for (const c of this.caches) {
-      if (!c.matches(s, v)) continue;
-      if (c.art || !this.art.has(s.world)) return c;
-      const art = this.art.theme(s.world);
-      if (!art) return c;
-      c.release();
-      return new SceneCache(sceneKey(s, v), s.world, s.variant, v, art);
+      if (!c.matches(s) || !c.valid()) continue;
+      const exact = c.viewKey === v.key && (c.photo !== null) === (photo !== null);
+      if (exact) target = c;
+      else if (c.drawable() && (!stand || c.photo)) stand = c;
     }
-    const art = this.art.theme(s.world);
-    if (!art && this.art.has(s.world) && !current) return null;
-    return new SceneCache(sceneKey(s, v), s.world, s.variant, v, art);
+    if (!target) target = new SceneCache(s.world, s.variant, v, photo, this.art);
+    this.keep.push(target);
+    if (!target.complete()) target.step();
+    if (target.drawable()) return target;
+    if (!stand && mustDraw) stand = new SceneCache(s.world, s.variant, v, null, this.art);
+    if (stand) this.keep.push(stand);
+    return stand;
   }
 
-  /** After drawing: trim the door scene (slot 1, e.g. the outgoing one) to the tiles it showed. */
+  /** After drawing: trim the door scene's cache (e.g. the outgoing one) to the tiles it showed. */
   endFrame(): void {
-    this.caches.forEach((c, i) => (i > 0 ? c.trimToUsed() : c.clearUsed()));
+    this.drawn[0]?.clearUsed();
+    this.drawn[1]?.trimToUsed();
   }
-
-  /** Tile ids (layer * 8 + index) visible at a given scroll into this.needed: floor, ceiling, walls, top. */
-  private fillVisibleTiles(v: View, c: SceneCache, scroll: number): void {
-    const out = this.needed;
-    out.length = 0;
-    out.push(L.Floor * 8, L.Ceil * 8);
-    const xMin = v.x0 - 12;
-    const xMax = v.x0 + v.w + 12;
-    this.wallCount = c.spec[L.Wall].count;
-    this.topCount = c.spec[L.Top].count;
-    eachTile(xMin, xMax, c.spec[L.Wall].w, scroll, WALL_S, this.pushWall);
-    if (c.art?.ceiling) eachTile(xMin, xMax, c.spec[L.Top].w, scroll, WALL_S, this.pushTop);
-    else eachTile(xMin, xMax, c.spec[L.Top].w, scroll * TOP_PARALLAX, 1, this.pushTop);
-  }
-
-  private readonly needed: number[] = [];
-  private wallCount = 1;
-  private topCount = 1;
-  private readonly pushWall = (m: number): void => {
-    this.needed.push(L.Wall * 8 + (tileHash(m, 5) % this.wallCount));
-  };
-  private readonly pushTop = (m: number): void => {
-    this.needed.push(L.Top * 8 + (tileHash(m, 11) % this.topCount));
-  };
 
   /**
    * Where the light shafts fall for a scene: tile width / lamp x's (tile px) / depth scale / top y.
    * Photo ceilings use the lamps baked into the art; the procedural band its own fixtures.
    */
-  shaftRig(s: Scene, v: View): ShaftRig {
-    let photo = false;
-    for (const c of this.caches) if (c.matches(s, v) && c.art?.ceiling) photo = true;
-    if (!photo) return PROC_RIG;
-    const r = this.rigs[s.world];
-    return r;
+  shaftRig(s: Scene): ShaftRig {
+    const c = this.cacheFor(s);
+    return c?.photo?.ceiling ? this.rigs[s.world] : PROC_RIG;
+  }
+
+  private cacheFor(s: Scene): SceneCache | null {
+    for (const c of this.drawn) if (c && c.matches(s)) return c;
+    return null;
   }
 
   private readonly rigs: readonly ShaftRig[] = [0, 1, 2, 3].map((t) => ({
@@ -334,16 +322,13 @@ export class Corridor {
 
   /** Draw one scene, offset by (ox, oy) and clipped to its shifted copy of the view. */
   drawScene(ctx: Ctx, v: View, s: Scene, scroll: number, t: number, ox: number, oy: number): void {
-    let c: SceneCache | null = null;
-    for (const x of this.caches) if (x.matches(s, v)) c = x;
+    let c = this.cacheFor(s);
     if (!c) {
-      // not requested via sync: build on demand as the only scene (keeps the two-scene cap)
+      // not requested via sync: make it the only scene (keeps the two-scene cap)
       this.sync(v, s, null);
-      c = this.caches[0];
+      c = this.drawn[0];
     }
-    if (!c) {
-      return;
-    }
+    if (!c) return;
     const shifted = ox !== 0 || oy !== 0;
     if (shifted) {
       ctx.save();
@@ -363,7 +348,7 @@ export class Corridor {
       const img = c.tile(L.Wall, tileHash(m, 5) % wn);
       ctx.drawImage(img, sx, FLOOR_BACK - WALL_H * WALL_S, ww * WALL_S, WALL_H * WALL_S);
     });
-    if (!c.art?.ceiling || c.variant === 'alarm') {
+    if (!c.photo?.ceiling || c.variant === 'alarm') {
       const ceil = c.tile(L.Ceil, 0);
       eachTile(xMin, xMax, PLANE_W, scroll, 1, (_m, sx) => ctx.drawImage(ceil, sx, CEIL_TOP, PLANE_W, CEIL_LAYER_H));
     }
@@ -376,7 +361,7 @@ export class Corridor {
     const th = themeOf(c.world);
     const tw = c.spec[L.Top].w;
     const tn = c.spec[L.Top].count;
-    const photo = !!c.art?.ceiling;
+    const photo = !!c.photo?.ceiling;
     if (photo) {
       // the photo ceiling hangs right above the back wall, at its depth and scroll
       const h = PHOTO_TOP_H * WALL_S;

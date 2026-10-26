@@ -108,7 +108,7 @@ function drone(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: S
   // rotor blur discs
   ctx.fillStyle = '#9AA3AD';
   ctx.globalAlpha = 0.28;
-  for (const dx of [-18, 18]) {
+  for (let dx = -18; dx <= 18; dx += 36) {
     oval(ctx, x + dx * s, y - 8 * s, 9 * s, 1.1 * s);
     ctx.fill();
   }

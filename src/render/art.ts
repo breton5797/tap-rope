@@ -1,18 +1,22 @@
 // Photographic corridor art (GDD-v6 §2): wall / floor / ceiling WebPs per theme in public/art/.
-// Memory discipline: load() only fetches the compressed files (Blobs, a few hundred KB each); a
-// theme's images are decoded to ImageBitmaps on demand (async, off the main thread where the browser
-// can) while its corridor tiles are being baked, and closed again as soon as no unfinished tile cache
-// needs them. Every failure is swallowed: missing art simply means the procedural look.
+// Memory discipline: load() only fetches the compressed files (Blobs, tens of KB each). A photo is
+// decoded only when the corridor is about to bake the one tile that uses it, and released right
+// after that bake — so at most one or two decoded photos exist at any moment. Every failure is
+// swallowed: a file that does not fetch or decode is marked failed and its layer stays procedural;
+// a theme with no usable files is a plain procedural theme.
 import type { WorldId } from '../types';
 
-export const WALL_PHOTOS = ['a', 'b', 'c'] as const;
+const WALL_PHOTOS = ['a', 'b', 'c'] as const;
 const THEMES: readonly WorldId[] = [0, 1, 2, 3];
 
-export interface ThemeArt {
-  /** decoded wall elevations (1–3; only the files that loaded) */
-  readonly walls: readonly ImageBitmap[];
-  readonly floor: ImageBitmap | null;
-  readonly ceiling: ImageBitmap | null;
+/** A decoded photo: an ImageBitmap, or an <img> where createImageBitmap is missing (iOS 14). */
+export type Photo = ImageBitmap | HTMLImageElement;
+
+/** The usable photo file names of a theme (decoded later, one at a time). */
+export interface PhotoSet {
+  readonly walls: readonly string[];
+  readonly floor: string | null;
+  readonly ceiling: string | null;
 }
 
 function files(t: WorldId): string[] {
@@ -33,20 +37,35 @@ async function fetchBlob(name: string): Promise<Blob | null> {
   }
 }
 
-async function decode(blob: Blob | undefined): Promise<ImageBitmap | null> {
-  if (!blob) return null;
+/** Decode with createImageBitmap, or through an <img> + object URL when it is unavailable. */
+async function decode(blob: Blob): Promise<Photo | null> {
   try {
-    return await createImageBitmap(blob);
+    if (typeof createImageBitmap === 'function') return await createImageBitmap(blob);
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = url;
+    try {
+      await img.decode();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return img.naturalWidth > 0 ? img : null;
   } catch {
     return null;
   }
 }
 
+function dispose(p: Photo): void {
+  if (p instanceof HTMLImageElement) p.src = '';
+  else p.close();
+}
+
 export class ArtStore {
   private readonly blobs = new Map<string, Blob>();
-  private readonly decoded = new Map<WorldId, ThemeArt>();
-  private readonly decoding = new Set<WorldId>();
-  /** bumps whenever a theme finishes decoding (corridor caches compare it to upgrade) */
+  private readonly failed = new Set<string>();
+  private readonly ready = new Map<string, Photo>();
+  private readonly pending = new Set<string>();
+  /** bumps whenever a file fails to decode (photo caches built with it must be rebuilt) */
   version = 0;
 
   async load(onProgress?: (done: number, total: number) => void): Promise<void> {
@@ -70,45 +89,57 @@ export class ArtStore {
     );
   }
 
-  /** Is there any photo art for this theme (fetched, maybe not decoded yet)? */
-  has(t: WorldId): boolean {
-    return files(t).some((n) => this.blobs.has(n));
+  private usable(name: string): boolean {
+    return this.blobs.has(name) && !this.failed.has(name);
   }
 
-  /** Decoded art for a theme, or null (decoding starts in the background if possible). */
-  theme(t: WorldId): ThemeArt | null {
-    const hit = this.decoded.get(t);
+  /** The theme's usable photos, or null when it has none (= plain procedural theme). */
+  photoSet(t: WorldId): PhotoSet | null {
+    const walls = WALL_PHOTOS.map((s) => `wall-${t}-${s}`).filter((n) => this.usable(n));
+    const floor = this.usable(`floor-${t}`) ? `floor-${t}` : null;
+    const ceiling = this.usable(`ceiling-${t}`) ? `ceiling-${t}` : null;
+    return walls.length > 0 || floor || ceiling ? { walls, floor, ceiling } : null;
+  }
+
+  /** Is this file still usable (fetched and not failed to decode)? */
+  ok(name: string): boolean {
+    return this.usable(name);
+  }
+
+  /** The decoded photo, or null — decoding starts in the background (one file per request). */
+  request(name: string): Photo | null {
+    const hit = this.ready.get(name);
     if (hit) return hit;
-    if (this.has(t) && !this.decoding.has(t)) void this.decodeTheme(t);
+    const blob = this.blobs.get(name);
+    if (!blob || this.failed.has(name) || this.pending.has(name)) return null;
+    this.pending.add(name);
+    void decode(blob).then((p) => {
+      this.pending.delete(name);
+      if (p) this.ready.set(name, p);
+      else {
+        this.failed.add(name);
+        this.version++;
+      }
+    });
     return null;
   }
 
-  /** Close the bitmaps of every theme not listed (their tiles are baked or no longer needed). */
-  keepOnly(themes: readonly WorldId[]): void {
-    for (const [t, art] of this.decoded) {
-      if (themes.includes(t)) continue;
-      for (const b of art.walls) b.close();
-      art.floor?.close();
-      art.ceiling?.close();
-      this.decoded.delete(t);
-    }
+  /** Drop a decoded photo (its tile is baked). */
+  release(name: string): void {
+    const p = this.ready.get(name);
+    if (!p) return;
+    dispose(p);
+    this.ready.delete(name);
   }
 
-  /** Decoded bitmap bytes (debug / memory report). */
+  /** Decoded photo bytes (debug / memory report). */
   bytes(): number {
     let b = 0;
-    for (const art of this.decoded.values()) {
-      for (const bm of [...art.walls, art.floor, art.ceiling]) if (bm) b += bm.width * bm.height * 4;
+    for (const p of this.ready.values()) {
+      const w = p instanceof HTMLImageElement ? p.naturalWidth : p.width;
+      const h = p instanceof HTMLImageElement ? p.naturalHeight : p.height;
+      b += w * h * 4;
     }
     return b;
-  }
-
-  private async decodeTheme(t: WorldId): Promise<void> {
-    this.decoding.add(t);
-    const [a, b, c, floor, ceiling] = await Promise.all(files(t).map((n) => decode(this.blobs.get(n))));
-    this.decoding.delete(t);
-    const walls = [a, b, c].filter((x): x is ImageBitmap => x !== null);
-    this.decoded.set(t, { walls, floor, ceiling });
-    this.version++;
   }
 }

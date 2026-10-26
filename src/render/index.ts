@@ -3,7 +3,7 @@
 // [sheet half behind the lane centre, lane hazards, pickups/drones, escort, agent, sheet half in
 // front] → door front → fog/alarm → "!" warnings → effects → rhythm lane HUD.
 import {
-  GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, SCROLL_SPEED, type EffectsApi, type PlayerState, type Renderer, type RenderSnapshot,
+  GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, type EffectsApi, type PlayerState, type Renderer, type RenderSnapshot,
   type Variant,
 } from '../types';
 import { AgentPainter } from './agent';
@@ -11,7 +11,7 @@ import { ArtStore } from './art';
 import { Corridor } from './corridor';
 import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
 import {
-  activeTransition, doorScene, drawBackground, drawDoorBack, drawDoorFront, drawDoorSign, nextDoor, transitionEase,
+  activeTransition, doorScene, drawBackground, drawDoorBack, drawDoorFront, drawDoorSign, transitionEase,
 } from './doors';
 import { Effects } from './effects';
 import { EscortPainter } from './escort';
@@ -111,7 +111,7 @@ class CanvasRenderer implements Renderer {
     if (snap.slowMo) this.overlays.slowMo(ctx, v, snap.realTime);
     ctx.setTransform(k, 0, 0, k, tx, ty);
     this.post.finish(ctx, v, snap.reducedMotion);
-    this.post.chromatic(ctx, this.canvas, fx.hitAge, snap.reducedMotion);
+    this.post.chromatic(ctx, this.canvas, v, PLAYER_X, fx.feetY, fx.hitAge, snap.reducedMotion);
     drawLane(ctx, snap.lane, snap.realTime, this.sprites);
     fx.drawFlash(ctx, v);
   }
@@ -121,8 +121,7 @@ class CanvasRenderer implements Renderer {
     const variant = snap.variant ?? 'base';
     const reduced = snap.reducedMotion;
     const doors = snap.doors ?? [];
-    const next = nextDoor(doors);
-    this.corridor.sync(v, snap, doorScene(doors), snap.scroll + (next ? next.timeUntil * SCROLL_SPEED : 0));
+    this.corridor.sync(v, snap, doorScene(doors));
     // reduced motion freezes decorative corridor animation (top-band fans, status LEDs)
     const off = drawBackground(ctx, v, this.corridor, snap, doors, snap.scroll, reduced ? 0 : t, reduced);
     this.corridor.endFrame();
@@ -132,8 +131,8 @@ class CanvasRenderer implements Renderer {
     const lift = GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane));
     if (tr && tr.door.from.variant !== variant) this.backFx(ctx, v, snap, tr.door.from.variant, 1 - e, lift);
     this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
-    this.post.shafts(ctx, v, variant, snap.scroll, tr ? e : 1, this.corridor.shaftRig(snap, v));
-    if (tr) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e, this.corridor.shaftRig(tr.door.from, v));
+    this.post.shafts(ctx, v, variant, snap.scroll, tr ? e : 1, this.corridor.shaftRig(snap));
+    if (tr) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e, this.corridor.shaftRig(tr.door.from));
     for (const d of doors) drawDoorBack(ctx, d, off, reduced ? 0 : t, this.sprites, reduced);
     this.drawLanes(ctx, v, snap, lane);
     for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
@@ -251,5 +250,10 @@ class CanvasRenderer implements Renderer {
 }
 
 export function createRenderer(canvas: HTMLCanvasElement): Renderer {
-  return new CanvasRenderer(canvas);
+  const r = new CanvasRenderer(canvas);
+  // QA: ?memdebug exposes the canvas memory report (used by the device-budget checks)
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('memdebug')) {
+    (window as unknown as { __mem: () => unknown }).__mem = () => r.memoryBytes();
+  }
+  return r;
 }

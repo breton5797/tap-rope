@@ -2,7 +2,7 @@
 // (GDD-v6 §3). Run cycle locked to the scroll, leap / tucked front flip (2단) / piked somersault
 // (3단), fast-fall dive, knee slide, landing absorb, idle breathing, hit recoil, lane-change lean.
 import type { Mood, PlayerState } from '../types';
-import { applyHurt, applyLand, drawRig, newPose, poseAir, poseIdle, poseRun, poseSlide, STRIDE } from './rig';
+import { applyHurt, applyLand, drawRig, newPose, poseAir, poseIdle, poseRun, poseSlide, STRIDE, type Paint } from './rig';
 import { lookFor, type LookId } from './skins';
 import { clamp, oval, type Ctx } from './util';
 
@@ -35,6 +35,8 @@ export class AgentPainter {
   private prevLevel = 0;
   private spinStart = -1;
   private readonly pose = newPose();
+  /** reused paint settings (no per-frame allocation) */
+  private readonly paint: Paint = { look: lookFor('kid'), rim: '', torch: false };
 
   /** Contact shadow on the floor plane (floorY = the lane's floor line). */
   shadow(ctx: Ctx, x: number, floorY: number, height: number, sliding: boolean, scale: number): void {
@@ -70,7 +72,11 @@ export class AgentPainter {
     if (f.lean !== 0) ctx.rotate(f.lean);
     ctx.scale(f.scale, f.scale);
     if (f.blink && Math.sin(t * 30) > 0) ctx.globalAlpha = 0.45;
-    drawRig(ctx, pose, { look: lookFor(f.id), rim: f.rim, torch: f.torch });
+    const paint = this.paint;
+    paint.look = lookFor(f.id);
+    paint.rim = f.rim;
+    paint.torch = f.torch;
+    drawRig(ctx, pose, paint);
     ctx.restore();
     if (p.sliding) this.dust(ctx, f);
   }
