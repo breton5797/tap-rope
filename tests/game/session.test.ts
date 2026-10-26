@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { Beat, MoveId, Obstacle, Swipe } from '../../src/types';
+import type { Beat, LaneDir, LaneId, MoveId, Obstacle, Swipe } from '../../src/types';
+import { LANE_HAZARD_KINDS, WARN_LEAD } from '../../src/types';
 import { STAGES } from '../../src/core/content';
 import { endlessStage } from '../../src/core/levels';
 import { beatShape, gapAfter } from '../../src/core/spacing';
 import {
-  createSession, MAX_HEARTS, sessionProgress, sessionStars, slide, step, swipe, tap,
+  createSession, lane, MAX_HEARTS, sessionProgress, sessionStars, slide, step, swipe, tap,
   type GameEvent, type Session,
 } from '../../src/game/session';
 import { botAction, type BotAction } from '../../src/game/bot';
@@ -25,7 +26,13 @@ function playBot(s0: Session, maxSeconds: number, swipeDelay = 0): BotRun {
     for (const e of events) {
       if (e.type === 'move' && e.action !== 'none') performed.add(e.action);
       if (e.type === 'tap' && e.action === 'boost') performed.add(`level${e.level}`);
+      if (e.type === 'lane' && e.action === 'lane') performed.add('lane');
     }
+  };
+  const doLane = (dir: LaneDir): void => {
+    const moved = lane(s, dir);
+    note(moved.events);
+    s = moved.session;
   };
   const doSwipe = (dir: Swipe): void => {
     const swiped = swipe(s, dir);
@@ -38,7 +45,9 @@ function playBot(s0: Session, maxSeconds: number, swipeDelay = 0): BotRun {
       pending = null;
     }
     const a: BotAction | null = pending ? null : botAction(s);
-    if (a) {
+    if (a?.lane) {
+      doLane(a.lane); // left thumb: no tap
+    } else if (a) {
       const tapped = tap(s);
       note(tapped.events);
       s = tapped.session;
@@ -81,15 +90,20 @@ const beatOf = (id: number, time: number, obstacles: Obstacle[]): Beat => {
   const jumps = obstacles.filter((o) => o.kind === 'floor' || o.kind === 'beam').map((o) => o.level);
   const requiredLevel = (jumps.length ? Math.max(...jumps) : 0) as Beat['requiredLevel'];
   const needsSlide = obstacles.some((o) => o.kind === 'high' || o.kind === 'ceiling');
-  return { id, time, obstacles, requiredLevel, needsSlide, pulse: false };
+  const blockedLanes = [...new Set(obstacles.filter((o) => LANE_HAZARD_KINDS.includes(o.kind)).flatMap((o) => o.lanes ?? []))]
+    .sort() as LaneId[];
+  return { id, time, obstacles, requiredLevel, needsSlide, pulse: false, blockedLanes, section: 0 };
 };
+const guardBeat = (id: number, time: number, lanes: LaneId[]): Beat => beatOf(id, time, [{ kind: 'guard', level: 1, lanes }]);
 const floorBeat = (id: number, time: number): Beat => beatOf(id, time, [{ kind: 'floor', level: 1 }]);
 const beamBeat = (id: number, time: number, level: 1 | 2 | 3): Beat =>
   beatOf(id, time, [{ kind: 'beam', level, from: 'front' }]);
 const ceilingBeat = (id: number, time: number): Beat => beatOf(id, time, [{ kind: 'ceiling', level: 1 }]);
 
 /** a session holding just the given beats */
-const withBeats = (beats: Beat[]): Session => ({ ...createSession('stage', STAGES[0]), beats, hazardTotal: beats.length });
+const withBeats = (beats: Beat[]): Session => ({
+  ...createSession('stage', STAGES[0]), beats, hazardTotal: beats.length, doors: [], tempoQueue: [],
+});
 
 describe('bot clears every stage (all generated content is beatable)', () => {
   for (const stage of STAGES) {
@@ -105,6 +119,13 @@ describe('bot clears every stage (all generated content is beatable)', () => {
       expect(sessionProgress(end)).toBe(1);
     });
   }
+
+  it('stages with lane hazards make the bot really change lanes', () => {
+    const laneStages = STAGES.filter((st) => st.moves.some((m) => m === 'lane' || m === 'drop' || m === 'chaser'));
+    expect(laneStages.length).toBeGreaterThan(50);
+    const moved = laneStages.filter((st) => playBot(createSession('stage', st), 400).performed.has('lane'));
+    expect(moved.length).toBe(laneStages.length);
+  });
 
   it('every stage stays beatable when swipes land 0.1s after their tap (real finger latency)', () => {
     for (const stage of STAGES) {
@@ -271,11 +292,62 @@ describe('session rules', () => {
     expect(s.time).toBeCloseTo(0.07, 5);
   });
 
+  it('lane(): moves one lane per swipe, bumps at the edges, works in the air', () => {
+    const s0 = withBeats([floorBeat(0, 3)]);
+    expect(s0.player.lane).toBe(1);
+    const up = lane(s0, -1);
+    expect(up.events).toEqual([{ type: 'lane', action: 'lane', lane: 0 }]);
+    expect(lane(up.session, -1).events).toEqual([{ type: 'lane', action: 'none', lane: 0 }]);
+    const air = lane(tap(s0).session, 1);
+    expect(air.session.player.lane).toBe(2);
+    expect(air.session.player.grounded).toBe(false);
+  });
+
+  it('a guard in your lane is a hit; jumping does not help; another lane is safe', () => {
+    const s0 = withBeats([guardBeat(0, 0.6, [1, 2])]);
+    expect(runIdle(s0, 1).s.hearts).toBe(MAX_HEARTS - 1);
+    expect(runIdle(tap(advance(s0, 0.4)).session, 1).s.hearts).toBe(MAX_HEARTS - 1);
+    expect(runIdle(lane(advance(s0, 0.3), -1).session, 1).s.hearts).toBe(MAX_HEARTS);
+  });
+
+  it('a sudden attack fires one "!" alert WARN_LEAD before it arrives', () => {
+    const s0 = withBeats([beatOf(0, 2, [{ kind: 'drop', level: 1, lanes: [1] }]), floorBeat(1, 4)]);
+    const alerts: number[] = [];
+    let s = s0;
+    for (let t = 0; t < 2.5; t += DT) {
+      const out = step(s, DT);
+      for (const e of out.events) if (e.type === 'alert') alerts.push(out.session.time);
+      s = out.session;
+    }
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toBeGreaterThanOrEqual(2 - WARN_LEAD - 1e-9);
+    expect(alerts[0]).toBeLessThan(2 - WARN_LEAD + 2 * DT);
+  });
+
+  it('section doors: the scene switches at each door time and the door opens 1s before', () => {
+    const stage = STAGES.find((st) => st.kind === 'boss')!;
+    const s0 = createSession('stage', stage);
+    expect(s0.doors).toHaveLength(stage.sections - 1);
+    const d = s0.doors[0];
+    let s = s0;
+    let opened = -1;
+    while (s.time < d.time + 0.1 && s.status === 'playing') {
+      const out = step({ ...s, invulnTime: 99, hearts: 3 }, DT);
+      if (out.events.some((e) => e.type === 'door')) opened = out.session.time;
+      s = out.session;
+    }
+    expect(opened).toBeGreaterThanOrEqual(d.time - 1 - 1e-9);
+    expect(opened).toBeLessThan(d.time - 1 + 2 * DT);
+    expect({ world: s.world, variant: s.variant }).toEqual(d.to);
+    expect(s.section).toBe(1);
+  });
+
   it('tap, swipe and slide after the run ends are ignored', () => {
     const { s } = runIdle(createSession('stage', STAGES[0]), 120);
     expect(tap(s).events).toHaveLength(0);
     expect(swipe(s, 'down').events).toHaveLength(0);
     expect(slide(s).events).toHaveLength(0);
+    expect(lane(s, 1).events).toHaveLength(0);
     expect(advance(s, 0.1)).toBe(s);
   });
 });

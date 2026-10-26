@@ -2,9 +2,12 @@
  * Autoplayer. Drives the title-screen attract mode, `?autoplay=1`, and the
  * "every stage is beatable" simulation test. Each frame it returns at most one
  * touch: a tap, optionally followed by a swipe (the swipe modifies the touch's
- * own jump, exactly like a real finger: tap + ↓ = slide).
+ * own jump, exactly like a real finger: tap + ↓ = slide), or a left-thumb lane swipe.
+ * Lanes (GDD v5 §9): before the next lane-hazard beat it walks, one lane per touch, to the
+ * nearest safe lane — preferring one that is also safe for the lane beat right after.
  */
-import type { Beat, Swipe } from '../types';
+import type { Beat, LaneDir, LaneId, Swipe } from '../types';
+import { LANES } from '../types';
 import type { Session } from './session';
 
 /** first tap this long before a 1-level jump beat; air taps follow every BOOST_GAP.
@@ -14,13 +17,38 @@ const BOOST_GAP = 0.1;
 const leadFor = (level: number): number => LEAD + (level - 1) * BOOST_GAP;
 /** a slide starts this long before a slide beat (it lasts slideTime, ≈0.55s) */
 const SLIDE_LEAD = 0.3;
+/** lane moves start this long before a lane beat, one swipe per LANE_SETTLE (a 2-lane move fits) */
+const LANE_LOOK = 0.7;
+const LANE_SETTLE = 0.1;
+/** a following lane beat this close shapes which safe lane is picked */
+const LANE_CHAIN = 1.2;
 
 export interface BotAction {
   readonly swipe: Swipe | null;
+  /** a left-thumb lane swipe instead of a tap */
+  readonly lane?: LaneDir;
 }
 
 const isPickupOnly = (b: Beat): boolean =>
-  b.requiredLevel === 0 && !b.needsSlide && !b.obstacles.some((o) => o.kind === 'drone');
+  b.requiredLevel === 0 && !b.needsSlide && b.blockedLanes.length === 0 && !b.obstacles.some((o) => o.kind === 'drone');
+
+const safeIn = (b: Beat | undefined, l: LaneId): boolean => !b || !b.blockedLanes.includes(l);
+
+function laneTarget(s: Session): LaneId | null {
+  const i = s.beats.findIndex((b, k) => k >= s.cursor && b.blockedLanes.length > 0);
+  const b = i >= 0 ? s.beats[i] : undefined;
+  if (!b || b.time - s.time > LANE_LOOK || safeIn(b, s.player.lane)) return null;
+  const after = s.beats.slice(i + 1).find((n) => n.blockedLanes.length > 0 && n.time - b.time <= LANE_CHAIN);
+  const cost = (l: LaneId): number => (safeIn(after, l) ? 0 : 10) + Math.abs(l - s.player.lane);
+  const safe = LANES.filter((l) => safeIn(b, l));
+  return safe.reduce((best, l) => (cost(l) < cost(best) ? l : best), safe[0]);
+}
+
+function lanePlan(s: Session): BotAction | null {
+  const target = laneTarget(s);
+  if (target === null || s.player.laneAge < LANE_SETTLE) return null;
+  return { swipe: null, lane: target < s.player.lane ? -1 : 1 };
+}
 
 function needsAction(s: Session, i: number): boolean {
   const b = s.beats[i];
@@ -64,6 +92,8 @@ function jumpPlan(s: Session, b: Beat, until: number): BotAction | null {
 /** Returns the touch to perform this frame, or null. */
 export function botAction(s: Session): BotAction | null {
   if (s.status !== 'playing') return null;
+  const moveLane = lanePlan(s);
+  if (moveLane) return moveLane;
   const b = targetBeat(s);
   if (!b) return null;
   const until = b.time - s.time;

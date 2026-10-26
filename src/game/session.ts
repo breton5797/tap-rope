@@ -1,17 +1,19 @@
 /**
  * Pure game-session state machine: advances stage time, physics, judging, hearts,
- * power-ups and endless chunk generation. No DOM / audio — side effects are
- * described as GameEvents and performed by the app layer.
+ * power-ups, section doors (v5: the scene switches at each door) and endless chunk
+ * generation. No DOM / audio — side effects are described as GameEvents and performed
+ * by the app layer.
  */
 import type {
-  Beat, GameMode, JudgeResult, Mood, ObstacleKind, PhysicsConfig, PlayerState,
-  ScoreState, StageDef, Swipe, Variant, WorldId,
+  Beat, Door, GameMode, JudgeResult, LaneDir, LaneId, Mood, ObstacleKind, PhysicsConfig, PlayerState,
+  ScoreState, StageDef, Swipe, TransitionKind, Variant, WorldId,
 } from '../types';
-import { HAZARD_KINDS } from '../types';
-import { initialPlayer, physicsForWorld, slidePlayer, stepPlayer, swipePlayer, tapPlayer } from '../core/physics';
+import { HAZARD_KINDS, WARN_LEAD } from '../types';
+import { initialPlayer, moveLane, physicsForWorld, slidePlayer, stepPlayer, swipePlayer, tapPlayer } from '../core/physics';
 import { judgeBeat } from '../core/judge';
 import { applyJudge, computeStars, initialScore, tickScore } from '../core/scoring';
-import { dailyStage, endlessStage, generateBeats } from '../core/levels';
+import { dailyStage, endlessStage, generateStage } from '../core/levels';
+import { isSudden } from '../core/timeline';
 import { beatShape, gapAfter } from '../core/spacing';
 
 export const MAX_HEARTS = 3;
@@ -22,6 +24,11 @@ export const LEAD_IN = 2.0;
 const END_GRACE = 0.7;
 const ENDLESS_LOOKAHEAD = 8;
 const MAX_STEP = 1 / 30;
+/** the security door slides open this long before the agent reaches it (GDD v5 §6) */
+export const DOOR_OPEN_LEAD = 1.0;
+/** endless chunks are joined by a door break at least this long */
+const ENDLESS_DOOR_BREAK = 2.4;
+const ENDLESS_TRANSITIONS: readonly TransitionKind[] = ['turn', 'stairs', 'elevator'];
 
 export interface TempoChange {
   readonly at: number;
@@ -57,6 +64,14 @@ export interface Session {
   readonly hazardDone: number;
   readonly endlessChunk: number;
   readonly seed: number;
+  /** v5: section doors, in time order (endless appends one per chunk) */
+  readonly doors: readonly Door[];
+  /** v5: doors passed so far = current section (0-based) */
+  readonly section: number;
+  /** v5: next door whose opening cue has not fired yet */
+  readonly doorCue: number;
+  /** v5: next beat whose "!" alert cue has not been considered yet */
+  readonly alertCue: number;
 }
 
 export type GameEvent =
@@ -66,6 +81,10 @@ export type GameEvent =
     readonly keptSlide?: boolean;
   }
   | { readonly type: 'move'; readonly action: 'slide' | 'dive' | 'none' }
+  | { readonly type: 'lane'; readonly action: 'lane' | 'none'; readonly lane: LaneId }
+  /** a sudden attack (drop / chaser / rear beam) is WARN_LEAD away */
+  | { readonly type: 'alert'; readonly lanes: readonly LaneId[] }
+  | { readonly type: 'door'; readonly transition: TransitionKind }
   | { readonly type: 'land' }
   | { readonly type: 'judge'; readonly result: JudgeResult; readonly shielded: boolean }
   | { readonly type: 'hit'; readonly shielded: boolean; readonly hearts: number }
@@ -95,13 +114,15 @@ export function createSession(mode: GameMode, stage: StageDef | null, opts: { da
         : endlessStage(0, seed);
   const world: WorldId = def.world;
   const cfg = physicsForWorld(world);
-  const beats = generateBeats(def, cfg, snapToBeat(LEAD_IN, def.bpm));
+  const { beats, doors } = generateStage(def, cfg, snapToBeat(LEAD_IN, def.bpm));
+  // the scene switches when the agent passes each door; the music keeps the stage tempo
+  const tempoQueue = doors.map((d): TempoChange => ({ at: d.time, bpm: def.bpm, world: d.to.world, variant: d.to.variant }));
   return {
-    mode, stage: def, world, bpm: def.bpm, variant: def.variant, tempoQueue: [], cfg, beats, cursor: 0, time: 0,
+    mode, stage: def, world, bpm: def.bpm, variant: def.variant, tempoQueue, cfg, beats, cursor: 0, time: 0,
     player: initialPlayer(), score: initialScore(), hearts: MAX_HEARTS, hitsTaken: 0,
     shield: false, slowTime: 0, invulnTime: 0, mood: 'idle', moodTime: 0, status: 'playing',
     hazardTotal: mode === 'endless' ? Infinity : beats.filter(isHazardBeat).length,
-    hazardDone: 0, endlessChunk: 0, seed,
+    hazardDone: 0, endlessChunk: 0, seed, doors, section: 0, doorCue: 0, alertCue: 0,
   };
 }
 
@@ -132,20 +153,37 @@ export function slide(s: Session): StepOutput {
   return { session: { ...s, player }, events: [{ type: 'move', action }] };
 }
 
+/** Left thumb / ↑↓: change lanes (allowed on the floor, in the air and while sliding). */
+export function lane(s: Session, dir: LaneDir): StepOutput {
+  if (s.status !== 'playing') return { session: s, events: [] };
+  const { player, action } = moveLane(s.player, dir);
+  return { session: { ...s, player }, events: [{ type: 'lane', action, lane: player.lane }] };
+}
+
 function extendEndless(s: Session): Session {
   const last = s.beats[s.beats.length - 1];
   if (s.mode !== 'endless' || !last || last.time - s.time > ENDLESS_LOOKAHEAD) return s;
   const chunk = s.endlessChunk + 1;
   const def = endlessStage(chunk, s.seed);
-  const gap = Math.max(1.2, gapAfter(beatShape(last), s.cfg));
-  const fresh = generateBeats(def, s.cfg, snapToBeat(last.time + gap, def.bpm));
+  const after = last.time + gapAfter(beatShape(last), s.cfg);
+  const start = snapToBeat(after + ENDLESS_DOOR_BREAK, def.bpm);
+  const fresh = generateStage(def, s.cfg, start).beats;
   const offset = s.beats.length;
-  const reIded = fresh.map((b, i) => ({ ...b, id: offset + i }));
-  // switch tempo/world in the quiet gap after the previous chunk's last beat, not at generation time
-  const change: TempoChange = {
-    at: last.time + 0.3, bpm: def.bpm, world: def.world, variant: def.variant,
+  const section = last.section + 1;
+  const reIded = fresh.map((b, i) => ({ ...b, id: offset + i, section }));
+  // a door in the break between chunks: tempo and look switch when the agent passes it
+  const at = (after + start) / 2;
+  const prev = s.tempoQueue[s.tempoQueue.length - 1];
+  const door: Door = {
+    time: at, section, transition: ENDLESS_TRANSITIONS[chunk % ENDLESS_TRANSITIONS.length],
+    from: prev ? { world: prev.world, variant: prev.variant } : { world: s.world, variant: s.variant },
+    to: { world: def.world, variant: def.variant },
   };
-  return { ...s, beats: [...s.beats, ...reIded], endlessChunk: chunk, tempoQueue: [...s.tempoQueue, change] };
+  const change: TempoChange = { at, bpm: def.bpm, world: def.world, variant: def.variant };
+  return {
+    ...s, beats: [...s.beats, ...reIded], endlessChunk: chunk, tempoQueue: [...s.tempoQueue, change],
+    doors: [...s.doors, door],
+  };
 }
 
 function applyTempo(s: Session): Session {
@@ -155,7 +193,28 @@ function applyTempo(s: Session): Session {
   return {
     ...s, bpm: latest.bpm, world: latest.world, variant: latest.variant,
     tempoQueue: s.tempoQueue.filter((c) => c.at > s.time),
+    section: s.doors.filter((d) => d.time <= s.time).length,
   };
+}
+
+/** Door-opening and sudden-attack "!" cues that became due at the current time. */
+function cues(s: Session): Applied {
+  const events: GameEvent[] = [];
+  let doorCue = s.doorCue;
+  while (doorCue < s.doors.length && s.doors[doorCue].time - DOOR_OPEN_LEAD <= s.time + 1e-9) {
+    events.push({ type: 'door', transition: s.doors[doorCue].transition });
+    doorCue++;
+  }
+  let alertCue = Math.max(s.alertCue, s.cursor);
+  while (alertCue < s.beats.length && s.beats[alertCue].time - WARN_LEAD <= s.time + 1e-9) {
+    const sudden = s.beats[alertCue].obstacles.filter(isSudden);
+    if (sudden.length > 0) {
+      const lanes = [...new Set(sudden.flatMap((o) => o.lanes ?? []))].sort() as LaneId[];
+      events.push({ type: 'alert', lanes });
+    }
+    alertCue++;
+  }
+  return { s: doorCue === s.doorCue && alertCue === s.alertCue ? s : { ...s, doorCue, alertCue }, events };
 }
 
 interface Applied { readonly s: Session; readonly events: GameEvent[] }
@@ -260,6 +319,9 @@ export function step(s0: Session, realDt: number): StepOutput {
     const adv = advance(s, dt > 0 ? dt : 0);
     s = dt > 0 ? applyTempo(adv.s) : s;
     events.push(...(dt > 0 ? adv.events : []));
+    const cue = cues(s);
+    s = cue.s;
+    events.push(...cue.events);
     if (beat && s.time >= beat.time - 1e-9) {
       const j = judgeNext(s);
       s = j.s;

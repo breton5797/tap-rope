@@ -19,6 +19,7 @@ const MISS_TEXT: Record<string, string> = {
   low: '점프!',
   slide: '점프해야 해요!',
   standing: '슬라이딩! ↓',
+  lane: '레인을 바꿔! ↑↓',
 };
 
 const PICKUP_TEXT: Partial<Record<ObstacleKind, string>> = {
@@ -94,6 +95,15 @@ function onPickup(d: FeedbackDeps, kind: ObstacleKind): void {
   d.haptics.vibrate(25);
 }
 
+function onLane(d: FeedbackDeps, e: Extract<GameEvent, { type: 'lane' }>): void {
+  if (e.action === 'lane') {
+    d.audio.sfx('lane');
+    d.haptics.vibrate(6);
+  } else {
+    d.haptics.vibrate(3); // already at the edge lane: a tiny bump
+  }
+}
+
 /** `quiet` = attract-mode demo: visuals only, no sound/haptics/popups. */
 export function playFeedback(d: FeedbackDeps, events: readonly GameEvent[], quiet = false): void {
   for (const e of events) {
@@ -104,6 +114,9 @@ export function playFeedback(d: FeedbackDeps, events: readonly GameEvent[], quie
     switch (e.type) {
       case 'tap': onTap(d, e); break;
       case 'move': onMove(d, e); break;
+      case 'lane': onLane(d, e); break;
+      case 'alert': d.audio.sfx('alert'); d.haptics.vibrate([8, 40, 8]); break;
+      case 'door': d.audio.sfx('door'); break;
       case 'land': d.fx.burst('dust'); d.audio.sfx('land'); break;
       case 'judge': onJudge(d, e); break;
       case 'hit': onHit(d, e); break;
