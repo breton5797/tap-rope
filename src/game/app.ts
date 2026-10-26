@@ -2,24 +2,32 @@
  * App controller: wires renderer, UI, audio and the pure Session together and
  * owns the screen flow (menu demo → countdown → play ⇄ pause → result).
  */
-import type { GameMode, LaneDir, MoveId, Renderer, ResultInfo, SaveData, Settings, SkinId, StageDef, Swipe, Ui } from '../types';
+import type {
+  Board, BossView, Cutscene, CutsceneId, GameMode, LaneDir, MoveId, Renderer, ResultInfo, SaveData, Settings, SkinId,
+  StageDef, Swipe, Ui,
+} from '../types';
 import { createRenderer } from '../render/index';
 import { createUi } from '../ui/index';
 import { createAudio } from '../audio/index';
 import { createHaptics } from '../platform/haptics';
 import { registerServiceWorker } from '../platform/pwa';
 import { nextStageId, stageById } from '../core/content';
-import { buySkin, loadSave, markBriefed, recordResult, writeSave } from '../core/storage';
+import { buySkin, loadSave, markBriefed, markCutsceneSeen, recordResult, writeSave } from '../core/storage';
+import { CUTSCENES, cutsceneAfter, cutsceneBefore } from '../core/cutscenes';
+import { createOnline } from '../platform/online';
 import { stepPlayer } from '../core/physics';
 import { createSession, lane, sessionStars, slide, step, swipe, tap, type Session, type StepOutput } from './session';
 import { botAction, type BotAction } from './bot';
-import { toHud, toSnapshot } from './snapshot';
+import { sessionBoss, toHud, toSnapshot } from './snapshot';
+import { createRunLog, type RunLog } from './runlog';
+import { bossCues } from './boss-cues';
+import { createProgress } from './progress';
 import { playFeedback } from './feedback';
 import { HINT_DURATION, introducedMoves, upcomingHint } from './hints';
 import { bindInput } from './input';
 
-/** controls = the first-run two-thumb card is up; the run starts when it is dismissed */
-type Screen = 'menu' | 'controls' | 'countdown' | 'play' | 'paused' | 'result';
+/** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
+type Screen = 'menu' | 'controls' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
 
 const COUNT_STEP = 0.6;
 /** the mission briefing card reads for this long before 3-2-1 starts */
@@ -98,6 +106,9 @@ export function startApp(): void {
   let jumpCardPending = false;
   let goTimer = 0;
   let music = { bpm: 0, world: -1 };
+  let runLog: RunLog = createRunLog('stage', 0, '');
+  let prevBoss: BossView | null = null;
+  const online = createOnline();
   const seenHints = new Set<MoveId>();
   const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
@@ -125,6 +136,7 @@ export function startApp(): void {
   const toMenu = (show: (s: SaveData) => void): void => {
     screen = 'menu';
     jumpCardPending = false;
+    audio.setBoss(false);
     audio.stopMusic();
     audio.setFever(false);
     session = demoSession();
@@ -132,7 +144,24 @@ export function startApp(): void {
     show(save);
   };
 
+  /** plays a cutscene, marks it seen, then continues */
+  const playCutscene = (c: Cutscene, then: () => void): void => {
+    screen = 'cutscene';
+    audio.stopMusic();
+    ui.hideAll();
+    ui.showCutscene(c, () => {
+      persist(markCutsceneSeen(save, c.id));
+      progress.recheck();
+      then();
+    });
+  };
+
   const startRun = (mode: GameMode, stage: StageDef | null): void => {
+    const before = mode === 'stage' && stage && save.controlsSeen ? cutsceneBefore(stage, save) : null;
+    if (before) {
+      playCutscene(before, () => startRun(mode, stage));
+      return;
+    }
     if (!save.controlsSeen) {
       // first v5 run: teach the split controls before anything moves
       screen = 'controls';
@@ -148,7 +177,11 @@ export function startApp(): void {
     jumpCardPending = false;
     const date = todayIso();
     run = { mode, stage, date };
-    session = createSession(mode, stage, { date, seed: Math.floor(Math.random() * 1e9) });
+    const seed = Math.floor(Math.random() * 1e9);
+    session = createSession(mode, stage, { date, seed });
+    runLog = createRunLog(mode, seed, date);
+    prevBoss = null;
+    audio.setBoss(sessionBoss(session) !== null); // heavier drum layer on boss stages
     audio.stopMusic();
     audio.setFever(false);
     ui.hideAll();
@@ -200,6 +233,7 @@ export function startApp(): void {
 
   const finishRun = (): void => {
     screen = 'result';
+    audio.setBoss(false);
     audio.stopMusic();
     audio.setFever(false);
     const cleared = session.status === 'cleared';
@@ -209,8 +243,9 @@ export function startApp(): void {
     const prevBest = save.bestScores[key] ?? 0;
     const score = session.score.score;
     persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, session.score.coins));
-    const next = run.mode === 'stage' ? nextStageId(session.stage.id) : null;
-    const info: ResultInfo = {
+    const stageId = run.mode === 'stage' ? session.stage.id : null;
+    const next = stageId ? nextStageId(stageId) : null;
+    const base: ResultInfo = {
       mode: run.mode,
       stageId: run.mode === 'stage' ? session.stage.id : null,
       title: toHud(session).title,
@@ -227,7 +262,14 @@ export function startApp(): void {
       hasNext: cleared && next !== null,
     };
     ui.showTutorial(null);
-    ui.showResult(info);
+    const info = progress.afterRun(runLog.summary(session, stageId), runLog.record(session), base);
+    const after = cutsceneAfter(stageId, cleared, save);
+    const showResult = (): void => {
+      screen = 'result';
+      ui.showResult(info);
+    };
+    if (after) playCutscene(after, showResult);
+    else showResult();
   };
 
   const ui = createUi(uiRoot, {
@@ -262,6 +304,7 @@ export function startApp(): void {
       audio.sfx('powerup');
       ui.toast('장비 확보 완료');
       ui.showShop(save);
+      progress.recheck();
     },
     onSelectSkin: (id: SkinId) => {
       if (!save.ownedSkins.includes(id)) return;
@@ -282,6 +325,18 @@ export function startApp(): void {
       audio.unlock();
       audio.sfx('click');
     },
+    onOpenArchive: () => ui.showArchive(save),
+    onPlayCutscene: (id: CutsceneId) => {
+      const c = CUTSCENES.find((x) => x.id === id);
+      if (c && save.seenCutscenes.includes(id)) playCutscene(c, () => toMenu((s) => ui.showArchive(s)));
+    },
+    onOpenAchievements: () => ui.showAchievements(save),
+    onOpenLeaderboard: (board: Board) => progress.openLeaderboard(board),
+    onOpenNickname: () => progress.openNickname(),
+  });
+
+  const progress = createProgress({
+    ui, audio, online, getSave: () => save, persist, resultShowing: () => screen === 'result',
   });
 
   const tickCountdown = (dt: number): void => {
@@ -326,6 +381,7 @@ export function startApp(): void {
     const queued = pendingInput;
     pendingInput = [];
     for (const input of queued) {
+      runLog.input(session, input);
       const out = applyInput(session, input);
       session = out.session;
       playFeedback(deps, out.events);
@@ -333,6 +389,10 @@ export function startApp(): void {
     const out = step(session, dt);
     session = out.session;
     playFeedback(deps, out.events);
+    for (const e of out.events) if (e.type === 'fever') runLog.fever();
+    const boss = sessionBoss(session);
+    for (const cue of bossCues(prevBoss, boss)) audio.sfx(cue);
+    prevBoss = boss;
     if (wasFever && session.score.feverTime <= 0) audio.setFever(false);
     if (session.status === 'playing' && (session.bpm !== music.bpm || session.world !== music.world)) startMusic();
     ui.updateHud(toHud(session));
@@ -388,6 +448,7 @@ export function startApp(): void {
   applySettings(save.settings);
   registerServiceWorker();
   bootArt(renderer, ui, () => ui.showTitle(save));
+  void online.init(); // never throws; flushes runs queued while offline
 
   let last = performance.now();
   const frame = (now: number): void => {
