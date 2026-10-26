@@ -60,7 +60,8 @@
 }
 
 .skin.is-locked .skin__art .avatar {
-  filter: grayscale(1) brightness(0.55);
+  /* dimmed but the silhouette still reads */
+  filter: grayscale(0.8) brightness(0.78);
 }
 
 .skin__lock {

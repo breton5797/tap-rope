@@ -15,10 +15,9 @@ interface Refs {
   readonly title: HTMLElement;
   readonly score: HTMLElement;
   readonly coins: HTMLElement;
-  readonly progress: HTMLElement;
-  /** v5: section track over the progress bar (door markers + current-section highlight) */
+  /** progress row: "SECTOR 2/3" label + one track segment per section (gaps = doors) */
+  readonly progLabel: HTMLElement;
   readonly progressWrap: HTMLElement;
-  readonly sections: HTMLElement;
   readonly feverBar: HTMLElement;
   readonly feverFill: HTMLElement;
   readonly feverLabel: HTMLElement;
@@ -49,21 +48,19 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     title: h('div', { cls: 'hud__title' }),
     score: h('div', { cls: 'hud__score', text: '0' }),
     coins: h('span', { cls: 'chip__value', text: '0' }),
-    progress: h('div', { cls: 'bar__fill' }),
+    progLabel: h('span', { cls: 'hud__barlabel', text: 'ROUTE' }),
     progressWrap: h('div', { cls: 'prog', attrs: { role: 'progressbar', 'aria-label': '진행도', 'aria-valuemin': '0', 'aria-valuemax': '100' } }),
-    sections: h('div', { cls: 'prog__sections', attrs: { 'aria-hidden': 'true' } }),
     feverBar: h('div', { cls: 'bar bar--fever' }),
     feverFill: h('div', { cls: 'bar__fill' }),
-    feverLabel: h('span', { cls: 'bar__label', text: 'OVERDRIVE' }),
+    feverLabel: h('span', { cls: 'hud__barlabel hud__barlabel--fever', text: 'OVERDRIVE' }),
     combo: h('div', { cls: 'combo', attrs: { 'aria-live': 'polite' } }),
     comboNum: h('span', { cls: 'combo__num' }),
     shield: statusChip('status--shield', icons.shield(), 'SHIELD'),
     slow: statusChip('status--slow', icons.clock(), 'SLOW'),
     slide: h('span', { cls: 'hud__slide', attrs: { 'aria-label': '슬라이딩' } }, [moveGlyph('slide'), h('span', { text: 'SLIDE' })]),
   };
-  refs.feverBar.append(refs.feverFill, refs.feverLabel, icons.fire());
+  refs.feverBar.append(refs.feverFill, icons.fire());
   refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'CHAIN' }));
-  refs.progressWrap.append(h('div', { cls: 'bar bar--progress' }, [refs.progress]), refs.sections);
   const el = h('div', { cls: 'hud' }, [
     h('div', { cls: 'hud__top' }, [
       pause,
@@ -74,7 +71,8 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
       h('div', { cls: 'hud__left' }, [refs.hearts, refs.slide]),
       h('div', { cls: 'hud__status' }, [refs.shield, refs.slow]),
     ]),
-    h('div', { cls: 'hud__bars' }, [refs.progressWrap, refs.feverBar]),
+    // labels sit beside the bars, never on the fill
+    h('div', { cls: 'hud__bars' }, [refs.progLabel, refs.progressWrap, refs.feverLabel, refs.feverBar]),
     refs.combo,
   ]);
   return { el, refs };
@@ -117,32 +115,40 @@ function renderFever(refs: Refs, s: HudState, prev: Prev): void {
   if (prev.feverGauge !== g) refs.feverFill.style.transform = `scaleX(${g})`;
   if (prev.fever !== s.fever) {
     refs.feverBar.classList.toggle('is-fever', s.fever);
+    refs.feverLabel.classList.toggle('is-on', s.fever);
     refs.feverLabel.textContent = s.fever ? 'OVERDRIVE ×2' : 'OVERDRIVE';
   }
   const wasFull = !prev.fever && (prev.feverGauge ?? 0) >= 1;
   const full = !s.fever && g >= 1;
-  if (wasFull !== full || prev.feverGauge === undefined) refs.feverBar.classList.toggle('is-full', full);
+  if (wasFull !== full || prev.feverGauge === undefined) {
+    refs.feverBar.classList.toggle('is-full', full);
+    refs.feverLabel.classList.toggle('is-ready', full);
+  }
 }
 
-/** Section pips: a highlighted segment per section and a door marker between sections (hidden for 1). */
-function renderSections(refs: Refs, section: number, sections: number, prev: Prev): void {
+/** One track segment per section; rebuilt only when the section count changes. */
+function buildSegments(refs: Refs, n: number): void {
+  refs.progressWrap.replaceChildren(...Array.from({ length: n }, () => h('i', { cls: 'prog__seg' }, [h('b', { cls: 'prog__fill' })])));
+}
+
+/** Fills each segment by its share of the stage, marks cleared / current sections and updates the label. */
+function renderProgress(refs: Refs, p: number, section: number, sections: number, prev: Prev): void {
   const n = Math.max(1, Math.floor(sections));
   const cur = Math.max(0, Math.min(n - 1, Math.floor(section)));
-  if (prev.sections !== sections) {
-    refs.progressWrap.classList.toggle('has-sections', n > 1);
-    refs.sections.replaceChildren(
-      ...(n > 1 ? Array.from({ length: n }, (_, i) => h('i', { cls: 'prog__seg', style: { left: `${(i / n) * 100}%`, width: `${100 / n}%` } })) : []),
-      ...Array.from({ length: n - 1 }, (_, i) => h('i', { cls: 'prog__door', style: { left: `${((i + 1) / n) * 100}%` } })),
-    );
+  if (prev.sections !== sections) buildSegments(refs, n);
+  const segs = refs.progressWrap.children;
+  for (let i = 0; i < segs.length; i++) {
+    const seg = segs[i] as HTMLElement;
+    const f = Math.max(0, Math.min(1, p * n - i));
+    (seg.firstElementChild as HTMLElement).style.transform = `scaleX(${f})`;
+    seg.classList.toggle('is-done', n > 1 && i < cur);
+    seg.classList.toggle('is-current', n > 1 && i === cur);
   }
-  const segs = refs.sections.querySelectorAll('.prog__seg');
-  const doors = refs.sections.querySelectorAll('.prog__door');
-  segs.forEach((el, i) => {
-    el.classList.toggle('is-current', i === cur);
-    el.classList.toggle('is-done', i < cur);
-  });
-  doors.forEach((el, i) => el.classList.toggle('is-open', i < cur));
-  refs.progressWrap.setAttribute('aria-valuetext', n > 1 ? `구간 ${cur + 1}/${n}` : '');
+  const label = n > 1 ? `SECTOR ${cur + 1}/${n}` : 'ROUTE';
+  if (refs.progLabel.textContent !== label) refs.progLabel.textContent = label;
+  refs.progLabel.classList.toggle('is-sector', n > 1);
+  refs.progressWrap.setAttribute('aria-valuenow', String(Math.round(p * 100)));
+  refs.progressWrap.setAttribute('aria-valuetext', n > 1 ? `구간 ${cur + 1}/${n}, ${Math.round(p * 100)}%` : `${Math.round(p * 100)}%`);
 }
 
 /** "7-3 · 이름" renders the stage number as a small badge. */
@@ -164,11 +170,7 @@ function renderValues(refs: Refs, s: HudState, prev: Prev, reduced: boolean): vo
     if (prev.coins !== undefined) animate(refs.coins, [{ color: '#ffb020' }, { color: '#e6ebee' }], POP, reduced);
   }
   const p = Math.round(Math.max(0, Math.min(1, s.progress)) * 400) / 400;
-  if (prev.progress !== p) {
-    refs.progress.style.transform = `scaleX(${p})`;
-    refs.progressWrap.setAttribute('aria-valuenow', String(Math.round(p * 100)));
-  }
-  if (prev.section !== s.section || prev.sections !== s.sections) renderSections(refs, s.section, s.sections, prev);
+  if (prev.progress !== p || prev.section !== s.section || prev.sections !== s.sections) renderProgress(refs, p, s.section, s.sections, prev);
   if (prev.shield !== s.shield) refs.shield.classList.toggle('is-on', s.shield);
   if (prev.slowMo !== s.slowMo) refs.slow.classList.toggle('is-on', s.slowMo);
   if (prev.sliding !== s.sliding) {

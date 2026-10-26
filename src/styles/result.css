@@ -175,6 +175,10 @@
   color: var(--amber);
 }
 
+.report__row--none dd {
+  color: var(--ink-faint);
+}
+
 @media (max-height: 600px) {
   .report {
     padding: 12px;

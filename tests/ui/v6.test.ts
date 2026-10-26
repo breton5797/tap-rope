@@ -59,6 +59,24 @@ describe('operation report', () => {
   });
 });
 
+describe('operation report colours', () => {
+  const base = { mode: 'stage', stageId: 'w1-s3', title: '1-3 · t', stars: 0, score: 1, best: 1, newRecord: false, perfects: 9, goods: 1, misses: 2, maxCombo: 3, hasNext: true } as const;
+
+  it('accuracy is teal only on success, and zero funds show a dash', () => {
+    const root = document.createElement('div');
+    const ui = createUi(root, callbacks());
+    ui.showResult({ ...base, cleared: false, coinsEarned: 0 });
+    const acc = Array.from(root.querySelectorAll('.report__row')).find((r) => r.textContent?.includes('정확도'));
+    expect(acc?.classList.contains('report__row--acc')).toBe(false);
+    const funds = Array.from(root.querySelectorAll('.report__row')).find((r) => r.textContent?.includes('획득 자금'));
+    expect(funds?.querySelector('dd')?.textContent).toBe('—');
+
+    ui.showResult({ ...base, cleared: true, coinsEarned: 5 });
+    const acc2 = Array.from(root.querySelectorAll('.report__row')).find((r) => r.textContent?.includes('정확도'));
+    expect(acc2?.classList.contains('report__row--acc')).toBe(true);
+  });
+});
+
 describe('v6 copy', () => {
   it('move hints carry no exclamation marks', () => {
     for (const m of Object.values(MOVES)) expect(m.hint).not.toContain('!');

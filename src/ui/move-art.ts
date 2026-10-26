@@ -37,19 +37,33 @@ function laser(d: string, cls = ''): SVGElement {
   ]);
 }
 
-function emitter(x: number, y: number): SVGElement {
-  return svg('rect', { x: x - 4, y, width: 8, height: 3, fill: '#1b2329', stroke: STEEL, 'stroke-width': 0.8 });
+/** Jump lasers as in-game: horizontal tripwires strung between two floor posts, N stacked beams for level N. */
+function tripwire(x0: number, x1: number, count: number, cls = ''): SVGElement[] {
+  const top = GROUND - 6 - (count - 1) * 8;
+  return [
+    ...[x0, x1].map((x) => svg('rect', { x: x - 1.5, y: top - 6, width: 3, height: GROUND - top + 6, fill: '#1b2329', stroke: STEEL, 'stroke-width': 0.7 })),
+    ...[x0, x1].map((x) => svg('rect', { x: x - 1, y: top - 6, width: 2, height: 1.5, fill: RED })),
+    ...Array.from({ length: count }, (_, i) => laser(`M${x0 + 1.5} ${GROUND - 6 - i * 8} H${x1 - 1.5}`, cls)),
+  ];
 }
 
-function floorLaser(x: number, top = 48, cls = ''): SVGElement[] {
-  return [emitter(x, GROUND - 1), laser(`M${x} ${GROUND - 1} V${top}`, cls)];
-}
-
+/** Rear beams still fly in from behind (the warning move). */
 function beams(count: number, fromLeft = false): SVGElement[] {
   return Array.from({ length: count }, (_, i) => {
     const y = GROUND - 8 - i * 10;
     return laser(fromLeft ? `M2 ${y} H30` : `M48 ${y} H80`, 'tut__laser--fly');
   });
+}
+
+/** Slide laser as in-game: beams drop from a ceiling housing and END above the floor; an amber clearance bar marks the gap. */
+function ceilingCurtain(x0: number, x1: number, bottom: number): SVGElement[] {
+  const xs = [x0 + 4, (x0 + x1) / 2, x1 - 4];
+  return [
+    svg('rect', { x: x0, y: 0, width: x1 - x0, height: 6, fill: '#1b2329', stroke: STEEL, 'stroke-width': 0.8 }),
+    ...xs.map((x) => svg('rect', { x: x - 1.5, y: 5, width: 3, height: 2, fill: RED_CORE })),
+    ...xs.map((x) => laser(`M${x} 7 V${bottom}`)),
+    svg('path', { d: `M${x0 - 2} ${bottom + 2.5} H${x1 + 2}`, stroke: AMBER, 'stroke-width': 1.4, 'stroke-dasharray': '3 2' }),
+  ];
 }
 
 /** Matte quadcopter with a downward scan cone. */
@@ -125,13 +139,13 @@ function warnMark(x: number, y: number, cls = 'tut__warn-pulse'): SVGElement {
 }
 
 const SCENES: Readonly<Record<SideMove, Scene>> = {
-  jump: { lift: 18, x: 54, at: [18, 18], taps: 1, layers: () => floorLaser(56) },
-  beam: { lift: 14, x: 60, at: [18, 18], taps: 1, layers: () => beams(1) },
-  double: { lift: 24, x: 60, at: [18, 18], taps: 2, layers: () => beams(2) },
-  triple: { lift: 33, x: 60, at: [18, 20], taps: 3, layers: () => beams(3) },
+  jump: { lift: 16, x: 58, at: [18, 18], taps: 1, layers: () => tripwire(44, 74, 1) },
+  beam: { lift: 16, x: 58, at: [18, 18], taps: 1, layers: () => tripwire(44, 74, 1) },
+  double: { lift: 22, x: 58, at: [18, 18], taps: 2, layers: () => tripwire(44, 74, 2) },
+  triple: { lift: 29, x: 58, at: [18, 16], taps: 3, layers: () => tripwire(44, 74, 3) },
   slide: {
-    lift: 0, slide: true, swipe: true, x: 48, at: [16, 22],
-    layers: () => [emitter(56, 0), laser('M56 3 V46')],
+    lift: 0, slide: true, swipe: true, x: 50, at: [16, 22],
+    layers: () => ceilingCurtain(44, 70, 44),
   },
   high: { lift: 0, slide: true, swipe: true, x: 40, at: [16, 22], layers: () => [laser('M36 44 H80', 'tut__laser--fly')] },
   drone: {
@@ -139,10 +153,10 @@ const SCENES: Readonly<Record<SideMove, Scene>> = {
     layers: () => [svg('path', { d: 'M4 30 H76', stroke: RED, 'stroke-width': 1, 'stroke-dasharray': '3 4', opacity: 0.7 }), drone(46, 18)],
   },
   rear: { lift: 16, x: 50, at: [68, 16], taps: 1, warnTint: true, layers: () => [...beams(1, true), warnMark(10, 26)] },
-  gate: { lift: 18, x: 30, at: [16, 16], taps: 1, warnTint: true, layers: () => [...floorLaser(58), drone(58, 16)] },
+  gate: { lift: 16, x: 30, at: [16, 16], taps: 1, warnTint: true, layers: () => [...tripwire(48, 68, 1), drone(58, 16)] },
   pulse: {
     lift: 16, x: 24, at: [66, 14], taps: 1,
-    layers: () => [44, 58, 72].flatMap((x, i) => floorLaser(x, 50, `tut__pulse tut__pulse--${i}`)),
+    layers: () => [40, 54, 68].flatMap((x, i) => tripwire(x, x + 10, 1, `tut__pulse tut__pulse--${i}`)),
   },
 };
 

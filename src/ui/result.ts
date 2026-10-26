@@ -103,12 +103,14 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
       r.mode === 'stage' ? rank(r.stars) : null,
     ]),
     h('dl', { cls: 'report__stats' }, [
-      statRow('정확도', `${accuracy(r)}%`, 'report__row--acc'),
+      // teal only on success; a failed run reads neutral (or red when most beats were missed)
+      statRow('정확도', `${accuracy(r)}%`, head.tone === 'win' ? 'report__row--acc' : accuracy(r) < 50 ? 'report__row--miss' : ''),
       statRow('PERFECT', formatNumber(r.perfects)),
       statRow('GOOD', formatNumber(r.goods)),
       statRow('MISS', formatNumber(r.misses), 'report__row--miss'),
       statRow('최대 연속', `x${formatNumber(r.maxCombo)}`),
-      statRow('획득 자금', `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds'),
+      // replays earn nothing: a dash instead of a broken-looking "₵ 0"
+      r.coinsEarned > 0 ? statRow('획득 자금', `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds') : statRow('획득 자금', '—', 'report__row--none'),
     ]),
     actions(ctx, r),
   ]);
