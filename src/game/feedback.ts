@@ -100,7 +100,8 @@ function onLane(d: FeedbackDeps, e: Extract<GameEvent, { type: 'lane' }>): void 
     d.audio.sfx('lane');
     d.haptics.vibrate(6);
   } else {
-    d.haptics.vibrate(3); // already at the edge lane: a tiny bump
+    d.fx.shake(0.12); // already at the edge lane: a tiny bump
+    d.haptics.vibrate(3);
   }
 }
 

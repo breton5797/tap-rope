@@ -97,6 +97,12 @@ export class Overlays {
     ctx.globalAlpha = 1;
   }
 
+  bytes(): number {
+    let b = 0;
+    for (const c of [this.slow, this.edge]) if (c) b += c.width * c.height * 4;
+    return b;
+  }
+
   private ensure(v: View): void {
     if (this.key === v.key) return;
     this.key = v.key;

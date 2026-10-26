@@ -1,11 +1,12 @@
 // Visual QA harness (LASER ESCAPE): animated mock scenes for the renderer.
 // Query: ?world=0..3&variant=base|alarm|dark|steam|night|dawn&skin=kid
 //        &scene=idle|run|jump2|jump3|slide|dive|floor|beams|rear|ceiling|high|drone|gate|pulse|fever|hit|escort
-//        &at=<sec> (freeze) &escort=1 &shield=1 &slow=1 &mood=<Mood> &rm=1 &ui=0
+//               |lanes|guard|drop|chaser|warn|lanejump|sheets|doorTurn|doorStairs|doorElevator
+//        &at=<sec> (freeze) &lane=0..2 (start lane) &escort=1 &shield=1 &slow=1 &mood=<Mood> &rm=1 &ui=0
 import {
-  LANE_LEAD, SCROLL_SPEED, VISIBLE_LEAD,
-  type LaneItem, type Level, type Mood, type PlayerState, type RenderSnapshot, type SkinId, type Variant,
-  type VisibleObstacle, type WorldId,
+  LANE_LEAD, LANE_SWITCH_TIME, SCROLL_SPEED, VISIBLE_LEAD,
+  type DoorView, type LaneId, type LaneItem, type Level, type Mood, type PlayerState, type RenderSnapshot, type Scene,
+  type SkinId, type Variant, type VisibleObstacle, type WorldId,
 } from '../types';
 import { createRenderer } from './index';
 import { SCENES, type BeatSpec } from './preview-scenes';
@@ -41,10 +42,36 @@ const t0 = 1.4;
 const beatTime = (k: number): number => t0 + k * scene.interval;
 const specOf = (k: number): BeatSpec | null => (scene.pattern.length ? scene.pattern[k % scene.pattern.length] : null);
 
+const startLane = Math.max(0, Math.min(2, Number(q.get('lane') ?? 1) | 0)) as LaneId;
 const IDLE: PlayerState = {
   height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 1, buffer: 0,
   sliding: false, slideTime: 0, slideAge: 0, pendingSlide: false, lastTap: 'none',
+  lane: startLane, laneFrom: startLane, laneAge: 1,
 };
+const LANE_HAZARD = new Set(['guard', 'drop', 'chaser']);
+const PICKUPS = new Set(['coin', 'shield', 'slow', 'heart']);
+
+/** v5 door schedule: a door every DOOR_EVERY s, alternating between two looks. */
+const DOOR_FIRST = 3.6;
+const DOOR_EVERY = 4.5;
+const LOOKS: readonly Scene[] = [{ world, variant }, { world: ((world + 1) % 4) as WorldId, variant: world === 1 ? 'base' : 'dark' }];
+
+function doorsPassed(t: number): number {
+  return scene.door ? Math.max(0, Math.floor((t - DOOR_FIRST) / DOOR_EVERY) + 1) : 0;
+}
+
+function doorList(t: number): DoorView[] {
+  const kind = scene.door;
+  if (!kind) return [];
+  const out: DoorView[] = [];
+  for (let k = 0; k < 40; k++) {
+    const timeUntil = DOOR_FIRST + k * DOOR_EVERY - t;
+    if (timeUntil > 3) break;
+    if (timeUntil < -1) continue;
+    out.push({ timeUntil, section: k + 1, transition: kind, from: LOOKS[k % 2], to: LOOKS[(k + 1) % 2] });
+  }
+  return out;
+}
 
 interface Sim {
   t: number;
@@ -66,6 +93,10 @@ function control(s: Sim): void {
   const spec = specOf(k);
   if (!spec || !scene.running) return;
   const until = beatTime(k) - s.t;
+  if (spec.lane !== undefined && spec.lane !== s.p.lane && until <= 0.55 && s.p.laneAge >= LANE_SWITCH_TIME) {
+    const to = (s.p.lane + Math.sign(spec.lane - s.p.lane)) as LaneId;
+    s.p = { ...s.p, laneFrom: s.p.lane, lane: to, laneAge: 0 };
+  }
   const p = s.p;
   if (spec.action === 'slide' && p.grounded && !p.sliding && until <= 0.22 && s.acted !== k) {
     s.p = { ...p, sliding: true, slideTime: SLIDE_TIME, slideAge: 0 };
@@ -88,6 +119,7 @@ function control(s: Sim): void {
 }
 
 function physics(s: Sim, dt: number): void {
+  s.p = { ...s.p, laneAge: s.p.laneAge + dt };
   const p = s.p;
   if (p.sliding) {
     const left = p.slideTime - dt;
@@ -102,7 +134,7 @@ function physics(s: Sim, dt: number): void {
   const height = p.height + vy * dt;
   if (height <= 0 && vy < 0) {
     const slide = p.pendingSlide;
-    s.p = { ...IDLE, landTimer: 0, sliding: slide, slideTime: slide ? SLIDE_TIME : 0 };
+    s.p = { ...IDLE, lane: p.lane, laneFrom: p.laneFrom, laneAge: p.laneAge, landTimer: 0, sliding: slide, slideTime: slide ? SLIDE_TIME : 0 };
     fx.burst('dust');
     return;
   }
@@ -114,8 +146,12 @@ function judge(s: Sim): void {
   const spec = specOf(k);
   if (k < 0 || k <= s.judged || !spec || !scene.running) return;
   s.judged = k;
-  if (spec.action === 'none') return;
-  const ok = spec.action === 'jump' ? !s.p.grounded : s.p.sliding;
+  const laneOk = !spec.items.some((i) => LANE_HAZARD.has(i.kind) && i.lanes?.includes(s.p.lane));
+  if (spec.action === 'none') {
+    if (spec.items.some((i) => LANE_HAZARD.has(i.kind)) && laneOk) fx.popup('PERFECT!', 'perfect');
+    return;
+  }
+  const ok = laneOk && (spec.action === 'jump' ? !s.p.grounded : s.p.sliding);
   if (!ok) return;
   s.combo++;
   const perfect = spec.action !== 'jump' || s.p.height >= 40;
@@ -160,7 +196,9 @@ function obstacleList(t: number): VisibleObstacle[] {
     const timeUntil = beatTime(k) - t;
     if (!spec || timeUntil < -0.4 || timeUntil > VISIBLE_LEAD) continue;
     spec.items.forEach((i, idx) => {
-      out.push({ id: `${k}-${idx}`, kind: i.kind, level: i.level, from: i.from, timeUntil, height: heightOf(i.kind, i.level) });
+      const sudden = i.kind === 'drop' || i.kind === 'chaser' || ((i.kind === 'beam' || i.kind === 'high') && i.from === 'back');
+      const lanes = i.lanes ?? (PICKUPS.has(i.kind) ? [1 as LaneId] : null);
+      out.push({ id: `${k}-${idx}`, kind: i.kind, level: i.level, from: i.from, timeUntil, height: heightOf(i.kind, i.level), lanes, sudden });
     });
   }
   return out;
@@ -179,6 +217,7 @@ function laneList(t: number): LaneItem[] {
     out.push({
       beatId: k, timeUntil, kinds: spec.items.map((i) => i.kind), level: jumpy ? spec.level : 0,
       move: spec.move, from: main ? main.from : null,
+      blocked: [...new Set(spec.items.filter((i) => LANE_HAZARD.has(i.kind)).flatMap((i) => i.lanes ?? []))].sort(),
     });
   }
   return out;
@@ -186,8 +225,9 @@ function laneList(t: number): LaneItem[] {
 
 function snapshot(s: Sim): RenderSnapshot {
   const hurt = s.t < s.hurtUntil;
+  const look = LOOKS[doorsPassed(s.t) % 2];
   return {
-    time: s.t, realTime: s.t, world, variant, player: s.p, skin,
+    time: s.t, realTime: s.t, world: look.world, variant: look.variant, player: s.p, skin, doors: doorList(s.t),
     obstacles: obstacleList(s.t), lane: laneList(s.t),
     escort: scene.escort === true || q.get('escort') === '1',
     fever: scene.fever ?? false, feverGauge: scene.fever ? 1 : 0.4,
@@ -236,5 +276,9 @@ function frame(now: number): void {
   if (freezeAt === null) step(sim, dt);
   renderer.render(snapshot(sim));
   requestAnimationFrame(frame);
+
+// QA hook: canvas backing-store bytes (main canvas + corridor tiles + sprites + overlays)
+(window as unknown as { __mem: () => unknown }).__mem = () =>
+  (renderer as unknown as { memoryBytes(): unknown }).memoryBytes();
 }
 requestAnimationFrame(frame);

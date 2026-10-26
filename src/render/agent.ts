@@ -1,7 +1,7 @@
 // The chibi spy agent (side view, running right): run cycle, jump (2단 tuck, 3단 spin),
 // dive (fast fall), slide (low lean-back + dust), land squash, idle, hurt. Also used for
 // the escorted prisoner.
-import { GROUND_Y, type Mood, type PlayerState } from '../types';
+import { type Mood, type PlayerState } from '../types';
 import { drawAgentHead } from './agent-heads';
 import { lookFor, type AgentLook, type LookId } from './skins';
 import { circle, clamp, oval, roundRect, TAU, vGrad, type Ctx } from './util';
@@ -21,9 +21,14 @@ export interface AgentFrame {
   readonly running: boolean;
   readonly blink: boolean;
   readonly torch: boolean;
+  /** final drawing scale (art scale × lane depth scale) */
   readonly scale: number;
-  /** small upward offset = further back (escort depth) */
-  readonly yOff: number;
+  /** screen y of the floor under the figure (its lane's floor line) */
+  readonly floorY: number;
+  /** lane depth scale, applied to the jump height */
+  readonly depth: number;
+  /** radians of lean while switching lanes */
+  readonly lean: number;
 }
 
 function limb(ctx: Ctx, color: string, x0: number, y0: number, cx: number, cy: number, x1: number, y1: number, w: number): void {
@@ -110,10 +115,11 @@ export class AgentPainter {
   private prevLevel = 0;
   private spinStart = -1;
 
-  shadow(ctx: Ctx, x: number, height: number, sliding: boolean, scale: number): void {
+  /** Contact shadow on the floor plane (floorY = the lane's floor line). */
+  shadow(ctx: Ctx, x: number, floorY: number, height: number, sliding: boolean, scale: number): void {
     const f = scale / (1 + height / 60);
-    ctx.fillStyle = `rgba(5,4,12,${(0.38 * f).toFixed(3)})`;
-    oval(ctx, x + (sliding ? -4 : 0), GROUND_Y + 9, (sliding ? 26 : 16) * f, 4.2 * f);
+    ctx.fillStyle = `rgba(5,4,12,${(0.4 * Math.min(1, f)).toFixed(3)})`;
+    oval(ctx, x + (sliding ? -4 * scale : 0), floorY + 1.5, (sliding ? 24 : 15) * f, 4.4 * f);
     ctx.fill();
   }
 
@@ -124,7 +130,8 @@ export class AgentPainter {
     this.prevLevel = p.level;
     const L = lookFor(f.id);
     ctx.save();
-    ctx.translate(f.x, GROUND_Y - p.height - f.yOff);
+    ctx.translate(f.x, f.floorY - p.height * f.depth);
+    if (f.lean !== 0) ctx.rotate(f.lean);
     ctx.scale(f.scale, f.scale);
     if (f.blink && Math.sin(t * 30) > 0) ctx.globalAlpha = 0.35;
     if (f.mood === 'hurt') ctx.translate(Math.sin(t * 70) * 1.5, 0);

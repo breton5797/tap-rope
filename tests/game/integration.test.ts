@@ -134,6 +134,7 @@ describe('feedback', () => {
     expect(d.audio.sfx).toHaveBeenCalledWith('door');
     expect(vi.mocked(d.audio.sfx).mock.calls.filter((c) => c[0] === 'lane')).toHaveLength(1);
     expect(d.fx.popup).toHaveBeenCalledWith('레인을 바꿔! ↑↓', 'miss');
+    expect(d.fx.shake).toHaveBeenCalledWith(0.12); // the edge-lane bump
   });
 
   it('taps, moves, pickups, fever, combo and end events', () => {

@@ -1,18 +1,26 @@
-// LASER ESCAPE canvas renderer (v4, side-scrolling corridor). Public entry: createRenderer(canvas).
-import { GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, type EffectsApi, type Renderer, type RenderSnapshot } from '../types';
+// LASER ESCAPE canvas renderer (v5, 2.5D three-lane corridor). Public entry: createRenderer(canvas).
+// Painter's order: background (+ door transition) → door back → for each lane far→near:
+// [sheet half behind the lane centre, lane hazards, pickups/drones, escort, agent, sheet half in
+// front] → door front → fog/alarm → "!" warnings → effects → rhythm lane HUD.
+import {
+  GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, SCROLL_SPEED, type EffectsApi, type PlayerState, type Renderer, type RenderSnapshot,
+} from '../types';
 import { AgentPainter } from './agent';
 import { Corridor } from './corridor';
-import { AGENT_SCALE } from './layout';
 import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
+import { activeTransition, drawBackground, drawDoorBack, drawDoorFront, drawDoorSign, nextDoor, wantedScenes } from './doors';
 import { Effects } from './effects';
 import { EscortPainter } from './escort';
 import { drawGadgets } from './gadgets';
+import { drawLaneHazards } from './hazards';
 import { drawLane } from './lane';
-import { drawLasers } from './lasers';
+import { drawLaserSeg, drawLaserWarnings } from './lasers';
+import { AGENT_SCALE, depthScale, laneLean, laneY, projX, visualLane } from './layout';
 import { Overlays } from './overlays';
 import { SpriteCache } from './sprites';
 import type { Ctx } from './util';
 import { computeView, type View } from './view';
+import { drawWarnings } from './warnings';
 
 class CanvasRenderer implements Renderer {
   private readonly ctx: Ctx;
@@ -42,19 +50,32 @@ class CanvasRenderer implements Renderer {
     this.applyView();
   }
 
+  /** Debug: backing-store bytes of the main canvas and every cache (preview harness / QA). */
+  memoryBytes(): { main: number; corridor: number; sprites: number; other: number } {
+    return {
+      main: this.canvas.width * this.canvas.height * 4,
+      corridor: this.corridor.bytes(),
+      sprites: this.sprites.bytes(),
+      other: this.darkness.bytes() + this.overlays.bytes(),
+    };
+  }
+
   render(snap: RenderSnapshot): void {
     const { ctx, view: v, effects: fx } = this;
+    const p = snap.player;
+    const lane = visualLane(p);
+    const depth = depthScale(lane);
     fx.reduced = snap.reducedMotion;
     fx.anchorX = PLAYER_X;
-    fx.feetY = GROUND_Y - snap.player.height;
-    fx.bodyLift = snap.player.sliding ? 14 : 34;
+    fx.feetY = laneY(lane) - p.height * depth;
+    fx.bodyLift = (p.sliding ? 14 : 34) * depth;
     const k = v.k;
     const tx = v.ox * v.dpr;
     const ty = v.oy * v.dpr;
     ctx.setTransform(k, 0, 0, k, tx + fx.shakeX() * k, ty + fx.shakeY() * k);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    this.drawWorld(ctx, v, snap);
+    this.drawWorld(ctx, v, snap, lane);
     fx.drawWorld(ctx);
     if (snap.fever) this.overlays.fever(ctx, v, snap.realTime, snap.reducedMotion);
     if (snap.slowMo) this.overlays.slowMo(ctx, v, snap.realTime);
@@ -63,34 +84,70 @@ class CanvasRenderer implements Renderer {
     fx.drawFlash(ctx, v);
   }
 
-  private drawWorld(ctx: Ctx, v: View, snap: RenderSnapshot): void {
+  private drawWorld(ctx: Ctx, v: View, snap: RenderSnapshot, lane: number): void {
     const t = snap.realTime;
     const variant = snap.variant ?? 'base';
     const reduced = snap.reducedMotion;
+    const doors = snap.doors ?? [];
+    const scene = { world: snap.world, variant };
+    const next = nextDoor(doors);
+    this.corridor.sync(v, wantedScenes(scene, doors), snap.scroll + (next ? next.timeUntil * SCROLL_SPEED : 0));
     // reduced motion freezes decorative corridor animation (top-band fans, status LEDs)
-    this.corridor.draw(ctx, v, snap.world, variant, snap.scroll, reduced ? 0 : t);
+    const off = drawBackground(ctx, v, this.corridor, scene, doors, snap.scroll, reduced ? 0 : t, reduced);
+    this.corridor.endFrame();
+    const tr = activeTransition(doors);
+    // variant layers belong to the incoming scene: fade them in with the transition
+    ctx.globalAlpha = tr ? tr.p : 1;
     if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
     if (variant === 'steam') {
       fog(ctx, v, snap.scroll, t, this.sprites, 0.34);
       steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced);
     }
-    if (variant === 'dark') this.darkness.draw(ctx, v, snap.player.height);
-    drawLasers(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced);
-    drawGadgets(ctx, snap.obstacles, t, this.sprites);
-    if (snap.escort) this.escort.draw(ctx, snap.player, t, snap.time, snap.scroll, snap.running);
-    this.drawAgent(ctx, snap, variant === 'dark');
+    ctx.globalAlpha = 1;
+    ctx.globalAlpha = tr ? tr.p : 1;
+    if (variant === 'dark') this.darkness.draw(ctx, v, GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane)));
+    ctx.globalAlpha = 1;
+    for (const d of doors) drawDoorBack(ctx, d, off);
+    this.drawLanes(ctx, v, snap, lane);
+    for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
     if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.12);
     if (variant === 'alarm') alarmWash(ctx, v, reduced ? 0 : t);
+    drawLaserWarnings(ctx, v, snap.obstacles, t, snap.fever, reduced, Math.round(lane));
+    drawWarnings(ctx, v, snap.obstacles, lane, t, this.sprites, reduced);
+    for (const d of doors) drawDoorSign(ctx, v, d, reduced ? 0 : t);
   }
 
-  private drawAgent(ctx: Ctx, snap: RenderSnapshot, torch: boolean): void {
-    const p = snap.player;
-    this.agent.shadow(ctx, PLAYER_X, p.height, p.sliding, AGENT_SCALE);
+  /** Far lane first; each lane: sheets behind its centre, figures, sheets in front of it. */
+  private drawLanes(ctx: Ctx, v: View, snap: RenderSnapshot, lane: number): void {
+    const t = snap.realTime;
+    const reduced = snap.reducedMotion;
+    const escortState = snap.escort ? this.escort.update(snap.player, t, snap.time) : null;
+    const escortLane = escortState ? Math.round(visualLane(escortState)) : -1;
+    const agentLane = Math.round(lane);
+    for (let l = 0; l < 3; l++) {
+      drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, l === 0 ? -1 : l - 0.5, l);
+      drawLaneHazards(ctx, v, snap.obstacles, l, t, this.sprites, reduced);
+      drawGadgets(ctx, snap.obstacles, t, this.sprites, l);
+      if (escortState && escortLane === l) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running);
+      if (agentLane === l) this.drawAgent(ctx, snap, lane, snap.variant === 'dark');
+      drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, l, l === 2 ? 3 : l + 0.5);
+    }
+  }
+
+  private drawAgent(ctx: Ctx, snap: RenderSnapshot, lane: number, torch: boolean): void {
+    const p: PlayerState = snap.player;
+    const depth = depthScale(lane);
+    const floorY = laneY(lane);
+    const x = projX(PLAYER_X, lane);
+    this.agent.shadow(ctx, x, floorY, p.height, p.sliding, AGENT_SCALE * depth);
     this.agent.draw(ctx, {
-      x: PLAYER_X, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
-      running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE, yOff: 0,
+      x, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
+      running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE * depth, floorY, depth,
+      lean: snap.reducedMotion ? 0 : laneLean(p),
     });
-    if (snap.shield) this.overlays.shield(ctx, PLAYER_X, GROUND_Y - p.height - (p.sliding ? 18 : 34), snap.realTime);
+    if (snap.shield) {
+      this.overlays.shield(ctx, x, floorY - p.height * depth - (p.sliding ? 18 : 34) * depth, snap.realTime);
+    }
   }
 
   private applyView(): void {

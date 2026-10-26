@@ -1,7 +1,9 @@
 // Rhythm-lane glyphs for LASER ESCAPE. Shapes stay distinct without colour:
 // circle = floor laser, rounded square = flying beam stack (numeral = level),
 // hexagon-ish = slide hazards (with ↓), drone glyph, pickups in bubbles.
-import type { LaserFrom, MoveId } from '../types';
+// v5 lane hazards (dodge by changing lane) are ORANGE: shield = guard, ▼ = drop, ◆ = chaser;
+// a mini 3-lane marker beside the icon shows the blocked lanes (red) and the safe ones (green).
+import type { LaneId, LaserFrom, MoveId } from '../types';
 import { bubble, clockIcon, coinFace, heartIcon, shieldIcon } from './icons';
 import { blitScaled, type SpriteCache } from './sprites';
 import { circle, FONT, LEVEL_DARK, LEVEL_FILL, LEVEL_LIGHT, outlinedText, radGrad, roundRect, type Ctx } from './util';
@@ -118,6 +120,134 @@ export function droneIcon(ctx: Ctx): void {
   ctx.stroke();
 }
 
+const LANE_LIGHT = '#FFD2A8';
+const LANE_MID = '#FF8A3D';
+const LANE_DARK = '#9A3E0A';
+
+function robotFace(ctx: Ctx, y: number): void {
+  ctx.fillStyle = '#2A2F3E';
+  roundRect(ctx, -7, y - 4, 14, 8, 4);
+  ctx.fill();
+  ctx.fillStyle = '#FF3358';
+  for (const x of [-3, 3]) {
+    circle(ctx, x, y, 1.9);
+    ctx.fill();
+  }
+}
+
+/** guard: orange shield badge with a red-eyed robot visor */
+export function guardIcon(ctx: Ctx): void {
+  const path = (r: number): void => {
+    ctx.beginPath();
+    ctx.moveTo(-r, -r + 2);
+    ctx.quadraticCurveTo(0, -r - 3, r, -r + 2);
+    ctx.lineTo(r, 1);
+    ctx.quadraticCurveTo(r * 0.7, r * 0.8, 0, r + 2);
+    ctx.quadraticCurveTo(-r * 0.7, r * 0.8, -r, 1);
+    ctx.closePath();
+  };
+  ctx.fillStyle = LANE_DARK;
+  path(R + 1.5);
+  ctx.fill();
+  ctx.fillStyle = radGrad(ctx, -4, -5, 1, R * 1.4, [[0, LANE_LIGHT], [0.55, LANE_MID], [1, LANE_DARK]]);
+  path(R);
+  ctx.fill();
+  ctx.fillStyle = '#D5DCEA';
+  roundRect(ctx, -8, -8, 16, 15, 6);
+  ctx.fill();
+  robotFace(ctx, -2);
+  ctx.fillStyle = '#FFC93C';
+  ctx.fillRect(-8, 3, 16, 2.4);
+}
+
+/** drop: orange ▼ with a little crate */
+export function dropIcon(ctx: Ctx): void {
+  const tri = (r: number): void => {
+    ctx.beginPath();
+    ctx.moveTo(-r - 2, -r + 1);
+    ctx.lineTo(r + 2, -r + 1);
+    ctx.lineTo(0, r + 3);
+    ctx.closePath();
+  };
+  ctx.lineJoin = 'round';
+  ctx.fillStyle = LANE_DARK;
+  tri(R + 1.5);
+  ctx.fill();
+  ctx.fillStyle = radGrad(ctx, -4, -6, 1, R * 1.4, [[0, LANE_LIGHT], [0.55, LANE_MID], [1, LANE_DARK]]);
+  tri(R);
+  ctx.fill();
+  ctx.fillStyle = '#FFC93C';
+  roundRect(ctx, -6, -9, 12, 10, 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7A3A10';
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-6, -9);
+  ctx.lineTo(6, 1);
+  ctx.moveTo(6, -9);
+  ctx.lineTo(-6, 1);
+  ctx.stroke();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, 3);
+  ctx.lineTo(0, 9);
+  ctx.stroke();
+}
+
+/** chaser: orange diamond with a pursuit-drone eye and speed lines */
+export function chaserIcon(ctx: Ctx): void {
+  const dia = (r: number): void => {
+    ctx.beginPath();
+    ctx.moveTo(0, -r - 1);
+    ctx.lineTo(r + 1, 0);
+    ctx.lineTo(0, r + 1);
+    ctx.lineTo(-r - 1, 0);
+    ctx.closePath();
+  };
+  ctx.lineJoin = 'round';
+  ctx.fillStyle = LANE_DARK;
+  dia(R + 2.5);
+  ctx.fill();
+  ctx.fillStyle = radGrad(ctx, -4, -5, 1, R * 1.4, [[0, LANE_LIGHT], [0.55, LANE_MID], [1, LANE_DARK]]);
+  dia(R + 1);
+  ctx.fill();
+  ctx.fillStyle = '#4A3480';
+  circle(ctx, 2, 0, 7);
+  ctx.fill();
+  ctx.fillStyle = '#FFFFFF';
+  circle(ctx, 3.5, 0, 3.6);
+  ctx.fill();
+  ctx.fillStyle = '#FF3358';
+  circle(ctx, 4.5, 0.3, 2.1);
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const y of [-3, 3]) {
+    ctx.moveTo(-11, y);
+    ctx.lineTo(-6, y);
+  }
+  ctx.stroke();
+}
+
+/** Mini 3-lane marker (top = far lane): red = blocked, green = safe. (x, y) = its centre. */
+export function drawLaneMarker(ctx: Ctx, blocked: readonly LaneId[], x: number, y: number, s: number): void {
+  const pip = 4.6 * s;
+  const gap = 1.4 * s;
+  ctx.fillStyle = 'rgba(14,16,40,0.85)';
+  roundRect(ctx, x - pip / 2 - 1.6 * s, y - pip * 1.5 - gap - 1.6 * s, pip + 3.2 * s, pip * 3 + gap * 2 + 3.2 * s, 2.6 * s);
+  ctx.fill();
+  for (let l = 0; l < 3; l++) {
+    ctx.fillStyle = blocked.includes(l as LaneId) ? '#FF3358' : '#3DDC97';
+    roundRect(ctx, x - pip / 2, y - pip * 1.5 - gap + l * (pip + gap), pip, pip, 1.4 * s);
+    ctx.fill();
+  }
+}
+
 export function pickupIcon(ctx: Ctx, kind: number): void {
   bubble(ctx, 11.5, 'rgba(255,255,255,0.18)');
   if (kind === 0) coinFace(ctx, 8.5);
@@ -126,7 +256,22 @@ export function pickupIcon(ctx: Ctx, kind: number): void {
   else heartIcon(ctx, 7);
 }
 
-const CHIPS: readonly MoveId[] = ['gate', 'pulse', 'rear'];
+const CHIPS: readonly MoveId[] = ['gate', 'pulse', 'rear', 'lane', 'drop', 'chaser', 'lanejump'];
+
+function upDown(ctx: Ctx, x: number, h: number): void {
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, -h);
+  ctx.lineTo(x, h);
+  ctx.moveTo(x - 2.6, -h + 2.6);
+  ctx.lineTo(x, -h);
+  ctx.lineTo(x + 2.6, -h + 2.6);
+  ctx.moveTo(x - 2.6, h - 2.6);
+  ctx.lineTo(x, h);
+  ctx.lineTo(x + 2.6, h - 2.6);
+  ctx.stroke();
+}
 const CHIP_KEYS = CHIPS.map((m) => `chip-${m}`);
 
 function chipSprite(ctx: Ctx, idx: number): void {
@@ -154,9 +299,27 @@ function chipSprite(ctx: Ctx, idx: number): void {
     ctx.fillRect(-4.5, -4.5, 2, 9);
     ctx.fillRect(2.5, -4.5, 2, 9);
     ctx.fillRect(-4.5, -1, 9, 2);
-  } else {
+  } else if (m === 'rear') {
     ctx.beginPath();
     ctx.arc(0, 0.5, 3.8, -Math.PI * 0.2, Math.PI * 1.35);
+    ctx.stroke();
+  } else if (m === 'lane') {
+    upDown(ctx, 0, 4.8);
+  } else if (m === 'drop' || m === 'chaser') {
+    // sudden attacks: "!" (chaser adds a dash mark)
+    ctx.fillStyle = '#FF3358';
+    ctx.fillRect(m === 'chaser' ? 0.2 : -1.1, -5, 2.2, 6.4);
+    ctx.fillRect(m === 'chaser' ? 0.2 : -1.1, 2.6, 2.2, 2.2);
+    if (m === 'chaser') {
+      ctx.fillStyle = INK;
+      ctx.fillRect(-5, -2.2, 3.6, 1.6);
+      ctx.fillRect(-5.6, 1, 3.6, 1.6);
+    }
+  } else {
+    // lanejump: ↕ plus a hop arc
+    upDown(ctx, -2.2, 4.8);
+    ctx.beginPath();
+    ctx.arc(3.2, 3.4, 2.8, Math.PI, 0);
     ctx.stroke();
   }
 }
