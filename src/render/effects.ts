@@ -21,6 +21,9 @@ export class Effects implements EffectsApi {
   feetY = GROUND_Y;
   /** px from the feet up to the body centre */
   bodyLift = 34;
+  /** where a full-width laser at the agent crosses its lane this frame (x < 0 = none) */
+  contactX = -1;
+  contactY = 0;
   private n = 0;
   private readonly px = new Float32Array(CAP);
   private readonly py = new Float32Array(CAP);
@@ -55,15 +58,19 @@ export class Effects implements EffectsApi {
       case 'coin':
         this.ringAt(bx, by, 18, C.amber);
         return this.radial(bx, by, Math.round(6 * k), Shape.Spark, C.amber, C.pale, 60, 140, 0.3);
-      case 'hit':
-        this.zaps.add(bx, by);
+      case 'hit': {
+        // sparks fly where the laser crosses the agent's lane (if one is there), else at the body
+        const hx = x === undefined && this.contactX >= 0 ? this.contactX : bx;
+        const hy = x === undefined && this.contactX >= 0 ? this.contactY : by;
+        this.zaps.add(hx, hy);
         this.hitAge = 0;
         if (!this.reduced) {
           this.flashColor = '#FF2A3A';
           this.flashAlpha = Math.max(this.flashAlpha, 0.32);
         }
-        this.ringAt(bx, by, 30, C.red);
-        return this.radial(bx, by, Math.round(16 * k), Shape.Spark, C.orange, C.pale, 160, 360, 0.35, 500);
+        this.ringAt(hx, hy, 30, C.red);
+        return this.radial(hx, hy, Math.round(16 * k), Shape.Spark, C.orange, C.pale, 160, 360, 0.35, 500);
+      }
       case 'powerup':
         this.ringAt(bx, by, 36, C.teal);
         return this.radial(bx, by, Math.round(10 * k), Shape.Spark, C.teal, C.white, 60, 140, 0.45, -60);

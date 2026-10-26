@@ -44,6 +44,13 @@ export class PopupPool {
   /** playerTop: logical y of the top of the player's head when the popup spawns */
   add(text: string, style: PopupStyle, playerTop: number): void {
     const def = STYLES[style];
+    // the same text fired again within a moment (e.g. two beats judged together): refresh, don't stack
+    for (const p of this.items) {
+      if (p.active && p.text === text && p.style === style && p.age < 0.2) {
+        p.age = 0;
+        return;
+      }
+    }
     let slot = this.items.find((p) => !p.active);
     if (!slot) slot = this.items.reduce((a, b) => (a.age > b.age ? a : b));
     for (const p of this.items) if (p.active && STYLES[p.style].group === def.group) p.bump += def.size + 4;
@@ -54,6 +61,11 @@ export class PopupPool {
     slot.bump = 0;
     slot.y0 = Math.min(STYLES.perfect.baseY, playerTop - 34) - (STYLES.perfect.baseY - def.baseY);
     slot.active = true;
+    // older popups of the group must sit fully above the new one (spawn heights differ when airborne)
+    for (const p of this.items) {
+      if (p === slot || !p.active || STYLES[p.style].group !== def.group) continue;
+      p.bump = Math.max(p.bump, p.y0 - slot.y0 + def.size + 4);
+    }
   }
 
   update(dt: number): void {

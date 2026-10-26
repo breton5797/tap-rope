@@ -157,7 +157,7 @@ export function photoFloor(ctx: Ctx, img: Photo, bottom: number, theme: number):
   // apron in front of the lanes: the same floor continues toward the camera (fills tall screens),
   // falling off into shadow, behind a worn painted edge line
   for (let y = front; y < bottom; y += front - back) ctx.drawImage(img, 0, y, FLOOR_PW, front - back);
-  ctx.fillStyle = vGrad(ctx, front, bottom, [[0, 'rgba(0,0,0,0.25)'], [0.45, 'rgba(0,0,0,0.6)'], [1, 'rgba(0,0,0,0.88)']]);
+  ctx.fillStyle = vGrad(ctx, front, bottom, [[0, 'rgba(0,0,0,0.12)'], [0.5, 'rgba(0,0,0,0.32)'], [1, 'rgba(0,0,0,0.55)']]);
   ctx.fillRect(0, front, FLOOR_PW, bottom - front);
   ctx.fillStyle = 'rgba(255,176,32,0.32)';
   ctx.fillRect(0, front - 1, FLOOR_PW, 2);

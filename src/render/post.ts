@@ -14,6 +14,8 @@ const SHAFT_W = 96;
 const MOTES = 26;
 /** seconds the hit chromatic split lasts (~7 frames at 60fps) */
 const CHROMA_TIME = 0.12;
+/** seconds the red hit edge lasts */
+const HIT_EDGE_TIME = 0.5;
 
 const moteX = new Float32Array(MOTES);
 const moteY = new Float32Array(MOTES);
@@ -51,6 +53,7 @@ const WORLD_GRADE: Readonly<Record<Variant, readonly [string, number]>> = {
 export class Post {
   private key = '';
   private vignette: HTMLCanvasElement | null = null;
+  private hitEdgeCanvas: HTMLCanvasElement | null = null;
   private grain: HTMLCanvasElement | null = null;
   private pattern: CanvasPattern | null = null;
   private readonly shaftByTint = new Map<string, HTMLCanvasElement>();
@@ -58,7 +61,7 @@ export class Post {
 
   bytes(): number {
     let b = 0;
-    for (const c of [this.vignette, this.grain, ...this.shaftByTint.values()]) if (c) b += c.width * c.height * 4;
+    for (const c of [this.vignette, this.hitEdgeCanvas, this.grain, ...this.shaftByTint.values()]) if (c) b += c.width * c.height * 4;
     return b;
   }
 
@@ -135,6 +138,17 @@ export class Post {
   }
 
   /**
+   * Red screen-edge vignette after a hit: flares in and decays over HIT_EDGE_TIME. With reduced
+   * motion it is a static dim red edge for the same time (no flash).
+   */
+  hitEdge(ctx: Ctx, v: View, hitAge: number, reduced: boolean): void {
+    if (hitAge > HIT_EDGE_TIME || !this.hitEdgeCanvas) return;
+    ctx.globalAlpha = reduced ? 0.35 : 0.9 * (1 - hitAge / HIT_EDGE_TIME) ** 1.5;
+    ctx.drawImage(this.hitEdgeCanvas, v.x0, v.y0, v.w, v.h);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
    * Brief chromatic split right after a hit, kept cheap: for ~7 frames only the box around the
    * agent is re-drawn shifted (additive) and tinted red — not the whole frame.
    */
@@ -165,6 +179,8 @@ export class Post {
     this.key = v.key;
     releaseCanvas(this.vignette);
     this.vignette = this.buildVignette(v);
+    releaseCanvas(this.hitEdgeCanvas);
+    this.hitEdgeCanvas = buildEdge(v);
     if (!this.grain) {
       this.grain = buildGrain();
     }
@@ -175,7 +191,7 @@ export class Post {
     const { canvas, ctx } = makeCanvas(v.w * VIGNETTE_RES, v.h * VIGNETTE_RES);
     ctx.setTransform(VIGNETTE_RES, 0, 0, VIGNETTE_RES, -v.x0 * VIGNETTE_RES, -v.y0 * VIGNETTE_RES);
     const cx = PLAYER_X + 70;
-    const cy = 400;
+    const cy = 440;
     const r = Math.max(v.w, v.h) * 0.72;
     const g = ctx.createRadialGradient(cx, cy, r * 0.32, cx, cy, r);
     g.addColorStop(0, 'rgba(0,0,0,0)');
@@ -232,5 +248,21 @@ function buildShaft(tint: string): HTMLCanvasElement {
     ctx.fillStyle = e;
     ctx.fillRect(Math.min(x0, x1), 0, Math.abs(x1 - x0), h);
   }
+  return canvas;
+}
+
+/** Red edge vignette (low resolution, stretched): clear centre, red toward every screen edge. */
+function buildEdge(v: View): HTMLCanvasElement {
+  const { canvas, ctx } = makeCanvas(v.w * VIGNETTE_RES, v.h * VIGNETTE_RES);
+  ctx.setTransform(VIGNETTE_RES, 0, 0, VIGNETTE_RES, -v.x0 * VIGNETTE_RES, -v.y0 * VIGNETTE_RES);
+  const cx = v.x0 + v.w / 2;
+  const cy = v.y0 + v.h / 2;
+  const r = Math.hypot(v.w, v.h) / 2;
+  const g = ctx.createRadialGradient(cx, cy, r * 0.62, cx, cy, r);
+  g.addColorStop(0, 'rgba(255,30,45,0)');
+  g.addColorStop(0.5, 'rgba(255,30,45,0.18)');
+  g.addColorStop(1, 'rgba(200,10,25,0.8)');
+  ctx.fillStyle = g;
+  ctx.fillRect(v.x0, v.y0, v.w, v.h);
   return canvas;
 }

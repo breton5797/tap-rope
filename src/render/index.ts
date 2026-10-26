@@ -18,7 +18,7 @@ import { EscortPainter } from './escort';
 import { drawGadgets } from './gadgets';
 import { drawLaneHazards } from './hazards';
 import { drawLane } from './lane';
-import { drawLaserSeg, drawLaserWarnings } from './lasers';
+import { drawLaserSeg, drawLaserWarnings, laserContact } from './lasers';
 import { AGENT_SCALE, depthScale, laneLean, laneY, projX, visualLane } from './layout';
 import { Overlays } from './overlays';
 import { Post } from './post';
@@ -101,6 +101,9 @@ class CanvasRenderer implements Renderer {
     fx.anchorX = PLAYER_X;
     fx.feetY = laneY(lane) - p.height * depth;
     fx.bodyLift = (p.sliding ? 18 : 48) * depth;
+    const c = laserContact(snap.obstacles, lane, p.height);
+    fx.contactX = c ? c.x : -1;
+    fx.contactY = c ? c.y : 0;
     const k = v.k;
     const tx = v.ox * v.dpr;
     const ty = v.oy * v.dpr;
@@ -113,6 +116,7 @@ class CanvasRenderer implements Renderer {
     if (snap.slowMo) this.overlays.slowMo(ctx, v, snap.realTime);
     ctx.setTransform(k, 0, 0, k, tx, ty);
     this.post.finish(ctx, v, snap.reducedMotion);
+    this.post.hitEdge(ctx, v, fx.hitAge, snap.reducedMotion);
     this.post.chromatic(ctx, this.canvas, v, PLAYER_X, fx.feetY, fx.hitAge, snap.reducedMotion);
     drawLane(ctx, snap.lane, snap.realTime, this.sprites);
     fx.drawFlash(ctx, v);
