@@ -1,19 +1,18 @@
-// Pooled particles, shockwave rings, text popups, screen shake and flash.
+// Pooled particles (dust, sparks), impact rings, text popups, screen shake, flash and the hit
+// timer the post pass uses for its brief chromatic split (GDD-v6 §4). No stars or confetti.
 import { GROUND_Y, PLAYER_X, type BurstKind, type EffectsApi, type PopupStyle } from '../types';
 import { drawPopups, PopupPool } from './popups';
 import { ZapPool } from './zaps';
-import { clamp, starPath, TAU, type Ctx } from './util';
+import { clamp, TAU, type Ctx } from './util';
 import type { View } from './view';
 
 const CAP = 300;
 const RING_CAP = 12;
-const Shape = { Puff: 0, Star: 1, Rect: 2 } as const;
+/** Puff = soft dust; Spark = short additive streak along its velocity */
+const Shape = { Puff: 0, Spark: 1 } as const;
 
-const COLORS = [
-  '#FFFFFF', '#FFE27A', '#FFC23D', '#FF5E5B', '#FF9F6B', '#3DDC97', '#4D96FF', '#B98CFF', '#FF7EC7', '#E8DCC8', '#9AF0FF',
-];
-const C = { white: 0, gold: 1, amber: 2, red: 3, orange: 4, mint: 5, blue: 6, purple: 7, pink: 8, dust: 9, cyan: 10 } as const;
-const CONFETTI = [C.red, C.gold, C.mint, C.blue, C.purple, C.pink];
+const COLORS = ['#FFFFFF', '#FFD08A', '#FFB020', '#FF2A3A', '#FF8A3A', '#3FE0D0', '#8A857E', '#C8CED4'];
+const C = { white: 0, pale: 1, amber: 2, red: 3, orange: 4, teal: 5, dust: 6, steel: 7 } as const;
 
 export class Effects implements EffectsApi {
   reduced = false;
@@ -52,26 +51,28 @@ export class Effects implements EffectsApi {
     const k = this.reduced ? 0.4 : 1;
     switch (kind) {
       case 'dust': return this.dust(bx, by, k);
-      case 'sparkle': return this.radial(bx, by, Math.round(14 * k), Shape.Star, C.gold, C.white, 90, 200, 0.65);
+      case 'sparkle': return this.radial(bx, by, Math.round(6 * k), Shape.Spark, C.teal, C.white, 80, 160, 0.3);
       case 'coin':
-        this.ringAt(bx, by, 26, C.gold);
-        return this.radial(bx, by, Math.round(12 * k), Shape.Star, C.gold, C.amber, 70, 170, 0.55);
+        this.ringAt(bx, by, 18, C.amber);
+        return this.radial(bx, by, Math.round(6 * k), Shape.Spark, C.amber, C.pale, 60, 140, 0.3);
       case 'hit':
         this.zaps.add(bx, by);
-        this.ringAt(bx, by, 40, C.cyan);
-        return this.radial(bx, by, Math.round(16 * k), Shape.Star, C.cyan, C.white, 140, 300, 0.45, 300);
+        this.hitAge = 0;
+        if (!this.reduced) {
+          this.flashColor = '#FF2A3A';
+          this.flashAlpha = Math.max(this.flashAlpha, 0.32);
+        }
+        this.ringAt(bx, by, 30, C.red);
+        return this.radial(bx, by, Math.round(16 * k), Shape.Spark, C.orange, C.pale, 160, 360, 0.35, 500);
       case 'powerup':
-        this.ringAt(bx, by, 46, C.cyan);
-        return this.radial(bx, by, Math.round(18 * k), Shape.Star, C.cyan, C.white, 60, 160, 0.9, -120);
-      case 'confetti': return this.confetti(bx, by, Math.round(44 * k));
+        this.ringAt(bx, by, 36, C.teal);
+        return this.radial(bx, by, Math.round(10 * k), Shape.Spark, C.teal, C.white, 60, 140, 0.45, -60);
+      case 'confetti': return this.shower(bx, by, Math.round(26 * k));
     }
   }
 
-  /** Low-cost emitter used for the fever rope trail. */
-  sparkleAt(x: number, y: number): void {
-    if (this.reduced) return;
-    this.spawn(x, y, (Math.random() - 0.5) * 30, -20 - Math.random() * 40, 0.5, 1.5 + Math.random() * 2, Shape.Star, Math.random() < 0.5 ? C.white : C.gold, 0);
-  }
+  /** seconds since the last hit burst (drives the post pass's chromatic split) */
+  hitAge = 9;
 
   popup(text: string, style: PopupStyle): void {
     this.popups.add(text, style, this.feetY - 80);
@@ -85,12 +86,13 @@ export class Effects implements EffectsApi {
   flash(color: string): void {
     if (this.reduced) return;
     this.flashColor = color;
-    this.flashAlpha = 0.55;
+    this.flashAlpha = Math.max(this.flashAlpha, 0.3);
   }
 
   update(dt: number): void {
     const d = clamp(dt, 0, 0.1);
     this.clock += d;
+    this.hitAge += d;
     this.shakeAmp *= Math.exp(-d * 9);
     if (this.shakeAmp < 0.05) this.shakeAmp = 0;
     this.flashAlpha = Math.max(0, this.flashAlpha - d * 2.6);
@@ -139,11 +141,12 @@ export class Effects implements EffectsApi {
     }
   }
 
-  private confetti(x: number, y: number, n: number): void {
+  /** Clear / celebration: a restrained shower of amber and teal sparks rising and falling. */
+  private shower(x: number, y: number, n: number): void {
     for (let i = 0; i < n; i++) {
-      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
-      const sp = 220 + Math.random() * 260;
-      this.spawn(x + (Math.random() - 0.5) * 60, y, Math.cos(a) * sp, Math.sin(a) * sp, 1.4 + Math.random() * 0.6, 3 + Math.random() * 2.5, Shape.Rect, CONFETTI[i % CONFETTI.length], 420);
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6;
+      const sp = 180 + Math.random() * 220;
+      this.spawn(x + (Math.random() - 0.5) * 50, y, Math.cos(a) * sp, Math.sin(a) * sp, 0.8 + Math.random() * 0.5, 2, Shape.Spark, i % 2 ? C.amber : C.teal, 420);
     }
   }
 
@@ -212,25 +215,29 @@ export class Effects implements EffectsApi {
     for (let i = 0; i < this.n; i++) {
       const f = this.life[i] / this.max[i];
       const s = this.size[i];
-      ctx.fillStyle = COLORS[this.color[i]];
       if (this.shape[i] === Shape.Puff) {
-        ctx.globalAlpha = f * 0.75;
+        ctx.fillStyle = COLORS[this.color[i]];
+        ctx.globalAlpha = f * 0.45;
         ctx.beginPath();
         ctx.arc(this.px[i], this.py[i], s * (1.8 - f), 0, TAU);
         ctx.fill();
-      } else if (this.shape[i] === Shape.Star) {
-        ctx.globalAlpha = Math.min(1, f * 1.6);
-        starPath(ctx, this.px[i], this.py[i], s * (0.6 + f * 0.6) * 1.4, s * 0.35, 4);
-        ctx.fill();
-      } else {
-        ctx.globalAlpha = Math.min(1, f * 2);
-        ctx.save();
-        ctx.translate(this.px[i], this.py[i]);
-        ctx.rotate(this.rot[i]);
-        ctx.fillRect(-s, -s * 0.45, s * 2, s * 0.9 * Math.abs(Math.cos(this.rot[i] * 0.7)) + 0.6);
-        ctx.restore();
       }
     }
+    // sparks: additive streaks along their velocity
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (let i = 0; i < this.n; i++) {
+      if (this.shape[i] !== Shape.Spark) continue;
+      const f = this.life[i] / this.max[i];
+      ctx.strokeStyle = COLORS[this.color[i]];
+      ctx.globalAlpha = Math.min(1, f * 1.5);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(this.px[i], this.py[i]);
+      ctx.lineTo(this.px[i] - this.vx[i] * 0.025, this.py[i] - this.vy[i] * 0.025);
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
   }
 
@@ -242,7 +249,7 @@ export class Effects implements EffectsApi {
       const f = age / 0.45;
       ctx.globalAlpha = (1 - f) * 0.9;
       ctx.strokeStyle = COLORS[this.ringColor[i]];
-      ctx.lineWidth = 4 * (1 - f) + 0.5;
+      ctx.lineWidth = 1.5 * (1 - f) + 0.5;
       ctx.beginPath();
       ctx.arc(this.ring[i * 4], this.ring[i * 4 + 1], 6 + maxR * Math.sqrt(f), 0, TAU);
       ctx.stroke();

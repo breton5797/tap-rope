@@ -1,325 +1,309 @@
-// Rhythm-lane glyphs for LASER ESCAPE. Shapes stay distinct without colour:
-// circle = floor laser, rounded square = flying beam stack (numeral = level),
-// hexagon-ish = slide hazards (with ↓), drone glyph, pickups in bubbles.
-// v5 lane hazards (dodge by changing lane) are ORANGE: shield = guard, ▼ = drop, ◆ = chaser;
-// a mini 3-lane marker beside the icon shows the blocked lanes (red) and the safe ones (green).
+// Rhythm-lane glyphs, tactical-HUD style (GDD-v6 §4): single-colour line icons in a thin dark frame.
+// Category = colour + frame: RED = laser (▲ jump over / ▼ slide under, numeral = beam count),
+// AMBER = lane hazard (change lane), TEAL = pickup. Shapes stay distinct without colour.
 import type { LaneId, LaserFrom, MoveId } from '../types';
-import { bubble, clockIcon, coinFace, heartIcon, shieldIcon } from './icons';
 import { blitScaled, type SpriteCache } from './sprites';
-import { circle, FONT, LEVEL_DARK, LEVEL_FILL, LEVEL_LIGHT, outlinedText, radGrad, roundRect, type Ctx } from './util';
+import { roundRect, type Ctx } from './util';
 
 const R = 13;
-const INK = '#1E1A3A';
+export const HUD_RED = '#FF4A55';
+export const HUD_AMBER = '#FFB020';
+export const HUD_TEAL = '#3FE0D0';
+const INK = '#E8ECEF';
+export const HUD_FONT = 'Rajdhani, "Arial Narrow", "Roboto Condensed", system-ui, sans-serif';
 
-function disc(ctx: Ctx, light: string, mid: string, dark: string, square: boolean): void {
-  ctx.fillStyle = dark;
-  if (square) roundRect(ctx, -R - 1.5, -R - 1.5, R * 2 + 3, R * 2 + 3, 8);
-  else circle(ctx, 0, 0, R + 1.5);
+function frame(ctx: Ctx, color: string): void {
+  ctx.fillStyle = 'rgba(8,10,12,0.82)';
+  roundRect(ctx, -R, -R, R * 2, R * 2, 3);
   ctx.fill();
-  ctx.fillStyle = radGrad(ctx, -4, -5, 1, R * 1.4, [[0, light], [0.55, mid], [1, dark]]);
-  if (square) roundRect(ctx, -R, -R, R * 2, R * 2, 6.5);
-  else circle(ctx, 0, 0, R);
-  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.3;
+  roundRect(ctx, -R + 0.6, -R + 0.6, R * 2 - 1.2, R * 2 - 1.2, 2.6);
+  ctx.stroke();
+  // corner ticks
+  ctx.fillStyle = color;
+  ctx.fillRect(-R, -R, 4, 1.4);
+  ctx.fillRect(R - 4, R - 1.4, 4, 1.4);
 }
 
-function numeral(ctx: Ctx, n: number, y: number, stroke: string): void {
-  ctx.font = `900 15px ${FONT}`;
+function pen(ctx: Ctx, color: string, w = 1.6): void {
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = w;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+}
+
+function chevron(ctx: Ctx, x: number, y: number, up: boolean, color: string): void {
+  pen(ctx, color, 1.8);
+  const d = up ? -1 : 1;
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y - d * 2);
+  ctx.lineTo(x, y + d * 2);
+  ctx.lineTo(x + 4, y - d * 2);
+  ctx.stroke();
+}
+
+function numeral(ctx: Ctx, n: number, x: number, y: number, color: string): void {
+  ctx.font = `700 11px ${HUD_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  outlinedText(ctx, String(n), 0, y, '#FFFFFF', stroke, 3.2);
+  ctx.fillStyle = color;
+  ctx.fillText(String(n), x, y);
 }
 
-/** floor laser: circle with a vertical laser fence + numeral 1 */
+/** floor laser: emitter base + three beams rising + ▲ */
 export function floorIcon(ctx: Ctx): void {
-  disc(ctx, '#FFB3C0', '#FF3358', '#8A0F2A', false);
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 1.6;
+  frame(ctx, HUD_RED);
+  pen(ctx, HUD_RED);
   ctx.beginPath();
-  for (const x of [-6, 0, 6]) {
+  ctx.moveTo(-8, 8);
+  ctx.lineTo(8, 8);
+  for (const x of [-5, 0, 5]) {
     ctx.moveTo(x, 8);
-    ctx.lineTo(x, -1);
+    ctx.lineTo(x, 2);
   }
   ctx.stroke();
-  ctx.fillStyle = '#2A2F3E';
-  roundRect(ctx, -9, 8, 18, 3, 1.5);
-  ctx.fill();
-  numeral(ctx, 1, -5, '#8A0F2A');
+  chevron(ctx, 0, -5, true, INK);
 }
 
-/** flying beam stack: rounded square, level-coloured, numeral = stacked beams */
+/** flying beam stack: N horizontal beams + ▲ + numeral */
 export function beamIcon(ctx: Ctx, level: number): void {
-  disc(ctx, LEVEL_LIGHT[level], LEVEL_FILL[level], LEVEL_DARK[level], true);
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 1.4;
+  frame(ctx, HUD_RED);
+  pen(ctx, HUD_RED);
   ctx.beginPath();
   for (let i = 0; i < level; i++) {
-    ctx.moveTo(-9, 8 - i * 3.2);
-    ctx.lineTo(9, 8 - i * 3.2);
+    ctx.moveTo(-8, 8 - i * 3.4);
+    ctx.lineTo(3, 8 - i * 3.4);
   }
   ctx.stroke();
-  numeral(ctx, level, -2, LEVEL_DARK[level]);
+  chevron(ctx, -2, -6, true, INK);
+  numeral(ctx, level, 7.5, -5, INK);
 }
 
-/** slide hazards (head beam / ceiling): cyan shield shape with a big ↓ */
+/** slide hazards: ceiling = emitter bar with beams down; head beam = single line; both ▼ */
 export function slideIcon(ctx: Ctx, ceiling: boolean): void {
-  ctx.fillStyle = '#0A5A6E';
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-    ctx.lineTo(Math.cos(a) * (R + 2), Math.sin(a) * (R + 2));
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = radGrad(ctx, -4, -5, 1, R * 1.4, [[0, '#C8FAFF'], [0.55, '#2EE6FF'], [1, '#0A7A94']]);
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-    ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 1.6;
+  frame(ctx, HUD_RED);
+  pen(ctx, HUD_RED);
   ctx.beginPath();
   if (ceiling) {
-    ctx.moveTo(-7, -9);
-    ctx.lineTo(7, -9);
+    ctx.moveTo(-8, -8);
+    ctx.lineTo(8, -8);
+    for (const x of [-5, 0, 5]) {
+      ctx.moveTo(x, -8);
+      ctx.lineTo(x, -1);
+    }
   } else {
-    ctx.moveTo(-9, -7);
-    ctx.lineTo(9, -7);
+    ctx.moveTo(-9, -4);
+    ctx.lineTo(9, -4);
   }
   ctx.stroke();
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 2.6;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(0, -3);
-  ctx.lineTo(0, 7);
-  ctx.moveTo(-4.5, 3);
-  ctx.lineTo(0, 7.5);
-  ctx.lineTo(4.5, 3);
-  ctx.stroke();
+  chevron(ctx, 0, 6, false, INK);
 }
 
+/** quadcopter: arms, rotors, scan line down */
 export function droneIcon(ctx: Ctx): void {
-  disc(ctx, '#C9B8FF', '#7B61FF', '#3A2A8C', false);
-  ctx.fillStyle = '#2A2F3E';
-  roundRect(ctx, -9, -4, 18, 9, 4.5);
-  ctx.fill();
-  ctx.fillStyle = '#FF3358';
-  circle(ctx, 1.5, 0.5, 2.6);
-  ctx.fill();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 1.4;
+  frame(ctx, HUD_RED);
+  pen(ctx, INK, 1.4);
   ctx.beginPath();
-  ctx.moveTo(-11, -8);
-  ctx.lineTo(-3, -8);
-  ctx.moveTo(3, -8);
-  ctx.lineTo(11, -8);
+  ctx.moveTo(-9, -4);
+  ctx.lineTo(9, -4);
+  ctx.moveTo(-11, -7);
+  ctx.lineTo(-6, -7);
+  ctx.moveTo(6, -7);
+  ctx.lineTo(11, -7);
+  ctx.rect(-4, -4, 8, 4);
+  ctx.stroke();
+  pen(ctx, HUD_RED, 1.2);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-5, 9);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(5, 9);
   ctx.stroke();
 }
 
-const LANE_LIGHT = '#FFD2A8';
-const LANE_MID = '#FF8A3D';
-const LANE_DARK = '#9A3E0A';
-
-function robotFace(ctx: Ctx, y: number): void {
-  ctx.fillStyle = '#2A2F3E';
-  roundRect(ctx, -7, y - 4, 14, 8, 4);
-  ctx.fill();
-  ctx.fillStyle = '#FF3358';
-  for (const x of [-3, 3]) {
-    circle(ctx, x, y, 1.9);
-    ctx.fill();
-  }
-}
-
-/** guard: orange shield badge with a red-eyed robot visor */
+/** sentry walker: angular torso on a reverse-knee leg */
 export function guardIcon(ctx: Ctx): void {
-  const path = (r: number): void => {
-    ctx.beginPath();
-    ctx.moveTo(-r, -r + 2);
-    ctx.quadraticCurveTo(0, -r - 3, r, -r + 2);
-    ctx.lineTo(r, 1);
-    ctx.quadraticCurveTo(r * 0.7, r * 0.8, 0, r + 2);
-    ctx.quadraticCurveTo(-r * 0.7, r * 0.8, -r, 1);
-    ctx.closePath();
-  };
-  ctx.fillStyle = LANE_DARK;
-  path(R + 1.5);
-  ctx.fill();
-  ctx.fillStyle = radGrad(ctx, -4, -5, 1, R * 1.4, [[0, LANE_LIGHT], [0.55, LANE_MID], [1, LANE_DARK]]);
-  path(R);
-  ctx.fill();
-  ctx.fillStyle = '#D5DCEA';
-  roundRect(ctx, -8, -8, 16, 15, 6);
-  ctx.fill();
-  robotFace(ctx, -2);
-  ctx.fillStyle = '#FFC93C';
-  ctx.fillRect(-8, 3, 16, 2.4);
+  frame(ctx, HUD_AMBER);
+  pen(ctx, HUD_AMBER, 1.5);
+  ctx.beginPath();
+  ctx.moveTo(-5, -8);
+  ctx.lineTo(5, -8);
+  ctx.lineTo(6, -1);
+  ctx.lineTo(-5, -1);
+  ctx.closePath();
+  ctx.moveTo(-1, -1);
+  ctx.lineTo(3, 4);
+  ctx.lineTo(-1, 9);
+  ctx.moveTo(-5, -5);
+  ctx.lineTo(-10, -5);
+  ctx.stroke();
+  ctx.fillStyle = HUD_RED;
+  ctx.fillRect(-4, -6, 4, 1.6);
 }
 
-/** drop: orange ▼ with a little crate */
+/** dropping crate: crate under a claw + ↓ */
 export function dropIcon(ctx: Ctx): void {
-  const tri = (r: number): void => {
-    ctx.beginPath();
-    ctx.moveTo(-r - 2, -r + 1);
-    ctx.lineTo(r + 2, -r + 1);
-    ctx.lineTo(0, r + 3);
-    ctx.closePath();
-  };
-  ctx.lineJoin = 'round';
-  ctx.fillStyle = LANE_DARK;
-  tri(R + 1.5);
-  ctx.fill();
-  ctx.fillStyle = radGrad(ctx, -4, -6, 1, R * 1.4, [[0, LANE_LIGHT], [0.55, LANE_MID], [1, LANE_DARK]]);
-  tri(R);
-  ctx.fill();
-  ctx.fillStyle = '#FFC93C';
-  roundRect(ctx, -6, -9, 12, 10, 2);
-  ctx.fill();
-  ctx.strokeStyle = '#7A3A10';
-  ctx.lineWidth = 1.3;
-  ctx.stroke();
+  frame(ctx, HUD_AMBER);
+  pen(ctx, HUD_AMBER, 1.5);
   ctx.beginPath();
-  ctx.moveTo(-6, -9);
-  ctx.lineTo(6, 1);
-  ctx.moveTo(6, -9);
-  ctx.lineTo(-6, 1);
-  ctx.stroke();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 1.8;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(0, 3);
-  ctx.lineTo(0, 9);
+  ctx.moveTo(0, -10);
+  ctx.lineTo(0, -6);
+  ctx.moveTo(-5, -4);
+  ctx.lineTo(-3, -6);
+  ctx.lineTo(3, -6);
+  ctx.lineTo(5, -4);
+  ctx.rect(-6, -2, 12, 9);
+  ctx.moveTo(-6, 2.5);
+  ctx.lineTo(6, 2.5);
   ctx.stroke();
 }
 
-/** chaser: orange diamond with a pursuit-drone eye and speed lines */
+/** pursuit quadcopter + motion lines */
 export function chaserIcon(ctx: Ctx): void {
-  const dia = (r: number): void => {
-    ctx.beginPath();
-    ctx.moveTo(0, -r - 1);
-    ctx.lineTo(r + 1, 0);
-    ctx.lineTo(0, r + 1);
-    ctx.lineTo(-r - 1, 0);
-    ctx.closePath();
-  };
-  ctx.lineJoin = 'round';
-  ctx.fillStyle = LANE_DARK;
-  dia(R + 2.5);
-  ctx.fill();
-  ctx.fillStyle = radGrad(ctx, -4, -5, 1, R * 1.4, [[0, LANE_LIGHT], [0.55, LANE_MID], [1, LANE_DARK]]);
-  dia(R + 1);
-  ctx.fill();
-  ctx.fillStyle = '#4A3480';
-  circle(ctx, 2, 0, 7);
-  ctx.fill();
-  ctx.fillStyle = '#FFFFFF';
-  circle(ctx, 3.5, 0, 3.6);
-  ctx.fill();
-  ctx.fillStyle = '#FF3358';
-  circle(ctx, 4.5, 0.3, 2.1);
-  ctx.fill();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = 'round';
+  frame(ctx, HUD_AMBER);
+  pen(ctx, HUD_AMBER, 1.5);
   ctx.beginPath();
-  for (const y of [-3, 3]) {
-    ctx.moveTo(-11, y);
-    ctx.lineTo(-6, y);
-  }
+  ctx.moveTo(-3, -2);
+  ctx.lineTo(9, -2);
+  ctx.moveTo(-1, -5);
+  ctx.lineTo(3, -5);
+  ctx.moveTo(5, -5);
+  ctx.lineTo(9, -5);
+  ctx.rect(1, -2, 6, 4);
+  ctx.moveTo(-10, 0);
+  ctx.lineTo(-4, 0);
+  ctx.moveTo(-9, 4);
+  ctx.lineTo(-3, 4);
   ctx.stroke();
 }
 
-/** Mini 3-lane marker (top = far lane): red = blocked, green = safe. (x, y) = its centre. */
+/** Mini 3-lane marker (top = far lane): filled red = blocked, teal outline = safe. (x, y) = centre. */
 export function drawLaneMarker(ctx: Ctx, blocked: readonly LaneId[], x: number, y: number, s: number): void {
-  const pip = 4.6 * s;
-  const gap = 1.4 * s;
-  ctx.fillStyle = 'rgba(14,16,40,0.85)';
-  roundRect(ctx, x - pip / 2 - 1.6 * s, y - pip * 1.5 - gap - 1.6 * s, pip + 3.2 * s, pip * 3 + gap * 2 + 3.2 * s, 2.6 * s);
-  ctx.fill();
+  const pip = 4.2 * s;
+  const gap = 1.6 * s;
+  ctx.fillStyle = 'rgba(8,10,12,0.85)';
+  ctx.fillRect(x - pip / 2 - 1.6 * s, y - pip * 1.5 - gap - 1.6 * s, pip + 3.2 * s, pip * 3 + gap * 2 + 3.2 * s);
+  ctx.lineWidth = 1;
   for (let l = 0; l < 3; l++) {
-    ctx.fillStyle = blocked.includes(l as LaneId) ? '#FF3358' : '#3DDC97';
-    roundRect(ctx, x - pip / 2, y - pip * 1.5 - gap + l * (pip + gap), pip, pip, 1.4 * s);
-    ctx.fill();
+    const py = y - pip * 1.5 - gap + l * (pip + gap);
+    if (blocked.includes(l as LaneId)) {
+      ctx.fillStyle = HUD_RED;
+      ctx.fillRect(x - pip / 2, py, pip, pip);
+    } else {
+      ctx.strokeStyle = HUD_TEAL;
+      ctx.strokeRect(x - pip / 2 + 0.5, py + 0.5, pip - 1, pip - 1);
+    }
   }
 }
 
+/** pickups: 0 credit (₵), 1 shield emitter (hex), 2 chrono (dial), 3 armour plate */
 export function pickupIcon(ctx: Ctx, kind: number): void {
-  bubble(ctx, 11.5, 'rgba(255,255,255,0.18)');
-  if (kind === 0) coinFace(ctx, 8.5);
-  else if (kind === 1) shieldIcon(ctx, 7);
-  else if (kind === 2) clockIcon(ctx, 6.5);
-  else heartIcon(ctx, 7);
+  const color = kind === 0 ? HUD_AMBER : HUD_TEAL;
+  ctx.fillStyle = 'rgba(8,10,12,0.7)';
+  ctx.beginPath();
+  ctx.arc(0, 0, 10.5, 0, Math.PI * 2);
+  ctx.fill();
+  pen(ctx, color, 1.3);
+  ctx.beginPath();
+  ctx.arc(0, 0, 10, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  if (kind === 0) {
+    ctx.font = `700 13px ${HUD_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('₵', 0, 0.5);
+    return;
+  }
+  if (kind === 1) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      ctx.lineTo(Math.cos(a) * 5.5, Math.sin(a) * 5.5);
+    }
+    ctx.closePath();
+  } else if (kind === 2) {
+    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(2.6, -2.6);
+  } else {
+    ctx.moveTo(-5, -5);
+    ctx.lineTo(5, -5);
+    ctx.lineTo(5, 2);
+    ctx.lineTo(0, 6);
+    ctx.lineTo(-5, 2);
+    ctx.closePath();
+  }
+  ctx.stroke();
 }
 
 const CHIPS: readonly MoveId[] = ['gate', 'pulse', 'rear', 'lane', 'drop', 'chaser', 'lanejump'];
+const CHIP_KEYS = CHIPS.map((m) => `chip-${m}`);
 
 function upDown(ctx: Ctx, x: number, h: number): void {
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
   ctx.beginPath();
   ctx.moveTo(x, -h);
   ctx.lineTo(x, h);
-  ctx.moveTo(x - 2.6, -h + 2.6);
+  ctx.moveTo(x - 2.4, -h + 2.4);
   ctx.lineTo(x, -h);
-  ctx.lineTo(x + 2.6, -h + 2.6);
-  ctx.moveTo(x - 2.6, h - 2.6);
+  ctx.lineTo(x + 2.4, -h + 2.4);
+  ctx.moveTo(x - 2.4, h - 2.4);
   ctx.lineTo(x, h);
-  ctx.lineTo(x + 2.6, h - 2.6);
+  ctx.lineTo(x + 2.4, h - 2.4);
   ctx.stroke();
 }
-const CHIP_KEYS = CHIPS.map((m) => `chip-${m}`);
 
+/** Corner tag naming the move (dark square, white line glyph). */
 function chipSprite(ctx: Ctx, idx: number): void {
-  ctx.fillStyle = '#FFFFFF';
-  circle(ctx, 0, 0, 7.6);
-  ctx.fill();
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
-  ctx.fillStyle = INK;
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 1.7;
+  ctx.fillStyle = '#0A0C0E';
+  ctx.fillRect(-7, -7, 14, 14);
+  ctx.strokeStyle = 'rgba(232,236,239,0.55)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-6.5, -6.5, 13, 13);
   const m = CHIPS[idx];
+  pen(ctx, INK, 1.3);
   if (m === 'pulse') {
     ctx.beginPath();
-    ctx.moveTo(1.5, -5);
-    ctx.lineTo(-3, 1);
-    ctx.lineTo(0.5, 1);
-    ctx.lineTo(-1.5, 5.5);
-    ctx.lineTo(3.5, -1);
-    ctx.lineTo(0, -1);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(-5, 0);
+    ctx.lineTo(-2, 0);
+    ctx.lineTo(-0.5, -4);
+    ctx.lineTo(1.5, 4);
+    ctx.lineTo(3, 0);
+    ctx.lineTo(5, 0);
+    ctx.stroke();
   } else if (m === 'gate') {
-    ctx.fillRect(-4.5, -4.5, 2, 9);
-    ctx.fillRect(2.5, -4.5, 2, 9);
-    ctx.fillRect(-4.5, -1, 9, 2);
+    ctx.beginPath();
+    ctx.moveTo(-4, 4);
+    ctx.lineTo(-4, -4);
+    ctx.lineTo(4, -4);
+    ctx.lineTo(4, 4);
+    ctx.stroke();
   } else if (m === 'rear') {
     ctx.beginPath();
-    ctx.arc(0, 0.5, 3.8, -Math.PI * 0.2, Math.PI * 1.35);
+    ctx.moveTo(4, 0);
+    ctx.lineTo(-4, 0);
+    ctx.moveTo(-1.5, -2.6);
+    ctx.lineTo(-4, 0);
+    ctx.lineTo(-1.5, 2.6);
     ctx.stroke();
   } else if (m === 'lane') {
-    upDown(ctx, 0, 4.8);
+    upDown(ctx, 0, 4.6);
   } else if (m === 'drop' || m === 'chaser') {
-    // sudden attacks: "!" (chaser adds a dash mark)
-    ctx.fillStyle = '#FF3358';
-    ctx.fillRect(m === 'chaser' ? 0.2 : -1.1, -5, 2.2, 6.4);
-    ctx.fillRect(m === 'chaser' ? 0.2 : -1.1, 2.6, 2.2, 2.2);
+    ctx.fillStyle = HUD_AMBER;
+    ctx.fillRect(-0.9, -4.6, 1.8, 6);
+    ctx.fillRect(-0.9, 2.6, 1.8, 1.8);
     if (m === 'chaser') {
       ctx.fillStyle = INK;
-      ctx.fillRect(-5, -2.2, 3.6, 1.6);
-      ctx.fillRect(-5.6, 1, 3.6, 1.6);
+      ctx.fillRect(-5, -1.5, 2.6, 1.2);
+      ctx.fillRect(-5, 1.2, 2.6, 1.2);
     }
   } else {
-    // lanejump: ↕ plus a hop arc
-    upDown(ctx, -2.2, 4.8);
+    upDown(ctx, -2.2, 4.6);
     ctx.beginPath();
-    ctx.arc(3.2, 3.4, 2.8, Math.PI, 0);
+    ctx.moveTo(1.5, 2);
+    ctx.lineTo(3.4, -1.5);
+    ctx.lineTo(5.3, 2);
     ctx.stroke();
   }
 }
@@ -327,23 +311,19 @@ function chipSprite(ctx: Ctx, idx: number): void {
 export function drawChip(ctx: Ctx, sprites: SpriteCache, move: MoveId, x: number, y: number, s: number): void {
   const i = CHIPS.indexOf(move);
   if (i < 0) return;
-  blitScaled(ctx, sprites.get(CHIP_KEYS[i], 18, 18, 9, 9, chipSprite, i), x, y, s, s);
+  blitScaled(ctx, sprites.get(CHIP_KEYS[i], 16, 16, 8, 8, chipSprite, i), x, y, s, s);
 }
 
-/** Small arrow showing where the laser comes from (points the way it travels). */
+/** Small chevron showing where the laser comes from (points the way it travels). */
 export function drawFromArrow(ctx: Ctx, from: LaserFrom | null, x: number, y: number): void {
   if (!from) return;
   const dir = from === 'front' ? [-1, 0] : from === 'back' ? [1, 0] : from === 'top' ? [0, 1] : [0, -1];
   const ax = from === 'front' ? x + 17 : from === 'back' ? x - 17 : x;
   const ay = from === 'top' ? y - 17 : from === 'bottom' ? y + 17 : y;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 1.2;
+  pen(ctx, INK, 1.4);
   ctx.beginPath();
-  ctx.moveTo(ax + dir[0] * 5, ay + dir[1] * 5);
-  ctx.lineTo(ax - dir[0] * 3 - dir[1] * 4.5, ay - dir[1] * 3 + dir[0] * 4.5);
-  ctx.lineTo(ax - dir[0] * 3 + dir[1] * 4.5, ay - dir[1] * 3 - dir[0] * 4.5);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(ax - dir[0] * 2 - dir[1] * 3.5, ay - dir[1] * 2 + dir[0] * 3.5);
+  ctx.lineTo(ax + dir[0] * 2.5, ay + dir[1] * 2.5);
+  ctx.lineTo(ax - dir[0] * 2 + dir[1] * 3.5, ay - dir[1] * 2 - dir[0] * 3.5);
   ctx.stroke();
 }

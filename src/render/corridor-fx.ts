@@ -60,11 +60,11 @@ export function sirens(ctx: Ctx, v: View, scroll: number, t: number): void {
 }
 
 export function alarmWash(ctx: Ctx, v: View, t: number): void {
-  ctx.fillStyle = `rgba(255,20,50,${(0.06 + 0.07 * (0.5 + 0.5 * Math.sin(t * 5))).toFixed(3)})`;
+  ctx.fillStyle = `rgba(255,20,50,${(0.035 + 0.045 * (0.5 + 0.5 * Math.sin(t * 5))).toFixed(3)})`;
   ctx.fillRect(v.x0, v.y0, v.w, v.h);
 }
 
-function puffSprite(ctx: Ctx): void {
+export function puffSprite(ctx: Ctx): void {
   ctx.fillStyle = radGrad(ctx, 0, 0, 2, 30, [[0, 'rgba(235,240,248,0.9)'], [0.6, 'rgba(220,228,240,0.45)'], [1, 'rgba(220,228,240,0)']]);
   circle(ctx, 0, 0, 30);
   ctx.fill();

@@ -35,8 +35,8 @@ export const ARM_TIME = 0.6;
 export const CHARGE_TIME = 1.0;
 export const BEAM_LEN = 120;
 export const ESCORT_DX = -68;
-/** agent drawing scale (art is authored ~58px tall) */
-export const AGENT_SCALE = 1.25;
+/** agent drawing scale (the rig is authored 88px tall, GDD-v6 §3) */
+export const AGENT_SCALE = 1.0;
 
 /** screen y of the floor at (fractional) lane depth d */
 export function laneY(d: number): number {

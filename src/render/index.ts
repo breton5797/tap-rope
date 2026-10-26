@@ -7,6 +7,7 @@ import {
   type Variant,
 } from '../types';
 import { AgentPainter } from './agent';
+import { ArtStore } from './art';
 import { Corridor } from './corridor';
 import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
 import {
@@ -20,10 +21,25 @@ import { drawLane } from './lane';
 import { drawLaserSeg, drawLaserWarnings } from './lasers';
 import { AGENT_SCALE, depthScale, laneLean, laneY, projX, visualLane } from './layout';
 import { Overlays } from './overlays';
+import { Post } from './post';
 import { SpriteCache } from './sprites';
 import type { Ctx } from './util';
 import { computeView, type View } from './view';
 import { drawWarnings } from './warnings';
+
+/** rim light per scene variant (teal practicals, red alarm, warm dawn) */
+const RIM: Readonly<Record<Variant, string>> = {
+  base: 'rgba(120,200,200,0.32)',
+  alarm: 'rgba(255,70,80,0.45)',
+  dark: 'rgba(100,190,190,0.25)',
+  steam: 'rgba(200,215,220,0.32)',
+  night: 'rgba(120,150,220,0.35)',
+  dawn: 'rgba(255,170,100,0.42)',
+};
+
+function rimColor(v: Variant): string {
+  return RIM[v] ?? RIM.base;
+}
 
 const STOP_ESCORT = 3;
 const STOP_AGENT = 4;
@@ -32,12 +48,14 @@ class CanvasRenderer implements Renderer {
   private readonly ctx: Ctx;
   private view: View;
   private readonly sprites = new SpriteCache();
-  private readonly corridor = new Corridor();
+  private readonly art = new ArtStore();
+  private readonly corridor = new Corridor(this.art);
   private readonly darkness = new Darkness();
   private readonly effects = new Effects();
   private readonly agent = new AgentPainter();
   private readonly escort = new EscortPainter();
   private readonly overlays = new Overlays();
+  private readonly post = new Post();
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -51,18 +69,24 @@ class CanvasRenderer implements Renderer {
     return this.effects;
   }
 
+  /** Fetch the photo art; never rejects (missing files keep the procedural look). */
+  load(onProgress?: (done: number, total: number) => void): Promise<void> {
+    return this.art.load(onProgress).catch(() => undefined);
+  }
+
   resize(cssWidth: number, cssHeight: number, dpr: number): void {
     this.view = computeView(cssWidth, cssHeight, dpr);
     this.applyView();
   }
 
   /** Debug: backing-store bytes of the main canvas and every cache (preview harness / QA). */
-  memoryBytes(): { main: number; corridor: number; sprites: number; other: number } {
+  memoryBytes(): { main: number; corridor: number; sprites: number; other: number; photos: number } {
     return {
       main: this.canvas.width * this.canvas.height * 4,
       corridor: this.corridor.bytes(),
       sprites: this.sprites.bytes(),
-      other: this.darkness.bytes() + this.overlays.bytes(),
+      other: this.darkness.bytes() + this.overlays.bytes() + this.post.bytes(),
+      photos: this.art.bytes(),
     };
   }
 
@@ -74,7 +98,7 @@ class CanvasRenderer implements Renderer {
     fx.reduced = snap.reducedMotion;
     fx.anchorX = PLAYER_X;
     fx.feetY = laneY(lane) - p.height * depth;
-    fx.bodyLift = (p.sliding ? 14 : 34) * depth;
+    fx.bodyLift = (p.sliding ? 18 : 48) * depth;
     const k = v.k;
     const tx = v.ox * v.dpr;
     const ty = v.oy * v.dpr;
@@ -86,6 +110,8 @@ class CanvasRenderer implements Renderer {
     if (snap.fever) this.overlays.fever(ctx, v, snap.realTime, snap.reducedMotion);
     if (snap.slowMo) this.overlays.slowMo(ctx, v, snap.realTime);
     ctx.setTransform(k, 0, 0, k, tx, ty);
+    this.post.finish(ctx, v, snap.reducedMotion);
+    this.post.chromatic(ctx, this.canvas, fx.hitAge, snap.reducedMotion);
     drawLane(ctx, snap.lane, snap.realTime, this.sprites);
     fx.drawFlash(ctx, v);
   }
@@ -106,11 +132,14 @@ class CanvasRenderer implements Renderer {
     const lift = GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane));
     if (tr && tr.door.from.variant !== variant) this.backFx(ctx, v, snap, tr.door.from.variant, 1 - e, lift);
     this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
-    for (const d of doors) drawDoorBack(ctx, d, off);
+    this.post.shafts(ctx, v, variant, snap.scroll, tr && tr.door.from.variant !== variant ? e : 1);
+    if (tr && tr.door.from.variant !== variant) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e);
+    for (const d of doors) drawDoorBack(ctx, d, off, reduced ? 0 : t, this.sprites, reduced);
     this.drawLanes(ctx, v, snap, lane);
     for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
     if (tr && tr.door.from.variant !== variant) this.frontFx(ctx, v, snap, tr.door.from.variant, 1 - e);
     this.frontFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1);
+    this.post.dust(ctx, v, t, snap.scroll, reduced);
     drawLaserWarnings(ctx, v, snap.obstacles, t, snap.fever, reduced, Math.round(lane));
     drawWarnings(ctx, v, snap.obstacles, lane, t, this.sprites, reduced);
     for (const d of doors) drawDoorSign(ctx, v, d, reduced ? 0 : t);
@@ -168,7 +197,7 @@ class CanvasRenderer implements Renderer {
       }
       const kind = k[i];
       if (kind === STOP_AGENT) this.drawAgent(ctx, snap, lane, snap.variant === 'dark');
-      else if (kind === STOP_ESCORT && escortState) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running);
+      else if (kind === STOP_ESCORT && escortState) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running, rimColor(snap.variant));
       else {
         drawLaneHazards(ctx, v, snap.obstacles, kind, t, this.sprites, reduced);
         drawGadgets(ctx, snap.obstacles, t, this.sprites, kind);
@@ -204,10 +233,10 @@ class CanvasRenderer implements Renderer {
     this.agent.draw(ctx, {
       x, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
       running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE * depth, floorY, depth,
-      lean: snap.reducedMotion ? 0 : laneLean(p),
+      lean: snap.reducedMotion ? 0 : laneLean(p), rim: rimColor(snap.variant),
     });
     if (snap.shield) {
-      this.overlays.shield(ctx, x, floorY - p.height * depth - (p.sliding ? 18 : 34) * depth, snap.realTime);
+      this.overlays.shield(ctx, x, floorY - p.height * depth - (p.sliding ? 20 : 46) * depth, snap.realTime);
     }
   }
 

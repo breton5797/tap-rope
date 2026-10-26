@@ -1,11 +1,11 @@
-// Rhythm lane: translucent panel at the bottom, items flow right→left into the hit ring,
+// Rhythm lane (tactical HUD strip): dark glass panel at the bottom, items flow right→left into the hit ring,
 // which sits right under the agent (PLAYER_X) so the lane lines up with the corridor.
 import { LANE_LEAD, LOGICAL_W, PLAYER_X, type LaneItem, type ObstacleKind } from '../types';
 import {
   beamIcon, chaserIcon, drawChip, drawFromArrow, drawLaneMarker, droneIcon, dropIcon, floorIcon, guardIcon, pickupIcon, slideIcon,
 } from './lane-icons';
 import { blit, blitScaled, type SpriteCache } from './sprites';
-import { circle, clamp, radGrad, roundRect, vGrad, type Ctx } from './util';
+import { circle, clamp, roundRect, type Ctx } from './util';
 
 export const LANE_X = 14;
 export const LANE_Y = 542;
@@ -22,27 +22,26 @@ const KIND_INDEX: Readonly<Record<ObstacleKind, number>> = {
 const ICON_KEYS: string[] = [];
 for (let i = 0; i < 48; i++) ICON_KEYS.push(`lane${i}`);
 
+/** Dark glass strip with 1px lines and tick marks (tactical HUD). */
 function panel(ctx: Ctx): void {
-  ctx.fillStyle = 'rgba(0,0,10,0.3)';
-  roundRect(ctx, 0, 4, PANEL_W, LANE_H, 22);
+  ctx.fillStyle = 'rgba(6,8,10,0.66)';
+  roundRect(ctx, 0, 0, PANEL_W, LANE_H, 4);
   ctx.fill();
-  ctx.fillStyle = 'rgba(14,16,40,0.62)';
-  roundRect(ctx, 0, 0, PANEL_W, LANE_H, 22);
-  ctx.fill();
-  ctx.fillStyle = vGrad(ctx, 0, LANE_H, [[0, 'rgba(255,255,255,0.18)'], [0.45, 'rgba(255,255,255,0.03)'], [1, 'rgba(255,255,255,0)']]);
-  roundRect(ctx, 1, 1, PANEL_W - 2, LANE_H * 0.55, 21);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(120,220,255,0.35)';
-  ctx.lineWidth = 1.2;
-  roundRect(ctx, 0.6, 0.6, PANEL_W - 1.2, LANE_H - 1.2, 21.5);
+  ctx.strokeStyle = 'rgba(63,224,208,0.32)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, 0.5, 0.5, PANEL_W - 1, LANE_H - 1, 3.5);
   ctx.stroke();
-  ctx.fillStyle = radGrad(ctx, HIT_X - LANE_X, LANE_H / 2, 4, 60, [[0, 'rgba(255,255,255,0.14)'], [1, 'rgba(255,255,255,0)']]);
-  ctx.fillRect(HIT_X - LANE_X - 60, 1, 120, LANE_H - 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  for (let x = HIT_X - LANE_X + 30; x < PANEL_W - 14; x += 12) {
-    circle(ctx, x, LANE_H / 2, 1.1);
-    ctx.fill();
+  ctx.fillStyle = 'rgba(63,224,208,0.75)';
+  ctx.fillRect(0, 0, 14, 1.5);
+  ctx.fillRect(PANEL_W - 14, LANE_H - 1.5, 14, 1.5);
+  // timeline ticks (one per ~0.25s)
+  ctx.fillStyle = 'rgba(232,236,239,0.22)';
+  for (let x = HIT_X - LANE_X + 28, i = 0; x < PANEL_W - 10; x += SPAN / 9.6, i++) {
+    const h = i % 4 === 3 ? 7 : 3.5;
+    ctx.fillRect(x, LANE_H / 2 - h / 2, 1, h);
   }
+  ctx.fillStyle = 'rgba(232,236,239,0.1)';
+  ctx.fillRect(HIT_X - LANE_X + 24, LANE_H / 2 - 0.5, PANEL_W - (HIT_X - LANE_X + 34), 1);
 }
 
 function iconSprite(ctx: Ctx, arg: number): void {
@@ -96,26 +95,35 @@ function drawItem(ctx: Ctx, it: LaneItem, sprites: SpriteCache, t: number): void
   ctx.globalAlpha = 1;
 }
 
-function hitRing(ctx: Ctx, glow: number, t: number): void {
+/** Hit marker: thin reticle with corner brackets; brightens as an item crosses it. */
+function hitRing(ctx: Ctx, glow: number): void {
+  const r = 19;
   if (glow > 0) {
-    ctx.fillStyle = `rgba(255,255,255,${(0.22 * glow).toFixed(3)})`;
-    circle(ctx, HIT_X, CY, 22 + glow * 6);
+    ctx.fillStyle = '#3FE0D0';
+    ctx.globalAlpha = 0.16 * glow;
+    circle(ctx, HIT_X, CY, r + 3);
     ctx.fill();
+    ctx.globalAlpha = 1;
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 6;
-  circle(ctx, HIT_X, CY, 21);
+  ctx.strokeStyle = glow > 0.5 ? '#3FE0D0' : 'rgba(232,236,239,0.75)';
+  ctx.lineWidth = 1.2;
+  circle(ctx, HIT_X, CY, r);
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-  ctx.lineWidth = 2.4;
-  circle(ctx, HIT_X, CY, 21 + Math.sin(t * 4) * 0.4);
+  ctx.beginPath();
+  for (const [dx, dy] of BRACKETS) {
+    ctx.moveTo(HIT_X + dx * (r + 4), CY + dy * (r + 4 - 5));
+    ctx.lineTo(HIT_X + dx * (r + 4), CY + dy * (r + 4));
+    ctx.lineTo(HIT_X + dx * (r + 4 - 5), CY + dy * (r + 4));
+  }
   ctx.stroke();
 }
+
+const BRACKETS: readonly (readonly [number, number])[] = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
 
 export function drawLane(ctx: Ctx, lane: readonly LaneItem[], t: number, sprites: SpriteCache): void {
   blit(ctx, sprites.get('lanePanel', PANEL_W + 2, LANE_H + 8, 1, 1, panel), LANE_X, LANE_Y);
   let glow = 0;
   for (const it of lane) glow = Math.max(glow, 1 - Math.abs(it.timeUntil) / 0.18);
-  hitRing(ctx, clamp(glow, 0, 1), t);
+  hitRing(ctx, clamp(glow, 0, 1));
   for (let i = lane.length - 1; i >= 0; i--) drawItem(ctx, lane[i], sprites, t);
 }

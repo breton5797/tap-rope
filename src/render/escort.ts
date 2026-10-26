@@ -10,7 +10,7 @@ const DELAY = 0.15;
 const CAP = 64;
 /** a gap longer than this between frames means the escort was hidden / a new run began */
 const GAP_RESET = 0.5;
-const ESCORT_SCALE = 1.0;
+const ESCORT_SCALE = 0.97;
 
 export class EscortPainter {
   private readonly painter = new AgentPainter();
@@ -57,16 +57,15 @@ export class EscortPainter {
   }
 
   /** Draw the escort in its own (delayed) lane, a step behind the agent. */
-  draw(ctx: Ctx, q: PlayerState, realTime: number, scroll: number, running: boolean): void {
+  draw(ctx: Ctx, q: PlayerState, realTime: number, scroll: number, running: boolean, rim: string): void {
     const d = visualLane(q);
     const depth = depthScale(d);
     const x = projX(PLAYER_X + ESCORT_DX, d);
     const floorY = laneY(d);
-    ctx.globalAlpha = 0.93;
     this.painter.shadow(ctx, x, floorY, q.height, q.sliding, ESCORT_SCALE * depth);
     this.painter.draw(ctx, {
       x, id: 'prisoner', p: q, mood: running ? 'happy' : 'idle', t: realTime + 0.37, scroll: scroll - 23, running,
-      blink: false, torch: false, scale: ESCORT_SCALE * depth, floorY, depth, lean: laneLean(q),
+      blink: false, torch: false, scale: ESCORT_SCALE * depth, floorY, depth, lean: laneLean(q), rim,
     });
     ctx.globalAlpha = 1;
   }

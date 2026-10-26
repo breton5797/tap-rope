@@ -1,39 +1,43 @@
-// Sudden-attack warnings (GDD-v5 §3.3): from WARN_LEAD before arrival a blinking red "!" badge
-// floats above each target lane just ahead of the agent; chasers and rear beams also get a "!"
-// on the left screen edge at their lane height. Reduced motion = steady badges.
+// Sudden-attack warnings (GDD-v5 §3.3, v6 style §4): from WARN_LEAD before arrival an amber
+// triangular hazard sign hangs over each target lane just ahead of the agent, tied to a red laser
+// targeting ring on that lane's floor; chasers and rear beams also get a sign on the left screen
+// edge at their lane height. Reduced motion = steady signs, static ring.
 import { PLAYER_X, WARN_LEAD, type VisibleObstacle } from '../types';
-import { CHASE_ENTER } from './hazards';
+import { CHASE_ENTER, targetRing } from './hazards';
 import { BEAM_H, HIGH_H, depthScale, laneY, projX, projY } from './layout';
 import { blitScaled, type SpriteCache } from './sprites';
-import { FONT, oval, outlinedText, type Ctx } from './util';
+import { type Ctx } from './util';
 import type { View } from './view';
 
-const BADGE_H = 66;
-const BADGE_DX = 44;
-const CHASE_H = 30;
+const SIGN_H = 66;
+const SIGN_DX = 44;
+const CHASE_H = 34;
 
-function bangSprite(ctx: Ctx): void {
-  ctx.fillStyle = 'rgba(20,10,30,0.55)';
+/** Amber warning triangle with a black "!" (anchor = centre). */
+function signSprite(ctx: Ctx): void {
+  ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.arc(0, 1.5, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#FF3358';
-  ctx.beginPath();
-  ctx.moveTo(-5, 8);
-  ctx.lineTo(0, 15);
-  ctx.lineTo(5, 8);
+  ctx.moveTo(0, -11);
+  ctx.lineTo(11.5, 9);
+  ctx.lineTo(-11.5, 9);
   ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(0, 0, 11, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.lineWidth = 2;
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
   ctx.stroke();
-  ctx.font = `900 16px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  outlinedText(ctx, '!', 0, 1, '#FFFFFF', '#8A0F2A', 3);
+  ctx.fillStyle = '#FFB020';
+  ctx.fill();
+  ctx.strokeStyle = '#1A1408';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(0, -7.5);
+  ctx.lineTo(8.6, 7);
+  ctx.lineTo(-8.6, 7);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fillStyle = '#1A1408';
+  ctx.fillRect(-1.1, -3.5, 2.2, 6.2);
+  ctx.fillRect(-1.1, 4, 2.2, 1.8);
 }
 
 function isRear(o: VisibleObstacle): boolean {
@@ -42,47 +46,47 @@ function isRear(o: VisibleObstacle): boolean {
 
 function blink(t: number, reduced: boolean): number {
   if (reduced) return 1;
-  return (t * 5) % 1 < 0.6 ? 1 : 0.25;
+  return (t * 4) % 1 < 0.62 ? 1 : 0.3;
 }
 
-/** Draw every active "!" (call after the lanes so badges sit on top). */
+/** Draw every active warning (call after the lanes so signs sit on top). */
 export function drawWarnings(
   ctx: Ctx, v: View, obs: readonly VisibleObstacle[], agentLane: number, t: number, sprites: SpriteCache, reduced: boolean,
 ): void {
-  const sp = sprites.get('warnBang', 28, 32, 14, 14, bangSprite);
-  let mask = 0; // lanes that already have a badge this frame
+  const sp = sprites.get('warnSign', 30, 28, 15, 13, signSprite);
+  let mask = 0; // lanes that already have a sign this frame
   const a = blink(t, reduced);
-  const pop = reduced ? 1 : 1 + 0.08 * Math.sin(t * 20);
   for (const o of obs) {
     if (!o.sudden || o.timeUntil > WARN_LEAD || o.timeUntil <= 0) continue;
     const lanes = o.lanes ?? [Math.round(agentLane)];
+    const k = 1 - o.timeUntil / WARN_LEAD;
     for (const l of lanes) {
       if (mask & (1 << l)) continue;
       mask |= 1 << l;
-      const s = depthScale(l) * pop;
-      const x = projX(PLAYER_X + BADGE_DX, l);
+      const s = depthScale(l);
+      const x = projX(PLAYER_X + SIGN_DX, l);
       const fy = laneY(l);
-      // a pin: red ring on the lane floor + stem up to the badge, so it reads as "this lane"
-      ctx.globalAlpha = 0.5 + 0.5 * a;
-      ctx.strokeStyle = '#FF3358';
-      ctx.lineWidth = 2;
-      oval(ctx, x, fy, 13 * depthScale(l), 3.6 * depthScale(l));
-      ctx.stroke();
+      targetRing(ctx, x, fy, s, t, reduced, 0.45 + 0.55 * k);
+      // thin red tether from the ring up to the sign
+      ctx.strokeStyle = '#FF2A3A';
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(x, fy);
-      ctx.lineTo(x, projY(l, BADGE_H) + 12 * s);
+      ctx.lineTo(x, projY(l, SIGN_H) + 10 * s);
       ctx.stroke();
       ctx.globalAlpha = a;
-      blitScaled(ctx, sp, x, projY(l, BADGE_H), s, s);
+      blitScaled(ctx, sp, x, projY(l, SIGN_H), s, s);
+      ctx.globalAlpha = 1;
     }
     const edge = o.kind === 'chaser' ? o.timeUntil > CHASE_ENTER - 0.12 : isRear(o) && o.timeUntil > 0.35;
     if (!edge) continue;
     const h = o.kind === 'chaser' ? CHASE_H : o.kind === 'high' ? HIGH_H : BEAM_H[Math.min(2, o.level - 1)];
     for (const l of lanes) {
-      const s = depthScale(l);
+      const s = depthScale(l) * 0.9;
       ctx.globalAlpha = a;
-      blitScaled(ctx, sp, v.x0 + 16, projY(l, h), s * 0.9, s * 0.9);
+      blitScaled(ctx, sp, v.x0 + 16, projY(l, h), s, s);
     }
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
 }

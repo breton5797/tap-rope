@@ -1,11 +1,13 @@
-// Security drones (scan cones) and floating pickups — world-fixed, scrolling with the floor.
-// Drones are full-width hazards: a squad of one drone per lane, each scanning its own lane, so the
-// fail zone reads in every lane (drawn in each lane's painter pass). v5 pickups float in one lane.
+// Security quadcopters and floating pickups — world-fixed, scrolling with the floor (GDD-v6 §4).
+// Drones are full-width hazards: a squad of one matte quadcopter per lane, each sweeping a red
+// scan beam down its own lane, so the fail zone reads in every lane (drawn in each lane's painter
+// pass). Pickups (credit chips, shield emitters, chrono modules, armour plates) float in one lane
+// over a faint teal projection ring.
 import { type VisibleObstacle } from '../types';
-import { bubble, clockIcon, coinFace, heartIcon, shieldIcon } from './icons';
+import { clockIcon, creditChip, heartIcon, shieldIcon } from './icons';
 import { fixedX, laneY, project } from './layout';
 import { blitScaled, type SpriteCache } from './sprites';
-import { circle, oval, radGrad, roundRect, type Ctx } from './util';
+import { oval, type Ctx } from './util';
 
 const PICK_KEYS = ['pick0', 'pick1', 'pick2'];
 
@@ -15,28 +17,70 @@ function seedOf(id: string): number {
   return (h & 1023) / 163;
 }
 
+/** Side view of a matte quadcopter (anchor = body centre): arms, motor pods, sensor gimbal. */
 function droneBody(ctx: Ctx): void {
-  ctx.fillStyle = radGrad(ctx, -5, -6, 2, 18, [[0, '#7A8298'], [0.6, '#3E4458'], [1, '#22263A']]);
-  roundRect(ctx, -17, -9, 34, 18, 9);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(10,10,20,0.6)';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.fillStyle = '#15161F';
-  circle(ctx, 3, 1, 7);
-  ctx.fill();
-  ctx.fillStyle = '#5A6078';
-  for (const x of [-12, 12]) {
-    ctx.fillRect(x - 1, -14, 2, 6);
+  ctx.fillStyle = '#1B1E22';
+  ctx.fillRect(-19, -3, 38, 3); // arms
+  for (const x of [-18, 18]) {
+    ctx.fillStyle = '#26292E';
+    ctx.fillRect(x - 3, -7, 6, 5); // motor pods
+    ctx.fillStyle = '#3B4047';
+    ctx.fillRect(x - 3, -7, 6, 1);
   }
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  roundRect(ctx, -12, -7, 12, 3, 1.5);
+  ctx.fillStyle = '#2A2E33';
+  ctx.beginPath();
+  ctx.moveTo(-10, -5);
+  ctx.lineTo(10, -5);
+  ctx.lineTo(8, 4);
+  ctx.lineTo(-8, 4);
+  ctx.closePath();
   ctx.fill();
+  ctx.fillStyle = '#41474F';
+  ctx.fillRect(-10, -5, 20, 1.4);
+  // gimbal + lens
+  ctx.fillStyle = '#16181B';
+  ctx.beginPath();
+  ctx.arc(2, 6, 3.6, 0, Math.PI * 2);
+  ctx.fill();
+  // landing skids
+  ctx.strokeStyle = '#16181B';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-7, 4);
+  ctx.lineTo(-9, 9);
+  ctx.moveTo(7, 4);
+  ctx.lineTo(9, 9);
+  ctx.moveTo(-11, 9);
+  ctx.lineTo(-5, 9);
+  ctx.moveTo(5, 9);
+  ctx.lineTo(11, 9);
+  ctx.stroke();
 }
 
-/** Drones hover above a 1단 hop: their scan fan covers the 2단/3단 zone (the fail rule). */
-const DRONE_MIN_H = 150;
+/** Downward scan cone (anchor = apex), fading toward the floor. */
+function scanSprite(ctx: Ctx): void {
+  const g = ctx.createLinearGradient(0, 0, 0, 120);
+  g.addColorStop(0, 'rgba(255,42,58,0.42)');
+  g.addColorStop(1, 'rgba(255,42,58,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-16, 120);
+  ctx.lineTo(16, 120);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,90,100,0.55)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-16, 120);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(16, 120);
+  ctx.stroke();
+}
 
+/** Drones hover above a 1단 hop: their scan covers the 2단/3단 zone (the fail rule). */
+const DRONE_MIN_H = 150;
 /** drones of a squad are drawn a bit smaller so the three lanes' drones don't merge */
 const SQUAD_SCALE = 0.86;
 
@@ -45,84 +89,68 @@ function drone(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: S
   const p = project(fixedX(o.timeUntil), lane, Math.max(o.height, DRONE_MIN_H) + 10);
   const s = p.scale * SQUAD_SCALE;
   const x = p.x;
-  const y = p.y + Math.sin(t * 3 + seed) * 3;
-  ctx.fillStyle = 'rgba(10,8,20,0.22)';
-  oval(ctx, x, laneY(lane) + 2, 12 * s, 3 * s);
+  const y = p.y + Math.sin(t * 2.6 + seed) * 2;
+  ctx.fillStyle = '#000000';
+  ctx.globalAlpha = 0.25;
+  oval(ctx, x, laneY(lane) + 2, 13 * s, 2.6 * s);
   ctx.fill();
-  const sweep = Math.sin(t * 2.4 + seed) * 0.22;
+  // scan beam sweeping slightly forward / back
+  const sweep = Math.sin(t * 2.2 + seed) * 0.18;
   ctx.save();
-  ctx.translate(x + 2 * s, y + 2 * s);
-  ctx.rotate(Math.PI * 0.86 + sweep);
+  ctx.translate(x + 2 * s, y + 6 * s);
+  ctx.rotate(sweep);
+  ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = 0.8;
-  blitScaled(ctx, sprites.get('droneScan', 150, 70, 0, 35, scanSprite), 0, 0, s, s);
+  blitScaled(ctx, sprites.get('droneScan', 36, 124, 18, 2, scanSprite), 0, 0, s, s * 0.85);
   ctx.restore();
   ctx.globalAlpha = 1;
-  blitScaled(ctx, sprites.get('droneBody', 40, 32, 20, 16, droneBody), x, y, s, s);
-  const pr = (Math.abs(Math.sin(t * 40 + seed)) * 9 + 2) * s;
-  ctx.fillStyle = 'rgba(200,210,230,0.55)';
-  for (const dx of [-12, 12]) {
-    oval(ctx, x + dx * s, y - 15 * s, pr, 1.6 * s);
+  blitScaled(ctx, sprites.get('droneBody', 44, 22, 22, 10, droneBody), x, y, s, s);
+  // rotor blur discs
+  ctx.fillStyle = '#9AA3AD';
+  ctx.globalAlpha = 0.28;
+  for (const dx of [-18, 18]) {
+    oval(ctx, x + dx * s, y - 8 * s, 9 * s, 1.1 * s);
     ctx.fill();
   }
-  ctx.fillStyle = '#FF3358';
-  circle(ctx, x + 3 * s, y + s, (3.6 + Math.sin(t * 8) * 0.6) * s);
-  ctx.fill();
-  ctx.fillStyle = '#FFFFFF';
-  circle(ctx, x + 4.4 * s, y - 0.4 * s, 1.1 * s);
-  ctx.fill();
-}
-
-/** Scan fan pointing along +x (rotated into place), fading with distance. */
-function scanSprite(ctx: Ctx): void {
-  const g = ctx.createLinearGradient(0, 0, 150, 0);
-  g.addColorStop(0, 'rgba(255,60,90,0.55)');
-  g.addColorStop(1, 'rgba(255,60,90,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(150, -34);
-  ctx.lineTo(150, 34);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,120,140,0.7)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let i = -2; i <= 2; i++) {
-    ctx.moveTo(0, 0);
-    ctx.lineTo(150, i * 15);
+  // sensor + nav light
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#FF2A3A';
+  ctx.fillRect(x + 3 * s, y + 5 * s, 1.6 * s, 1.6 * s);
+  if (Math.sin(t * 6 + seed) > 0.6) {
+    ctx.fillStyle = '#FFB020';
+    ctx.fillRect(x - 19 * s, y - 8 * s, 1.4 * s, 1.4 * s);
   }
-  ctx.stroke();
 }
 
 function coinSprite(ctx: Ctx): void {
-  coinFace(ctx, 11);
+  creditChip(ctx, 8);
 }
 
 function pickupSprite(ctx: Ctx, kind: number): void {
-  const tints = ['rgba(120,190,255,0.3)', 'rgba(170,140,255,0.3)', 'rgba(255,140,170,0.3)'];
-  bubble(ctx, 15, tints[kind]);
-  if (kind === 0) shieldIcon(ctx, 8.5);
+  if (kind === 0) shieldIcon(ctx, 8);
   else if (kind === 1) clockIcon(ctx, 7.5);
-  else heartIcon(ctx, 8.5);
+  else heartIcon(ctx, 8);
 }
 
 function pickup(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: SpriteCache): void {
   if (o.timeUntil < -0.05) return;
   const seed = seedOf(o.id);
   const p = project(fixedX(o.timeUntil), lane, o.height + 14);
-  const y = p.y + Math.sin(t * 2.8 + seed) * 2.5;
-  // a faint floor marker shows which lane the pickup floats over
-  ctx.fillStyle = 'rgba(255,230,140,0.16)';
-  oval(ctx, p.x, laneY(lane) + 1, 11 * p.scale, 3.2 * p.scale);
-  ctx.fill();
+  const y = p.y + Math.sin(t * 2.2 + seed) * 1.5;
+  // teal projection ring on the floor of its lane
+  ctx.strokeStyle = '#3FE0D0';
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 1;
+  oval(ctx, p.x, laneY(lane) + 1, 10 * p.scale, 2.8 * p.scale);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
   if (o.kind === 'coin') {
-    const sx = Math.max(0.14, Math.abs(Math.cos(t * 4.5 + seed)));
-    blitScaled(ctx, sprites.get('coin', 26, 26, 13, 13, coinSprite), p.x, y, sx * p.scale, p.scale);
+    const sx = Math.max(0.2, Math.abs(Math.cos(t * 2.4 + seed)));
+    blitScaled(ctx, sprites.get('coin', 22, 18, 11, 9, coinSprite), p.x, y, sx * p.scale, p.scale);
     return;
   }
   const idx = o.kind === 'shield' ? 0 : o.kind === 'slow' ? 1 : 2;
-  const pulse = (1 + Math.sin(t * 5 + seed) * 0.05) * p.scale;
-  blitScaled(ctx, sprites.get(PICK_KEYS[idx], 36, 36, 18, 18, pickupSprite, idx), p.x, y, pulse, pulse);
+  blitScaled(ctx, sprites.get(PICK_KEYS[idx], 24, 24, 12, 12, pickupSprite, idx), p.x, y, p.scale, p.scale);
 }
 
 const isPickup = (o: VisibleObstacle): boolean =>
