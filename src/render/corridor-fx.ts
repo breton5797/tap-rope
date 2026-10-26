@@ -71,7 +71,7 @@ function puffSprite(ctx: Ctx): void {
 }
 
 /** Steam plumes rising from the floor vents. */
-export function steamPuffs(ctx: Ctx, v: View, scroll: number, t: number, sprites: SpriteCache, reduced: boolean): void {
+export function steamPuffs(ctx: Ctx, v: View, scroll: number, t: number, sprites: SpriteCache, reduced: boolean, fade = 1): void {
   const sp = sprites.get('puff', 62, 62, 31, 31, puffSprite);
   const n = reduced ? 3 : 6;
   const ds = depthScale(depthAtY(VENT_Y));
@@ -80,7 +80,7 @@ export function steamPuffs(ctx: Ctx, v: View, scroll: number, t: number, sprites
     for (let k = 0; k < n; k++) {
       const f = (t * 0.7 + k / n + raw * 0.003) % 1;
       const s = (0.3 + f * 1.4) * ds;
-      ctx.globalAlpha = (1 - f) * 0.8;
+      ctx.globalAlpha = (1 - f) * 0.8 * fade;
       blitScaled(ctx, sp, x + Math.sin(t * 2 + k) * 8 + f * 14, VENT_Y - f * 190, s, s);
     }
   });

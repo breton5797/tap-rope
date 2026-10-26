@@ -103,6 +103,9 @@ export const SCENES: Readonly<Record<string, SceneCfg>> = {
     pattern: [at(b([FLOOR], 1, 'jump'), 0), at(b([beam(2)], 2, 'double'), 2), at(b([CEIL], 1, 'slide', 'slide'), 1), at(b([high()], 1, 'high', 'slide'), 2), at(b([FLOOR, it('drone')], 1, 'gate'), 0)],
     running: true,
   },
+  // agent crossing lane 1 right behind a lane-1 guard: checks depth order mid lane switch
+  switch: { interval: 0.6, pattern: [at(b([guard(1)], 1, 'lane', 'none'), 0), lane(2), lane(2), lane(0)], running: true },
+  gate3: { interval: 1.3, pattern: [b([FLOOR, it('drone')], 1, 'gate'), b([it('drone')], 1, 'drone', 'none')], running: true },
   doorTurn: { interval: 1.0, pattern: [lane(1)], running: true, door: 'turn' },
   doorStairs: { interval: 1.0, pattern: [lane(1)], running: true, door: 'stairs' },
   doorElevator: { interval: 1.0, pattern: [lane(1)], running: true, door: 'elevator' },

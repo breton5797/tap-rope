@@ -6,7 +6,7 @@
 import type { DoorView, Scene } from '../types';
 import type { Corridor } from './corridor';
 import { CEIL_H, fixedX, projX, projY, SPAN_D0, WALL_DEPTH } from './layout';
-import { clamp, roundRect, vGrad, type Ctx } from './util';
+import { clamp, roundRect, vGrad, type Ctx, type Stops } from './util';
 import type { View } from './view';
 
 export const TRANSITION_TIME = 0.6;
@@ -17,28 +17,51 @@ const NEAR_D = 2.6;
 const POST_W = 12;
 
 export interface ActiveTransition {
-  readonly door: DoorView;
+  door: DoorView;
   /** 0..1 progress of the transition */
-  readonly p: number;
+  p: number;
+}
+
+/** Vertical gradients from y=0 to y=h, cached per (context, name, h) — no per-frame allocation. */
+const GRADS = new Map<string, { ctx: Ctx; h: number; g: CanvasGradient }>();
+
+function cachedGrad(ctx: Ctx, name: string, h: number, stops: Stops): CanvasGradient {
+  const hit = GRADS.get(name);
+  if (hit && hit.ctx === ctx && Math.abs(hit.h - h) < 0.5) return hit.g;
+  const g = vGrad(ctx, 0, h, stops);
+  GRADS.set(name, { ctx, h, g });
+  return g;
 }
 
 function easeInOut(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
+/** reused result object (read it before the next call) */
+const TR: ActiveTransition = { door: null as unknown as DoorView, p: 0 };
+
 export function activeTransition(doors: readonly DoorView[]): ActiveTransition | null {
   for (const d of doors) {
-    if (d.timeUntil <= 0 && d.timeUntil > -TRANSITION_TIME) return { door: d, p: clamp(-d.timeUntil / TRANSITION_TIME, 0, 1) };
+    if (d.timeUntil <= 0 && d.timeUntil > -TRANSITION_TIME) {
+      TR.door = d;
+      TR.p = clamp(-d.timeUntil / TRANSITION_TIME, 0, 1);
+      return TR;
+    }
   }
   return null;
 }
 
-/** Scenes the corridor must hold this frame: current first, then (at most) one door scene. */
-export function wantedScenes(cur: Scene, doors: readonly DoorView[]): Scene[] {
-  const tr = activeTransition(doors);
-  if (tr) return [cur, tr.door.from];
+/** Eased 0..1 progress of the running transition (0 = none / just started). */
+export function transitionEase(p: number): number {
+  return easeInOut(p);
+}
+
+/** The one extra scene the corridor must hold this frame: the outgoing look mid-transition,
+ * else the next door's look while pre-warming, else none. */
+export function doorScene(doors: readonly DoorView[]): Scene | null {
+  for (const d of doors) if (d.timeUntil <= 0 && d.timeUntil > -TRANSITION_TIME) return d.from;
   const next = nextDoor(doors);
-  return next ? [cur, next.to] : [cur];
+  return next ? next.to : null;
 }
 
 /** The upcoming door inside the pre-warm window, if any. */
@@ -47,13 +70,29 @@ export function nextDoor(doors: readonly DoorView[]): DoorView | null {
 }
 
 /** Background with any running door transition. Returns the offset to apply to the door frame. */
+export interface DoorOffset {
+  ox: number;
+  oy: number;
+  alpha: number;
+}
+
+/** reused every frame (no allocation): how the outgoing scene's door frame is offset / faded */
+const OFF: DoorOffset = { ox: 0, oy: 0, alpha: 1 };
+
+function offset(ox: number, oy: number, alpha: number): DoorOffset {
+  OFF.ox = ox;
+  OFF.oy = oy;
+  OFF.alpha = alpha;
+  return OFF;
+}
+
 export function drawBackground(
   ctx: Ctx, v: View, corridor: Corridor, cur: Scene, doors: readonly DoorView[], scroll: number, t: number, reduced: boolean,
-): { ox: number; oy: number; alpha: number } {
+): DoorOffset {
   const tr = activeTransition(doors);
   if (!tr) {
     corridor.drawScene(ctx, v, cur, scroll, t, 0, 0);
-    return { ox: 0, oy: 0, alpha: 1 };
+    return offset(0, 0, 1);
   }
   const { door, p } = tr;
   const e = easeInOut(p);
@@ -62,28 +101,28 @@ export function drawBackground(
     ctx.globalAlpha = 1 - e;
     corridor.drawScene(ctx, v, door.from, scroll, t, 0, 0);
     ctx.globalAlpha = 1;
-    return { ox: 0, oy: 0, alpha: 1 - e };
+    return offset(0, 0, 1 - e);
   }
   if (door.transition === 'turn') {
     const ox = -e * (v.w + 24);
     corridor.drawScene(ctx, v, door.from, scroll, t, ox, 0);
     corridor.drawScene(ctx, v, cur, scroll, t, ox + v.w + 24, 0);
     cornerSeam(ctx, v, v.x0 - 12 + ox + v.w + 24);
-    return { ox, oy: 0, alpha: 1 };
+    return offset(ox, 0, 1);
   }
   if (door.transition === 'stairs') {
     const oy = -e * (v.h + 24);
     corridor.drawScene(ctx, v, door.from, scroll, t, 0, oy);
     corridor.drawScene(ctx, v, cur, scroll, t, 0, oy + v.h + 24);
     stairSeam(ctx, v, v.y0 - 12 + oy + v.h + 24);
-    return { ox: 0, oy, alpha: 1 };
+    return offset(0, oy, 1);
   }
   // elevator: close 0..0.4, closed + shake 0.4..0.6, open 0.6..1; the scene swaps while closed
   const close = p < 0.4 ? easeInOut(p / 0.4) : p < 0.6 ? 1 : 1 - easeInOut((p - 0.6) / 0.4);
   const shake = p > 0.38 && p < 0.66 ? Math.sin(p * 140) * 2.2 : 0;
   corridor.drawScene(ctx, v, p < 0.5 ? door.from : cur, scroll, t, 0, 0);
   elevatorDoors(ctx, v, close, shake);
-  return { ox: 0, oy: 0, alpha: p < 0.5 ? 1 - close : 0 };
+  return offset(0, 0, p < 0.5 ? 1 - close : 0);
 }
 
 function cornerSeam(ctx: Ctx, v: View, x: number): void {
@@ -116,8 +155,11 @@ function elevatorDoors(ctx: Ctx, v: View, close: number, shake: number): void {
   const h = v.h + 24;
   for (const side of [0, 1]) {
     const x = side === 0 ? v.x0 - 12 : v.x0 + v.w + 12 - w;
-    ctx.fillStyle = vGrad(ctx, top, top + h, [[0, '#59647C'], [0.5, '#8C97AE'], [1, '#3F4860']]);
-    ctx.fillRect(x, top, w, h);
+    ctx.save();
+    ctx.translate(0, top);
+    ctx.fillStyle = cachedGrad(ctx, 'elev', h, [[0, '#59647C'], [0.5, '#8C97AE'], [1, '#3F4860']]);
+    ctx.fillRect(x, 0, w, h);
+    ctx.restore();
     ctx.fillStyle = 'rgba(255,255,255,0.12)';
     for (let k = 1; k < 4; k++) ctx.fillRect(x + (w * k) / 4, top, 2, h);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -174,7 +216,7 @@ function panel(ctx: Ctx, x: number, da: number, db: number, lo: number, hi: numb
 }
 
 /** Back part: far post and the two sliding panels (drawn before the lanes). */
-export function drawDoorBack(ctx: Ctx, d: DoorView, off: { ox: number; oy: number; alpha: number }): void {
+export function drawDoorBack(ctx: Ctx, d: DoorView, off: DoorOffset): void {
   if (off.alpha <= 0.01) return;
   const x = fixedX(d.timeUntil);
   if (x < -80 || x > 520) return;
@@ -192,7 +234,7 @@ export function drawDoorBack(ctx: Ctx, d: DoorView, off: { ox: number; oy: numbe
 }
 
 /** Front part: near post and the lintel with its status light (drawn after the lanes). */
-export function drawDoorFront(ctx: Ctx, d: DoorView, t: number, off: { ox: number; oy: number; alpha: number }): void {
+export function drawDoorFront(ctx: Ctx, d: DoorView, t: number, off: DoorOffset): void {
   if (off.alpha <= 0.01) return;
   const x = fixedX(d.timeUntil);
   if (x < -80 || x > 520) return;
@@ -202,9 +244,12 @@ export function drawDoorFront(ctx: Ctx, d: DoorView, t: number, off: { ox: numbe
   const px = projX(x, NEAR_D);
   const top = projY(NEAR_D, DOOR_H + 14);
   const bot = projY(NEAR_D, 0) + 4;
-  ctx.fillStyle = vGrad(ctx, top, bot, [[0, '#4A5470'], [1, '#262C40']]);
-  roundRect(ctx, px - POST_W * 0.6, top, POST_W * 1.2, bot - top, 3);
+  ctx.save();
+  ctx.translate(0, top);
+  ctx.fillStyle = cachedGrad(ctx, 'post', bot - top, [[0, '#4A5470'], [1, '#262C40']]);
+  roundRect(ctx, px - POST_W * 0.6, 0, POST_W * 1.2, bot - top, 3);
   ctx.fill();
+  ctx.restore();
   ctx.fillStyle = '#FFC93C';
   for (let y = top + 20; y < bot - 10; y += 26) ctx.fillRect(px - POST_W * 0.6, y, POST_W * 1.2, 8);
   // lintel across the corridor (up to the ceiling a bit)

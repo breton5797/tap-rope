@@ -4,11 +4,14 @@
 // front] → door front → fog/alarm → "!" warnings → effects → rhythm lane HUD.
 import {
   GROUND_Y, LOGICAL_H, LOGICAL_W, PLAYER_X, SCROLL_SPEED, type EffectsApi, type PlayerState, type Renderer, type RenderSnapshot,
+  type Variant,
 } from '../types';
 import { AgentPainter } from './agent';
 import { Corridor } from './corridor';
 import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
-import { activeTransition, drawBackground, drawDoorBack, drawDoorFront, drawDoorSign, nextDoor, wantedScenes } from './doors';
+import {
+  activeTransition, doorScene, drawBackground, drawDoorBack, drawDoorFront, drawDoorSign, nextDoor, transitionEase,
+} from './doors';
 import { Effects } from './effects';
 import { EscortPainter } from './escort';
 import { drawGadgets } from './gadgets';
@@ -21,6 +24,9 @@ import { SpriteCache } from './sprites';
 import type { Ctx } from './util';
 import { computeView, type View } from './view';
 import { drawWarnings } from './warnings';
+
+const STOP_ESCORT = 3;
+const STOP_AGENT = 4;
 
 class CanvasRenderer implements Renderer {
   private readonly ctx: Ctx;
@@ -89,50 +95,105 @@ class CanvasRenderer implements Renderer {
     const variant = snap.variant ?? 'base';
     const reduced = snap.reducedMotion;
     const doors = snap.doors ?? [];
-    const scene = { world: snap.world, variant };
     const next = nextDoor(doors);
-    this.corridor.sync(v, wantedScenes(scene, doors), snap.scroll + (next ? next.timeUntil * SCROLL_SPEED : 0));
+    this.corridor.sync(v, snap, doorScene(doors), snap.scroll + (next ? next.timeUntil * SCROLL_SPEED : 0));
     // reduced motion freezes decorative corridor animation (top-band fans, status LEDs)
-    const off = drawBackground(ctx, v, this.corridor, scene, doors, snap.scroll, reduced ? 0 : t, reduced);
+    const off = drawBackground(ctx, v, this.corridor, snap, doors, snap.scroll, reduced ? 0 : t, reduced);
     this.corridor.endFrame();
+    // variant layers: during a door transition the old look's fade out while the new look's fade in
     const tr = activeTransition(doors);
-    // variant layers belong to the incoming scene: fade them in with the transition
-    ctx.globalAlpha = tr ? tr.p : 1;
-    if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
-    if (variant === 'steam') {
-      fog(ctx, v, snap.scroll, t, this.sprites, 0.34);
-      steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced);
-    }
-    ctx.globalAlpha = 1;
-    ctx.globalAlpha = tr ? tr.p : 1;
-    if (variant === 'dark') this.darkness.draw(ctx, v, GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane)));
-    ctx.globalAlpha = 1;
+    const e = tr ? transitionEase(tr.p) : 1;
+    const lift = GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane));
+    if (tr && tr.door.from.variant !== variant) this.backFx(ctx, v, snap, tr.door.from.variant, 1 - e, lift);
+    this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
     for (const d of doors) drawDoorBack(ctx, d, off);
     this.drawLanes(ctx, v, snap, lane);
     for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
-    if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.12);
-    if (variant === 'alarm') alarmWash(ctx, v, reduced ? 0 : t);
+    if (tr && tr.door.from.variant !== variant) this.frontFx(ctx, v, snap, tr.door.from.variant, 1 - e);
+    this.frontFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1);
     drawLaserWarnings(ctx, v, snap.obstacles, t, snap.fever, reduced, Math.round(lane));
     drawWarnings(ctx, v, snap.obstacles, lane, t, this.sprites, reduced);
     for (const d of doors) drawDoorSign(ctx, v, d, reduced ? 0 : t);
   }
 
-  /** Far lane first; each lane: sheets behind its centre, figures, sheets in front of it. */
+  /** Variant layers behind the gameplay (sirens, steam, darkness) at opacity `fade`. */
+  private backFx(ctx: Ctx, v: View, snap: RenderSnapshot, variant: Variant, fade: number, lift: number): void {
+    if (fade <= 0.01) return;
+    const t = snap.realTime;
+    const reduced = snap.reducedMotion;
+    ctx.globalAlpha = fade;
+    if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
+    if (variant === 'dark') this.darkness.draw(ctx, v, lift);
+    ctx.globalAlpha = 1;
+    if (variant === 'steam') {
+      fog(ctx, v, snap.scroll, t, this.sprites, 0.34 * fade);
+      steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced, fade);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Variant layers over the gameplay (front fog, alarm wash) at opacity `fade`. */
+  private frontFx(ctx: Ctx, v: View, snap: RenderSnapshot, variant: Variant, fade: number): void {
+    if (fade <= 0.01) return;
+    const t = snap.realTime;
+    if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.12 * fade);
+    if (variant === 'alarm') {
+      ctx.globalAlpha = fade;
+      alarmWash(ctx, v, snap.reducedMotion ? 0 : t);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /**
+   * Painter's order by real depth: lane stops (hazards, pickups, drones) at 0 / 1 / 2 and the
+   * escort and agent at their (possibly fractional, mid lane switch) depths, sorted far → near;
+   * laser sheets are drawn in the depth slices between consecutive stops.
+   */
   private drawLanes(ctx: Ctx, v: View, snap: RenderSnapshot, lane: number): void {
     const t = snap.realTime;
     const reduced = snap.reducedMotion;
     const escortState = snap.escort ? this.escort.update(snap.player, t, snap.time) : null;
-    const escortLane = escortState ? Math.round(visualLane(escortState)) : -1;
-    const agentLane = Math.round(lane);
-    for (let l = 0; l < 3; l++) {
-      drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, l === 0 ? -1 : l - 0.5, l);
-      drawLaneHazards(ctx, v, snap.obstacles, l, t, this.sprites, reduced);
-      drawGadgets(ctx, snap.obstacles, t, this.sprites, l);
-      if (escortState && escortLane === l) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running);
-      if (agentLane === l) this.drawAgent(ctx, snap, lane, snap.variant === 'dark');
-      drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, l, l === 2 ? 3 : l + 0.5);
+    let n = this.addStop(0, 0, 0);
+    n = this.addStop(n, 1, 1);
+    n = this.addStop(n, 2, 2);
+    if (escortState) n = this.addStop(n, visualLane(escortState), STOP_ESCORT);
+    n = this.addStop(n, lane, STOP_AGENT);
+    const d = this.stopD;
+    const k = this.stopK;
+    let prev = -1;
+    for (let i = 0; i < n; i++) {
+      if (d[i] > prev) {
+        drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, d[i]);
+        prev = d[i];
+      }
+      const kind = k[i];
+      if (kind === STOP_AGENT) this.drawAgent(ctx, snap, lane, snap.variant === 'dark');
+      else if (kind === STOP_ESCORT && escortState) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running);
+      else {
+        drawLaneHazards(ctx, v, snap.obstacles, kind, t, this.sprites, reduced);
+        drawGadgets(ctx, snap.obstacles, t, this.sprites, kind);
+      }
     }
+    drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, 3);
   }
+
+  /** Insertion sort into the stop list: by depth, then lanes (0..2) < escort < agent at equal depth. */
+  private addStop(n: number, depth: number, kind: number): number {
+    const d = this.stopD;
+    const k = this.stopK;
+    let i = n;
+    while (i > 0 && (d[i - 1] > depth || (d[i - 1] === depth && k[i - 1] > kind))) {
+      d[i] = d[i - 1];
+      k[i] = k[i - 1];
+      i--;
+    }
+    d[i] = depth;
+    k[i] = kind;
+    return n + 1;
+  }
+
+  private readonly stopD = new Float64Array(5);
+  private readonly stopK = new Int8Array(5);
 
   private drawAgent(ctx: Ctx, snap: RenderSnapshot, lane: number, torch: boolean): void {
     const p: PlayerState = snap.player;

@@ -20,7 +20,7 @@ const TOP_RES = 0.65;
 /** corridor tiles bake at most at this device-pixel ratio (memory: iOS Safari canvas limits) */
 const MAX_TILE_DPR = 2;
 /** …and never denser than this many device px per logical px (big iPads) */
-const MAX_TILE_K = 2.6;
+const MAX_TILE_K = 2.2;
 /** floor surface strips (more = smoother converging seams) */
 const FLOOR_STRIPS = 12;
 const WALL_S = depthScale(WALL_DEPTH);
@@ -78,9 +78,16 @@ class SceneCache {
   /** tiles drawn since the last trim (layer * 8 + index) */
   private readonly used = new Set<number>();
 
+  private readonly viewKey: string;
+
   constructor(readonly key: string, readonly world: WorldId, readonly variant: Variant, v: View) {
+    this.viewKey = v.key;
     this.k = Math.min(v.s * Math.min(v.dpr, MAX_TILE_DPR), MAX_TILE_K);
     this.grade = GRADE[variant] ?? null;
+  }
+
+  matches(s: Scene, v: View): boolean {
+    return this.world === s.world && this.variant === s.variant && this.viewKey === v.key;
   }
 
   tile(layer: L, i: number): HTMLCanvasElement {
@@ -168,43 +175,53 @@ export class Corridor {
   private caches: SceneCache[] = [];
 
   /**
-   * Keep exactly the scenes in `want` (first = current, at most one more) and release the rest.
-   * A non-current scene pre-bakes, one tile per call, the tiles visible at `warmScroll` (the
-   * corridor scroll at the door), so the transition never stalls a frame.
+   * Keep exactly the current scene (slot 0) and at most one door scene (slot 1); release the rest.
+   * The door scene pre-bakes, one tile per call, the tiles visible at `warmScroll` (the corridor
+   * scroll at the door), so the transition never stalls a frame. No per-frame allocations once
+   * both caches exist.
    */
-  sync(v: View, want: readonly Scene[], warmScroll = 0): void {
-    const keys = want.slice(0, 2).map((s) => sceneKey(s, v));
-    const keep: SceneCache[] = [];
-    for (const c of this.caches) {
-      if (keys.includes(c.key) && !keep.some((k) => k.key === c.key)) keep.push(c);
-      else c.release();
+  sync(v: View, cur: Scene, extra: Scene | null, warmScroll = 0): void {
+    const a = this.take(v, cur);
+    const b = extra && !(extra.world === cur.world && extra.variant === cur.variant) ? this.take(v, extra) : null;
+    for (const c of this.caches) if (c !== a && c !== b) c.release();
+    this.caches.length = 0;
+    this.caches.push(a);
+    if (b) {
+      this.caches.push(b);
+      this.fillVisibleTiles(v, warmScroll);
+      b.warm(this.needed);
     }
-    this.caches = keep;
-    want.slice(0, 2).forEach((s, i) => {
-      const key = keys[i];
-      let c = this.caches.find((x) => x.key === key);
-      if (!c) {
-        c = new SceneCache(key, s.world, s.variant, v);
-        this.caches.push(c);
-      }
-      if (i > 0) c.warm(this.visibleTiles(v, warmScroll));
-    });
   }
 
-  /** After drawing: trim the outgoing (non-current) scene to the tiles it still showed. */
+  /** The cache for scene s (existing or new; not yet placed in a slot). */
+  private take(v: View, s: Scene): SceneCache {
+    for (const c of this.caches) if (c.matches(s, v)) return c;
+    return new SceneCache(sceneKey(s, v), s.world, s.variant, v);
+  }
+
+  /** After drawing: trim the door scene (slot 1, e.g. the outgoing one) to the tiles it showed. */
   endFrame(): void {
     this.caches.forEach((c, i) => (i > 0 ? c.trimToUsed() : c.clearUsed()));
   }
 
-  /** Tile ids (layer * 8 + index) visible at a given scroll: floor, ceiling, walls, top band. */
-  private visibleTiles(v: View, scroll: number): number[] {
-    const out = [L.Floor * 8, L.Ceil * 8];
+  /** Tile ids (layer * 8 + index) visible at a given scroll into this.needed: floor, ceiling, walls, top. */
+  private fillVisibleTiles(v: View, scroll: number): void {
+    const out = this.needed;
+    out.length = 0;
+    out.push(L.Floor * 8, L.Ceil * 8);
     const xMin = v.x0 - 12;
     const xMax = v.x0 + v.w + 12;
-    eachTile(xMin, xMax, WALL_W, scroll, WALL_S, (m) => out.push(L.Wall * 8 + (tileHash(m, 5) % WALL_VARIANTS)));
-    eachTile(xMin, xMax, WALL_W, scroll * TOP_PARALLAX, 1, (m) => out.push(L.Top * 8 + (tileHash(m, 11) % TOP_VARIANTS)));
-    return out;
+    eachTile(xMin, xMax, WALL_W, scroll, WALL_S, this.pushWall);
+    eachTile(xMin, xMax, WALL_W, scroll * TOP_PARALLAX, 1, this.pushTop);
   }
+
+  private readonly needed: number[] = [];
+  private readonly pushWall = (m: number): void => {
+    this.needed.push(L.Wall * 8 + (tileHash(m, 5) % WALL_VARIANTS));
+  };
+  private readonly pushTop = (m: number): void => {
+    this.needed.push(L.Top * 8 + (tileHash(m, 11) % TOP_VARIANTS));
+  };
 
   /** Total backing-store bytes of every cached corridor tile. */
   bytes(): number {
@@ -213,12 +230,12 @@ export class Corridor {
 
   /** Draw one scene, offset by (ox, oy) and clipped to its shifted copy of the view. */
   drawScene(ctx: Ctx, v: View, s: Scene, scroll: number, t: number, ox: number, oy: number): void {
-    const key = sceneKey(s, v);
-    let c = this.caches.find((x) => x.key === key);
+    let c: SceneCache | null = null;
+    for (const x of this.caches) if (x.matches(s, v)) c = x;
     if (!c) {
-      // not requested via sync (e.g. preview); build on demand, keeping the two-scene cap
-      this.sync(v, [s, ...this.caches.slice(0, 1).map((x) => ({ world: x.world, variant: x.variant }))]);
-      c = this.caches.find((x) => x.key === key) as SceneCache;
+      // not requested via sync: build on demand as the only scene (keeps the two-scene cap)
+      this.sync(v, s, null);
+      c = this.caches[0];
     }
     const shifted = ox !== 0 || oy !== 0;
     if (shifted) {

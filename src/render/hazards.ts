@@ -88,8 +88,10 @@ function guardShield(ctx: Ctx, x: number, y: number, s: number, glow: number): v
   ctx.lineTo(-17, -14);
   ctx.lineTo(-17, -44);
   ctx.closePath();
-  ctx.fillStyle = `rgba(255,51,88,${(0.28 + 0.2 * glow).toFixed(3)})`;
+  ctx.fillStyle = '#FF3358';
+  ctx.globalAlpha = 0.28 + 0.2 * glow;
   ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.strokeStyle = '#FF5E7A';
   ctx.lineWidth = 2;
   ctx.stroke();
@@ -119,9 +121,11 @@ function guard(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: S
     circle(ctx, p.x + (ex + look) * s, p.y + bob - 51.5 * s, 2.6 * s);
     ctx.fill();
   }
-  ctx.fillStyle = `rgba(255,80,110,${(0.25 + 0.25 * glow).toFixed(3)})`;
+  ctx.fillStyle = '#FF506E';
+  ctx.globalAlpha = 0.25 + 0.25 * glow;
   circle(ctx, p.x + (-1 + look) * s, p.y + bob - 51.5 * s, 9 * s);
   ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.fillStyle = glow > 0.5 || reduced ? '#FF3358' : '#7A1020';
   circle(ctx, p.x + 5 * s, p.y + bob - 70 * s, 2.4 * s);
   ctx.fill();
@@ -193,15 +197,18 @@ function drop(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: Sp
   const s = p.scale;
   // landing shadow: faint until WARN_LEAD, then darkening and tightening to the landing
   const k = clamp(1 - tu / WARN_LEAD, 0, 1);
-  ctx.fillStyle = `rgba(5,4,12,${(0.12 + 0.48 * k).toFixed(3)})`;
+  ctx.fillStyle = '#05040C';
+  ctx.globalAlpha = 0.12 + 0.48 * k;
   oval(ctx, p.x, p.y + 1, (26 - 6 * k) * s, (6 - 1 * k) * s);
   ctx.fill();
   if (tu <= WARN_LEAD && tu > DROP_LAND) {
-    ctx.strokeStyle = `rgba(255,51,88,${(0.35 + 0.45 * k).toFixed(3)})`;
+    ctx.strokeStyle = '#FF3358';
+    ctx.globalAlpha = 0.35 + 0.45 * k;
     ctx.lineWidth = 1.6;
     oval(ctx, p.x, p.y + 1, 24 * s, 5.5 * s);
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
   const h = dropHeight(tu);
   const sway = tu > DROP_START && !reduced ? Math.sin(t * 3 + seedOf(o.id)) * 2 : 0;
   // claw and cable from the ceiling
