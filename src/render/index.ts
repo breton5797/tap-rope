@@ -58,6 +58,7 @@ class CanvasRenderer implements Renderer {
   private readonly post = new Post();
   private lastTime = 0;
   private lastRunning = false;
+  private lastTransition = false;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -128,7 +129,13 @@ class CanvasRenderer implements Renderer {
     const reduced = snap.reducedMotion;
     const doors = snap.doors ?? [];
     // stage start (time jumps back / running starts) and doors are where a late scene may swap to photos
-    if (snap.time < this.lastTime - 0.25 || snap.running !== this.lastRunning || activeTransition(doors)) this.corridor.boundary();
+    // edge-triggered: once when a door transition starts (not every frame of it), so a late
+    // scene's wait cap still counts frames during the transition
+    const inTransition = activeTransition(doors) !== null;
+    if (snap.time < this.lastTime - 0.25 || snap.running !== this.lastRunning || (inTransition && !this.lastTransition)) {
+      this.corridor.boundary();
+    }
+    this.lastTransition = inTransition;
     this.lastTime = snap.time;
     this.lastRunning = snap.running;
     this.corridor.sync(v, snap, doorScene(doors));

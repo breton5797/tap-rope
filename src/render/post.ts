@@ -15,7 +15,9 @@ const MOTES = 26;
 /** seconds the hit chromatic split lasts (~7 frames at 60fps) */
 const CHROMA_TIME = 0.12;
 /** seconds the red hit edge lasts */
-const HIT_EDGE_TIME = 0.5;
+const HIT_EDGE_TIME = 0.6;
+const HIT_EDGE_HOLD = 0.25;
+const HIT_EDGE_PEAK = 0.6;
 
 const moteX = new Float32Array(MOTES);
 const moteY = new Float32Array(MOTES);
@@ -143,7 +145,10 @@ export class Post {
    */
   hitEdge(ctx: Ctx, v: View, hitAge: number, reduced: boolean): void {
     if (hitAge > HIT_EDGE_TIME || !this.hitEdgeCanvas) return;
-    ctx.globalAlpha = reduced ? 0.35 : 0.9 * (1 - hitAge / HIT_EDGE_TIME) ** 1.5;
+    // full strength for HIT_EDGE_HOLD, then decay; reduced motion: a static dim edge
+    const decay = hitAge < HIT_EDGE_HOLD ? 1 : 1 - (hitAge - HIT_EDGE_HOLD) / (HIT_EDGE_TIME - HIT_EDGE_HOLD);
+    // peak kept below full so the hit reads as a warning flash, not a red wash over the scene
+    ctx.globalAlpha = reduced ? 0.35 : HIT_EDGE_PEAK * Math.max(0, decay) ** 1.3;
     ctx.drawImage(this.hitEdgeCanvas, v.x0, v.y0, v.w, v.h);
     ctx.globalAlpha = 1;
   }
@@ -251,18 +256,28 @@ function buildShaft(tint: string): HTMLCanvasElement {
   return canvas;
 }
 
-/** Red edge vignette (low resolution, stretched): clear centre, red toward every screen edge. */
+/** Red edge vignette (low resolution, stretched): a red band along all four screen edges, sides
+ * included (a radial falloff barely reaches the sides of a tall phone screen). */
 function buildEdge(v: View): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(v.w * VIGNETTE_RES, v.h * VIGNETTE_RES);
   ctx.setTransform(VIGNETTE_RES, 0, 0, VIGNETTE_RES, -v.x0 * VIGNETTE_RES, -v.y0 * VIGNETTE_RES);
-  const cx = v.x0 + v.w / 2;
-  const cy = v.y0 + v.h / 2;
-  const r = Math.hypot(v.w, v.h) / 2;
-  const g = ctx.createRadialGradient(cx, cy, r * 0.62, cx, cy, r);
-  g.addColorStop(0, 'rgba(255,30,45,0)');
-  g.addColorStop(0.5, 'rgba(255,30,45,0.18)');
-  g.addColorStop(1, 'rgba(200,10,25,0.8)');
-  ctx.fillStyle = g;
-  ctx.fillRect(v.x0, v.y0, v.w, v.h);
+  const band = Math.min(v.w, v.h) * 0.24;
+  const edge = (x0: number, y0: number, x1: number, y1: number, rx: number, ry: number, rw: number, rh: number): void => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, 'rgba(230,16,32,0.9)');
+    g.addColorStop(0.45, 'rgba(255,30,45,0.35)');
+    g.addColorStop(1, 'rgba(255,30,45,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(rx, ry, rw, rh);
+  };
+  const L = v.x0;
+  const T = v.y0;
+  const R = v.x0 + v.w;
+  const B = v.y0 + v.h;
+  ctx.globalCompositeOperation = 'lighter';
+  edge(L, 0, L + band, 0, L, T, band, v.h);
+  edge(R, 0, R - band, 0, R - band, T, band, v.h);
+  edge(0, T, 0, T + band, L, T, v.w, band);
+  edge(0, B, 0, B - band, L, B - band, v.w, band);
   return canvas;
 }

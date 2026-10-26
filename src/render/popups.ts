@@ -88,12 +88,18 @@ export function drawPopups(ctx: Ctx, pool: PopupPool): void {
     const y = p.y0 - 16 * easeOutCubic(f) - p.bump;
     const glitch = p.style === 'miss' && p.age < 0.2 ? (Math.floor(p.age * 60) % 2 ? 2 : -2) : 0;
     ctx.save();
-    ctx.globalAlpha = (f > 0.7 ? 1 - (f - 0.7) / 0.3 : 1) * Math.min(1, p.age / 0.05);
+    // hold fully opaque for most of the life, then a short fade (no long muddy tail)
+    ctx.globalAlpha = (f > 0.86 ? 1 - (f - 0.86) / 0.14 : 1) * Math.min(1, p.age / 0.05);
     ctx.translate(PLAYER_X + glitch, y);
     ctx.scale(sc, sc);
     ctx.font = `700 ${def.size}px ${HUD_FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    // thin dark backing keeps the readout crisp on dark scenes
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.strokeText(p.text, 0, 0);
     ctx.fillStyle = 'rgba(0,0,0,0.6)';
     ctx.fillText(p.text, 1, 1.5);
     ctx.fillStyle = def.color;
