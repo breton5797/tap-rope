@@ -64,21 +64,43 @@ function keyLine(): HTMLElement {
   ]);
 }
 
-/** Blocking first-play card. `onDone` fires once, when "알겠어!" is pressed. */
+/** Keyboard while the card is open: Tab cycles inside it, Escape confirms like "알겠어!".
+ * Window capture phase so the game's own Escape (= pause) never sees it. Self-removes once detached. */
+function trapKeys(screen: HTMLElement, close: () => void): () => void {
+  const onKey = (e: KeyboardEvent): void => {
+    if (!screen.isConnected) {
+      release();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    } else if (e.key === 'Tab') {
+      const items = Array.from(screen.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])'));
+      if (items.length === 0) return;
+      const i = items.indexOf(document.activeElement as HTMLElement);
+      const next = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i + 1) % items.length;
+      e.preventDefault();
+      items[next].focus();
+    }
+  };
+  const release = (): void => window.removeEventListener('keydown', onKey, true);
+  window.addEventListener('keydown', onKey, true);
+  return release;
+}
+
+/** Blocking first-play card. `onDone` fires once, on "알겠어!" or Escape. */
 export function buildControls(ctx: Ctx, onDone: () => void): HTMLElement {
   let done = false;
-  const ok = button({
-    label: '알겠어!',
-    variant: 'sun',
-    size: 'lg',
-    icon: icons.play(),
-    cls: 'ctl__ok',
-    onPress: ctx.tap(() => {
-      if (done) return;
-      done = true;
-      onDone();
-    }),
+  let release = (): void => undefined;
+  const close = ctx.tap(() => {
+    if (done) return;
+    done = true;
+    release();
+    onDone();
   });
+  const ok = button({ label: '알겠어!', variant: 'sun', size: 'lg', icon: icons.play(), cls: 'ctl__ok', onPress: close });
   const screen = h('section', { cls: 'screen screen--modal screen--controls', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'ctl-title' } }, [
     h('div', { cls: 'ctl card pop-in' }, [
       h('div', { cls: 'ctl__kicker', text: 'AGENT CONTROLS' }),
@@ -88,6 +110,7 @@ export function buildControls(ctx: Ctx, onDone: () => void): HTMLElement {
       ok,
     ]),
   ]);
+  release = trapKeys(screen, close);
   // focus once mounted so Enter/Space confirm and screen readers land on the action
   requestAnimationFrame(() => ok.focus({ preventScroll: true }));
   return screen;
