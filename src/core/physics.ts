@@ -6,8 +6,11 @@
  *   or ↓ key on the floor = slide now; otherwise in the air = dive (vy := −fallV), slide on landing.
  *   A buffered tap at landing wins over a pending slide (latest intent).
  * - a slide lasts slideTime; stepPlayer sub-steps large dt.
+ * - v5 lanes (GDD v5 §2): moveLane shifts one lane at once (grounded, airborne or sliding), judging uses
+ *   the new lane immediately; laneFrom/laneAge drive the switch animation, stepPlayer advances laneAge.
  */
-import type { Level, PhysicsConfig, PlayerState, Swipe, WorldId } from '../types';
+import type { LaneDir, LaneId, Level, PhysicsConfig, PlayerState, Swipe, WorldId } from '../types';
+import { LANE_COUNT } from '../types';
 
 export const DEFAULT_PHYSICS: PhysicsConfig = { gravity: 3000, jumpV: 660, boostV: 700, fallV: 1400, slideTime: 0.55 };
 /** a jump laser is cleared above this height — matches the drawn floor fence */
@@ -21,6 +24,7 @@ const MAX_STEP = 1 / 120;
 
 export type TapAction = 'jump' | 'boost' | 'buffered' | 'none';
 export type SlideAction = 'slide' | 'dive' | 'none';
+export type LaneAction = 'lane' | 'none';
 
 /** v4: every corridor theme shares one physics config (no low-gravity zone). */
 export function physicsForWorld(_world: WorldId): PhysicsConfig {
@@ -31,7 +35,15 @@ export function initialPlayer(): PlayerState {
   return {
     height: 0, vy: 0, grounded: true, level: 0, airTime: 0, landTimer: 0, buffer: 0,
     sliding: false, slideTime: 0, slideAge: 0, pendingSlide: false, lastTap: 'none',
+    lane: 1, laneFrom: 1, laneAge: 1, // settled in the middle lane (animation long finished)
   };
+}
+
+/** ↑ / ↓ on the left half: one lane toward far (−1) or near (+1); past an edge lane = 'none'. */
+export function moveLane(p: PlayerState, dir: LaneDir): { player: PlayerState; action: LaneAction } {
+  const lane = p.lane + dir;
+  if (lane < 0 || lane >= LANE_COUNT) return { player: p, action: 'none' };
+  return { player: { ...p, lane: lane as LaneId, laneFrom: p.lane, laneAge: 0 }, action: 'lane' };
 }
 
 const NOT_SLIDING = { sliding: false, slideTime: 0, slideAge: 0, pendingSlide: false } as const;
@@ -124,7 +136,7 @@ export function stepPlayer(p: PlayerState, dt: number, cfg: PhysicsConfig): Step
     const r = stepOnce(acc.player, h, cfg);
     acc = result(r.player, acc.landed || r.landed, acc.autoJumped || r.autoJumped, acc.slideStarted || r.slideStarted);
   }
-  return acc;
+  return { ...acc, player: { ...acc.player, laneAge: p.laneAge + dt } };
 }
 
 /**

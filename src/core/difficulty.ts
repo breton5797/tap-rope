@@ -1,7 +1,7 @@
 /**
  * Stage difficulty score (GDD v3 §18, re-tuned for v4), computed from the generated hazard beats only
  * (pickups are ignored). Each term is normalised to 0..1, then weighted (weights sum to 1):
- * - rate   : hazard beats per second over the stage, / 2 (capped at 1)
+ * - rate   : hazard beats per second (1 / mean gap between consecutive hazards), / 2 (capped at 1)
  * - tight  : 1 / mean(actual gap ÷ minimum allowed gap) over consecutive hazards — the inverse
  *            of the average gap measured in units of its minimum (spacing.ts, with the stage's
  *            gravity, rounded up to the stage's half-beat grid), so 1 = every hazard comes as
@@ -12,6 +12,8 @@
  * - combo  : share of beats with two or more hazards at once (laser gates: floor + drone)
  * - length : hazard beats / 60 (endurance; not in the v3 §18 list — added so long boss finales
  *            register as harder than their chapter's normal stages)
+ * v5: rate and tight only look at pairs inside one section (a door break is a rest, not slack); a lane
+ * beat is its own move (change) and a lanejump counts as a combined beat (combo).
  */
 import type { Beat, StageDef } from '../types';
 import { HAZARD_KINDS } from '../types';
@@ -36,15 +38,16 @@ export function difficultyTerms(stage: StageDef, beats: readonly Beat[]): Diffic
   const cfg = physicsForWorld(stage.world);
   const half = 30 / stage.bpm;
   const onGrid = (sec: number) => Math.max(half, Math.ceil(sec / half - 1e-9) * half);
-  const pairs = hz.slice(1).map((b, i) => ({ prev: hz[i], next: b }));
+  const pairs = hz.slice(1).map((b, i) => ({ prev: hz[i], next: b })).filter((p) => p.prev.section === p.next.section);
+  if (pairs.length === 0) return ZERO;
   const ratios = pairs.map(({ prev, next }) =>
     (next.time - prev.time) / onGrid(minGap(beatShape(prev), beatShape(next), cfg)));
   const meanRatio = ratios.reduce((a, r) => a + r, 0) / ratios.length;
-  const span = hz[hz.length - 1].time - hz[0].time;
+  const span = pairs.reduce((a, p) => a + p.next.time - p.prev.time, 0);
   const moves = hz.map(moveForBeat);
   const multiPoints = hz.reduce((a, b) => a + multiPoint(b), 0);
   return {
-    rate: Math.min(1, share(hz.length, span) / 2),
+    rate: Math.min(1, share(pairs.length, span) / 2),
     tight: Math.min(1, 1 / meanRatio),
     change: share(moves.slice(1).filter((m, i) => m !== moves[i]).length, hz.length - 1),
     multi: Math.min(1, share(multiPoints, hz.length)),

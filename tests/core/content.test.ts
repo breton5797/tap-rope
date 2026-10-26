@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { INTRO_STAGE, stageNumber } from '../../src/core/campaign';
-import { CHAPTERS, DESIGNED_LOOKS, movesForMix, nextStageId, SKINS, stageById, STAGES, WORLDS } from '../../src/core/content';
+import {
+  CHAPTER_SCENES, CHAPTERS, DESIGNED_LOOKS, movesForMix, nextStageId, sceneFor, SKINS, stageById, STAGES, transitionFor, WORLDS,
+} from '../../src/core/content';
 import type { MoveId } from '../../src/types';
 
 describe('WORLDS (themes)', () => {
@@ -68,7 +70,8 @@ describe('STAGES', () => {
 
   it('introduces each move exactly at its §5 stage number', () => {
     const intro: Record<MoveId, number> = {
-      jump: 1, beam: 2, double: 4, slide: 6, drone: 8, triple: 11, high: 13, rear: 16, gate: 21, pulse: 24,
+      jump: 1, lane: 2, beam: 3, double: 4, slide: 6, drone: 8, drop: 9, triple: 11, high: 13, rear: 16, chaser: 18,
+      gate: 21, pulse: 24, lanejump: 27,
     };
     expect(INTRO_STAGE).toEqual(intro);
     for (const [move, n] of Object.entries(intro) as [MoveId, number][]) {
@@ -77,9 +80,11 @@ describe('STAGES', () => {
   });
 
   it('first-introduction stages are gentle and focus on the new move', () => {
-    for (const n of [2, 4, 6, 8, 11, 13, 16, 21, 24]) {
+    for (const n of [2, 3, 4, 6, 8, 9, 11, 13, 16, 18, 21, 24, 27]) {
       const s = STAGES[n - 1];
-      expect(s.moves.length, s.id).toBeLessThanOrEqual(3);
+      // v5: jump + lane (+ 이단) once unlocked, plus the new move
+      expect(s.moves.length, s.id).toBeLessThanOrEqual(4);
+      expect(s.moves.filter((m) => !['jump', 'lane', 'double'].includes(m)).length, s.id).toBeLessThanOrEqual(1);
       const prev = STAGES.slice(0, n - 1).filter((x) => x.kind === 'normal').pop();
       expect(s.bpm).toBeLessThanOrEqual((prev?.bpm ?? s.bpm) + 4);
     }
@@ -127,6 +132,44 @@ describe('STAGES', () => {
     expect(s.hazardBeats).toBeLessThanOrEqual(16);
   });
 
+  it('renames the stages whose introduction changed in v5 (§7)', () => {
+    expect(stageById('w1-s2')?.name).toBe('경비로봇 피하기');
+    expect(stageById('w1-s3')?.name).toBe('날아오는 빔');
+    expect(stageById('w1-s9')?.name).toBe('떨어지는 상자');
+    expect(stageById('w2-s8')?.name).toBe('뒤에서 온다!');
+    expect(stageById('w3-s7')?.name).toBe('피하고 뛰어!');
+  });
+
+  it('splits stages into sections: bonus 1, normal 2, boss 3', () => {
+    for (const s of STAGES) expect(s.sections, s.id).toBe(s.kind === 'bonus' ? 1 : s.kind === 'boss' ? 3 : 2);
+  });
+
+  it('v5 lane mix: 0.5 on lane intros, 0.2 + 0.15·d on other normal stages (half on other intros), none before 2 / on bonus', () => {
+    const family = ['lane', 'drop', 'chaser', 'lanejump'];
+    for (const s of STAGES) {
+      const n = stageNumber(s);
+      const intro = Object.entries(INTRO_STAGE).find(([, at]) => at === n)?.[0];
+      if (n < 2 || s.kind === 'bonus') expect(s.mix.lane, s.id).toBe(0);
+      else if (intro && family.includes(intro)) expect(s.mix.lane, s.id).toBe(0.5);
+      else {
+        const d = (s.bpm - 88) / 62;
+        expect(s.mix.lane, s.id).toBeCloseTo((0.2 + 0.15 * d) * (intro ? 0.5 : 1), 1);
+      }
+      expect(s.mix.drop + s.mix.chaser, s.id).toBeLessThanOrEqual(1);
+    }
+    expect(stageById('w1-s9')?.mix.drop).toBe(0.6);
+    expect(stageById('w2-s8')?.mix.chaser).toBe(1);
+    expect(stageById('w3-s7')?.mix.laneCombo).toBe(0.6);
+  });
+
+  it('part 2 adds +0.1 to chaser and rear shares', () => {
+    const at = (id: string) => stageById(id) as NonNullable<ReturnType<typeof stageById>>;
+    const p1 = at('w5-s9');
+    const p2 = at('w6-s1');
+    expect(p2.mix.chaser - p1.mix.chaser).toBeGreaterThan(0.05);
+    expect(p2.mix.rear - p1.mix.rear).toBeGreaterThan(0.05);
+  });
+
   it('has unique seeds', () => {
     expect(new Set(STAGES.map((s) => s.seed)).size).toBe(100);
   });
@@ -142,5 +185,41 @@ describe('stageById / nextStageId', () => {
     expect(nextStageId('w1-s10')).toBe('w2-s1');
     expect(nextStageId('w10-s10')).toBeNull();
     expect(nextStageId('nope')).toBeNull();
+  });
+});
+
+describe('CHAPTER_SCENES / sceneFor (§6.1)', () => {
+  it('follows the §6.1 table', () => {
+    const look = (i: number) => CHAPTER_SCENES[i].scenes.map((x) => `${x.world}/${x.variant}`);
+    expect(CHAPTER_SCENES).toHaveLength(10);
+    expect(look(0)).toEqual(['0/base', '3/base', '3/steam']);
+    expect(look(3)).toEqual(['1/dark', '1/base', '2/base']);
+    expect(look(9)).toEqual(['0/dawn', '0/base', '0/dawn']);
+    expect(CHAPTER_SCENES.map((c) => c.transitions.join('/'))).toEqual([
+      'turn/stairs', 'turn/stairs', 'elevator/turn', 'turn/stairs', 'stairs/elevator',
+      'turn/stairs', 'turn/elevator', 'turn/elevator', 'turn/stairs', 'stairs/turn',
+    ]);
+  });
+
+  it('section 0 is the chapter look and every scene is a designed pair', () => {
+    CHAPTER_SCENES.forEach((c, i) => {
+      expect(c.scenes[0]).toEqual({ world: CHAPTERS[i].theme, variant: CHAPTERS[i].variant });
+      for (const sc of c.scenes) expect(DESIGNED_LOOKS[sc.world], `${i} ${sc.world}/${sc.variant}`).toContain(sc.variant);
+      expect(c.scenes[1]).not.toEqual(c.scenes[0]);
+      expect(c.scenes[2]).not.toEqual(c.scenes[1]);
+    });
+  });
+
+  it('sceneFor / transitionFor read the stage chapter (by its look for endless/daily)', () => {
+    const s = stageById('w4-s3') as NonNullable<ReturnType<typeof stageById>>;
+    expect(sceneFor(s, 0)).toEqual({ world: 1, variant: 'dark' });
+    expect(sceneFor(s, 1)).toEqual({ world: 1, variant: 'base' });
+    expect(sceneFor(s, 2)).toEqual({ world: 2, variant: 'base' });
+    expect(transitionFor(s, 1)).toBe('turn');
+    expect(transitionFor(s, 2)).toBe('stairs');
+    const lookalike = { ...s, chapter: 0, world: 3 as const, variant: 'base' as const }; // chapter 8's look
+    expect(sceneFor(lookalike, 0)).toEqual({ world: 3, variant: 'base' });
+    expect(sceneFor(lookalike, 1)).toEqual({ world: 3, variant: 'steam' });
+    expect(transitionFor(lookalike, 2)).toBe('elevator');
   });
 });

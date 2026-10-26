@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { judgeBeat } from '../../src/core/judge';
 import { initialPlayer } from '../../src/core/physics';
-import type { Beat, JumpLevel, Obstacle, PlayerState } from '../../src/types';
+import type { Beat, JumpLevel, LaneId, Obstacle, PlayerState } from '../../src/types';
 
 function beat(obstacles: Obstacle[], requiredLevel: JumpLevel, needsSlide = false): Beat {
-  return { id: 7, time: 3, obstacles, requiredLevel, needsSlide, pulse: false };
+  const blockedLanes = [...new Set(obstacles.filter((o) => ['guard', 'drop', 'chaser'].includes(o.kind))
+    .flatMap((o) => o.lanes ?? []))].sort();
+  return { id: 7, time: 3, obstacles, requiredLevel, needsSlide, pulse: false, blockedLanes, section: 0 };
 }
+
+const inLane = (p: PlayerState, lane: LaneId): PlayerState => ({ ...p, lane, laneFrom: lane });
 
 function air(level: JumpLevel, height: number): PlayerState {
   return { ...initialPlayer(), height, grounded: false, level, airTime: 0.2, lastTap: 'jump' };
@@ -96,5 +100,55 @@ describe('judgeBeat — pickups', () => {
     const b = beat([{ kind: 'floor', level: 1 }, { kind: 'shield', level: 1 }], 1);
     expect(judgeBeat(b, air(1, 50)).collected).toEqual(['shield']);
     expect(judgeBeat(b, ground).collected).toEqual([]);
+  });
+});
+
+describe('judgeBeat — v5 lane hazards (§4)', () => {
+  const guard = beat([{ kind: 'guard', level: 1, lanes: [0, 1] }], 0);
+  const drop = beat([{ kind: 'drop', level: 1, lanes: [2] }], 0);
+  const chaser = beat([{ kind: 'chaser', level: 1, lanes: [1] }], 0);
+
+  it('misses with reason lane when the agent is in a blocked lane, whatever it does', () => {
+    expect(judgeBeat(guard, ground)).toEqual({ beatId: 7, grade: 'miss', hit: true, reason: 'lane', collected: [] });
+    expect(judgeBeat(guard, inLane(air(3, 150), 0)).reason).toBe('lane');
+    expect(judgeBeat(drop, inLane(slide(0.2), 2)).reason).toBe('lane');
+    expect(judgeBeat(chaser, air(1, 60)).reason).toBe('lane');
+  });
+
+  it('a lane-only beat passed in a safe lane is perfect (grounded, airborne or sliding)', () => {
+    expect(judgeBeat(guard, inLane(ground, 2))).toEqual({ beatId: 7, grade: 'perfect', hit: false, reason: null, collected: [] });
+    expect(judgeBeat(drop, inLane(air(2, 90), 0)).grade).toBe('perfect');
+    expect(judgeBeat(chaser, inLane(slide(0.5), 2)).grade).toBe('perfect');
+  });
+
+  it('checks the lane before drone, slide and jump lasers (lanejump)', () => {
+    const laneJump = beat([{ kind: 'guard', level: 1, lanes: [1] }, { kind: 'floor', level: 1 }], 1);
+    expect(judgeBeat(laneJump, ground).reason).toBe('lane');
+    expect(judgeBeat(laneJump, inLane(ground, 0)).reason).toBe('low');
+    expect(judgeBeat(laneJump, inLane(air(1, 50), 2)).grade).toBe('perfect');
+    expect(judgeBeat(laneJump, inLane(air(1, 30), 2)).grade).toBe('good');
+    const laneSlide = beat([{ kind: 'drop', level: 1, lanes: [0] }, { kind: 'ceiling', level: 1 }], 0, true);
+    expect(judgeBeat(laneSlide, inLane(slide(0.2), 0)).reason).toBe('lane');
+    expect(judgeBeat(laneSlide, slide(0.2)).grade).toBe('perfect');
+    expect(judgeBeat(laneSlide, ground).reason).toBe('standing');
+  });
+
+  it('ignores lane hazards without lanes listed (never blocks)', () => {
+    expect(judgeBeat(beat([{ kind: 'guard', level: 1 }], 0), ground).grade).toBe('perfect');
+  });
+});
+
+describe('judgeBeat — v5 lane pickups', () => {
+  it('collects a laned pickup only in its lane', () => {
+    const coin = beat([{ kind: 'coin', level: 1, lanes: [2] }], 0);
+    expect(judgeBeat(coin, air(1, 50)).collected).toEqual([]);
+    expect(judgeBeat(coin, inLane(air(1, 50), 2)).collected).toEqual(['coin']);
+    expect(judgeBeat(coin, inLane(ground, 2)).collected).toEqual([]);
+  });
+
+  it('collects on a passed lane beat in the pickup lane', () => {
+    const b = beat([{ kind: 'guard', level: 1, lanes: [0] }, { kind: 'heart', level: 1, lanes: [1] }], 0);
+    expect(judgeBeat(b, air(1, 50))).toMatchObject({ grade: 'perfect', collected: ['heart'] });
+    expect(judgeBeat(b, inLane(air(1, 50), 0)).collected).toEqual([]);
   });
 });
