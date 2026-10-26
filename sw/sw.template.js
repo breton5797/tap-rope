@@ -47,7 +47,8 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
     event.respondWith(networkFirst(req, './index.html'));
-  } else if (url.pathname.includes('/assets/')) {
+  } else if (url.pathname.includes('/assets/') || url.pathname.includes('/art/') || url.pathname.includes('/fonts/')) {
+    // art and fonts keep their names, but the cache name hashes their bytes, so a deploy swaps them atomically
     event.respondWith(cacheFirst(req));
   } else {
     event.respondWith(networkFirst(req, req.url));

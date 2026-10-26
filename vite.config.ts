@@ -4,14 +4,15 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg'];
-/** v6 photographic art in public/art is precached too (the game must work offline) */
-const artFiles = (): string[] => {
+/** v6 photographic art (public/art) and self-hosted fonts (public/fonts) are precached too (the game must work offline) */
+const listPublic = (dir: string, ext: string): string[] => {
   try {
-    return readdirSync(new URL('./public/art', import.meta.url)).filter((f) => f.endsWith('.webp')).sort().map((f) => `./art/${f}`);
+    return readdirSync(new URL(`./public/${dir}`, import.meta.url)).filter((f) => f.endsWith(ext)).sort().map((f) => `./${dir}/${f}`);
   } catch {
     return [];
   }
 };
+const artFiles = (): string[] => [...listPublic('art', '.webp'), ...listPublic('fonts', '.woff2')];
 
 /** Emits sw.js with a content-derived cache version and the full hashed-asset precache list. */
 function serviceWorker(): Plugin {
