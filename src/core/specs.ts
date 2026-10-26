@@ -182,8 +182,8 @@ const START_LANE: LaneId = 1;
 const withStartLane = (lanes: readonly LaneId[]): LaneId[] =>
   (lanes.includes(START_LANE) ? [...lanes] : lanes.length === 1 ? [START_LANE] : [lanes[0], START_LANE]);
 
-/** makes the first lane beat block the start lane (spacing is applied later, on the result) */
-function blockStartLane(specs: readonly Spec[]): Spec[] {
+/** makes the first lane beat block the start lane (run on the final order; spacing is applied after it) */
+export function blockStartLane(specs: readonly Spec[]): Spec[] {
   const isLaneHazard = (o: Obstacle) => LANE_HAZARD_KINDS.includes(o.kind);
   const first = specs.findIndex((s) => s.obstacles.some(isLaneHazard));
   return specs.map((s, i) => (i !== first ? s : {
@@ -208,5 +208,5 @@ export function planSpecs(stage: StageDef, rng: Rng): Spec[] {
       });
     specs = [...specs, ...chunk.map((s, i) => (i === 0 ? { ...s, head: true } : s))];
   }
-  return blockStartLane(specs);
+  return specs;
 }

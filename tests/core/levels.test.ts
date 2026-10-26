@@ -149,6 +149,12 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
     expect(DOOR_BREAK).toBe(2.4);
   });
 
+  it('balances section sizes (max / min hazards ≤ 1.3 from 10 hazards per section)', () => {
+    if (stage.sections < 2 || stage.hazardBeats / stage.sections < 10) return;
+    const sizes = Array.from({ length: stage.sections }, (_, k) => hazards.filter((b) => b.section === k).length);
+    expect(Math.max(...sizes) / Math.min(...sizes), sizes.join('/')).toBeLessThanOrEqual(1.3);
+  });
+
   it('builds well-formed beats', () => {
     for (const b of beats) {
       expect(isJump(b) && isSlide(b)).toBe(false);
@@ -236,6 +242,68 @@ describe('generateBeats details', () => {
       expect(share, s.id).toBeGreaterThanOrEqual(0.06); // v4: 0.08 — v5 lane moves crowd the move quota
       expect(share, s.id).toBeLessThanOrEqual(0.45);
     }
+  });
+});
+
+/** lane beats a human can't reach at one lane per 0.3s (DP over the set of lanes it can be in) */
+function unreachableLaneBeats(beats: readonly Beat[]): number {
+  let can: LaneId[] = [1];
+  let t = 0;
+  let bad = 0;
+  for (const b of beats.filter(isLane)) {
+    const k = Math.min(2, Math.floor((b.time - t) / 0.3 + 1e-9));
+    const next = LANES.filter((l) => !b.blockedLanes.includes(l) && can.some((c) => Math.abs(c - l) <= k));
+    if (next.length === 0) bad++;
+    can = next.length > 0 ? next : safeLanes(b);
+    t = b.time;
+  }
+  return bad;
+}
+
+describe('lane reachability at a human pace (one lane per 0.3s)', () => {
+  const cfg = DEFAULT_PHYSICS;
+
+  it('every campaign stage', () => {
+    for (const s of STAGES) expect(unreachableLaneBeats(generateBeats(s, cfg)), s.id).toBe(0);
+  });
+
+  it('365 daily dates', () => {
+    const start = Date.UTC(2026, 0, 1);
+    for (let d = 0; d < 365; d++) {
+      const s = dailyStage(new Date(start + d * 86400000).toISOString().slice(0, 10));
+      expect(unreachableLaneBeats(generateBeats(s, cfg)), s.id).toBe(0);
+    }
+  });
+
+  it('endless seeds × chunks', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      for (let chunk = 0; chunk < 30; chunk++) {
+        const s = endlessStage(chunk, seed);
+        expect(unreachableLaneBeats(generateBeats(s, cfg)), `${seed}/${chunk}`).toBe(0);
+      }
+    }
+  });
+
+  it("a lane-only stress stage full of ['L','L'] / ['L',1,'L'] patterns stays reachable", () => {
+    let tightPairs = 0;
+    let sandwiches = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const base = STAGES[89];
+      const stress: StageDef = {
+        // 120 bpm: a half beat of 0.25s puts back-to-back lane beats at 0.5s (< LANE_SWAP_GAP)
+        ...base, id: `stress-${seed}`, seed, bpm: 120, hazardBeats: 60, moves: ['jump', 'lane', 'drop'], levelWeights: [1, 0, 0],
+        mix: { ...base.mix, lane: 1, drop: 0.5, chaser: 0, laneCombo: 0, pulse: 0 },
+      };
+      const beats = generateBeats(stress, cfg);
+      expect(unreachableLaneBeats(beats), stress.id).toBe(0);
+      const hz = beats.filter(isHazard);
+      hz.forEach((b, i) => {
+        if (i > 0 && isLane(b) && isLane(hz[i - 1]) && b.time - hz[i - 1].time < 0.6 - EPS) tightPairs++;
+        if (i > 1 && isLane(b) && !isLane(hz[i - 1]) && isLane(hz[i - 2]) && b.time - hz[i - 2].time < 1.3) sandwiches++;
+      });
+    }
+    expect(tightPairs).toBeGreaterThan(20); // ['L','L'] at LANE_GAP
+    expect(sandwiches).toBeGreaterThan(5); // ['L',1,'L']
   });
 });
 

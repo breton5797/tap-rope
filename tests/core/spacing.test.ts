@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { airtimeForLevel, DEFAULT_PHYSICS } from '../../src/core/physics';
-import { blockedOf, gapAfter, type GapShape, LANE_GAP, LANE_SWAP_GAP, minGap, SAFETY } from '../../src/core/spacing';
+import { blockedOf, gapAfter, type GapShape, LANE_GAP, LANE_STEP, LANE_SWAP_GAP, laneReach, minGap, SAFETY } from '../../src/core/spacing';
 import type { JumpLevel, LaneId, Obstacle } from '../../src/types';
 
 const cfg = DEFAULT_PHYSICS;
@@ -48,5 +48,34 @@ describe('spacing — v5 lane rules (§5)', () => {
   it('blockedOf is the sorted union of lane-hazard lanes', () => {
     expect(blockedOf([guard(2, 0), { kind: 'coin', level: 1, lanes: [1] }, FLOOR])).toEqual([0, 2]);
     expect(blockedOf([FLOOR])).toEqual([]);
+  });
+});
+
+describe('laneReach — reachability at a human pace (one lane per LANE_STEP)', () => {
+  it('moves one lane per 0.3s, two lanes from LANE_SWAP_GAP', () => {
+    expect(LANE_STEP).toBe(0.3);
+    expect(laneReach([1], 0.29, [])).toEqual([1]);
+    expect(laneReach([1], 0.3, [])).toEqual([0, 1, 2]);
+    expect(laneReach([0], 0.45, [])).toEqual([0, 1]);
+    expect(laneReach([0], LANE_SWAP_GAP, [])).toEqual([0, 1, 2]);
+    expect(laneReach([0, 2], 0.45, [1])).toEqual([0, 2]);
+  });
+
+  it('catches the chain hole: [1,2] → [1] → [0,1] at 0.45s needs a 2-lane move', () => {
+    const a = laneReach([1], 2, [1, 2]); // forced to lane 0
+    expect(a).toEqual([0]);
+    const b = laneReach(a, 0.45, [1]); // pairwise fine (lane 0 safe for both)
+    expect(b).toEqual([0]);
+    expect(laneReach(b, 0.45, [0, 1])).toEqual([]); // C forces lane 2: unreachable in 0.45s
+    expect(laneReach(b, LANE_SWAP_GAP, [0, 1])).toEqual([2]);
+  });
+
+  it("covers the ['L','L'] and ['L',1,'L'] pattern shapes", () => {
+    // ['L','L']: back-to-back lane beats at LANE_GAP
+    expect(laneReach(laneReach([1], 2, [0, 1]), LANE_GAP, [1, 2])).toEqual([]); // 2 → 0 needs LANE_SWAP_GAP
+    expect(laneReach(laneReach([1], 2, [0]), LANE_GAP, [2])).toEqual([0, 1]);
+    // ['L',1,'L']: the jump between does not constrain lanes; only the elapsed time between lane beats counts
+    const gapL1L = LANE_GAP + airtimeForLevel(1, cfg) + SAFETY;
+    expect(laneReach(laneReach([1], 2, [0, 1]), gapL1L, [1, 2])).toEqual([0]);
   });
 });

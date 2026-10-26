@@ -1,12 +1,12 @@
 /**
  * Procedural, deterministic beat generation (GDD §3, v4 §4, v5 §5–§6).
  * 1. planSpecs (specs.ts): exactly `hazardBeats` hazard specs, every listed move guaranteed.
- * 2. sectionStarts: splits them near-evenly into `stage.sections` sections, cutting only before a
- *    planned chunk (never inside a pattern or pulse run).
+ * 2. splitSections (sections.ts): near-even sections, cut only between planned chunks.
  * 3. placeSpecs: puts them on the half-beat grid honouring the spacing rules (spacing.ts),
  *    adds random slack that shrinks with tempo (none for bosses or inside patterns/pulses),
- *    slots reachable pickups (in one lane, safe for the next hazard) between hazards, and leaves a
- *    DOOR_BREAK rest after each section with a door in its middle.
+ *    slots reachable pickups (in one lane, safe for the next hazard) between hazards, delays lane beats
+ *    a human could not reach (spacing.laneReach), and leaves a DOOR_BREAK rest after each section with a
+ *    door in its middle.
  * Also builds the endless chunk (moves unlock and tempo ramps per chunk, designed looks cycle)
  * and the daily stage (campaign formula at d ≈ 0.55 with every move, look from the date seed).
  */
@@ -16,8 +16,9 @@ import { designStage } from './campaign';
 import { CHAPTERS, sceneFor, STAGES, transitionFor } from './content';
 import { airtimeForLevel } from './physics';
 import { hashString, mulberry32 } from './rng';
-import { blockedOf, gapAfter, minGap, SAFETY } from './spacing';
-import { difficulty, maxLevel, planSpecs, type Spec } from './specs';
+import { splitSections } from './sections';
+import { blockedOf, gapAfter, LANE_SWAP_GAP, laneReach, minGap, SAFETY } from './spacing';
+import { blockStartLane, difficulty, maxLevel, planSpecs, type Spec } from './specs';
 
 type Rng = () => number;
 
@@ -54,17 +55,20 @@ const placedOf = (s: Spec, slot: number, section: number): Placed => ({
   slot, obstacles: s.obstacles, required: s.required, needsSlide: s.needsSlide, pulse: s.pulse, section,
 });
 
-/** spec indices that open sections 1..sections−1: near n·j/sections, moved to the closest chunk head */
-function sectionStarts(specs: readonly Pick<Spec, 'head'>[], sections: number): number[] {
-  const n = specs.length;
-  return Array.from({ length: Math.max(0, sections - 1) }, (_, j) => j + 1).reduce<number[]>((acc, j) => {
-    const lo = (acc.length > 0 ? acc[acc.length - 1] : 0) + 1;
-    const hi = n - (sections - j);
-    const ideal = Math.min(hi, Math.max(lo, Math.round((j * n) / sections)));
-    const ok = (i: number) => i >= lo && i <= hi && specs[i].head;
-    const found = Array.from({ length: n }, (_, d) => [ideal - d, ideal + d]).flat().find(ok);
-    return [...acc, found ?? ideal];
-  }, []);
+interface LaneState {
+  readonly slot: number; // slot of the previous lane beat
+  readonly can: readonly LaneId[]; // lanes the agent can be in there
+}
+
+const START_LANES: LaneState = { slot: Number.NEGATIVE_INFINITY, can: [1] };
+
+/** delays a lane beat that no lane reachable at a human pace would survive (spacing.laneReach) */
+function reachable(spec: Spec, slot: number, lane: LaneState, half: number): { slot: number; lane: LaneState } {
+  const blocked = blockedOf(spec.obstacles);
+  if (blocked.length === 0) return { slot, lane };
+  const reachAt = (at: number) => laneReach(lane.can, (at - lane.slot) * half, blocked);
+  const at = reachAt(slot).length > 0 ? slot : Math.max(slot, lane.slot + Math.ceil(LANE_SWAP_GAP / half - 1e-9));
+  return { slot: at, lane: { slot: at, can: reachAt(at) } };
 }
 
 function placeSpecs(specs: readonly Spec[], starts: readonly number[], stage: StageDef, cfg: PhysicsConfig, rng: Rng): Layout {
@@ -76,6 +80,7 @@ function placeSpecs(specs: readonly Spec[], starts: readonly number[], stage: St
   let placed: Placed[] = [];
   let doorSlots: number[] = [];
   let lastSlot = 0;
+  let lane = START_LANES;
   specs.forEach((spec, i) => {
     const prev = i > 0 ? specs[i - 1] : null;
     const section = starts.filter((s) => s <= i).length;
@@ -94,6 +99,7 @@ function placeSpecs(specs: readonly Spec[], starts: readonly number[], stage: St
         placed = [...placed, { slot: pSlot, obstacles: [pickup], required: 0, needsSlide: false, pulse: false, section }];
       }
     }
+    ({ slot, lane } = reachable(spec, slot, lane, half));
     placed = [...placed, placedOf(spec, slot, section)];
     lastSlot = slot;
   });
@@ -104,8 +110,8 @@ function placeSpecs(specs: readonly Spec[], starts: readonly number[], stage: St
 export function generateStage(stage: StageDef, cfg: PhysicsConfig, startTime = 2.0): { beats: Beat[]; doors: Door[] } {
   const rng = mulberry32(stage.seed);
   const half = 30 / stage.bpm;
-  const specs = planSpecs(stage, rng);
-  const { placed, doorSlots } = placeSpecs(specs, sectionStarts(specs, stage.sections), stage, cfg, rng);
+  const { specs, starts } = splitSections(planSpecs(stage, rng), stage.sections);
+  const { placed, doorSlots } = placeSpecs(blockStartLane(specs), starts, stage, cfg, rng);
   const beats = placed.map((p, id): Beat => ({
     id,
     time: startTime + p.slot * half,

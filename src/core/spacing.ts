@@ -4,7 +4,9 @@
  * after a jump laser of level L ≥ airtime(L) + 0.18s (also lets the agent land before a slide);
  * after a slide ≥ 0.6s; after a lone drone ≥ 0.5s (airtime(1) + 0.18s if the next needs ≥ 2단).
  * v5: after a lane beat ≥ LANE_GAP (a lane + laser combo takes the larger gap); two lane beats with no
- * safe lane in common ≥ LANE_SWAP_GAP (room for a two-lane move).
+ * safe lane in common ≥ LANE_SWAP_GAP (room for a two-lane move). Over a chain of lane beats the generator
+ * also tracks laneReach — the lanes the agent can be in at a human pace of one lane per LANE_STEP — and
+ * delays a lane beat that no reachable lane would survive.
  */
 import type { Beat, JumpLevel, LaneId, Level, Obstacle, PhysicsConfig } from '../types';
 import { LANE_HAZARD_KINDS, LANES } from '../types';
@@ -13,6 +15,8 @@ import { airtimeForLevel } from './physics';
 export const SAFETY = 0.18;
 export const LANE_GAP = 0.45;
 export const LANE_SWAP_GAP = 0.6;
+/** seconds a human needs per lane switched (swipe + settle); LANE_SWAP_GAP = 2 lanes */
+export const LANE_STEP = 0.3;
 const SLIDE_GAP = 0.6;
 const DRONE_GAP = 0.5;
 
@@ -28,6 +32,12 @@ export const beatShape = (b: Beat): GapShape => ({ obstacles: b.obstacles, requi
 export function blockedOf(obstacles: readonly Obstacle[]): LaneId[] {
   const lanes = obstacles.filter((o) => LANE_HAZARD_KINDS.includes(o.kind)).flatMap((o) => o.lanes ?? []);
   return LANES.filter((l) => lanes.includes(l));
+}
+
+/** safe lanes (not `blocked`) reachable `elapsed` seconds after being in one of `from`; [] = unreachable */
+export function laneReach(from: readonly LaneId[], elapsed: number, blocked: readonly LaneId[]): LaneId[] {
+  const steps = Math.floor(elapsed / LANE_STEP + 1e-9);
+  return LANES.filter((l) => !blocked.includes(l) && from.some((f) => Math.abs(f - l) <= steps));
 }
 
 const isLaneBeat = (s: GapShape) => s.obstacles.some((o) => LANE_HAZARD_KINDS.includes(o.kind));
