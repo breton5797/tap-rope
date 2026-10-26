@@ -118,7 +118,6 @@ class CanvasRenderer implements Renderer {
     ctx.setTransform(k, 0, 0, k, tx, ty);
     this.post.finish(ctx, v, snap.reducedMotion);
     this.post.hitEdge(ctx, v, fx.hitAge, snap.reducedMotion);
-    this.post.chromatic(ctx, this.canvas, v, PLAYER_X, fx.feetY, fx.hitAge, snap.reducedMotion);
     drawLane(ctx, snap.lane, snap.realTime, this.sprites);
     fx.drawFlash(ctx, v);
   }

@@ -1,5 +1,5 @@
 // Pooled particles (dust, sparks), impact rings, text popups, screen shake, flash and the hit
-// timer the post pass uses for its brief chromatic split (GDD-v6 §4). No stars or confetti.
+// timer the post pass uses for its red hit edge (GDD-v6 §4). No stars or confetti.
 import { GROUND_Y, PLAYER_X, type BurstKind, type EffectsApi, type PopupStyle } from '../types';
 import { drawPopups, PopupPool } from './popups';
 import { ZapPool } from './zaps';
@@ -66,7 +66,8 @@ export class Effects implements EffectsApi {
         this.hitAge = 0;
         if (!this.reduced) {
           this.flashColor = '#FF2A3A';
-          this.flashAlpha = Math.max(this.flashAlpha, 0.32);
+          // a light full-screen tint only: the red edge (post.hitEdge) carries the hit
+          this.flashAlpha = Math.max(this.flashAlpha, 0.12);
         }
         this.ringAt(hx, hy, 30, C.red);
         return this.radial(hx, hy, Math.round(16 * k), Shape.Spark, C.orange, C.pale, 160, 360, 0.35, 500);
@@ -78,7 +79,7 @@ export class Effects implements EffectsApi {
     }
   }
 
-  /** seconds since the last hit burst (drives the post pass's chromatic split) */
+  /** seconds since the last hit burst (drives the post pass's red hit edge) */
   hitAge = 9;
 
   popup(text: string, style: PopupStyle): void {
