@@ -10,7 +10,7 @@
 import { GROUND_Y, PLAYER_X, type Scene, type Variant, type WorldId } from '../types';
 import type { ArtStore, Photo, PhotoSet } from './art';
 import {
-  FLOOR_PW, grade, lampsOf, PHOTO_TOP_H, photoFloor, photoTop, photoWall, plainWall, skyBand, themeDim, TOP_PW, WALL_PW,
+  FLOOR_PW, grade, lampsOf, PHOTO_TOP_H, photoFloor, photoTop, photoWall, plainWall, featherSky, skyBand, themeDim, TOP_PW, WALL_PW,
 } from './photo';
 import { sirenHousing, SIREN_X } from './corridor-fx';
 import { CEIL_Y, depthAtY, depthScale, FLOOR_BACK, FLOOR_FRONT, FRONT_DEPTH, WALL_DEPTH } from './layout';
@@ -33,6 +33,8 @@ const PHOTO_TOP_RES = 0.5;
 /** floor surface strips (more = smoother converging seams) */
 const FLOOR_STRIPS = 20;
 const APRON_STRIPS = 6;
+/** an open-sky tile extends this far down over the wall photo, fading out (no visible step) */
+const SKY_FEATHER = 44;
 const WALL_S = depthScale(WALL_DEPTH);
 const WALL_H = GROUND_Y - CEIL_Y;
 const TOP_H = CEIL_Y + 6 - TOP_Y;
@@ -223,7 +225,7 @@ class SceneCache {
     const w = this.spec[layer].w;
     let c: HTMLCanvasElement;
     const sky = this.photo?.sky;
-    if (layer === L.Top && sky) c = this.bakeOne(w, 0, PHOTO_TOP_H, PHOTO_TOP_RES, (ctx) => skyBand(ctx, sky));
+    if (layer === L.Top && sky) c = this.bakeOne(w, 0, PHOTO_TOP_H + SKY_FEATHER, PHOTO_TOP_RES, (ctx) => skyBand(ctx, sky, SKY_FEATHER), undefined, (ctx) => featherSky(ctx, SKY_FEATHER));
     else if (layer === L.Top) c = this.bakeOne(w, TOP_Y, TOP_H, TOP_RES, (ctx) => drawTop(ctx, w, th, i));
     else if (layer === L.Wall) c = this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => plainWall(ctx, th.base, w));
     else if (layer === L.Ceil) {
@@ -239,12 +241,17 @@ class SceneCache {
     return c;
   }
 
-  private bakeOne(w: number, y: number, h: number, res: number, draw: (ctx: Ctx) => void, gradeH = h): HTMLCanvasElement {
+  private bakeOne(
+    w: number, y: number, h: number, res: number, draw: (ctx: Ctx) => void, gradeH = h, after?: (ctx: Ctx) => void,
+  ): HTMLCanvasElement {
     const k = this.k * res;
     const { canvas, ctx } = makeCanvas(w * k, h * k);
     ctx.setTransform(k, 0, 0, k, 0, -y * k);
     draw(ctx);
-    if (gradeH > 0) grade(ctx, this.variant, 0, y, w, gradeH, themeDim(this.world));
+    // the dawn exterior set is brighter than the interiors: a little extra dim keeps it in family
+    const dim = themeDim(this.world) + (this.photo?.sky === 'dawn' ? 0.12 : 0);
+    if (gradeH > 0) grade(ctx, this.variant, 0, y, w, gradeH, dim);
+    after?.(ctx);
     return canvas;
   }
 }
@@ -365,14 +372,18 @@ export class Corridor {
       if (shifted) ctx.restore();
       return;
     }
-    this.drawTop(ctx, v, c, scroll, t, xMin, xMax);
+    const sky = !!c.photo?.sky;
+    if (!sky) this.drawTop(ctx, v, c, scroll, t, xMin, xMax);
     const ww = c.spec[L.Wall].w;
     const wn = c.spec[L.Wall].count;
     eachTile(xMin, xMax, ww, scroll, WALL_S, (m, sx) => {
       const img = c.tile(L.Wall, tileHash(m, 5) % wn);
-      ctx.drawImage(img, sx, FLOOR_BACK - WALL_H * WALL_S, ww * WALL_S, WALL_H * WALL_S);
+      // +0.5px overlap: no hairline gaps where neighbouring wall photos meet
+      ctx.drawImage(img, sx, FLOOR_BACK - WALL_H * WALL_S, ww * WALL_S + 0.5, WALL_H * WALL_S);
     });
-    if (c.photo?.ceiling || c.photo?.sky) soffit(ctx, xMin, xMax);
+    // an open sky is drawn over the wall's top edge: its feathered bottom blends into the photo sky
+    if (sky) this.drawTop(ctx, v, c, scroll, t, xMin, xMax);
+    if (c.photo?.ceiling) soffit(ctx, xMin, xMax);
     if ((!c.photo?.ceiling && !c.photo?.sky) || c.variant === 'alarm') {
       const ceil = c.tile(L.Ceil, 0);
       eachTile(xMin, xMax, PLANE_W, scroll, 1, (_m, sx) => ctx.drawImage(ceil, sx, CEIL_TOP, PLANE_W, CEIL_LAYER_H));
@@ -390,7 +401,8 @@ export class Corridor {
     if (photo) {
       // the photo ceiling (or open sky) hangs right above the back wall, at its depth and scroll
       const h = PHOTO_TOP_H * WALL_S;
-      eachTile(xMin, xMax, tw, scroll, WALL_S, (_m, sx) => ctx.drawImage(c.tile(L.Top, 0), sx, WALL_TOP_Y - h, tw * WALL_S + 0.5, h));
+      const extra = c.photo?.sky ? SKY_FEATHER * WALL_S : 0;
+      eachTile(xMin, xMax, tw, scroll, WALL_S, (_m, sx) => ctx.drawImage(c.tile(L.Top, 0), sx, WALL_TOP_Y - h, tw * WALL_S + 0.5, h + extra));
       return;
     }
     eachTile(xMin, xMax, tw, sc, 1, (m, sx) => {

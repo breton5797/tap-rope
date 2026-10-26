@@ -170,24 +170,38 @@ export function photoTop(ctx: Ctx, img: Photo): void {
   ctx.fillRect(0, 0, TOP_PW, 60);
 }
 
-/** Open sky above an exterior wall (tile y 0..PHOTO_TOP_H, horizon at the bottom): night = deep
- * navy with sparse stars and a faint city glow; dawn = indigo fading into an amber horizon. */
-export function skyBand(ctx: Ctx, kind: 'night' | 'dawn'): void {
+/**
+ * Open sky above an exterior wall (tile y 0..PHOTO_TOP_H, wall top at the bottom). Its bottom row
+ * is exactly the colour at the top edge of the exterior photos (sampled from the art) so the photo
+ * sky continues upward without a step; it deepens toward the zenith. Night adds sparse stars.
+ */
+export function skyBand(ctx: Ctx, kind: 'night' | 'dawn', feather = 44): void {
   const h = PHOTO_TOP_H;
   ctx.fillStyle = kind === 'night'
-    ? vGrad(ctx, 0, h, [[0, '#03050B'], [0.6, '#0B1428'], [1, '#1C2A44']])
-    : vGrad(ctx, 0, h, [[0, '#0E1226'], [0.45, '#3A2E48'], [0.8, '#B4643C'], [1, '#F0A050']]);
+    ? vGrad(ctx, 0, h, [[0, '#04090C'], [0.55, '#0D1D21'], [1, '#142629']])
+    : vGrad(ctx, 0, h, [[0, '#1E3640'], [0.5, '#3D6266'], [1, '#597E7F']]);
   ctx.fillRect(0, 0, TOP_PW, h);
-  if (kind === 'night') {
-    const rnd = seeded(41);
-    ctx.fillStyle = '#DDE6FF';
-    for (let i = 0; i < 40; i++) {
-      ctx.globalAlpha = 0.25 + rnd() * 0.55;
-      ctx.fillRect(rnd() * TOP_PW, rnd() * h * 0.7, 1, 1);
-    }
-    ctx.globalAlpha = 1;
+  const rnd = seeded(kind === 'night' ? 41 : 43);
+  ctx.fillStyle = '#DDE6F0';
+  const n = kind === 'night' ? 46 : 8;
+  for (let i = 0; i < n; i++) {
+    ctx.globalAlpha = (kind === 'night' ? 0.25 : 0.12) + rnd() * 0.45;
+    ctx.fillRect(rnd() * TOP_PW, rnd() * h * 0.6, 1, 1);
   }
-  // haze at the horizon line (where the wall top meets the sky)
-  ctx.fillStyle = vGrad(ctx, h - 30, h, [[0, 'rgba(255,190,140,0)'], [1, kind === 'night' ? 'rgba(90,110,160,0.35)' : 'rgba(255,200,140,0.45)']]);
-  ctx.fillRect(0, h - 30, TOP_PW, 30);
+  ctx.globalAlpha = 1;
+  // below the horizon line the band continues in the same colour (feathered out after grading)
+  ctx.fillStyle = kind === 'night' ? '#142629' : '#597E7F';
+  ctx.fillRect(0, h, TOP_PW, feather);
+}
+
+/** Fade the bottom `feather` px of a sky tile to transparent (run after the grade is baked). */
+export function featherSky(ctx: Ctx, feather = 44): void {
+  const h = PHOTO_TOP_H;
+  const g = ctx.createLinearGradient(0, h - 6, 0, h + feather);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = g;
+  ctx.fillRect(0, h - 6, TOP_PW, feather + 6);
+  ctx.globalCompositeOperation = 'source-over';
 }
