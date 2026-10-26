@@ -4,17 +4,13 @@
 // grain and the chromatic split (shake / flash are handled by Effects).
 import { PLAYER_X, type Variant } from '../types';
 import { CEIL_Y, FLOOR_FRONT } from './layout';
-import { CEIL_BOT } from './plane';
-import { PLANE_W } from './themes';
+import type { ShaftRig } from './corridor';
 import { makeCanvas, releaseCanvas, seeded, type Ctx } from './util';
 import type { View } from './view';
 
 const GRAIN = 128;
 const VIGNETTE_RES = 0.25;
-/** ceiling fixture centres inside a ceiling tile (see plane.drawCeiling: x = 40 + 160k, 60 wide) */
-const LIGHT_X: readonly number[] = [70, 230, 390];
 const SHAFT_W = 96;
-const SHAFT_H = FLOOR_FRONT - CEIL_BOT;
 const MOTES = 26;
 
 const moteX = new Float32Array(MOTES);
@@ -53,10 +49,10 @@ export class Post {
     return b;
   }
 
-  /** Light shafts falling from the ceiling fixtures (scroll 1:1 with the ceiling band). */
-  shafts(ctx: Ctx, v: View, variant: Variant, scroll: number, fade: number): void {
+  /** Light shafts falling from the ceiling lamps (they scroll with the lamps' layer). */
+  shafts(ctx: Ctx, v: View, variant: Variant, scroll: number, fade: number, rig: ShaftRig): void {
     const tint = SHAFT[variant];
-    if (!tint || fade <= 0.01) return;
+    if (!tint || fade <= 0.01 || rig.xs.length === 0) return;
     this.ensure(ctx, v);
     let shaft = this.shaftByTint.get(tint);
     if (!shaft) {
@@ -64,15 +60,20 @@ export class Post {
       this.shaftByTint.set(tint, shaft);
     }
     const a = (variant === 'steam' ? 0.12 : 0.07) * fade;
+    const h = FLOOR_FRONT - rig.y;
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = a;
-    const shift = scroll % PLANE_W;
-    for (let base = -shift - PLANE_W; base < v.x0 + v.w + PLANE_W; base += PLANE_W) {
-      for (const lx of LIGHT_X) {
-        const x = base + lx;
+    const step = rig.w * rig.s;
+    let m = Math.floor((PLAYER_X + (v.x0 - SHAFT_W - PLAYER_X) / rig.s + scroll) / rig.w);
+    let base = PLAYER_X + (m * rig.w - scroll - PLAYER_X) * rig.s;
+    while (base < v.x0 + v.w + SHAFT_W) {
+      for (const lx of rig.xs) {
+        const x = base + lx * rig.s;
         if (x < v.x0 - SHAFT_W || x > v.x0 + v.w + SHAFT_W) continue;
-        ctx.drawImage(shaft, x - SHAFT_W / 2, CEIL_BOT - 2, SHAFT_W, SHAFT_H);
+        ctx.drawImage(shaft, x - SHAFT_W / 2, rig.y, SHAFT_W, h);
       }
+      base += step;
+      m++;
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';

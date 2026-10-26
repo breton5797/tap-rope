@@ -28,19 +28,19 @@ export interface AgentLook {
 export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
   // Agent K: black tactical suit, plate carrier, NVG
   kid: {
-    suit: '#23272D', suitDark: '#14171B', suitLight: '#3A414A', vest: '#2E343B', vestLight: '#46505A',
+    suit: '#30363E', suitDark: '#1A1E23', suitLight: '#55606C', vest: '#3A424B', vestLight: '#5C6874',
     skin: '#B98C70', hair: '#17140F', head: 'hair', gloves: '#121417', boots: '#0D0F11', accent: '#3FE0D0',
     nvg: true, backpack: false, holster: true, metal: false,
   },
   // Black Cat: matte stealth suit, full hood + goggles
   cat: {
-    suit: '#141518', suitDark: '#0A0B0D', suitLight: '#26282D', vest: null, vestLight: '#26282D',
+    suit: '#1E2024', suitDark: '#0E0F12', suitLight: '#3C4048', vest: null, vestLight: '#26282D',
     skin: '#9E7660', hair: '#0E0F12', head: 'balaclava', gloves: '#0B0C0E', boots: '#08090A', accent: '#3FE0D0',
     nvg: true, backpack: false, holster: false, metal: false,
   },
   // Hacker: charcoal hoodie, cargo pants, backpack with antenna
   bunny: {
-    suit: '#363A41', suitDark: '#22252A', suitLight: '#4D535C', vest: null, vestLight: '#4D535C',
+    suit: '#454A52', suitDark: '#2A2D32', suitLight: '#646B75', vest: null, vestLight: '#4D535C',
     skin: '#C49A7C', hair: '#2E3136', head: 'hood', gloves: '#1E2024', boots: '#1A1C1F', accent: '#3FE0D0',
     nvg: false, backpack: true, holster: false, metal: false,
   },
@@ -52,7 +52,7 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
   },
   // Shadow: deep navy suit, face mask with an eye slit
   ninja: {
-    suit: '#1A2133', suitDark: '#0E1320', suitLight: '#2C3750', vest: null, vestLight: '#2C3750',
+    suit: '#243048', suitDark: '#121A2A', suitLight: '#3D4C6C', vest: null, vestLight: '#2C3750',
     skin: '#A27C64', hair: '#121826', head: 'slit', gloves: '#0E1320', boots: '#0B0F18', accent: '#FFB020',
     nvg: false, backpack: false, holster: true, metal: false,
   },

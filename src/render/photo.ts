@@ -9,9 +9,31 @@ import { vGrad, type Ctx } from './util';
 /** logical tile sizes for the photo layers (keep the photos' aspect ratios) */
 export const WALL_PW = 512; // 1024×640 over the 320-tall wall bake
 export const FLOOR_PW = 680; // 1024×512 top-down texture; 3 lanes ≈ 340 world px deep, foreshortened
-export const TOP_PW = 600; // 1024×256 ceiling services strip, 150 tall
-const TOP_PH = 150;
+export const TOP_PW = 600; // 1024×256 ceiling strip (lamps baked in), 150 tall, drawn at the wall's depth
+export const PHOTO_TOP_H = 150;
 const COLUMN_W = 30;
+
+/** baked ceiling lamp centres per theme, in ceiling-tile px (measured from the art; t3 has none,
+ * t1 is a continuous light strip → evenly spaced shafts) */
+const LAMPS: readonly (readonly number[])[] = [
+  [82, 343, 602, 886].map((x) => (x / 1024) * TOP_PW),
+  [128, 384, 640, 896].map((x) => (x / 1024) * TOP_PW),
+  [231, 482, 751, 1011].map((x) => (x / 1024) * TOP_PW),
+  [],
+];
+
+export function lampsOf(theme: number): readonly number[] {
+  return LAMPS[theme] ?? [];
+}
+
+/** extra darkening per theme so the four looks sit together (t1's white lab walls are brightest) */
+const THEME_DIM: readonly number[] = [0, 0.15, 0, 0.05];
+/** floor-3 rust diamond plate is busy: a darker multiply calms it */
+const FLOOR_DIM: readonly number[] = [0.12, 0.18, 0.12, 0.38];
+
+export function themeDim(theme: number): number {
+  return THEME_DIM[theme] ?? 0;
+}
 
 interface GradeSpec {
   readonly mul: string; // multiply tint (shadows / overall light level)
@@ -22,18 +44,24 @@ interface GradeSpec {
 
 /** Scene variants = lighting + colour grade (teal shadows, warm highlights), never separate images. */
 const GRADES: Readonly<Record<Variant, GradeSpec>> = {
-  base: { mul: '#7FA2AE', mulA: 0.42, add: '#FF9A50', addA: 0.07 },
-  alarm: { mul: '#8A3038', mulA: 0.55, add: '#FF2A3A', addA: 0.08 },
-  dark: { mul: '#1C2638', mulA: 0.86, add: '#3FE0D0', addA: 0.02 },
+  base: { mul: '#8FAAB2', mulA: 0.26, add: '#FF9A50', addA: 0.05 },
+  alarm: { mul: '#8A3038', mulA: 0.42, add: '#FF2A3A', addA: 0.05 },
+  dark: { mul: '#1C2638', mulA: 0.7, add: '#3FE0D0', addA: 0.02 },
   steam: { mul: '#9AAAB0', mulA: 0.38, add: '#B8C4C8', addA: 0.16 },
   night: { mul: '#26365E', mulA: 0.72, add: '#4A70C0', addA: 0.05 },
   dawn: { mul: '#B88A6A', mulA: 0.4, add: '#FF9040', addA: 0.14 },
 };
 
-/** Apply the variant grade over a baked region (tiles are opaque, so plain blend modes are safe). */
-export function grade(ctx: Ctx, variant: Variant, x: number, y: number, w: number, h: number): void {
+/** Apply the variant grade over a baked region (tiles are opaque, so plain blend modes are safe);
+ * `dim` darkens a little more (per-theme balance). */
+export function grade(ctx: Ctx, variant: Variant, x: number, y: number, w: number, h: number, dim = 0): void {
   const g = GRADES[variant] ?? GRADES.base;
   ctx.save();
+  if (dim > 0) {
+    ctx.globalAlpha = dim;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(x, y, w, h);
+  }
   ctx.globalCompositeOperation = 'multiply';
   ctx.globalAlpha = g.mulA;
   ctx.fillStyle = g.mul;
@@ -94,24 +122,24 @@ export function plainWall(ctx: Ctx, base: (ctx: Ctx, w: number) => void, w: numb
   columnHalf(ctx, w, -1);
 }
 
-/** Wall tile from a photo elevation: photo, edge columns, baseboard shadow, ceiling occlusion. */
+/** Wall tile from a photo elevation (its edges already blend into the neighbours, and its bottom
+ * edge is the floor line): photo + a soft occlusion along the floor. */
 export function photoWall(ctx: Ctx, img: ImageBitmap): void {
   const h = GROUND_Y - CEIL_Y;
   ctx.drawImage(img, 0, CEIL_Y, WALL_PW, h);
-  // ambient occlusion under the ceiling and along the floor
-  ctx.fillStyle = vGrad(ctx, CEIL_Y, CEIL_Y + 60, [[0, 'rgba(0,0,0,0.6)'], [1, 'rgba(0,0,0,0)']]);
-  ctx.fillRect(0, CEIL_Y, WALL_PW, 60);
-  ctx.fillStyle = vGrad(ctx, GROUND_Y - 40, GROUND_Y, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.55)']]);
-  ctx.fillRect(0, GROUND_Y - 40, WALL_PW, 40);
-  columnHalf(ctx, 0, 1);
-  columnHalf(ctx, WALL_PW, -1);
+  ctx.fillStyle = vGrad(ctx, GROUND_Y - 34, GROUND_Y, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.5)']]);
+  ctx.fillRect(0, GROUND_Y - 34, WALL_PW, 34);
 }
 
 /** Floor tile from the top-down photo: texture in the lane band, worn lane paint, occlusion, front face. */
-export function photoFloor(ctx: Ctx, img: ImageBitmap, bottom: number): void {
+export function photoFloor(ctx: Ctx, img: ImageBitmap, bottom: number, theme: number): void {
   const back = FLOOR_BACK;
   const front = FLOOR_FRONT;
   ctx.drawImage(img, 0, back, FLOOR_PW, front - back);
+  ctx.fillStyle = '#000000';
+  ctx.globalAlpha = FLOOR_DIM[theme] ?? 0.12;
+  ctx.fillRect(0, back, FLOOR_PW, front - back);
+  ctx.globalAlpha = 1;
   // light falloff: dim far edge (wall shadow) and a lit band through the middle lane
   ctx.fillStyle = vGrad(ctx, back, front, [
     [0, 'rgba(0,0,0,0.55)'], [0.18, 'rgba(0,0,0,0.12)'], [0.5, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.25)'],
@@ -134,12 +162,9 @@ export function photoFloor(ctx: Ctx, img: ImageBitmap, bottom: number): void {
   for (let x = 30; x < FLOOR_PW; x += 85) ctx.fillRect(x, front + 6, 3, 30);
 }
 
-/** Service space above the ceiling: dark void + the ceiling-services photo along its bottom. */
-export function photoTop(ctx: Ctx, img: ImageBitmap, top: number): void {
-  const bottom = CEIL_Y + 6;
-  ctx.fillStyle = vGrad(ctx, top, bottom, [[0, '#040506'], [1, '#0E1114']]);
-  ctx.fillRect(0, top, TOP_PW, bottom - top);
-  ctx.drawImage(img, 0, bottom - TOP_PH, TOP_PW, TOP_PH);
-  ctx.fillStyle = vGrad(ctx, bottom - TOP_PH, bottom - TOP_PH + 50, [[0, 'rgba(4,5,6,1)'], [1, 'rgba(4,5,6,0)']]);
-  ctx.fillRect(0, bottom - TOP_PH, TOP_PW, 50);
+/** Ceiling strip above the back wall (tile y 0..PHOTO_TOP_H): the photo, fading into darkness at the top. */
+export function photoTop(ctx: Ctx, img: ImageBitmap): void {
+  ctx.drawImage(img, 0, 0, TOP_PW, PHOTO_TOP_H);
+  ctx.fillStyle = vGrad(ctx, 0, 60, [[0, 'rgba(5,6,10,1)'], [1, 'rgba(5,6,10,0)']]);
+  ctx.fillRect(0, 0, TOP_PW, 60);
 }

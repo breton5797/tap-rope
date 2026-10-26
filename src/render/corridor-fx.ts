@@ -2,7 +2,7 @@
 // and the dark-variant lighting mask with the agent's flashlight cone. All stateless in
 // time / scroll; heavy shapes are cached sprites or a per-view mask canvas.
 import { GROUND_Y, PLAYER_X } from '../types';
-import { CEIL_Y, depthAtY, depthScale, laneY } from './layout';
+import { CEIL_Y, depthAtY, depthScale, FLOOR_FRONT, laneY } from './layout';
 import { CEIL_BOT, VENT_X, VENT_Y } from './plane';
 import { PLANE_W } from './themes';
 import { blitScaled, type SpriteCache } from './sprites';
@@ -60,8 +60,9 @@ export function sirens(ctx: Ctx, v: View, scroll: number, t: number): void {
 }
 
 export function alarmWash(ctx: Ctx, v: View, t: number): void {
-  ctx.fillStyle = `rgba(255,20,50,${(0.035 + 0.045 * (0.5 + 0.5 * Math.sin(t * 5))).toFixed(3)})`;
-  ctx.fillRect(v.x0, v.y0, v.w, v.h);
+  // the corridor only (not the HUD strip / void below the floor)
+  ctx.fillStyle = `rgba(255,20,50,${(0.025 + 0.04 * (0.5 + 0.5 * Math.sin(t * 5))).toFixed(3)})`;
+  ctx.fillRect(v.x0, v.y0, v.w, FLOOR_FRONT - v.y0);
 }
 
 export function puffSprite(ctx: Ctx): void {
@@ -80,7 +81,7 @@ export function steamPuffs(ctx: Ctx, v: View, scroll: number, t: number, sprites
     for (let k = 0; k < n; k++) {
       const f = (t * 0.7 + k / n + raw * 0.003) % 1;
       const s = (0.3 + f * 1.4) * ds;
-      ctx.globalAlpha = (1 - f) * 0.8 * fade;
+      ctx.globalAlpha = (1 - f) * 0.32 * fade;
       blitScaled(ctx, sp, x + Math.sin(t * 2 + k) * 8 + f * 14, VENT_Y - f * 190, s, s);
     }
   });
@@ -126,7 +127,7 @@ export class Darkness {
     const h = v.h + this.pad * 2;
     const { canvas, ctx } = makeCanvas(v.w * this.res, h * this.res);
     ctx.setTransform(this.res, 0, 0, this.res, -v.x0 * this.res, (this.pad - v.y0) * this.res);
-    ctx.fillStyle = 'rgba(2,4,14,0.72)';
+    ctx.fillStyle = 'rgba(2,4,14,0.6)';
     ctx.fillRect(v.x0, v.y0 - this.pad, v.w, h);
     ctx.globalCompositeOperation = 'destination-out';
     const cy = GROUND_Y - 30;

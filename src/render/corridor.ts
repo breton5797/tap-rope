@@ -10,7 +10,9 @@
 // variant's cinematic grade baked in.
 import { GROUND_Y, PLAYER_X, type Scene, type Variant, type WorldId } from '../types';
 import type { ArtStore, ThemeArt } from './art';
-import { FLOOR_PW, grade, photoFloor, photoTop, photoWall, plainWall, TOP_PW, WALL_PW } from './photo';
+import {
+  FLOOR_PW, grade, lampsOf, PHOTO_TOP_H, photoFloor, photoTop, photoWall, plainWall, themeDim, TOP_PW, WALL_PW,
+} from './photo';
 import { sirenHousing, SIREN_X } from './corridor-fx';
 import { CEIL_Y, depthAtY, depthScale, FLOOR_BACK, FLOOR_FRONT, FRONT_DEPTH, WALL_DEPTH } from './layout';
 import { drawCeiling, drawFloor, CEIL_BOT, CEIL_TOP, FLOOR_BOT, FLOOR_TOP } from './plane';
@@ -34,8 +36,20 @@ const FLOOR_STRIPS = 20;
 const WALL_S = depthScale(WALL_DEPTH);
 const WALL_H = GROUND_Y - CEIL_Y;
 const TOP_H = CEIL_Y + 6 - TOP_Y;
+/** screen y of the back wall's top edge (photo ceilings sit right above it, at the wall's depth) */
+const WALL_TOP_Y = FLOOR_BACK - (GROUND_Y - CEIL_Y) * depthScale(WALL_DEPTH);
 const CEIL_LAYER_H = CEIL_BOT - CEIL_TOP + 44;
 
+
+export interface ShaftRig {
+  readonly w: number;
+  readonly xs: readonly number[];
+  readonly s: number;
+  readonly y: number;
+}
+
+/** procedural ceiling band fixtures: x = 40 + 160k, 60 wide (see plane.drawCeiling) */
+const PROC_RIG: ShaftRig = { w: PLANE_W, xs: [70, 230, 390], s: 1, y: CEIL_BOT - 2 };
 
 function tileHash(i: number, salt: number): number {
   let h = (i * 374761393 + salt * 668265263) | 0;
@@ -180,7 +194,7 @@ class SceneCache {
     if (layer === L.Top) {
       const img = art?.ceiling;
       c = img
-        ? this.bakeOne(w, TOP_Y, TOP_H, PHOTO_TOP_RES, (ctx) => photoTop(ctx, img, TOP_Y))
+        ? this.bakeOne(w, 0, PHOTO_TOP_H, PHOTO_TOP_RES, (ctx) => photoTop(ctx, img))
         : this.bakeOne(w, TOP_Y, TOP_H, TOP_RES, (ctx) => drawTop(ctx, w, th, i));
     } else if (layer === L.Wall) {
       const img = art?.walls[i];
@@ -188,15 +202,17 @@ class SceneCache {
         ? this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => photoWall(ctx, img))
         : this.bakeOne(w, CEIL_Y, WALL_H, 1, (ctx) => plainWall(ctx, th.base, w));
     } else if (layer === L.Ceil) {
-      // only the opaque girder band is graded; the light glow below it stays transparent
+      // only the opaque girder band is graded; the light glow below it stays transparent. With a
+      // photo ceiling the band is dropped (the photo has the ceiling + lamps); alarm keeps its sirens.
+      const band = !art?.ceiling;
       c = this.bakeOne(w, CEIL_TOP, CEIL_LAYER_H, 1, (ctx) => {
-        drawCeiling(ctx, w, th);
+        if (band) drawCeiling(ctx, w, th);
         if (variant === 'alarm') for (const x of SIREN_X) sirenHousing(ctx, x);
-      }, CEIL_BOT - CEIL_TOP);
+      }, band ? CEIL_BOT - CEIL_TOP : 0);
     } else {
       const img = art?.floor;
       c = img
-        ? this.bakeOne(w, FLOOR_TOP, FLOOR_BOT - FLOOR_TOP, PHOTO_FLOOR_RES, (ctx) => photoFloor(ctx, img, FLOOR_BOT))
+        ? this.bakeOne(w, FLOOR_TOP, FLOOR_BOT - FLOOR_TOP, PHOTO_FLOOR_RES, (ctx) => photoFloor(ctx, img, FLOOR_BOT, this.world))
         : this.bakeOne(w, FLOOR_TOP, FLOOR_BOT - FLOOR_TOP, 1, (ctx) => drawFloor(ctx, w, th, variant));
     }
     this.tiles[layer][i] = c;
@@ -208,7 +224,7 @@ class SceneCache {
     const { canvas, ctx } = makeCanvas(w * k, h * k);
     ctx.setTransform(k, 0, 0, k, 0, -y * k);
     draw(ctx);
-    grade(ctx, this.variant, 0, y, w, gradeH);
+    if (gradeH > 0) grade(ctx, this.variant, 0, y, w, gradeH, themeDim(this.world));
     return canvas;
   }
 }
@@ -281,7 +297,8 @@ export class Corridor {
     this.wallCount = c.spec[L.Wall].count;
     this.topCount = c.spec[L.Top].count;
     eachTile(xMin, xMax, c.spec[L.Wall].w, scroll, WALL_S, this.pushWall);
-    eachTile(xMin, xMax, c.spec[L.Top].w, scroll * TOP_PARALLAX, 1, this.pushTop);
+    if (c.art?.ceiling) eachTile(xMin, xMax, c.spec[L.Top].w, scroll, WALL_S, this.pushTop);
+    else eachTile(xMin, xMax, c.spec[L.Top].w, scroll * TOP_PARALLAX, 1, this.pushTop);
   }
 
   private readonly needed: number[] = [];
@@ -293,6 +310,22 @@ export class Corridor {
   private readonly pushTop = (m: number): void => {
     this.needed.push(L.Top * 8 + (tileHash(m, 11) % this.topCount));
   };
+
+  /**
+   * Where the light shafts fall for a scene: tile width / lamp x's (tile px) / depth scale / top y.
+   * Photo ceilings use the lamps baked into the art; the procedural band its own fixtures.
+   */
+  shaftRig(s: Scene, v: View): ShaftRig {
+    let photo = false;
+    for (const c of this.caches) if (c.matches(s, v) && c.art?.ceiling) photo = true;
+    if (!photo) return PROC_RIG;
+    const r = this.rigs[s.world];
+    return r;
+  }
+
+  private readonly rigs: readonly ShaftRig[] = [0, 1, 2, 3].map((t) => ({
+    w: TOP_PW, xs: lampsOf(t), s: WALL_S, y: WALL_TOP_Y - 18,
+  }));
 
   /** Total backing-store bytes of every cached corridor tile. */
   bytes(): number {
@@ -330,8 +363,10 @@ export class Corridor {
       const img = c.tile(L.Wall, tileHash(m, 5) % wn);
       ctx.drawImage(img, sx, FLOOR_BACK - WALL_H * WALL_S, ww * WALL_S, WALL_H * WALL_S);
     });
-    const ceil = c.tile(L.Ceil, 0);
-    eachTile(xMin, xMax, PLANE_W, scroll, 1, (_m, sx) => ctx.drawImage(ceil, sx, CEIL_TOP, PLANE_W, CEIL_LAYER_H));
+    if (!c.art?.ceiling || c.variant === 'alarm') {
+      const ceil = c.tile(L.Ceil, 0);
+      eachTile(xMin, xMax, PLANE_W, scroll, 1, (_m, sx) => ctx.drawImage(ceil, sx, CEIL_TOP, PLANE_W, CEIL_LAYER_H));
+    }
     this.drawFloor(ctx, c.tile(L.Floor, 0), c.spec[L.Floor].w, scroll, xMin, xMax);
     if (shifted) ctx.restore();
   }
@@ -342,6 +377,12 @@ export class Corridor {
     const tw = c.spec[L.Top].w;
     const tn = c.spec[L.Top].count;
     const photo = !!c.art?.ceiling;
+    if (photo) {
+      // the photo ceiling hangs right above the back wall, at its depth and scroll
+      const h = PHOTO_TOP_H * WALL_S;
+      eachTile(xMin, xMax, tw, scroll, WALL_S, (_m, sx) => ctx.drawImage(c.tile(L.Top, 0), sx, WALL_TOP_Y - h, tw * WALL_S + 0.5, h));
+      return;
+    }
     eachTile(xMin, xMax, tw, sc, 1, (m, sx) => {
       const idx = tileHash(m, 11) % tn;
       ctx.drawImage(c.tile(L.Top, idx), sx, TOP_Y, tw, TOP_H);

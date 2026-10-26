@@ -29,12 +29,12 @@ import { drawWarnings } from './warnings';
 
 /** rim light per scene variant (teal practicals, red alarm, warm dawn) */
 const RIM: Readonly<Record<Variant, string>> = {
-  base: 'rgba(120,200,200,0.32)',
-  alarm: 'rgba(255,70,80,0.45)',
-  dark: 'rgba(100,190,190,0.25)',
-  steam: 'rgba(200,215,220,0.32)',
-  night: 'rgba(120,150,220,0.35)',
-  dawn: 'rgba(255,170,100,0.42)',
+  base: 'rgba(140,215,210,0.5)',
+  alarm: 'rgba(255,80,90,0.6)',
+  dark: 'rgba(110,200,200,0.4)',
+  steam: 'rgba(210,225,230,0.5)',
+  night: 'rgba(130,160,230,0.5)',
+  dawn: 'rgba(255,175,105,0.6)',
 };
 
 function rimColor(v: Variant): string {
@@ -132,8 +132,8 @@ class CanvasRenderer implements Renderer {
     const lift = GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane));
     if (tr && tr.door.from.variant !== variant) this.backFx(ctx, v, snap, tr.door.from.variant, 1 - e, lift);
     this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
-    this.post.shafts(ctx, v, variant, snap.scroll, tr && tr.door.from.variant !== variant ? e : 1);
-    if (tr && tr.door.from.variant !== variant) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e);
+    this.post.shafts(ctx, v, variant, snap.scroll, tr ? e : 1, this.corridor.shaftRig(snap, v));
+    if (tr) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e, this.corridor.shaftRig(tr.door.from, v));
     for (const d of doors) drawDoorBack(ctx, d, off, reduced ? 0 : t, this.sprites, reduced);
     this.drawLanes(ctx, v, snap, lane);
     for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
@@ -155,7 +155,7 @@ class CanvasRenderer implements Renderer {
     if (variant === 'dark') this.darkness.draw(ctx, v, lift);
     ctx.globalAlpha = 1;
     if (variant === 'steam') {
-      fog(ctx, v, snap.scroll, t, this.sprites, 0.34 * fade);
+      fog(ctx, v, snap.scroll, t, this.sprites, 0.18 * fade);
       steamPuffs(ctx, v, snap.scroll, t, this.sprites, reduced, fade);
     }
     ctx.globalAlpha = 1;
@@ -165,7 +165,7 @@ class CanvasRenderer implements Renderer {
   private frontFx(ctx: Ctx, v: View, snap: RenderSnapshot, variant: Variant, fade: number): void {
     if (fade <= 0.01) return;
     const t = snap.realTime;
-    if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.12 * fade);
+    if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.08 * fade);
     if (variant === 'alarm') {
       ctx.globalAlpha = fade;
       alarmWash(ctx, v, snap.reducedMotion ? 0 : t);
