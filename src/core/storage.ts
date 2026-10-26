@@ -1,14 +1,21 @@
 /**
  * Save data persistence (localStorage key 'laserescape.save.v1'), incl. briefed chapters and (v5) whether
  * the controls card was seen — older saves without it load as false (same key and version).
+ * v7: seen cutscenes, unlocked achievements (id → unix ms) and the daily streak; older saves load
+ * them empty, each field validated on its own.
  * parseSave validates untrusted JSON field by field and never throws; load/write
  * swallow storage errors (private mode, quota). All updates return new objects.
  */
-import type { SaveData, Settings, SkinId } from '../types';
+import type { AchievementId, CutsceneId, SaveData, Settings, SkinId } from '../types';
+import { ACHIEVEMENTS } from './achievements';
 import { CHAPTERS, SKINS, STAGES } from './content';
+import { CUTSCENES } from './cutscenes';
 
 const KEY = 'laserescape.save.v1'; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
 const SKIN_IDS: readonly SkinId[] = SKINS.map((s) => s.id);
+const CUTSCENE_IDS: readonly CutsceneId[] = CUTSCENES.map((c) => c.id);
+const ACHIEVEMENT_IDS: readonly AchievementId[] = ACHIEVEMENTS.map((a) => a.id);
+const NO_STREAK: SaveData['dailyStreak'] = { last: null, count: 0 };
 const DEFAULT_SETTINGS: Settings = { sound: true, music: true, vibration: true, reducedMotion: false };
 
 type Rec = Readonly<Record<string, unknown>>;
@@ -23,6 +30,7 @@ export function defaultSave(): SaveData {
   return {
     version: 1, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
     settings: DEFAULT_SETTINGS, tutorialDone: false, briefed: [], controlsSeen: false,
+    seenCutscenes: [], achievements: {}, dailyStreak: NO_STREAK,
   };
 }
 
@@ -63,7 +71,45 @@ export function parseSave(raw: unknown): SaveData {
     tutorialDone: raw.tutorialDone === true,
     briefed: parseBriefed(raw.briefed),
     controlsSeen: raw.controlsSeen === true,
+    seenCutscenes: parseSeen(raw.seenCutscenes),
+    achievements: parseAchievements(raw.achievements),
+    dailyStreak: parseStreak(raw.dailyStreak),
   };
+}
+
+/** known cutscene ids, unique, in story order */
+function parseSeen(raw: unknown): CutsceneId[] {
+  const listed = Array.isArray(raw) ? raw : [];
+  return CUTSCENE_IDS.filter((id) => listed.includes(id));
+}
+
+/** known achievement ids with a finite, non-negative unlock time */
+function parseAchievements(raw: unknown): SaveData['achievements'] {
+  if (!isRecord(raw)) return {};
+  return Object.fromEntries(ACHIEVEMENT_IDS
+    .filter((id) => isNum(raw[id]) && (raw[id] as number) >= 0)
+    .map((id) => [id, raw[id] as number]));
+}
+
+const isIsoDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+/** { last: YYYY-MM-DD, count ≥ 1 } or no streak */
+function parseStreak(raw: unknown): SaveData['dailyStreak'] {
+  if (!isRecord(raw) || !isIsoDate(raw.last)) return NO_STREAK;
+  return { last: raw.last, count: isNum(raw.count) ? Math.max(1, Math.floor(raw.count)) : 1 };
+}
+
+/** Records that a cutscene was played (no-op when already seen); keeps story order. */
+export function markCutsceneSeen(save: SaveData, id: CutsceneId): SaveData {
+  if (save.seenCutscenes.includes(id)) return save;
+  return { ...save, seenCutscenes: CUTSCENE_IDS.filter((c) => c === id || save.seenCutscenes.includes(c)) };
+}
+
+/** Stores newly unlocked achievements at `now` (unix ms); already-unlocked ids keep their first time. */
+export function recordAchievements(save: SaveData, ids: readonly AchievementId[], now: number): SaveData {
+  const fresh = ids.filter((id) => save.achievements[id] === undefined);
+  if (fresh.length === 0) return save;
+  return { ...save, achievements: { ...save.achievements, ...Object.fromEntries(fresh.map((id) => [id, now])) } };
 }
 
 const isChapter = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < CHAPTERS.length;

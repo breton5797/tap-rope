@@ -5,7 +5,9 @@ import {
   isStageUnlocked,
   loadSave,
   markBriefed,
+  markCutsceneSeen,
   parseSave,
+  recordAchievements,
   recordResult,
   writeSave,
 } from '../../src/core/storage';
@@ -28,7 +30,55 @@ describe('defaultSave', () => {
       version: 1, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
       settings: { sound: true, music: true, vibration: true, reducedMotion: false },
       tutorialDone: false, briefed: [], controlsSeen: false,
+      seenCutscenes: [], achievements: {}, dailyStreak: { last: null, count: 0 },
     });
+  });
+});
+
+describe('v7 save fields', () => {
+  it('migrates old saves without them (same key and version)', () => {
+    const { seenCutscenes: _a, achievements: _b, dailyStreak: _c, ...old } = { ...defaultSave(), coins: 5, controlsSeen: true };
+    expect(parseSave(JSON.parse(JSON.stringify(old)))).toEqual({ ...defaultSave(), coins: 5, controlsSeen: true });
+  });
+
+  it('round-trips valid values', () => {
+    const s = {
+      ...defaultSave(), seenCutscenes: ['op-start', 'boss-1'] as const,
+      achievements: { 'first-clear': 1761500000000, 'zone-1': 1761500001000 },
+      dailyStreak: { last: '2026-10-27', count: 3 },
+    };
+    expect(parseSave(JSON.parse(JSON.stringify(s)))).toEqual(s);
+  });
+
+  it('validates shapes', () => {
+    const r = parseSave({
+      seenCutscenes: ['boss-2', 'nope', 'op-start', 'boss-2', 7],
+      achievements: { 'first-clear': 5, 'zone-2': 9, 'chain-50': 'x', 'chain-100': -1, 'stars-150': Number.NaN },
+      dailyStreak: { last: '2026-10-27', count: 2.7 },
+    });
+    expect(r.seenCutscenes).toEqual(['op-start', 'boss-2']);
+    expect(r.achievements).toEqual({ 'first-clear': 5 });
+    expect(r.dailyStreak).toEqual({ last: '2026-10-27', count: 2 });
+    expect(parseSave({ dailyStreak: { last: '27-10-2026', count: 4 } }).dailyStreak).toEqual({ last: null, count: 0 });
+    expect(parseSave({ dailyStreak: { last: '2026-10-27', count: -3 } }).dailyStreak).toEqual({ last: '2026-10-27', count: 1 });
+    expect(parseSave({ dailyStreak: 'x', seenCutscenes: {}, achievements: [] })).toMatchObject({
+      dailyStreak: { last: null, count: 0 }, seenCutscenes: [], achievements: {},
+    });
+  });
+
+  it('markCutsceneSeen / recordAchievements return new saves and ignore repeats', () => {
+    const s0 = defaultSave();
+    const s1 = markCutsceneSeen(s0, 'boss-3');
+    expect(s1.seenCutscenes).toEqual(['boss-3']);
+    expect(markCutsceneSeen(markCutsceneSeen(s1, 'op-start'), 'boss-3').seenCutscenes).toEqual(['op-start', 'boss-3']);
+    expect(markCutsceneSeen(s1, 'boss-3')).toBe(s1);
+    expect(s0.seenCutscenes).toEqual([]);
+    const a1 = recordAchievements(s0, ['chain-50'], 100);
+    expect(a1.achievements).toEqual({ 'chain-50': 100 });
+    const a2 = recordAchievements(a1, ['chain-50', 'chain-100'], 200);
+    expect(a2.achievements).toEqual({ 'chain-50': 100, 'chain-100': 200 });
+    expect(recordAchievements(a2, [], 300)).toBe(a2);
+    expect(s0.achievements).toEqual({});
   });
 });
 
