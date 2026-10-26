@@ -506,6 +506,8 @@ export interface ResultInfo {
   readonly maxCombo: number;
   readonly coinsEarned: number;
   readonly hasNext: boolean;
+  /** v7: endless/daily leaderboard submission state (absent for campaign stages) */
+  readonly online?: { readonly state: 'pending' | 'ranked' | 'offline' | 'rejected'; readonly rank?: number };
 }
 
 export interface UiCallbacks {
