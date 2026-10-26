@@ -79,10 +79,10 @@ export class AgentPainter {
     const { p, t } = f;
     if (f.mood === 'hurt' && this.prevMood !== 'hurt') this.hitStart = t;
     this.prevMood = f.mood;
-    const hit = f.mood === 'hurt' ? hitCurve(t - this.hitStart) : 0;
+    const hitAge = f.mood === 'hurt' ? t - this.hitStart : -1;
     const pose = this.pose;
-    if (f.civilian) this.civilianPose(pose, f, hit);
-    else this.agentPose(pose, f, hit);
+    if (f.civilian) this.civilianPose(pose, f, hitCurve(hitAge));
+    else this.agentPose(pose, f, hitAge);
     ctx.save();
     ctx.translate(f.x, f.floorY - p.height * f.depth);
     if (f.lean !== 0) ctx.rotate(f.lean);
@@ -97,7 +97,7 @@ export class AgentPainter {
     if (p.sliding && !f.civilian) this.dust(ctx, f);
   }
 
-  private agentPose(pose: Pose, f: AgentFrame, hit: number): void {
+  private agentPose(pose: Pose, f: AgentFrame, hitAge: number): void {
     const { p, t } = f;
     if (p.level >= 2 && p.level !== this.prevLevel) this.spinStart = t;
     if (p.grounded) this.spinStart = -1;
@@ -115,7 +115,7 @@ export class AgentPainter {
       poseIdle(pose, t);
     }
     // no recoil mid-flip: the rotation already carries the motion
-    if (pose.rot === 0) applyRecoil(pose, hit);
+    if (pose.rot === 0 && hitAge >= 0) applyRecoil(pose, hitAge);
   }
 
   private civilianPose(pose: Pose, f: AgentFrame, hit: number): void {

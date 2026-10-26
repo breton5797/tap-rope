@@ -74,14 +74,14 @@ export function drawRig(ctx: Ctx, p: Pose, k: Paint): void {
   }
   const F = far(L);
   // far side: darker, faint rim so the silhouette still separates from a dark wall
-  rimAlpha(0.45);
+  rimAlpha(k.torch ? 0.7 : 0.45);
   arm(ctx, P.Sh1, P.El1, P.Hand1, F.suit, F.gloves);
   leg(ctx, P.Hip1, P.Knee1, P.Ankle1, P.Toe1, F.legs, F.boots, L.sole);
   rimAlpha(1);
   torso(ctx, p, L);
   leg(ctx, P.Hip0, P.Knee0, P.Ankle0, P.Toe0, L.legs, L.boots, L.sole);
   if (L.holster) holster(ctx, P.Hip0, P.Knee0, L);
-  drawHead(ctx, p, L);
+  drawHead(ctx, p, L, k.torch);
   arm(ctx, P.Sh0, P.El0, P.Hand0, L.suit, L.gloves);
   if (L.backpack) cable(ctx, p);
   if (k.torch) torch(ctx);

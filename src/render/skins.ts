@@ -23,12 +23,20 @@ export interface AgentLook {
   readonly headGear: Tone; // mask / hood / helmet / android shell
   readonly skin: Tone; // the sliver of face that shows (or the scientist's face and hands)
   readonly hair: string; // scientist only
-  readonly accent: string; // lens / LED / visor / sensor glow
+  readonly accent: string; // lens / LED / visor / sensor colour
+  /** emissive point on the head (head frame: x forward, y down) that glows, strongest in dark scenes */
+  readonly glow: Glow | null;
   readonly belt: string | null;
   readonly sash: string | null; // cloth sash with knot tails (Shadow)
   readonly backpack: boolean;
   readonly holster: boolean;
   readonly metal: boolean; // android plates and seams
+}
+
+export interface Glow {
+  readonly color: string;
+  readonly x: number;
+  readonly y: number;
 }
 
 const tone = (base: string, light: string, dark: string): Tone => ({ base, light, dark });
@@ -45,7 +53,8 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
     vest: tone('#2C3137', '#47505A', '#1A1D21'), vestLight: '#4E5862',
     gloves: BLACK_GLOVE, boots: BLACK_BOOT, sole: '#050506',
     head: 'nvg', headGear: tone('#1B1E22', '#353B42', '#0F1113'), skin: SKIN_OPERATIVE, hair: '#000000',
-    accent: '#3FE0D0', belt: '#111316', sash: null, backpack: false, holster: true, metal: false,
+    accent: '#7CFF6A', belt: '#111316', sash: null, backpack: false, holster: true, metal: false,
+    glow: { color: '#7CFF6A', x: 8.4, y: -1.3 },
   },
   // Black Cat: one-piece matte stealth suit, smooth cowl with a visor slit
   cat: {
@@ -55,6 +64,7 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
     gloves: tone('#0F1012', '#24272B', '#08090A'), boots: tone('#0E0F11', '#25282C', '#060607'), sole: '#040405',
     head: 'visor', headGear: tone('#17191C', '#30343A', '#0B0C0E'), skin: SKIN_OPERATIVE, hair: '#000000',
     accent: '#3FE0D0', belt: null, sash: null, backpack: false, holster: false, metal: false,
+    glow: { color: '#3FE0D0', x: 3.8, y: -1.0 },
   },
   // Hacker: dark hoodie, cargo trousers, backpack rig with a cable to the wrist deck
   bunny: {
@@ -64,6 +74,7 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
     gloves: tone('#1A1C1F', '#30343A', '#0E0F11'), boots: tone('#1A1C1F', '#33373D', '#0D0E10'), sole: '#3A3C3F',
     head: 'hood', headGear: tone('#2A2E33', '#424850', '#17191C'), skin: SKIN_OPERATIVE, hair: '#000000',
     accent: '#3FE0D0', belt: null, sash: null, backpack: true, holster: false, metal: false,
+    glow: { color: '#3FE0D0', x: 4.6, y: -0.6 },
   },
   // R-7: combat android, gunmetal plates, red sensor line
   robot: {
@@ -73,6 +84,7 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
     gloves: tone('#2A2E33', '#4D545C', '#17191C'), boots: tone('#25292E', '#474E56', '#141619'), sole: '#0C0D0F',
     head: 'android', headGear: tone('#3E434A', '#6C747E', '#24282D'), skin: tone('#3E434A', '#6C747E', '#24282D'),
     hair: '#000000', accent: '#FF2A3A', belt: null, sash: null, backpack: false, holster: false, metal: true,
+    glow: { color: '#FF2A3A', x: 3.8, y: -1.0 },
   },
   // Shadow: navy-black wraps, face mask with an eye slit, cloth sash
   ninja: {
@@ -82,6 +94,7 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
     gloves: tone('#0F131B', '#232B3A', '#080A0E'), boots: tone('#0E1219', '#222A38', '#07090D'), sole: '#040507',
     head: 'wrap', headGear: tone('#151A24', '#2A3344', '#0B0E14'), skin: SKIN_OPERATIVE, hair: '#000000',
     accent: '#FFB020', belt: null, sash: '#0E1119', backpack: false, holster: true, metal: false,
+    glow: { color: '#FFB020', x: -0.6, y: 0.8 },
   },
   // Special forces: ranger-green fatigues, plate carrier, ballistic helmet, eye pro
   astro: {
@@ -91,6 +104,7 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
     gloves: tone('#26291F', '#3E4334', '#171912'), boots: tone('#2A2620', '#453F35', '#191612'), sole: '#0E0D0B',
     head: 'helmet', headGear: tone('#3E4533', '#5C664B', '#262B1F'), skin: SKIN_OPERATIVE, hair: '#000000',
     accent: '#FFB020', belt: '#1C1F17', sash: null, backpack: false, holster: true, metal: false,
+    glow: { color: '#7CFF6A', x: -4.8, y: -6.4 },
   },
   // the rescued scientist: faded orange prison jumpsuit, grey hair, bare hands, worn shoes
   prisoner: {
@@ -100,6 +114,7 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
     gloves: tone('#B88A6E', '#D2A487', '#8A6450'), boots: tone('#2E2B28', '#4A4642', '#1C1A18'), sole: '#BDB6AA',
     head: 'bare', headGear: tone('#8F8B85', '#B2ADA6', '#5F5C58'), skin: tone('#B88A6E', '#D2A487', '#8A6450'),
     hair: '#8F8B85', accent: '#FFB020', belt: null, sash: null, backpack: false, holster: false, metal: false,
+    glow: null,
   },
 };
 

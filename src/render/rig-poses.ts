@@ -3,7 +3,7 @@
 // tucked (knees to chest, hands on shins, spine curled, never folded flat at the hip), and the
 // escorted scientist has a separate civilian set: run, a single hurdle for any jump, a crouch-run
 // under slide lasers and a stumble on hits — never copying the agent's acrobatics.
-import { STAND_HIP_H, type Limb, type Pose } from './rig-skeleton';
+import { RANGE, STAND_HIP_H, type Limb, type Pose } from './rig-skeleton';
 import { clamp } from './util';
 
 function setLimb(l: Limb, hip: number, knee: number, ankle = 0): void {
@@ -139,25 +139,40 @@ export function applyLand(p: Pose, q: number): void {
   for (const a of p.arms) a.hip += 0.3 * q;
 }
 
-/** Hit strength over time since the hit: a sharp 70ms onset, then a quick recovery. */
+/** Hit strength over time since the hit: a sharp 50ms onset, then a quick recovery. */
 export function hitCurve(age: number): number {
   if (age < 0) return 0;
-  return age < 0.07 ? age / 0.07 : Math.exp(-(age - 0.07) * 6.5);
+  return age < 0.05 ? age / 0.05 : Math.exp(-(age - 0.05) * 6);
 }
 
-/** Agent hit recoil (r = 0..1): torso thrown back, head snapped, near arm up to guard, knees give. */
-export function applyRecoil(p: Pose, r: number): void {
-  if (r <= 0.001) return;
-  p.x -= 3 * r;
-  p.spine -= 0.34 * r;
-  p.head -= 0.22 * r;
+/** Stagger after the snap: one catch step forward between ~0.12s and ~0.45s after the hit. */
+export function staggerCurve(age: number): number {
+  return age > 0.12 && age < 0.45 ? Math.sin((Math.PI * (age - 0.12)) / 0.33) : 0;
+}
+
+/** Agent hit recoil, by seconds since the hit: the torso snaps back hard (head whipped, near arm
+ * up to guard, far arm flung, knees buckle), then a stagger step forward to catch the balance. */
+export function applyRecoil(p: Pose, age: number): void {
+  const r = hitCurve(age);
+  const st = staggerCurve(age);
+  if (r <= 0.001 && st <= 0) return;
+  p.x -= 5 * r - 1.5 * st;
+  p.spine += -0.62 * r + 0.22 * st;
+  p.head += -0.34 * r + 0.15 * st;
   const n = p.arms[0];
-  n.hip = mix(n.hip, 0.95, 0.8 * r);
-  n.knee = mix(n.knee, 2.0, 0.8 * r);
+  n.hip = mix(n.hip, 1.0, 0.85 * r);
+  n.knee = mix(n.knee, 2.1, 0.85 * r);
   const f = p.arms[1];
-  f.hip = mix(f.hip, -0.8, 0.7 * r);
-  f.knee = mix(f.knee, 0.4, 0.7 * r);
-  for (const l of p.legs) l.knee += 0.3 * r;
+  f.hip = mix(f.hip, -0.95, 0.8 * r);
+  f.knee = mix(f.knee, 0.3, 0.8 * r);
+  // knees buckle on the snap; the near leg reaches forward for the catch step
+  for (const l of p.legs) l.knee += 0.4 * r;
+  const lead = p.legs[0];
+  lead.hip = mix(lead.hip, 0.75, 0.6 * st);
+  lead.knee = mix(lead.knee, 0.55, 0.6 * st);
+  f.hip = mix(f.hip, 0.9, 0.5 * st);
+  // the hips can't hyperextend: as the torso whips back, a trailing thigh is dragged under the body
+  for (const l of p.legs) l.hip = Math.max(l.hip, RANGE.hipFlex[0] - p.spine);
 }
 
 // ---------- the escorted scientist ----------

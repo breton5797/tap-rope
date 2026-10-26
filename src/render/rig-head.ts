@@ -284,7 +284,39 @@ const HEADS = {
 /** outline radius of the rim arc per head style (hoods and helmets stand off the skull) */
 const RIM_R = { nvg: 5.6, visor: 5.3, hood: 6.8, android: 5.3, wrap: 5.3, helmet: 6.0, bare: 5.3 } as const;
 
-export function drawHead(ctx: Ctx, p: Pose, L: AgentLook): void {
+/** unit radial falloff per glow colour, scaled per draw (built once per colour) */
+const GLOWS = new Map<string, CanvasGradient>();
+
+function glowFill(ctx: Ctx, color: string): CanvasGradient {
+  let g = GLOWS.get(color);
+  if (!g) {
+    g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    g.addColorStop(0, color);
+    g.addColorStop(0.25, color + '88');
+    g.addColorStop(1, color + '00');
+    GLOWS.set(color, g);
+  }
+  return g;
+}
+
+/** Faint emissive bloom (NVG lens, visor slit, sensor line, LED); stronger in dark scenes. */
+function glow(ctx: Ctx, L: AgentLook, strong: boolean): void {
+  const e = L.glow;
+  if (!e) return;
+  const r = strong ? 6.5 : 3.0;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha *= strong ? 0.8 : 0.4;
+  ctx.translate(e.x, e.y);
+  ctx.scale(r, r);
+  ctx.fillStyle = glowFill(ctx, e.color);
+  ctx.beginPath();
+  ctx.arc(0, 0, 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+export function drawHead(ctx: Ctx, p: Pose, L: AgentLook, strong: boolean): void {
   // neck: balaclava / collar for operatives, skin for the scientist
   const neck = L.head === 'bare' ? L.skin : L.head === 'hood' ? L.suit : L.headGear;
   seg(ctx, P.Chest, P.Neck, 3.2, 2.9, 3.1, 3.1, 0.5, neck, false);
@@ -296,5 +328,6 @@ export function drawHead(ctx: Ctx, p: Pose, L: AgentLook): void {
   ctx.beginPath();
   ctx.ellipse(-0.6, -0.6, r, r * 1.05, 0, Math.PI * 0.66, Math.PI * 1.3);
   rimStroke(ctx);
+  glow(ctx, L, strong);
   ctx.restore();
 }

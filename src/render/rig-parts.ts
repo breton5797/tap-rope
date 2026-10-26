@@ -23,12 +23,18 @@ export interface Tone {
 }
 
 /** rim stroke settings for the current figure (set once per draw) */
-const rimState = { color: '', width: 0.7, alpha: 1, boost: 0.75 };
+const rimState = { color: '', width: 0.7, alpha: 1, boost: 0.75, strong: false };
 
 export function setRim(color: string, strong: boolean): void {
   rimState.color = color;
-  rimState.width = strong ? 1.3 : 0.7;
+  rimState.width = strong ? 1.1 : 0.7;
   rimState.boost = strong ? 1 : 0.75;
+  rimState.strong = strong;
+}
+
+/** dark scenes: rim drawn additively with a soft halo (M3/M2 readability on dark walls) */
+export function rimStrong(): boolean {
+  return rimState.strong;
 }
 
 export function rimAlpha(a: number): void {
@@ -40,10 +46,22 @@ export function rimStroke(ctx: Ctx): void {
   const a = rimState.alpha * rimState.boost;
   if (a <= 0) return;
   const a0 = ctx.globalAlpha;
-  ctx.globalAlpha = a0 * a;
   ctx.strokeStyle = rimState.color;
-  ctx.lineWidth = rimState.width;
-  ctx.stroke();
+  if (rimState.strong) {
+    // additive halo + core: the rim adds light to the dark wall instead of tinting it
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = a0 * a * 0.28;
+    ctx.lineWidth = 2.6;
+    ctx.stroke();
+    ctx.globalAlpha = a0 * a * 0.85;
+    ctx.lineWidth = rimState.width;
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+  } else {
+    ctx.globalAlpha = a0 * a;
+    ctx.lineWidth = rimState.width;
+    ctx.stroke();
+  }
   ctx.globalAlpha = a0;
 }
 

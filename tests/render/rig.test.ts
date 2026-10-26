@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyLand, applyRecoil, applyStumble, hitCurve, poseAir, poseCivRun, poseCrouchRun, poseIdle, poseRun, poseSlide,
-  poseVault,
+  poseVault, staggerCurve,
 } from '../../src/render/rig-poses';
 import { clampPose, J, newPose, P, RANGE, solve, type Pose } from '../../src/render/rig-skeleton';
 
@@ -30,7 +30,8 @@ describe('operative rig joint ranges', () => {
     poseRun(p, 1.3);
     applyLand(p, 1);
     applyLand(p, 1);
-    applyRecoil(p, 1);
+    applyRecoil(p, 0.05);
+    applyRecoil(p, 0.28);
     p.legs[1].knee = 3.5;
     p.arms[0].knee = -1;
     expect(inRange(p)).toBe(false);
@@ -101,8 +102,31 @@ describe('slide and hit', () => {
   });
 
   it('hit recoil peaks fast and is gone within half a second', () => {
-    expect(hitCurve(0.07)).toBeCloseTo(1);
+    expect(hitCurve(0.05)).toBeCloseTo(1);
     expect(hitCurve(0.5)).toBeLessThan(0.1);
     expect(hitCurve(-1)).toBe(0);
+  });
+
+  it('recoil snaps the torso back hard, then staggers forward, inside human ranges', () => {
+    const base = newPose();
+    poseRun(base, 0.5);
+    const snap = newPose();
+    poseRun(snap, 0.5);
+    applyRecoil(snap, 0.05);
+    expect(base.spine - snap.spine).toBeGreaterThan(0.55);
+    const step = newPose();
+    poseRun(step, 0.5);
+    applyRecoil(step, 0.3);
+    expect(step.legs[0].hip).toBeGreaterThan(base.legs[0].hip - 0.05);
+    // authored inside the ranges: the clamp guard has nothing to correct
+    for (let k = 0; k < 16; k++) {
+      for (const age of [0.03, 0.05, 0.15, 0.3, 0.45]) {
+        const p = newPose();
+        poseRun(p, (k / 16) * Math.PI * 2);
+        applyRecoil(p, age);
+        expect(inRange(p)).toBe(true);
+      }
+    }
+    expect(staggerCurve(0.6)).toBe(0);
   });
 });
