@@ -1,0 +1,18 @@
+# Only what `supabase functions deploy` needs: these functions authenticate with the device secret
+# header (x-device-secret), not a Supabase JWT.
+project_id = "bmstuotifpmaspszrgyi"
+
+[functions.register]
+verify_jwt = false
+
+[functions.nickname]
+verify_jwt = false
+
+[functions.submit-run]
+verify_jwt = false
+
+[functions.achievements]
+verify_jwt = false
+
+[functions.leaderboard]
+verify_jwt = false
