@@ -375,8 +375,11 @@ export interface OnlineApi {
   nickname(): string | null;
   /** 2–12 chars; resolves to an error message (Korean) or null on success */
   setNickname(name: string): Promise<string | null>;
-  /** queued and retried while offline; resolves to the server-verified score or null */
-  submitRun(record: RunRecord): Promise<number | null>;
+  /**
+   * Resolves to the server-verified score and the run's rank on its board, or null when offline (the
+   * record is queued and retried). Rejects when the server refuses the run (bad replay, version, rate).
+   */
+  submitRun(record: RunRecord): Promise<{ readonly score: number; readonly rank: number } | null>;
   leaderboard(board: Board): Promise<{ readonly top: readonly LeaderboardRow[]; readonly mine: LeaderboardRow | null }>;
   syncAchievements(unlocked: Readonly<Partial<Record<AchievementId, number>>>): Promise<void>;
 }
