@@ -1,7 +1,7 @@
 // Cinematic post pass (GDD-v6 §4), all pre-rendered so it is a handful of blits per frame:
 // light shafts under the ceiling fixtures, drifting dust motes, a vignette, very light film grain
-// (a noise tile jittered every frame) and a brief chromatic split on hits. Reduced motion turns off
-// grain and the chromatic split (shake / flash are handled by Effects).
+// (a noise tile jittered every frame) and the red hit edge. Reduced motion turns off grain and keeps the
+// hit edge static (shake / flash are handled by Effects).
 import { PLAYER_X, type Variant } from '../types';
 import { CEIL_Y, FLOOR_FRONT } from './layout';
 import type { ShaftRig } from './corridor';
@@ -12,8 +12,6 @@ const GRAIN = 128;
 const VIGNETTE_RES = 0.25;
 const SHAFT_W = 96;
 const MOTES = 26;
-/** seconds the hit chromatic split lasts (~7 frames at 60fps) */
-const CHROMA_TIME = 0.12;
 /** seconds the red hit edge lasts */
 const HIT_EDGE_TIME = 0.6;
 const HIT_EDGE_HOLD = 0.25;
@@ -151,32 +149,6 @@ export class Post {
     ctx.globalAlpha = reduced ? 0.35 : HIT_EDGE_PEAK * Math.max(0, decay) ** 1.3;
     ctx.drawImage(this.hitEdgeCanvas, v.x0, v.y0, v.w, v.h);
     ctx.globalAlpha = 1;
-  }
-
-  /**
-   * Brief chromatic split right after a hit, kept cheap: for ~7 frames only the box around the
-   * agent is re-drawn shifted (additive) and tinted red — not the whole frame.
-   */
-  chromatic(ctx: Ctx, canvas: HTMLCanvasElement, v: View, x: number, y: number, hitAge: number, reduced: boolean): void {
-    if (reduced || hitAge > CHROMA_TIME) return;
-    const k = 1 - hitAge / CHROMA_TIME;
-    // agent box in device px (logical → device: × v.k, + offset)
-    const bx = Math.max(0, Math.floor((x - 60) * v.k + v.ox * v.dpr));
-    const by = Math.max(0, Math.floor((y - 120) * v.k + v.oy * v.dpr));
-    const bw = Math.min(canvas.width - bx, Math.ceil(120 * v.k));
-    const bh = Math.min(canvas.height - by, Math.ceil(140 * v.k));
-    if (bw <= 0 || bh <= 0) return;
-    const d = Math.max(2, Math.round(3 * v.k * k));
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.28 * k;
-    ctx.drawImage(canvas, bx, by, bw, bh, bx + d, by, bw, bh);
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.globalAlpha = 0.3 * k;
-    ctx.fillStyle = '#FF6070';
-    ctx.fillRect(bx, by, bw + d, bh);
-    ctx.restore();
   }
 
   private ensure(ctx: Ctx, v: View): void {
