@@ -1,8 +1,13 @@
 // The operative (and the escorted scientist): picks a rig pose from the player state and draws it
-// (GDD-v6 §3). Run cycle locked to the scroll, leap / tucked front flip (2단) / piked somersault
-// (3단), fast-fall dive, knee slide, landing absorb, idle breathing, hit recoil, lane-change lean.
+// (GDD-v6 §3). Agent: run cycle locked to the scroll, leap / tucked front flip (2단) / flip with
+// arm drive and kick-out (3단), feet-first drop, knee slide, landing absorb, idle breathing, hit
+// recoil. Civilian (escort): run, one hurdle for any jump, crouch-run under slides, stumble on hits.
 import type { Mood, PlayerState } from '../types';
-import { applyHurt, applyLand, drawRig, newPose, poseAir, poseIdle, poseRun, poseSlide, STRIDE, type Paint } from './rig';
+import { drawRig, newPose, STRIDE, type Paint, type Pose } from './rig';
+import {
+  applyLand, applyRecoil, applyStumble, hitCurve, poseAir, poseCivRun, poseCrouchRun, poseIdle, poseRun, poseSlide,
+  poseVault,
+} from './rig-poses';
 import { lookFor, type LookId } from './skins';
 import { clamp, oval, type Ctx } from './util';
 
@@ -29,31 +34,74 @@ export interface AgentFrame {
   readonly lean: number;
   /** scene rim-light colour */
   readonly rim: string;
+  /** civilian motion set (the escorted scientist): no flips, no knee slides */
+  readonly civilian?: boolean;
+}
+
+/** soft contact shadow: radial falloff in a unit circle, stretched per draw (built once) */
+let shadowGrad: CanvasGradient | null = null;
+
+function shadowFill(ctx: Ctx): CanvasGradient {
+  if (!shadowGrad) {
+    shadowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    shadowGrad.addColorStop(0, 'rgba(0,0,0,0.62)');
+    shadowGrad.addColorStop(0.45, 'rgba(0,0,0,0.38)');
+    shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  }
+  return shadowGrad;
 }
 
 export class AgentPainter {
   private prevLevel = 0;
   private spinStart = -1;
+  private prevMood: Mood = 'idle';
+  private hitStart = Number.NEGATIVE_INFINITY;
   private readonly pose = newPose();
   /** reused paint settings (no per-frame allocation) */
   private readonly paint: Paint = { look: lookFor('kid'), rim: '', torch: false };
 
-  /** Contact shadow on the floor plane (floorY = the lane's floor line). */
+  /** Soft, slightly elongated contact shadow on the floor plane (floorY = the lane's floor line). */
   shadow(ctx: Ctx, x: number, floorY: number, height: number, sliding: boolean, scale: number): void {
     const f = scale / (1 + height / 70);
-    ctx.fillStyle = '#000000';
-    ctx.globalAlpha = 0.45 * Math.min(1, f);
-    oval(ctx, x + (sliding ? 8 * scale : 0), floorY + 1, (sliding ? 30 : 15) * f, 3.6 * f);
+    const a = Math.min(1, scale / (1 + height / 45));
+    ctx.save();
+    ctx.globalAlpha *= a;
+    ctx.fillStyle = shadowFill(ctx);
+    ctx.translate(x + (sliding ? 6 * scale : 1.5 * scale), floorY + 0.5);
+    ctx.scale((sliding ? 34 : 19) * f, 4.2 * f);
+    ctx.beginPath();
+    ctx.arc(0, 0, 1, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   draw(ctx: Ctx, f: AgentFrame): void {
     const { p, t } = f;
+    if (f.mood === 'hurt' && this.prevMood !== 'hurt') this.hitStart = t;
+    this.prevMood = f.mood;
+    const hit = f.mood === 'hurt' ? hitCurve(t - this.hitStart) : 0;
+    const pose = this.pose;
+    if (f.civilian) this.civilianPose(pose, f, hit);
+    else this.agentPose(pose, f, hit);
+    ctx.save();
+    ctx.translate(f.x, f.floorY - p.height * f.depth);
+    if (f.lean !== 0) ctx.rotate(f.lean);
+    ctx.scale(f.scale, f.scale);
+    if (f.blink && Math.sin(t * 30) > 0) ctx.globalAlpha = 0.45;
+    const paint = this.paint;
+    paint.look = lookFor(f.id);
+    paint.rim = f.rim;
+    paint.torch = f.torch;
+    drawRig(ctx, pose, paint);
+    ctx.restore();
+    if (p.sliding && !f.civilian) this.dust(ctx, f);
+  }
+
+  private agentPose(pose: Pose, f: AgentFrame, hit: number): void {
+    const { p, t } = f;
     if (p.level >= 2 && p.level !== this.prevLevel) this.spinStart = t;
     if (p.grounded) this.spinStart = -1;
     this.prevLevel = p.level;
-    const pose = this.pose;
     if (p.sliding) {
       poseSlide(pose, p.slideAge);
     } else if (!p.grounded) {
@@ -66,19 +114,24 @@ export class AgentPainter {
     } else {
       poseIdle(pose, t);
     }
-    if (f.mood === 'hurt') applyHurt(pose, t);
-    ctx.save();
-    ctx.translate(f.x, f.floorY - p.height * f.depth);
-    if (f.lean !== 0) ctx.rotate(f.lean);
-    ctx.scale(f.scale, f.scale);
-    if (f.blink && Math.sin(t * 30) > 0) ctx.globalAlpha = 0.45;
-    const paint = this.paint;
-    paint.look = lookFor(f.id);
-    paint.rim = f.rim;
-    paint.torch = f.torch;
-    drawRig(ctx, pose, paint);
-    ctx.restore();
-    if (p.sliding) this.dust(ctx, f);
+    // no recoil mid-flip: the rotation already carries the motion
+    if (pose.rot === 0) applyRecoil(pose, hit);
+  }
+
+  private civilianPose(pose: Pose, f: AgentFrame, hit: number): void {
+    const { p } = f;
+    const ph = (f.scroll / STRIDE) * Math.PI * 2;
+    if (p.sliding) {
+      poseCrouchRun(pose, ph);
+    } else if (!p.grounded) {
+      poseVault(pose, p.vy);
+    } else if (f.running) {
+      poseCivRun(pose, ph);
+      applyLand(pose, p.landTimer < 0.2 ? 1 - p.landTimer / 0.2 : 0);
+    } else {
+      poseIdle(pose, f.t);
+    }
+    applyStumble(pose, hit);
   }
 
   /** A low skid of grey dust behind a knee slide. */

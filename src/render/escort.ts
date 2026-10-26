@@ -56,16 +56,17 @@ export class EscortPainter {
     return this.delayed(p, realTime);
   }
 
-  /** Draw the escort in its own (delayed) lane, a step behind the agent. */
-  draw(ctx: Ctx, q: PlayerState, realTime: number, scroll: number, running: boolean, rim: string): void {
+  /** Draw the escort in its own (delayed) lane, a step behind the agent; `hurt` = the agent was
+   * just hit (the scientist stumbles). Civilian motion: no flips or knee slides. */
+  draw(ctx: Ctx, q: PlayerState, realTime: number, scroll: number, running: boolean, rim: string, hurt = false): void {
     const d = visualLane(q);
     const depth = depthScale(d);
     const x = projX(PLAYER_X + ESCORT_DX, d);
     const floorY = laneY(d);
     this.painter.shadow(ctx, x, floorY, q.height, q.sliding, ESCORT_SCALE * depth);
     this.painter.draw(ctx, {
-      x, id: 'prisoner', p: q, mood: running ? 'happy' : 'idle', t: realTime + 0.37, scroll: scroll - 23, running,
-      blink: false, torch: false, scale: ESCORT_SCALE * depth, floorY, depth, lean: laneLean(q), rim,
+      x, id: 'prisoner', p: q, mood: hurt ? 'hurt' : running ? 'happy' : 'idle', t: realTime + 0.37, scroll: scroll - 23, running,
+      blink: false, torch: false, scale: ESCORT_SCALE * depth, floorY, depth, lean: laneLean(q), rim, civilian: true,
     });
     ctx.globalAlpha = 1;
   }

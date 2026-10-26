@@ -196,7 +196,7 @@ class CanvasRenderer implements Renderer {
       }
       const kind = k[i];
       if (kind === STOP_AGENT) this.drawAgent(ctx, snap, lane, snap.variant === 'dark');
-      else if (kind === STOP_ESCORT && escortState) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running, rimColor(snap.variant));
+      else if (kind === STOP_ESCORT && escortState) this.escort.draw(ctx, escortState, t, snap.scroll, snap.running, rimColor(snap.variant), snap.mood === 'hurt');
       else {
         drawLaneHazards(ctx, v, snap.obstacles, kind, t, this.sprites, reduced);
         drawGadgets(ctx, snap.obstacles, t, this.sprites, kind);
