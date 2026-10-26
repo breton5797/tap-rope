@@ -8,7 +8,7 @@ import {
   PLAYER_X, WARN_LEAD, type BossAttackKind, type BossView, type LaneId, type LaserFrom, type RenderSnapshot,
   type VisibleObstacle,
 } from '../types';
-import { bossPhoto } from './boss-art';
+import { bossPhoto, bossPhotoFit } from './boss-art';
 import { fxSprites, glowAt, puffAt, SCATTER, sparks, type FxSprites } from './boss-fx';
 import { BOSS_RIGS, type BossRig, type Pt } from './boss-rigs';
 import { BOSS_SHAPES } from './boss-shapes';
@@ -80,18 +80,32 @@ function procedural(sprites: SpriteCache, b: BossView, r: BossRig, s: number): S
 }
 
 /** box point → local (boss-transform) coordinates */
+/**
+ * Rig anchors are fractions of the subject's bounds. With a photo the trimmed subject may sit inside
+ * the box with margins (aspect mismatch), so anchors are remapped through its fitted rect.
+ */
+const FITTED = { w: 1, h: 1, fx: 0, fy: 0, fw: 1, fh: 1 };
+
+function bx(p: Pt): number {
+  return (FITTED.fx + (p[0] / FITTED.w) * FITTED.fw) * FITTED.w;
+}
+
+function by(p: Pt): number {
+  return (FITTED.fy + (p[1] / FITTED.h) * FITTED.fh) * FITTED.h;
+}
+
 function lx(p: Pt): number {
-  return (p[0] - POSE.ax) * POSE.s;
+  return (bx(p) - POSE.ax) * POSE.s;
 }
 
 function ly(p: Pt): number {
-  return (p[1] - POSE.ay) * POSE.s;
+  return (by(p) - POSE.ay) * POSE.s;
 }
 
 /** box point → screen (through POSE), written to PT */
 function toScreen(p: Pt): Readonly<{ x: number; y: number }> {
-  const lx = (p[0] - POSE.ax) * POSE.s;
-  const ly = (p[1] - POSE.ay) * POSE.s;
+  const lx = (bx(p) - POSE.ax) * POSE.s;
+  const ly = (by(p) - POSE.ay) * POSE.s;
   const c = Math.cos(POSE.rot);
   const sn = Math.sin(POSE.rot);
   PT.x = POSE.x + lx * c - ly * sn;
@@ -288,6 +302,13 @@ export function drawBoss(ctx: Ctx, v: View, snap: RenderSnapshot, t: number, spr
   const s = POSE.s;
   const fx = fxSprites(sprites);
   const photo = bossPhoto(b.id, r.w * s, r.h * s, v.k);
+  const fit = bossPhotoFit();
+  FITTED.w = r.w;
+  FITTED.h = r.h;
+  FITTED.fx = photo ? fit.x : 0;
+  FITTED.fy = photo ? fit.y : 0;
+  FITTED.fw = photo ? fit.w : 1;
+  FITTED.fh = photo ? fit.h : 1;
   const body: Sprite | HTMLCanvasElement = photo ?? procedural(sprites, b, r, s);
   ctx.save();
   if (r.place === 'ground' || r.place === 'rear') {

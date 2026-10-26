@@ -18,6 +18,53 @@ let blob: Blob | null = null;
 let missing = false;
 let busy = false;
 let baked: Baked | null = null;
+
+/** where the trimmed subject sits inside the boss box (fractions of the box), see bossPhotoFit() */
+export interface FitRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+const FIT: FitRect = { x: 0, y: 0, w: 1, h: 1 };
+
+/** the photo's opaque bounding box in source px (trimmed once per decode) */
+const BOX = { x: 0, y: 0, w: 1, h: 1 };
+
+/** Opaque (alpha > 16) bounding box of a bitmap, scanned on a ≤256px copy. */
+function opaqueBox(bmp: ImageBitmap): void {
+  const sc = Math.min(1, 256 / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * sc));
+  const h = Math.max(1, Math.round(bmp.height * sc));
+  const probe = makeCanvas(w, h);
+  probe.ctx.drawImage(bmp, 0, 0, w, h);
+  const d = probe.ctx.getImageData(0, 0, w, h).data;
+  let x0 = w;
+  let y0 = h;
+  let x1 = -1;
+  let y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (d[(y * w + x) * 4 + 3] <= 16) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  releaseCanvas(probe.canvas);
+  if (x1 < 0) {
+    BOX.x = 0;
+    BOX.y = 0;
+    BOX.w = bmp.width;
+    BOX.h = bmp.height;
+    return;
+  }
+  BOX.x = x0 / sc;
+  BOX.y = y0 / sc;
+  BOX.w = (x1 - x0 + 1) / sc;
+  BOX.h = (y1 - y0 + 1) / sc;
+}
 /** bumps on every boss switch so stale async work is dropped */
 let generation = 0;
 
@@ -45,13 +92,22 @@ async function bake(gen: number, k: number, w: number, h: number): Promise<void>
       bmp.close();
       return;
     }
+    opaqueBox(bmp);
     const surf = makeCanvas(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
-    // fit (contain) the photo into the box, bottom-aligned: the rigs' anchors assume the subject fills it
-    const fit = Math.min(surf.canvas.width / bmp.width, surf.canvas.height / bmp.height);
-    const dw = bmp.width * fit;
-    const dh = bmp.height * fit;
-    surf.ctx.drawImage(bmp, (surf.canvas.width - dw) / 2, surf.canvas.height - dh, dw, dh);
+    // the trimmed subject, fitted (contain) into the box, bottom-aligned and centred
+    const cw = surf.canvas.width;
+    const ch = surf.canvas.height;
+    const fit = Math.min(cw / BOX.w, ch / BOX.h);
+    const dw = BOX.w * fit;
+    const dh = BOX.h * fit;
+    const dx = (cw - dw) / 2;
+    const dy = ch - dh;
+    surf.ctx.drawImage(bmp, BOX.x, BOX.y, BOX.w, BOX.h, dx, dy, dw, dh);
     bmp.close();
+    FIT.x = dx / cw;
+    FIT.y = dy / ch;
+    FIT.w = dw / cw;
+    FIT.h = dh / ch;
     if (baked) releaseCanvas(baked.canvas);
     baked = { canvas: surf.canvas, k, w, h };
   } catch {
@@ -74,6 +130,10 @@ export function bossPhoto(id: BossId, w: number, h: number, k: number): HTMLCanv
     busy = false;
     if (baked) releaseCanvas(baked.canvas);
     baked = null;
+    FIT.x = 0;
+    FIT.y = 0;
+    FIT.w = 1;
+    FIT.h = 1;
   }
   if (missing) return null;
   const stale = !baked || Math.abs(baked.k - k) > 0.05 || Math.abs(baked.w - w) > 1 || Math.abs(baked.h - h) > 1;
@@ -83,6 +143,11 @@ export function bossPhoto(id: BossId, w: number, h: number, k: number): HTMLCanv
     else void bake(generation, k, w, h);
   }
   return baked ? baked.canvas : null;
+}
+
+/** Where the photo's subject sits in the boss box (fractions; full box when no photo is baked). */
+export function bossPhotoFit(): Readonly<FitRect> {
+  return FIT;
 }
 
 /** Bytes held by the baked boss photo (memory report). */
