@@ -56,6 +56,8 @@ class CanvasRenderer implements Renderer {
   private readonly escort = new EscortPainter();
   private readonly overlays = new Overlays();
   private readonly post = new Post();
+  private lastTime = 0;
+  private lastRunning = false;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -121,6 +123,10 @@ class CanvasRenderer implements Renderer {
     const variant = snap.variant ?? 'base';
     const reduced = snap.reducedMotion;
     const doors = snap.doors ?? [];
+    // stage start (time jumps back / running starts) and doors are where a late scene may swap to photos
+    if (snap.time < this.lastTime - 0.25 || snap.running !== this.lastRunning || activeTransition(doors)) this.corridor.boundary();
+    this.lastTime = snap.time;
+    this.lastRunning = snap.running;
     this.corridor.sync(v, snap, doorScene(doors));
     // reduced motion freezes decorative corridor animation (top-band fans, status LEDs)
     const off = drawBackground(ctx, v, this.corridor, snap, doors, snap.scroll, reduced ? 0 : t, reduced);

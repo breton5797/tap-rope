@@ -135,15 +135,27 @@ const SEAM_W = 90;
 
 /** A wide dark falloff where the two scenes meet (no hard cut): vertical for turn, horizontal for stairs. */
 function seam(ctx: Ctx, v: View, at: number, vertical: boolean): void {
-  const g = vertical
-    ? ctx.createLinearGradient(at - SEAM_W, 0, at + SEAM_W, 0)
-    : ctx.createLinearGradient(0, at - SEAM_W, 0, at + SEAM_W);
-  g.addColorStop(0, 'rgba(3,4,6,0)');
-  g.addColorStop(0.5, 'rgba(3,4,6,0.92)');
-  g.addColorStop(1, 'rgba(3,4,6,0)');
-  ctx.fillStyle = g;
-  if (vertical) ctx.fillRect(at - SEAM_W, v.y0, SEAM_W * 2, v.h);
-  else ctx.fillRect(v.x0, at - SEAM_W, v.w, SEAM_W * 2);
+  // gradient built once per context and orientation around 0, positioned by translate
+  const key = vertical ? 'seamV' : 'seamH';
+  let hit = GRADS.get(key);
+  if (!hit || hit.ctx !== ctx) {
+    const g = vertical ? ctx.createLinearGradient(-SEAM_W, 0, SEAM_W, 0) : ctx.createLinearGradient(0, -SEAM_W, 0, SEAM_W);
+    g.addColorStop(0, 'rgba(3,4,6,0)');
+    g.addColorStop(0.5, 'rgba(3,4,6,0.92)');
+    g.addColorStop(1, 'rgba(3,4,6,0)');
+    hit = { ctx, h: 0, g };
+    GRADS.set(key, hit);
+  }
+  ctx.save();
+  ctx.fillStyle = hit.g;
+  if (vertical) {
+    ctx.translate(at, 0);
+    ctx.fillRect(-SEAM_W, v.y0, SEAM_W * 2, v.h);
+  } else {
+    ctx.translate(0, at);
+    ctx.fillRect(v.x0, -SEAM_W, v.w, SEAM_W * 2);
+  }
+  ctx.restore();
 }
 
 /** Brief dip toward black in the middle of a push transition. */

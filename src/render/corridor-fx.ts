@@ -94,8 +94,11 @@ export function sirens(ctx: Ctx, v: View, scroll: number, t: number, sprites: Sp
 /** Red alarm wash over the background only (drawn before hazards and characters). */
 export function alarmWash(ctx: Ctx, v: View, t: number): void {
   // the corridor background only (not the HUD strip / void below the floor)
-  ctx.fillStyle = `rgba(255,20,50,${(0.025 + 0.04 * (0.5 + 0.5 * Math.sin(t * 5))).toFixed(3)})`;
+  ctx.fillStyle = '#FF1432';
+  const a = ctx.globalAlpha;
+  ctx.globalAlpha = a * (0.025 + 0.04 * (0.5 + 0.5 * Math.sin(t * 5)));
   ctx.fillRect(v.x0, v.y0, v.w, FLOOR_FRONT - v.y0);
+  ctx.globalAlpha = a;
 }
 
 export function puffSprite(ctx: Ctx): void {

@@ -146,4 +146,34 @@ describe('corridor photo cache (H1)', () => {
     await runFrames(corridor, scene, MAX_FRAMES);
     expect(corridor.probe(scene)).toEqual({ photo: false, complete: expect.any(Boolean), sky: false });
   });
+
+  it('a stalled fetch of a scene\'s own file: neutral briefly, then procedural, photos at the next boundary', async () => {
+    install(makeNet(false, false));
+    let unstall = (): void => {};
+    const stalled = new Promise<void>((r) => { unstall = r; });
+    const g = globalThis as unknown as Record<string, unknown>;
+    const base = g.fetch as (u: string) => Promise<unknown>;
+    g.fetch = async (url: string) => {
+      if (String(url).includes('floor-2')) await stalled;
+      return base(url);
+    };
+    const art = new ArtStore();
+    void art.load();
+    const corridor = new Corridor(art);
+    const scene: Scene = { world: 2, variant: 'base' };
+    let neutral = 0;
+    await runFrames(corridor, scene, 120, () => {
+      if (corridor.probe(scene) === null) neutral++;
+    });
+    expect(neutral).toBeLessThanOrEqual(60);
+    expect(corridor.probe(scene)?.photo).toBe(false);
+    // the file arrives mid-stage: no swap until a boundary
+    unstall();
+    await tick();
+    await tick();
+    await runFrames(corridor, scene, 20);
+    expect(corridor.probe(scene)?.photo).toBe(false);
+    corridor.boundary();
+    expect(await runFrames(corridor, scene, MAX_FRAMES)).toBeGreaterThanOrEqual(0);
+  });
 });

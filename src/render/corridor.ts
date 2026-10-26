@@ -33,6 +33,9 @@ const PHOTO_TOP_RES = 0.5;
 /** floor surface strips (more = smoother converging seams) */
 const FLOOR_STRIPS = 20;
 const APRON_STRIPS = 6;
+/** frames a scene may show the neutral stand-in while waiting for its photos (~0.75s) */
+const WAIT_CAP = 45;
+const VARIANT_INDEX: Readonly<Record<Variant, number>> = { base: 0, alarm: 1, dark: 2, steam: 3, night: 4, dawn: 5 };
 /** an open-sky tile extends this far down over the wall photo, fading out (no visible step) */
 const SKY_FEATHER = 44;
 const WALL_S = depthScale(WALL_DEPTH);
@@ -202,6 +205,15 @@ class SceneCache {
     }
   }
 
+  /** The photo file the next missing tile needs (null = none / procedural). */
+  nextFile(): string | null {
+    for (let l = 0; l < this.tiles.length; l++) {
+      const i = this.tiles[l].indexOf(null);
+      if (i >= 0) return this.photoFile(l as L, i);
+    }
+    return null;
+  }
+
   /** The photo file a tile is baked from (null = procedural tile). */
   private photoFile(layer: L, i: number): string | null {
     const p = this.photo;
@@ -262,6 +274,12 @@ export class Corridor {
   /** the cache drawn for slot 0 (current scene) and slot 1 (door scene) this frame */
   private readonly drawn: (SceneCache | null)[] = [null, null];
   private readonly keep: SceneCache[] = [];
+  /** decoded photos the live caches still need (reused list) */
+  private readonly needFiles: string[] = [];
+  /** frames each scene (world * 8 + variant) has shown the neutral stand-in since the last boundary */
+  private readonly waited = new Map<number, number>();
+  /** scenes that fell back to the procedural look; they switch to photos at the next boundary */
+  private readonly locked = new Set<number>();
 
   constructor(private readonly art: ArtStore) {}
 
@@ -281,14 +299,44 @@ export class Corridor {
     for (const c of this.caches) if (!k.includes(c)) c.release();
     this.caches.length = 0;
     for (const c of k) this.caches.push(c);
+    // decoded photos only live while a kept cache is about to bake from them
+    const need = this.needFiles;
+    need.length = 0;
+    for (const c of k) {
+      const f = c.photo && !c.complete() ? c.nextFile() : null;
+      if (f) need.push(f);
+    }
+    this.art.releaseExcept(need);
+  }
+
+  /**
+   * A stage start or door: scenes that fell back to the procedural look (their photos were late)
+   * may switch to photos now, where a change of look is expected anyway.
+   */
+  boundary(): void {
+    this.locked.clear();
+    this.waited.clear();
   }
 
   /** Make sure scene s has its target cache (building) and return the cache to draw (maybe null). */
   private ensure(v: View, s: Scene, mustDraw: boolean): SceneCache | null {
-    // while the art is still downloading the photo set isn't final: draw the neutral stand-in
-    // rather than baking a partial set (that is how a photo wall over a procedural floor used to stick)
-    if (this.art.fetching()) return null;
-    const photo = this.art.photoSet(s.world, s.variant);
+    // while this scene's own files are still downloading its photo set isn't final: show the
+    // neutral stand-in for a short while (never a partial set — that is how a photo wall over a
+    // procedural floor used to stick); after WAIT_CAP frames fall back to the procedural look
+    // until the next boundary (stage start / door)
+    const key = s.world * 8 + VARIANT_INDEX[s.variant];
+    const waited = this.waited.get(key) ?? 0;
+    let locked = this.locked.has(key);
+    if (!locked && this.art.waiting(s.world, s.variant)) {
+      if (!mustDraw) return null;
+      if (waited < WAIT_CAP) {
+        this.waited.set(key, waited + 1);
+        return null;
+      }
+      this.locked.add(key);
+      locked = true;
+    }
+    const photo = locked ? null : this.art.photoSet(s.world, s.variant);
     let target: SceneCache | null = null;
     let stand: SceneCache | null = null;
     for (const c of this.caches) {
@@ -306,9 +354,17 @@ export class Corridor {
     if (target.drawable()) return target;
     // never show the procedural look when photos exist (or may still arrive): the caller draws a
     // dark neutral stand-in instead until the photo cache is complete
-    if (!stand && mustDraw && !photo) stand = new SceneCache(s.world, s.variant, v, null, this.art);
+    // a photo cache that can't finish (e.g. a decode that never returns) also falls back after the cap
+    const stuck = waited >= WAIT_CAP;
+    if (!stand && mustDraw && (!photo || stuck)) stand = this.procedural(v, s);
+    if (mustDraw && !stand) this.waited.set(key, waited + 1);
     if (stand) this.keep.push(stand);
     return stand;
+  }
+
+  private procedural(v: View, s: Scene): SceneCache {
+    for (const c of this.caches) if (c.matches(s) && !c.photo && c.viewKey === v.key) return c;
+    return new SceneCache(s.world, s.variant, v, null, this.art);
   }
 
   /** Debug / test probe: what is drawn for scene s (null = the dark neutral stand-in). */

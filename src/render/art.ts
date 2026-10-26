@@ -34,9 +34,28 @@ function exteriorFiles(): string[] {
   return EXTERIORS.flatMap((e) => [...WALL_PHOTOS.map((s) => `wall-0-${e}-${s}`), `floor-0-${e}`]);
 }
 
+/** a fetch that hasn't completed after this long is abandoned (the file counts as missing) */
+const FETCH_TIMEOUT_MS = 8000;
+
 async function fetchBlob(name: string): Promise<Blob | null> {
+  const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      ctrl?.abort();
+      resolve(null);
+    }, FETCH_TIMEOUT_MS);
+  });
   try {
-    const res = await fetch(`./art/${name}.webp`, { cache: 'force-cache' });
+    return await Promise.race([fetchOnce(name, ctrl?.signal), timeout]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
+async function fetchOnce(name: string, signal: AbortSignal | undefined): Promise<Blob | null> {
+  try {
+    const res = await fetch(`./art/${name}.webp`, { cache: 'force-cache', signal });
     if (!res.ok) return null;
     const type = res.headers.get('content-type') ?? '';
     // the dev server answers unknown paths with index.html: only accept images
@@ -82,15 +101,20 @@ export class ArtStore {
   private readonly pending = new Set<string>();
   /** bumps whenever a file fails to decode (photo caches built with it must be rebuilt) */
   version = 0;
-  /** true until load() has settled: photos may still arrive, so don't show the procedural look yet */
-  loading = false;
-  private loaded = false;
+  /** files whose fetch hasn't finished yet (a scene waits briefly only for its own files) */
+  private readonly inflight = new Set<string>();
+  private started = false;
 
+  /**
+   * Fetch every photo (each fetch times out after FETCH_TIMEOUT_MS). Resolves once the 20 core
+   * files have settled; the optional exterior extras keep loading in the background.
+   */
   async load(onProgress?: (done: number, total: number) => void): Promise<void> {
-    // the exterior sets are optional extras: fetched alongside, but not counted in the progress
     const names = THEMES.flatMap(files);
     const extras = exteriorFiles();
-    this.loading = true;
+    this.started = true;
+    for (const n of names) this.inflight.add(n);
+    for (const n of extras) this.inflight.add(n);
     let done = 0;
     const report = (): void => {
       try {
@@ -99,37 +123,36 @@ export class ArtStore {
         // a throwing progress callback must not break loading
       }
     };
+    const one = async (n: string): Promise<void> => {
+      const b = await fetchBlob(n);
+      this.inflight.delete(n);
+      if (b) {
+        this.blobs.set(n, b);
+        this.stamp++;
+      }
+    };
     report();
-    await Promise.all([
-      ...names.map(async (n) => {
-        const b = await fetchBlob(n);
-        if (b) {
-          this.blobs.set(n, b);
-          this.stamp++;
-        }
-        done++;
-        report();
-      }),
-      ...extras.map(async (n) => {
-        const b = await fetchBlob(n);
-        if (b) {
-          this.blobs.set(n, b);
-          this.stamp++;
-        }
-      }),
-    ]);
-    this.loading = false;
-    this.loaded = true;
+    for (const n of extras) void one(n);
+    await Promise.all(names.map(async (n) => {
+      await one(n);
+      done++;
+      report();
+    }));
   }
 
-  /** Photos might still show up for a scene: loading is in progress (or load() was never called yet). */
-  fetching(): boolean {
-    return this.loading;
-  }
-
-  /** load() finished (with or without art). */
-  settled(): boolean {
-    return this.loaded;
+  /**
+   * Could photos for this scene still arrive? True before load() starts and while any of the
+   * scene's own files is still being fetched.
+   */
+  waiting(t: WorldId, variant: Variant): boolean {
+    if (!this.started) return true;
+    if (this.inflight.size === 0) return false;
+    for (const n of files(t)) if (this.inflight.has(n)) return true;
+    if (t === 0 && (variant === 'night' || variant === 'dawn')) {
+      for (const s of WALL_PHOTOS) if (this.inflight.has(`wall-0-${variant}-${s}`)) return true;
+      if (this.inflight.has(`floor-0-${variant}`)) return true;
+    }
+    return false;
   }
 
   private usable(name: string): boolean {
@@ -206,6 +229,11 @@ export class ArtStore {
       }
     });
     return null;
+  }
+
+  /** Drop every decoded photo not in `keep` (e.g. decoded for a cache that was abandoned). */
+  releaseExcept(keep: readonly string[]): void {
+    for (const name of this.ready.keys()) if (!keep.includes(name)) this.release(name);
   }
 
   /** Drop a decoded photo (its tile is baked). */
