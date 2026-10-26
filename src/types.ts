@@ -347,7 +347,7 @@ export interface HudState {
   readonly fever: boolean;
   readonly shield: boolean;
   readonly slowMo: boolean;
-  readonly title: string; // "7-3 · 이름" / "엔드리스" / "오늘의 도전"
+  readonly title: string; // "7-3 · 이름" / "무한 탈출" / "일일 작전"
   readonly coins: number; // coins earned this run
   readonly sliding: boolean; // highlight the slide hint while sliding
   readonly section: number; // v5: current section (0-based)

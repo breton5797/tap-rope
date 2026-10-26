@@ -159,7 +159,7 @@ export function dailyStage(dateIso: string): StageDef {
   const seed = hashString(dateIso);
   const look = CHAPTERS[seed % CHAPTERS.length];
   return designStage({
-    id: `daily-${dateIso}`, name: '오늘의 도전', n: STAGES.length, chapter: 0, index: 0, kind: 'normal',
+    id: `daily-${dateIso}`, name: '일일 작전', n: STAGES.length, chapter: 0, index: 0, kind: 'normal',
     world: look.theme, variant: look.variant, d: DAILY_D, seed,
   }); // a normal stage: 2 sections
 }

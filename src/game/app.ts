@@ -2,7 +2,7 @@
  * App controller: wires renderer, UI, audio and the pure Session together and
  * owns the screen flow (menu demo → countdown → play ⇄ pause → result).
  */
-import type { GameMode, LaneDir, MoveId, ResultInfo, SaveData, Settings, SkinId, StageDef, Swipe } from '../types';
+import type { GameMode, LaneDir, MoveId, Renderer, ResultInfo, SaveData, Settings, SkinId, StageDef, Swipe, Ui } from '../types';
 import { createRenderer } from '../render/index';
 import { createUi } from '../ui/index';
 import { createAudio } from '../audio/index';
@@ -26,6 +26,8 @@ const COUNT_STEP = 0.6;
 const BRIEFING_TIME = 2.6;
 const STORY_BOSSES = new Set(['w5-s10', 'w10-s10']);
 const RESULT_DELAY = 1.3;
+/** boot never waits longer than this for the photographic art (the procedural look covers the rest) */
+const ART_WAIT_MS = 8000;
 /** `?autoplay=1` lets the bot play real runs (QA / demo recordings). */
 const AUTOPLAY = new URLSearchParams(window.location.search).has('autoplay');
 
@@ -48,6 +50,24 @@ function applyInput(s: Session, input: Input): StepOutput {
   if (input === 'slideKey') return slide(s);
   if (typeof input === 'object') return lane(s, input.lane);
   return swipe(s, input);
+}
+
+/** Loading overlay while the art loads (GDD-v6 §8); the title follows when it settles or after ART_WAIT_MS. */
+function bootArt(renderer: Renderer, ui: Ui, done: () => void): void {
+  let finished = false;
+  const finish = (): void => {
+    if (finished) return;
+    finished = true;
+    ui.showLoading(null);
+    done();
+  };
+  ui.showLoading(0);
+  window.setTimeout(finish, ART_WAIT_MS);
+  renderer
+    .load((loaded, total) => {
+      if (!finished) ui.showLoading(total > 0 ? loaded / total : 1);
+    })
+    .then(finish, finish);
 }
 
 function demoSession(): Session {
@@ -235,12 +255,12 @@ export function startApp(): void {
     onBuySkin: (id: SkinId) => {
       const bought = buySkin(save, id);
       if (!bought) {
-        ui.toast('코인이 부족해요!');
+        ui.toast('자금 부족');
         return;
       }
       persist({ ...bought, skin: id });
       audio.sfx('powerup');
-      ui.toast('새 스킨 획득!');
+      ui.toast('장비 확보 완료');
       ui.showShop(save);
     },
     onSelectSkin: (id: SkinId) => {
@@ -367,7 +387,7 @@ export function startApp(): void {
   resize();
   applySettings(save.settings);
   registerServiceWorker();
-  ui.showTitle(save);
+  bootArt(renderer, ui, () => ui.showTitle(save));
 
   let last = performance.now();
   const frame = (now: number): void => {

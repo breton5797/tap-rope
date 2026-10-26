@@ -97,12 +97,12 @@ describe('feedback', () => {
       judged('perfect'), judged('good'), judged('miss', 'drone'), judged('miss', 'level'), judged('none'),
       judged('miss', 'standing'), judged('miss', 'slide'),
     ]);
-    expect(d.fx.popup).toHaveBeenNthCalledWith(1, 'PERFECT!', 'perfect');
+    expect(d.fx.popup).toHaveBeenNthCalledWith(1, 'PERFECT', 'perfect');
     expect(d.fx.popup).toHaveBeenNthCalledWith(2, 'GOOD', 'good');
-    expect(d.fx.popup).toHaveBeenNthCalledWith(3, '드론에 들켰다! 낮게!', 'miss');
-    expect(d.fx.popup).toHaveBeenNthCalledWith(4, '더 높이!', 'miss');
-    expect(d.fx.popup).toHaveBeenNthCalledWith(5, '슬라이딩! ↓', 'miss');
-    expect(d.fx.popup).toHaveBeenNthCalledWith(6, '점프해야 해요!', 'miss');
+    expect(d.fx.popup).toHaveBeenNthCalledWith(3, 'DETECTED · 고도 낮춰', 'miss');
+    expect(d.fx.popup).toHaveBeenNthCalledWith(4, 'MISS · 고도 부족', 'miss');
+    expect(d.fx.popup).toHaveBeenNthCalledWith(5, 'MISS · 슬라이딩', 'miss');
+    expect(d.fx.popup).toHaveBeenNthCalledWith(6, 'MISS · 점프 구간', 'miss');
     expect(d.fx.popup).toHaveBeenCalledTimes(6);
   });
 
@@ -133,7 +133,7 @@ describe('feedback', () => {
     expect(d.audio.sfx).toHaveBeenCalledWith('alert');
     expect(d.audio.sfx).toHaveBeenCalledWith('door');
     expect(vi.mocked(d.audio.sfx).mock.calls.filter((c) => c[0] === 'lane')).toHaveLength(1);
-    expect(d.fx.popup).toHaveBeenCalledWith('레인을 바꿔! ↑↓', 'miss');
+    expect(d.fx.popup).toHaveBeenCalledWith('MISS · 레인 이탈', 'miss');
     expect(d.fx.shake).toHaveBeenCalledWith(0.12); // the edge-lane bump
   });
 
@@ -150,9 +150,9 @@ describe('feedback', () => {
     expect(d.audio.sfx).toHaveBeenCalledWith('boost', 2);
     expect(d.audio.sfx).toHaveBeenCalledWith('coin');
     expect(d.audio.sfx).toHaveBeenCalledWith('slide');
-    expect(d.fx.popup).toHaveBeenCalledWith('실드 장착!', 'info');
+    expect(d.fx.popup).toHaveBeenCalledWith('방탄 실드 확보', 'info');
     expect(d.audio.setFever).toHaveBeenCalledWith(true);
-    expect(d.fx.popup).toHaveBeenCalledWith('20 COMBO!', 'combo');
+    expect(d.fx.popup).toHaveBeenCalledWith('x20 CHAIN', 'combo');
     expect(d.audio.sfx).toHaveBeenCalledWith('clear');
     expect(d.audio.sfx).toHaveBeenCalledWith('fail');
   });
