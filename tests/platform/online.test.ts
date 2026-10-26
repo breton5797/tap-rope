@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { backoffMs, createOnline, DEVICE_KEY, QUEUE_KEY, QUEUE_MAX, RunRejectedError, TIMEOUT_MS } from '../../src/platform/online';
+import {
+  backoffMs, createOnline, DEVICE_KEY, LeaderboardUnavailableError, QUEUE_KEY, QUEUE_MAX, RunRejectedError, TIMEOUT_MS,
+} from '../../src/platform/online';
 import type { RunRecord } from '../../src/types';
 
 const BASE = 'https://example.supabase.co';
@@ -234,9 +236,27 @@ describe('online client', () => {
     expect(board.mine).toEqual({ rank: 3, nickname: '요원-ABCD', score: 5, me: true });
   });
 
-  it('returns an empty board when offline', async () => {
-    const { fn } = fakeFetch(() => 'offline');
-    expect(await createOnline({ baseUrl: BASE, fetch: fn }).leaderboard('endless-week')).toEqual({ top: [], mine: null });
+  it('resolves a real empty board', async () => {
+    const { fn } = fakeFetch(() => ({ status: 200, body: { board: 'endless', top: [], mine: null } }));
+    expect(await createOnline({ baseUrl: BASE, fetch: fn }).leaderboard('endless')).toEqual({ top: [], mine: null });
+  });
+
+  it.each([
+    ['offline', () => 'offline' as const, null],
+    ['a 5xx', () => ({ status: 503 }), 503],
+    ['a 4xx', () => ({ status: 400, body: { error: 'bad_board' } }), 400],
+  ])('rejects the leaderboard when %s', async (_name, handler, status) => {
+    const { fn } = fakeFetch(handler);
+    const err = await createOnline({ baseUrl: BASE, fetch: fn }).leaderboard('endless-week').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(LeaderboardUnavailableError);
+    expect(err).toMatchObject({ status });
+  });
+
+  it('rejects the leaderboard after the 8s timeout', async () => {
+    const { fn } = fakeFetch(() => 'hang');
+    const pending = createOnline({ baseUrl: BASE, fetch: fn }).leaderboard('endless').catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+    expect(await pending).toBeInstanceOf(LeaderboardUnavailableError);
   });
 
   it('syncs achievements and skips empty sets', async () => {
@@ -256,7 +276,7 @@ describe('online client', () => {
     await online.init();
     expect(online.ready).toBe(false);
     expect(await online.submitRun(record())).toBeNull();
-    expect(await online.leaderboard('endless')).toEqual({ top: [], mine: null });
+    await expect(online.leaderboard('endless')).rejects.toBeInstanceOf(LeaderboardUnavailableError);
     await online.syncAchievements({ 'zone-1': 1 });
     expect(calls).toHaveLength(0);
   });

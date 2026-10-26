@@ -1,6 +1,6 @@
 // Online client (GDD-v7 §3.3): plain fetch to the Supabase Edge Functions, identified by a random
-// device secret. Every failure degrades to "offline" (null / empty) — the only rejection is
-// submitRun when the server refuses a run (RunRejectedError).
+// device secret. Failures degrade to "offline" (null) — the only rejections are submitRun when the
+// server refuses a run (RunRejectedError) and leaderboard when it can't be loaded (LeaderboardUnavailableError).
 import type { AchievementId, Board, LeaderboardRow, OnlineApi, RunRecord } from '../types';
 
 export const DEVICE_KEY = 'laserescape.device.v1';
@@ -40,6 +40,14 @@ export class RunRejectedError extends Error {
   }
 }
 
+/** leaderboard rejects with this when the board can't be loaded (offline, timeout, not configured, server error). */
+export class LeaderboardUnavailableError extends Error {
+  constructor(readonly status: number | null) {
+    super(status === null ? 'leaderboard unavailable: offline' : `leaderboard unavailable: http ${status}`);
+    this.name = 'LeaderboardUnavailableError';
+  }
+}
+
 type SendOutcome = { readonly score: number; readonly rank: number } | RunRejectedError | 'retry';
 
 /** Outcome of one HTTP call: a parsed JSON body with its status, or null when the network failed. */
@@ -54,8 +62,6 @@ export interface OnlineDeps {
   readonly random?: (bytes: Uint8Array) => Uint8Array;
   readonly target?: Pick<EventTarget, 'addEventListener'>;
 }
-
-const EMPTY_BOARD = { top: [] as readonly LeaderboardRow[], mine: null };
 
 const env = (key: string): string | undefined => {
   const v: unknown = (import.meta.env as Record<string, unknown> | undefined)?.[key];
@@ -298,21 +304,18 @@ export function createOnline(deps: OnlineDeps = {}): OnlineApi {
     },
 
     async leaderboard(board: Board) {
-      try {
-        const registered = Boolean(loadIdentity().playerId);
-        const reply = await call(`leaderboard?board=${encodeURIComponent(board)}`, { method: 'GET', auth: registered });
-        if (reply?.status !== 200) return EMPTY_BOARD;
-        const rows = (v: unknown): LeaderboardRow | null => {
-          if (typeof v !== 'object' || v === null) return null;
-          const r = v as Record<string, unknown>;
-          if (typeof r.rank !== 'number' || typeof r.nickname !== 'string' || typeof r.score !== 'number') return null;
-          return { rank: r.rank, nickname: r.nickname, score: r.score, me: r.me === true };
-        };
-        const top = Array.isArray(reply.body.top) ? reply.body.top.map(rows).filter((r): r is LeaderboardRow => r !== null) : [];
-        return { top, mine: rows(reply.body.mine) };
-      } catch {
-        return EMPTY_BOARD;
-      }
+      const registered = Boolean(loadIdentity().playerId);
+      const reply = await call(`leaderboard?board=${encodeURIComponent(board)}`, { method: 'GET', auth: registered });
+      // only a real answer resolves (an empty board is { top: [], mine: null }); anything else lets the UI offer a retry
+      if (reply?.status !== 200) throw new LeaderboardUnavailableError(reply?.status ?? null);
+      const row = (v: unknown): LeaderboardRow | null => {
+        if (typeof v !== 'object' || v === null) return null;
+        const r = v as Record<string, unknown>;
+        if (typeof r.rank !== 'number' || typeof r.nickname !== 'string' || typeof r.score !== 'number') return null;
+        return { rank: r.rank, nickname: r.nickname, score: r.score, me: r.me === true };
+      };
+      const top = Array.isArray(reply.body.top) ? reply.body.top.map(row).filter((r): r is LeaderboardRow => r !== null) : [];
+      return { top, mine: row(reply.body.mine) };
     },
 
     async syncAchievements(unlocked: Readonly<Partial<Record<AchievementId, number>>>) {
