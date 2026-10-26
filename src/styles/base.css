@@ -1,8 +1,8 @@
 /* Tokens, reset and app shell — v6 tactical HUD (GDD-v6 §1, §5). */
 :root {
-  --font-body: 'IBM Plex Sans KR', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', -apple-system, system-ui, sans-serif;
   /* numbers + latin labels; Hangul falls through to Plex */
-  --font-display: 'Rajdhani', 'IBM Plex Sans KR', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-display: 'Rajdhani', 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
   --font-mono: 'Rajdhani', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* dark neutrals (charcoal / gunmetal) */
