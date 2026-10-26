@@ -36,7 +36,7 @@ const BODY = 18;
 const TRAIL_KEYS = ['lzTrailR', 'lzTrailL'];
 /** beam alpha in the lanes away from the agent (fixed / flying) */
 const DIM_FIXED = 0.4;
-const DIM_FLYING = 0.3;
+const DIM_FLYING = 0.2;
 
 function seedOf(id: string): number {
   let h = 0;
@@ -339,7 +339,8 @@ function flying(ctx: Ctx, v: View, o: VisibleObstacle, s: Readonly<Seg>, t: numb
     if (d < s.a || d >= s.b) continue;
     const sc = depthScale(d);
     const hx = projX(head, d);
-    const la = a * emphasis(d, focus, DIM_FLYING);
+    const em = emphasis(d, focus, DIM_FLYING);
+    const la = a * em;
     if (slide) {
       // "blocked above" haze over the head beam, nothing below it
       const yb = projY(d, HIGH_H);
@@ -357,6 +358,8 @@ function flying(ctx: Ctx, v: View, o: VisibleObstacle, s: Readonly<Seg>, t: numb
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = la;
       blitScaled(ctx, trail, hx + BODY * dir * sc, y, sc, sc);
+      // head flares only really burn in the agent's lane: they are what the eye counts
+      ctx.globalAlpha = la * em;
       blitScaled(ctx, flare, hx, y, sc, sc);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
