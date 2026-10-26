@@ -227,7 +227,7 @@ function snapshot(s: Sim): RenderSnapshot {
   const hurt = s.t < s.hurtUntil;
   const look = LOOKS[doorsPassed(s.t) % 2];
   return {
-    time: s.t, realTime: s.t, world: look.world, variant: look.variant, player: s.p, skin, doors: doorList(s.t),
+    time: s.t, realTime: s.t, world: look.world, variant: look.variant, player: s.p, skin, doors: doorList(s.t), boss: null,
     obstacles: obstacleList(s.t), lane: laneList(s.t),
     escort: scene.escort === true || q.get('escort') === '1',
     fever: scene.fever ?? false, feverGauge: scene.fever ? 1 : 0.4,

@@ -7,6 +7,7 @@ import {
   type Variant,
 } from '../types';
 import { AgentPainter } from './agent';
+import { drawBoss, drawBossFront } from './boss';
 import { ArtStore } from './art';
 import { Corridor } from './corridor';
 import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
@@ -147,6 +148,7 @@ class CanvasRenderer implements Renderer {
     const lift = GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane));
     if (tr && tr.door.from.variant !== variant) this.backFx(ctx, v, snap, tr.door.from.variant, 1 - e, lift);
     this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
+    if (snap.boss) drawBoss(ctx, v, snap, t, this.sprites);
     for (const d of doors) drawDoorBack(ctx, d, off, reduced ? 0 : t, this.sprites, reduced);
     this.drawLanes(ctx, v, snap, lane);
     for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
@@ -158,6 +160,7 @@ class CanvasRenderer implements Renderer {
     if (tr) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e, this.corridor.shaftRig(tr.door.from));
     if (tr && tr.door.from.variant !== variant) this.frontFx(ctx, v, snap, tr.door.from.variant, 1 - e);
     this.frontFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1);
+    if (snap.boss) drawBossFront(ctx, v, snap, t, this.sprites);
     this.post.dust(ctx, v, t, snap.scroll, reduced);
     drawLaserWarnings(ctx, v, snap.obstacles, t, snap.fever, reduced, Math.round(lane));
     drawWarnings(ctx, v, snap.obstacles, lane, t, this.sprites, reduced);
