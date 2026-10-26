@@ -4,6 +4,7 @@
 // pass). Pickups (credit chips, shield emitters, chrono modules, armour plates) float in one lane
 // over a faint teal projection ring.
 import { type VisibleObstacle } from '../types';
+import { emissive } from './hazards';
 import { clockIcon, creditChip, heartIcon, shieldIcon } from './icons';
 import { fixedX, laneY, project } from './layout';
 import { blitScaled, type SpriteCache } from './sprites';
@@ -115,15 +116,14 @@ function drone(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: S
   // sensor + nav light
   ctx.globalAlpha = 1;
   ctx.fillStyle = '#FF2A3A';
-  ctx.fillRect(x + 3 * s, y + 5 * s, 1.6 * s, 1.6 * s);
-  if (Math.sin(t * 6 + seed) > 0.6) {
-    ctx.fillStyle = '#FFB020';
-    ctx.fillRect(x - 19 * s, y - 8 * s, 1.4 * s, 1.4 * s);
-  }
+  ctx.fillRect(x + 1.2 * s, y + 5.2 * s, 1.6 * s, 1.6 * s);
+  emissive(ctx, sprites, x + 2 * s, y + 6 * s, 5 * s, 0.85);
+  emissive(ctx, sprites, x + 18 * s, y - 6 * s, 2.4 * s, 0.7);
+  if (Math.sin(t * 6 + seed) > 0.6) emissive(ctx, sprites, x - 18 * s, y - 6 * s, 3 * s, 0.95, true);
 }
 
 function coinSprite(ctx: Ctx): void {
-  creditChip(ctx, 8);
+  creditChip(ctx, 5.6);
 }
 
 function pickupSprite(ctx: Ctx, kind: number): void {
@@ -146,7 +146,7 @@ function pickup(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: 
   ctx.globalAlpha = 1;
   if (o.kind === 'coin') {
     const sx = Math.max(0.2, Math.abs(Math.cos(t * 2.4 + seed)));
-    blitScaled(ctx, sprites.get('coin', 22, 18, 11, 9, coinSprite), p.x, y, sx * p.scale, p.scale);
+    blitScaled(ctx, sprites.get('coin', 14, 12, 7, 6, coinSprite), p.x, y, sx * p.scale, p.scale);
     return;
   }
   const idx = o.kind === 'shield' ? 0 : o.kind === 'slow' ? 1 : 2;

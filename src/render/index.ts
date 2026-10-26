@@ -131,11 +131,15 @@ class CanvasRenderer implements Renderer {
     const lift = GROUND_Y - (laneY(lane) - snap.player.height * depthScale(lane));
     if (tr && tr.door.from.variant !== variant) this.backFx(ctx, v, snap, tr.door.from.variant, 1 - e, lift);
     this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
-    this.post.shafts(ctx, v, variant, snap.scroll, tr ? e : 1, this.corridor.shaftRig(snap));
-    if (tr) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e, this.corridor.shaftRig(tr.door.from));
     for (const d of doors) drawDoorBack(ctx, d, off, reduced ? 0 : t, this.sprites, reduced);
     this.drawLanes(ctx, v, snap, lane);
     for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
+    // one grade over the whole world (corridor, hazards, characters) so nothing sits un-graded on
+    // top, then the lamp light shafts falling over everything
+    this.post.gradeWorld(ctx, v, variant, tr ? e : 1);
+    if (tr) this.post.gradeWorld(ctx, v, tr.door.from.variant, 1 - e);
+    this.post.shafts(ctx, v, variant, snap.scroll, tr ? e : 1, this.corridor.shaftRig(snap));
+    if (tr) this.post.shafts(ctx, v, tr.door.from.variant, snap.scroll, 1 - e, this.corridor.shaftRig(tr.door.from));
     if (tr && tr.door.from.variant !== variant) this.frontFx(ctx, v, snap, tr.door.from.variant, 1 - e);
     this.frontFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1);
     this.post.dust(ctx, v, t, snap.scroll, reduced);
@@ -150,7 +154,8 @@ class CanvasRenderer implements Renderer {
     const t = snap.realTime;
     const reduced = snap.reducedMotion;
     ctx.globalAlpha = fade;
-    if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t);
+    if (variant === 'alarm') alarmWash(ctx, v, reduced ? 0 : t);
+    if (variant === 'alarm' && !reduced) sirens(ctx, v, snap.scroll, t, this.sprites);
     if (variant === 'dark') this.darkness.draw(ctx, v, lift);
     ctx.globalAlpha = 1;
     if (variant === 'steam') {
@@ -165,11 +170,6 @@ class CanvasRenderer implements Renderer {
     if (fade <= 0.01) return;
     const t = snap.realTime;
     if (variant === 'steam') fog(ctx, v, snap.scroll * 1.3, t * 1.4, this.sprites, 0.08 * fade);
-    if (variant === 'alarm') {
-      ctx.globalAlpha = fade;
-      alarmWash(ctx, v, snap.reducedMotion ? 0 : t);
-      ctx.globalAlpha = 1;
-    }
   }
 
   /**
@@ -191,7 +191,7 @@ class CanvasRenderer implements Renderer {
     let prev = -1;
     for (let i = 0; i < n; i++) {
       if (d[i] > prev) {
-        drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, d[i]);
+        drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, d[i], lane);
         prev = d[i];
       }
       const kind = k[i];
@@ -202,7 +202,7 @@ class CanvasRenderer implements Renderer {
         drawGadgets(ctx, snap.obstacles, t, this.sprites, kind);
       }
     }
-    drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, 3);
+    drawLaserSeg(ctx, v, snap.obstacles, t, snap.fever, this.sprites, reduced, prev, 3, lane);
   }
 
   /** Insertion sort into the stop list: by depth, then lanes (0..2) < escort < agent at equal depth. */

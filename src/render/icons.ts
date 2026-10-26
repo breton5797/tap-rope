@@ -1,22 +1,27 @@
-// In-world pickup hardware (GDD-v6): credit chip (₵ funds), energy-shield emitter, chrono module
+// In-world pickup hardware (GDD-v6): credit data chip (₵ funds), energy-shield emitter, chrono module
 // (slow-mo) and armour plate (restores a ballistic cell). Centered at (0,0); baked into sprites.
 import { roundRect, vGrad, type Ctx } from './util';
 
-/** brass credit chip with an engraved ₵ */
+/** credit data chip: dull gunmetal card with a thin amber edge, contact pins and a small ₵ etch */
 export function creditChip(ctx: Ctx, r: number): void {
-  ctx.fillStyle = '#5A4313';
-  roundRect(ctx, -r, -r * 0.72, r * 2, r * 1.44, r * 0.28);
+  ctx.fillStyle = '#B07C1C';
+  roundRect(ctx, -r, -r * 0.7, r * 2, r * 1.4, r * 0.18);
   ctx.fill();
-  ctx.fillStyle = vGrad(ctx, -r * 0.62, r * 0.62, [[0, '#E9C873'], [0.5, '#B98A2E'], [1, '#7A5A1A']]);
-  roundRect(ctx, -r * 0.88, -r * 0.6, r * 1.76, r * 1.2, r * 0.2);
+  ctx.fillStyle = vGrad(ctx, -r * 0.6, r * 0.6, [[0, '#6C747C'], [1, '#353B41']]);
+  roundRect(ctx, -r * 0.84, -r * 0.56, r * 1.68, r * 1.12, r * 0.12);
   ctx.fill();
-  ctx.fillStyle = 'rgba(40,28,6,0.75)';
-  ctx.font = `700 ${Math.round(r * 1.2)}px "Rajdhani", "IBM Plex Sans KR", sans-serif`;
+  // gold contact pins along the bottom edge
+  ctx.fillStyle = '#8E6A22';
+  for (let i = 0; i < 4; i++) ctx.fillRect(-r * 0.66 + i * r * 0.36, r * 0.3, r * 0.2, r * 0.22);
+  ctx.fillStyle = 'rgba(230,236,240,0.55)';
+  ctx.font = `700 ${Math.round(r * 0.95)}px "Rajdhani", "IBM Plex Sans KR", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('₵', 0, r * 0.06);
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.fillRect(-r * 0.8, -r * 0.55, r * 1.6, r * 0.12);
+  ctx.fillText('₵', -r * 0.32, -r * 0.08);
+  ctx.fillStyle = '#FFB020';
+  ctx.fillRect(r * 0.24, -r * 0.3, r * 0.22, r * 0.22); // status LED
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.fillRect(-r * 0.8, -r * 0.52, r * 1.6, r * 0.1);
 }
 
 /** hexagonal shield emitter with a teal core */

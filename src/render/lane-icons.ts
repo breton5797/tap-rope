@@ -1,5 +1,6 @@
 // Rhythm-lane glyphs, tactical-HUD style (GDD-v6 §4): single-colour line icons in a thin dark frame.
-// Category = colour + frame: RED = laser (▲ jump over / ▼ slide under, numeral = beam count),
+// Category = colour + frame: RED house shape = jump over (floor-anchored, big numeral = beam count),
+// TEAL inverted shape = slide under (ceiling-anchored, big ⌄⌄),
 // AMBER = lane hazard (change lane), TEAL = pickup. Shapes stay distinct without colour.
 import type { LaneId, LaserFrom, MoveId } from '../types';
 import { blitScaled, type SpriteCache } from './sprites';
@@ -44,61 +45,90 @@ function chevron(ctx: Ctx, x: number, y: number, up: boolean, color: string): vo
   ctx.stroke();
 }
 
-function numeral(ctx: Ctx, n: number, x: number, y: number, color: string): void {
-  ctx.font = `700 11px ${HUD_FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = color;
-  ctx.fillText(String(n), x, y);
+/** JUMP silhouette: floor-anchored house shape (flat floor bar, peaked top), red outline. */
+function jumpFrame(ctx: Ctx): void {
+  ctx.beginPath();
+  ctx.moveTo(-R, R);
+  ctx.lineTo(R, R);
+  ctx.lineTo(R, -R * 0.3);
+  ctx.lineTo(0, -R - 2.5);
+  ctx.lineTo(-R, -R * 0.3);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(8,10,12,0.86)';
+  ctx.fill();
+  pen(ctx, HUD_RED, 1.4);
+  ctx.stroke();
+  ctx.fillRect(-R, R - 2.6, R * 2, 2.6); // floor bar
 }
 
-/** floor laser: emitter base + three beams rising + ▲ */
-export function floorIcon(ctx: Ctx): void {
-  frame(ctx, HUD_RED);
-  pen(ctx, HUD_RED);
+/** SLIDE silhouette: ceiling-anchored inverted shape (flat ceiling bar, point at the bottom), teal outline. */
+function slideFrame(ctx: Ctx): void {
   ctx.beginPath();
-  ctx.moveTo(-8, 8);
-  ctx.lineTo(8, 8);
-  for (const x of [-5, 0, 5]) {
-    ctx.moveTo(x, 8);
-    ctx.lineTo(x, 2);
-  }
+  ctx.moveTo(-R, -R);
+  ctx.lineTo(R, -R);
+  ctx.lineTo(R, R * 0.3);
+  ctx.lineTo(0, R + 2.5);
+  ctx.lineTo(-R, R * 0.3);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(8,10,12,0.86)';
+  ctx.fill();
+  pen(ctx, HUD_TEAL, 1.4);
+  ctx.stroke();
+  ctx.fillRect(-R, -R, R * 2, 2.6); // ceiling bar
+}
+
+/** floor laser: hurdle (two posts + one wire) on the floor bar, ▲ above */
+export function floorIcon(ctx: Ctx): void {
+  jumpFrame(ctx);
+  pen(ctx, HUD_RED, 1.8);
+  ctx.beginPath();
+  ctx.moveTo(-6, R - 2.6);
+  ctx.lineTo(-6, 2);
+  ctx.moveTo(6, R - 2.6);
+  ctx.lineTo(6, 2);
+  ctx.moveTo(-6, 4.5);
+  ctx.lineTo(6, 4.5);
   ctx.stroke();
   chevron(ctx, 0, -5, true, INK);
 }
 
-/** flying beam stack: N horizontal beams + ▲ + numeral */
+/** flying beam stack: big beam count (= taps) under a ▲ */
 export function beamIcon(ctx: Ctx, level: number): void {
-  frame(ctx, HUD_RED);
-  pen(ctx, HUD_RED);
-  ctx.beginPath();
-  for (let i = 0; i < level; i++) {
-    ctx.moveTo(-8, 8 - i * 3.4);
-    ctx.lineTo(3, 8 - i * 3.4);
-  }
-  ctx.stroke();
-  chevron(ctx, -2, -6, true, INK);
-  numeral(ctx, level, 7.5, -5, INK);
+  jumpFrame(ctx);
+  chevron(ctx, 0, -6.5, true, INK);
+  ctx.font = `700 17px ${HUD_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = INK;
+  ctx.fillText(String(level), 0, 4.5);
 }
 
-/** slide hazards: ceiling = emitter bar with beams down; head beam = single line; both ▼ */
+/** slide hazards: ceiling = red beams hanging from the bar; head beam = one red line; both a big ⌄⌄ */
 export function slideIcon(ctx: Ctx, ceiling: boolean): void {
-  frame(ctx, HUD_RED);
-  pen(ctx, HUD_RED);
+  slideFrame(ctx);
+  pen(ctx, HUD_RED, 1.6);
   ctx.beginPath();
   if (ceiling) {
-    ctx.moveTo(-8, -8);
-    ctx.lineTo(8, -8);
-    for (const x of [-5, 0, 5]) {
-      ctx.moveTo(x, -8);
-      ctx.lineTo(x, -1);
-    }
+    ctx.moveTo(-7, -R + 2.6);
+    ctx.lineTo(-7, -5);
+    ctx.moveTo(7, -R + 2.6);
+    ctx.lineTo(7, -5);
+    ctx.moveTo(-7, -5);
+    ctx.lineTo(7, -5);
   } else {
-    ctx.moveTo(-9, -4);
-    ctx.lineTo(9, -4);
+    ctx.moveTo(-9, -6);
+    ctx.lineTo(9, -6);
   }
   ctx.stroke();
-  chevron(ctx, 0, 6, false, INK);
+  pen(ctx, INK, 2);
+  ctx.beginPath();
+  for (let k = 0; k < 2; k++) {
+    const y = -0.5 + k * 5;
+    ctx.moveTo(-6, y);
+    ctx.lineTo(0, y + 5);
+    ctx.lineTo(6, y);
+  }
+  ctx.stroke();
 }
 
 /** quadcopter: arms, rotors, scan line down */
