@@ -25,10 +25,10 @@ describe('showControls', () => {
     ui.showControls(onDone);
 
     const dialog = root.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain('위/아래로 밀어');
-    expect(dialog?.textContent).toContain('탭 = 점프');
+    expect(dialog?.textContent).toContain('위·아래로 밀기');
+    expect(dialog?.textContent).toContain('탭 점프');
     expect(dialog?.textContent).toContain('Space');
-    const ok = Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes('알겠어!'));
+    const ok = Array.from(root.querySelectorAll('button')).find((b) => b.textContent?.includes('확인'));
     expect(ok).toBeDefined();
 
     ok?.click();

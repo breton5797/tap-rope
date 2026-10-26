@@ -347,7 +347,7 @@ describe('dailyStage', () => {
   it('is deterministic per date and uses the campaign formula', () => {
     const a = dailyStage('2026-10-23');
     expect(a).toEqual(dailyStage('2026-10-23'));
-    expect(a).toMatchObject({ id: 'daily-2026-10-23', name: '오늘의 도전', chapter: 0, kind: 'normal', sections: 2 });
+    expect(a).toMatchObject({ id: 'daily-2026-10-23', name: '일일 작전', chapter: 0, kind: 'normal', sections: 2 });
     expect(a.hazardBeats).toBeGreaterThanOrEqual(28);
     expect(a.hazardBeats).toBeLessThanOrEqual(36);
     expect(a.seed).not.toBe(dailyStage('2026-10-24').seed);

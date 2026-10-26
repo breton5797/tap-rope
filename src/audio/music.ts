@@ -1,4 +1,6 @@
-// Procedural looping music with a look-ahead scheduler (16th-note grid, 4-bar loop).
+// Procedural dark-synth loop with a look-ahead scheduler (16th-note grid, 4-bar loop).
+// Layers: 8th-note bass pulse, low hits (no kick/snare), hi-hat ticks, a slow tension pad,
+// a sparse per-theme motif; fever keeps the tempo and adds a 16th arpeggio + open hats.
 import type { WorldId } from '../types';
 import { midiToFreq, noise, tone } from './synth';
 
@@ -8,53 +10,44 @@ const STEPS_PER_BAR = 16;
 const LOOP_STEPS = STEPS_PER_BAR * 4;
 
 interface Style {
-  readonly chords: readonly (readonly number[])[]; // per bar: [bassRoot, ...chord tones]
-  readonly scale: readonly number[]; // arp notes (midi)
-  readonly kick: readonly number[]; // steps within a bar
-  readonly snare: readonly number[];
-  readonly hatEvery: 1 | 2 | 4;
-  readonly bass: readonly number[];
-  readonly stabs: readonly number[];
-  readonly arpEvery: 0 | 1 | 2 | 4; // 0 = no arp
+  readonly root: number; // bass root (midi)
+  readonly prog: readonly number[]; // semitone offset of each of the 4 bars
+  readonly pad: readonly number[]; // pad chord intervals above root + 24
   readonly bassType: OscillatorType;
-  readonly stabType: OscillatorType;
-  readonly arpType: OscillatorType;
-  readonly pad: boolean;
-  readonly swing: number; // 0..0.35 of a step
-  readonly cutoff: number;
-  readonly bassLine?: readonly number[]; // semitone offsets cycled over the bass hits
-  readonly clank?: readonly number[]; // metallic percussion steps
-  readonly toms?: readonly number[];
+  readonly bassCut: number; // bass pulse filter peak (sweeps down)
+  readonly bassLine: readonly number[]; // semitone offsets cycled over the 8 pulses of a bar
+  readonly hits: readonly number[]; // low-hit steps within a bar
+  readonly hatEvery: 1 | 2; // 16ths or 8ths
+  readonly hatFreq: number;
+  readonly padType: OscillatorType;
+  readonly padCut: number;
+  /** sparse motif across the 4-bar loop: [loop step, midi] */
+  readonly motif: readonly (readonly [number, number])[];
+  readonly motifType: OscillatorType;
+  readonly clank?: readonly number[]; // metallic percussion steps (industrial / prison)
 }
 
-/** Spy/stealth loops per corridor theme: 0 outpost, 1 lab, 2 prison, 3 industrial. */
+/** Per-theme timbre: 0 outpost, 1 lab, 2 prison, 3 industrial. */
 const STYLES: Readonly<Record<WorldId, Style>> = {
   0: {
-    chords: [[45, 69, 72, 76], [41, 69, 72, 77], [45, 69, 72, 76], [40, 68, 71, 76]],
-    scale: [81, 84, 88, 84],
-    kick: [0, 10], snare: [4, 12], hatEvery: 1, bass: [0, 2, 4, 6, 8, 10, 12, 14], stabs: [3, 11],
-    bassLine: [0, 0, 7, 8, 7, 0, 3, 5],
-    arpEvery: 0, bassType: 'triangle', stabType: 'square', arpType: 'triangle', pad: false, swing: 0.08, cutoff: 2600,
+    root: 33, prog: [0, -4, 0, -2], pad: [0, 3, 7], bassType: 'sawtooth', bassCut: 520, bassLine: [0, 0, 12, 0, 0, 0, 7, 0],
+    hits: [0, 10], hatEvery: 2, hatFreq: 8500, padType: 'sawtooth', padCut: 900,
+    motif: [[6, 69], [38, 72], [46, 71]], motifType: 'sine',
   },
   1: {
-    chords: [[38, 62, 65, 69], [34, 62, 65, 70], [36, 60, 64, 67], [33, 60, 64, 69]],
-    scale: [74, 77, 81, 77, 72, 76, 79, 76],
-    kick: [0, 8], snare: [4, 12], hatEvery: 2, bass: [0, 8, 11],
-    stabs: [], arpEvery: 1, bassType: 'sine', stabType: 'sine', arpType: 'square', pad: true, swing: 0, cutoff: 4200,
+    root: 38, prog: [0, -2, -5, -7], pad: [0, 7, 10, 14], bassType: 'square', bassCut: 700, bassLine: [0, 0, 0, 12, 0, 0, 10, 0],
+    hits: [0, 8], hatEvery: 1, hatFreq: 10500, padType: 'triangle', padCut: 2200,
+    motif: [[2, 86], [14, 81], [34, 86], [46, 84], [58, 81]], motifType: 'sine',
   },
   2: {
-    chords: [[40, 64, 67, 71], [36, 64, 67, 72], [38, 62, 66, 69], [35, 63, 66, 71]],
-    scale: [76, 79, 83, 79],
-    kick: [0, 3, 6, 8, 11], snare: [4, 12], hatEvery: 2, bass: [0, 3, 6, 8, 11, 14], stabs: [0],
-    toms: [13, 14, 15], bassLine: [0, 0, 12, 0, 0, 7],
-    arpEvery: 0, bassType: 'sawtooth', stabType: 'sawtooth', arpType: 'sawtooth', pad: true, swing: 0, cutoff: 2200,
+    root: 40, prog: [0, 1, 0, -2], pad: [0, 3, 6], bassType: 'sawtooth', bassCut: 420, bassLine: [0, 0, 0, 1, 0, 0, 0, -2],
+    hits: [0, 3, 6, 8, 11], hatEvery: 2, hatFreq: 6200, padType: 'sawtooth', padCut: 700,
+    motif: [[12, 64], [44, 65]], motifType: 'triangle', clank: [14],
   },
   3: {
-    chords: [[36, 60, 63, 67], [32, 60, 63, 68], [34, 58, 62, 65], [31, 59, 62, 67]],
-    scale: [72, 75, 79, 75],
-    kick: [0, 4, 8, 12], snare: [4, 12], hatEvery: 1, bass: [0, 2, 4, 6, 8, 10, 12, 14], stabs: [],
-    clank: [2, 7, 10, 13], bassLine: [0, 0, 12, 0],
-    arpEvery: 4, bassType: 'sawtooth', stabType: 'square', arpType: 'square', pad: false, swing: 0, cutoff: 2600,
+    root: 36, prog: [0, -4, -2, -5], pad: [0, 3, 7], bassType: 'sawtooth', bassCut: 600, bassLine: [0, 12, 0, 0, 0, 12, 0, 7],
+    hits: [0, 4, 8, 12], hatEvery: 1, hatFreq: 7200, padType: 'square', padCut: 800,
+    motif: [], motifType: 'square', clank: [2, 7, 10, 13],
   },
 };
 
@@ -69,56 +62,62 @@ interface Voice {
   readonly out: AudioNode;
 }
 
-function drums(v: Voice, s: Style, inBar: number, t: number, swingT: number): void {
-  if (s.kick.includes(inBar)) {
-    tone(v.ctx, v.out, { type: 'sine', freq: 160, freqEnd: 42, start: t, dur: 0.24, gain: 0.7, attack: 0.002 });
-  }
-  if (s.snare.includes(inBar)) {
-    noise(v.ctx, v.out, { start: t, dur: 0.16, gain: 0.16, type: 'bandpass', freq: 1900, q: 0.8 });
-    tone(v.ctx, v.out, { type: 'triangle', freq: 220, freqEnd: 140, start: t, dur: 0.08, gain: 0.12 });
+function rootOf(s: Style, step: number): number {
+  return s.root + s.prog[Math.floor(step / STEPS_PER_BAR) % s.prog.length];
+}
+
+function percussion(v: Voice, s: Style, inBar: number, t: number): void {
+  if (s.hits.includes(inBar)) {
+    const strong = inBar === 0 || inBar === 8;
+    tone(v.ctx, v.out, { type: 'sine', freq: 78, freqEnd: 36, start: t, dur: strong ? 0.42 : 0.26, gain: strong ? 0.62 : 0.4, attack: 0.003 });
+    noise(v.ctx, v.out, { start: t, dur: 0.06, gain: 0.08, type: 'lowpass', freq: 500 });
   }
   if (s.clank?.includes(inBar)) {
-    noise(v.ctx, v.out, { start: t, dur: 0.07, gain: 0.12, type: 'bandpass', freq: 2600, q: 9 });
-    tone(v.ctx, v.out, { type: 'square', freq: 1870, freqEnd: 1500, start: t, dur: 0.05, gain: 0.025, filter: 6000 });
-  }
-  if (s.toms?.includes(inBar)) {
-    const f = 200 - s.toms.indexOf(inBar) * 35;
-    tone(v.ctx, v.out, { type: 'sine', freq: f, freqEnd: f * 0.55, start: t, dur: 0.18, gain: 0.32 });
+    noise(v.ctx, v.out, { start: t, dur: 0.09, gain: 0.07, type: 'bandpass', freq: 2300, q: 11 });
+    noise(v.ctx, v.out, { start: t, dur: 0.05, gain: 0.04, type: 'bandpass', freq: 3900, q: 14 });
   }
   if (inBar % s.hatEvery === 0) {
-    const accent = inBar % 4 === 2 ? 1 : 0.6;
-    noise(v.ctx, v.out, { start: swingT, dur: 0.035, gain: 0.05 * accent, type: 'highpass', freq: 7500 });
+    const accent = inBar % 4 === 2 ? 1 : 0.55;
+    noise(v.ctx, v.out, { start: t, dur: 0.028, gain: 0.045 * accent, type: 'highpass', freq: s.hatFreq });
   }
 }
 
-function harmony(v: Voice, s: Style, step: number, t: number, swingT: number, stepDur: number): void {
+function harmony(v: Voice, s: Style, step: number, t: number, stepDur: number): void {
   const inBar = step % STEPS_PER_BAR;
-  const chord = s.chords[Math.floor(step / STEPS_PER_BAR) % s.chords.length];
-  const [root, ...tones] = chord;
-  if (s.bass.includes(inBar)) {
-    const line = s.bassLine ?? [0];
-    const oct = line[s.bass.indexOf(inBar) % line.length] ?? 0;
-    tone(v.ctx, v.out, { type: s.bassType, freq: midiToFreq(root + oct), start: t, dur: stepDur * 1.6, gain: 0.2, filter: 900 });
+  const root = rootOf(s, step);
+  if (inBar % 2 === 0) {
+    // 8th-note bass pulse: a short plucked filter sweep, accented on the beat
+    const off = s.bassLine[(inBar / 2) % s.bassLine.length] ?? 0;
+    const beat = inBar % 4 === 0;
+    tone(v.ctx, v.out, {
+      type: s.bassType, freq: midiToFreq(root + off), start: t, dur: stepDur * 1.7, gain: beat ? 0.2 : 0.14,
+      filter: s.bassCut * (beat ? 1.4 : 1), filterEnd: 90, q: 4, attack: 0.004,
+    });
   }
-  if (s.stabs.includes(inBar)) {
-    for (const m of tones) tone(v.ctx, v.out, { type: s.stabType, freq: midiToFreq(m), start: swingT, dur: stepDur * 2.2, gain: 0.035, filter: 2800 });
-  }
-  if (s.pad && inBar === 0) {
-    for (const m of tones) {
-      tone(v.ctx, v.out, { type: s.stabType === 'sawtooth' ? 'sawtooth' : 'sine', freq: midiToFreq(m - 12), start: t, dur: stepDur * 16, gain: 0.03, attack: stepDur * 4, filter: 1600, detune: 6 });
+  if (inBar === 0) {
+    // slow tension pad, one chord per bar, two detuned voices per note
+    const bar = stepDur * STEPS_PER_BAR;
+    for (const iv of s.pad) {
+      for (const detune of [-7, 7]) {
+        tone(v.ctx, v.out, {
+          type: s.padType, freq: midiToFreq(root + 24 + iv), start: t, dur: bar * 1.08, gain: 0.018,
+          attack: bar * 0.4, filter: s.padCut, detune,
+        });
+      }
     }
   }
-  if (s.arpEvery > 0 && inBar % s.arpEvery === 0) {
-    const n = s.scale[(step / s.arpEvery) % s.scale.length | 0];
-    tone(v.ctx, v.out, { type: s.arpType, freq: midiToFreq(n), start: swingT, dur: stepDur * 1.6, gain: 0.05, filter: 4200 });
+  for (const [at, m] of s.motif) {
+    if (at === step) tone(v.ctx, v.out, { type: s.motifType, freq: midiToFreq(m), start: t, dur: stepDur * 6, gain: 0.035, attack: 0.01, filter: 3200 });
   }
 }
 
+/** Fever: 16th arpeggio over the pad chord + open hats on the off-beats (same tempo). */
 function feverLayer(v: Voice, s: Style, step: number, t: number, stepDur: number): void {
-  const chord = s.chords[Math.floor(step / STEPS_PER_BAR) % s.chords.length];
-  const tones = chord.slice(1);
-  const m = tones[step % tones.length] + 12;
-  tone(v.ctx, v.out, { type: 'square', freq: midiToFreq(m), start: t, dur: stepDur * 0.9, gain: 0.025, filter: 7000 });
+  const root = rootOf(s, step);
+  const notes = [...s.pad, 12, s.pad[1] + 12];
+  const m = root + 36 + notes[step % notes.length];
+  tone(v.ctx, v.out, { type: 'sawtooth', freq: midiToFreq(m), start: t, dur: stepDur * 0.9, gain: 0.022, filter: 3600, filterEnd: 900 });
+  if (step % 4 === 2) noise(v.ctx, v.out, { start: t, dur: 0.16, gain: 0.035, type: 'highpass', freq: 7000 });
 }
 
 function mod(n: number, m: number): number {
@@ -138,14 +137,13 @@ export function createMusic(ctx: BaseAudioContext, out: AudioNode): Music {
   let fever = false;
 
   const setCutoff = (): void => {
-    filter.frequency.setTargetAtTime(fever ? 14000 : style.cutoff * 2.5, ctx.currentTime, 0.08);
+    filter.frequency.setTargetAtTime(fever ? 16000 : 7000, ctx.currentTime, 0.08);
   };
   const tick = (): void => {
     while (nextTime < ctx.currentTime + LOOKAHEAD) {
       const inBar = step % STEPS_PER_BAR;
-      const swingT = nextTime + (inBar % 4 === 2 ? style.swing * stepDur : 0);
-      drums(voice, style, inBar, nextTime, swingT);
-      harmony(voice, style, step, nextTime, swingT, stepDur);
+      percussion(voice, style, inBar, nextTime);
+      harmony(voice, style, step, nextTime, stepDur);
       if (fever) feverLayer(voice, style, step, nextTime, stepDur);
       nextTime += stepDur;
       step = (step + 1) % LOOP_STEPS;

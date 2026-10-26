@@ -13,10 +13,10 @@ describe('WORLDS (themes)', () => {
 });
 
 describe('SKINS', () => {
-  it('re-imagines the six skins as spies (§7)', () => {
+  it('names the six operatives per GDD v6 §3 (ids and prices unchanged)', () => {
     expect(SKINS.map((s) => [s.id, s.name, s.price])).toEqual([
-      ['kid', '요원 K', 0], ['cat', '고양이 요원', 60], ['bunny', '토끼 해커', 90],
-      ['ninja', '닌자 요원', 140], ['robot', '로봇 R-7', 200], ['astro', '특수부대', 300],
+      ['kid', '에이전트 K', 0], ['cat', '블랙캣', 60], ['bunny', '해커', 90],
+      ['ninja', '섀도우', 140], ['robot', 'R-7', 200], ['astro', '특수부대', 300],
     ]);
   });
 });
@@ -30,7 +30,7 @@ describe('CHAPTERS', () => {
     ]);
     expect(CHAPTERS.map((c) => c.theme)).toEqual([0, 3, 1, 1, 2, 2, 1, 3, 0, 0]);
     expect(CHAPTERS.map((c) => c.variant)).toEqual(['base', 'steam', 'base', 'dark', 'base', 'alarm', 'alarm', 'base', 'night', 'dawn']);
-    expect(CHAPTERS[0].briefing).toBe('포로가 잡혀 있는 기지에 잠입한다. 레이저를 넘어라!');
+    expect(CHAPTERS[5].briefing).toBe('경보 발령. 포로를 데리고 비상 경로로 이탈한다.');
     expect(new Set(CHAPTERS.map((c) => c.briefing)).size).toBe(10);
     for (const c of CHAPTERS) expect(c.subtitle.length).toBeGreaterThan(0);
   });
@@ -132,12 +132,23 @@ describe('STAGES', () => {
     expect(s.hazardBeats).toBeLessThanOrEqual(16);
   });
 
-  it('renames the stages whose introduction changed in v5 (§7)', () => {
-    expect(stageById('w1-s2')?.name).toBe('경비로봇 피하기');
-    expect(stageById('w1-s3')?.name).toBe('날아오는 빔');
-    expect(stageById('w1-s9')?.name).toBe('떨어지는 상자');
-    expect(stageById('w2-s8')?.name).toBe('뒤에서 온다!');
-    expect(stageById('w3-s7')?.name).toBe('피하고 뛰어!');
+  it('names intro stages after the move they teach (v6 operation names)', () => {
+    const names: Record<string, string> = {
+      'w1-s2': '경비로봇 회피', 'w1-s3': '수평 빔 차단선', 'w1-s4': '이중 레이저', 'w1-s6': '천장 레이저',
+      'w1-s8': '드론 초계선', 'w1-s9': '화물 낙하 구역', 'w2-s1': '삼중 레이저 수문', 'w2-s3': '머리 높이 빔',
+      'w2-s6': '후방 빔 접근', 'w2-s8': '추격 드론 출현', 'w3-s1': '레이저 게이트', 'w3-s4': '펄스 레이저 회랑',
+      'w3-s7': '회피 후 도약',
+    };
+    for (const [id, name] of Object.entries(names)) expect(stageById(id)?.name, id).toBe(name);
+  });
+
+  it('keeps a terse operations voice: no ! or ? in player-facing core text (v6 §5–§6)', () => {
+    const texts = [
+      ...STAGES.map((s) => s.name), ...SKINS.map((s) => s.name),
+      ...WORLDS.flatMap((w) => [w.name, w.subtitle]), ...CHAPTERS.flatMap((c) => [c.name, c.subtitle, c.briefing]),
+    ];
+    for (const t of texts) expect(/[!?]/.test(t), t).toBe(false);
+    for (const c of CHAPTERS) expect(c.briefing.split('.').filter((x) => x.trim()).length, c.briefing).toBeLessThanOrEqual(2);
   });
 
   it('splits stages into sections: bonus 1, normal 2, boss 3', () => {

@@ -14,18 +14,18 @@ export interface FeedbackDeps {
 }
 
 const MISS_TEXT: Record<string, string> = {
-  drone: '드론에 들켰다! 낮게!',
-  level: '더 높이!',
-  low: '점프!',
-  slide: '점프해야 해요!',
-  standing: '슬라이딩! ↓',
-  lane: '레인을 바꿔! ↑↓',
+  drone: 'DETECTED · 고도 낮춰',
+  level: 'MISS · 고도 부족',
+  low: 'MISS · 점프',
+  slide: 'MISS · 점프 구간',
+  standing: 'MISS · 슬라이딩',
+  lane: 'MISS · 레인 이탈',
 };
 
 const PICKUP_TEXT: Partial<Record<ObstacleKind, string>> = {
-  shield: '실드 장착!',
-  slow: '슬로우 모션!',
-  heart: '하트 +1',
+  shield: '방탄 실드 확보',
+  slow: '시간 감속',
+  heart: '방탄판 +1',
 };
 
 function onTap(d: FeedbackDeps, e: Extract<GameEvent, { type: 'tap' }>): void {
@@ -57,11 +57,11 @@ function onMove(d: FeedbackDeps, e: Extract<GameEvent, { type: 'move' }>): void 
 function onJudge(d: FeedbackDeps, e: Extract<GameEvent, { type: 'judge' }>): void {
   const g = e.result.grade;
   if (g === 'perfect') {
-    d.fx.popup('PERFECT!', 'perfect');
+    d.fx.popup('PERFECT', 'perfect');
     d.fx.burst('sparkle');
     d.audio.sfx('perfect');
   } else if (g === 'good') {
-    d.fx.popup(e.shielded ? '실드 방어!' : 'GOOD', e.shielded ? 'info' : 'good');
+    d.fx.popup(e.shielded ? 'BLOCKED · 실드' : 'GOOD', e.shielded ? 'info' : 'good');
     d.audio.sfx('good');
   } else if (g === 'miss') {
     d.fx.popup(MISS_TEXT[e.result.reason ?? ''] ?? 'MISS', 'miss');
@@ -123,13 +123,13 @@ export function playFeedback(d: FeedbackDeps, events: readonly GameEvent[], quie
       case 'hit': onHit(d, e); break;
       case 'pickup': onPickup(d, e.kind); break;
       case 'fever':
-        d.fx.popup('FEVER TIME!', 'combo');
+        d.fx.popup('OVERDRIVE', 'combo');
         d.fx.flash('rgba(255,220,90,0.35)');
         d.audio.sfx('fever');
         d.audio.setFever(true);
         d.haptics.vibrate([20, 40, 20]);
         break;
-      case 'combo': d.fx.popup(`${e.combo} COMBO!`, 'combo'); d.audio.sfx('combo'); break;
+      case 'combo': d.fx.popup(`x${e.combo} CHAIN`, 'combo'); d.audio.sfx('combo'); break;
       case 'end':
         if (e.cleared) {
           d.fx.burst('confetti');

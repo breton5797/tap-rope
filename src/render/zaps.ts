@@ -36,13 +36,15 @@ export class ZapPool {
   private arcs(ctx: Ctx, cx: number, cy: number, a: number, seed: number): void {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = `rgba(120,230,255,${(0.35 * a).toFixed(3)})`;
+    ctx.fillStyle = '#FF2A3A';
+    ctx.globalAlpha = 0.22 * a;
     circle(ctx, cx, cy, 18 + (1 - a) * 14);
     ctx.fill();
     ctx.lineJoin = 'round';
     for (let pass = 0; pass < 2; pass++) {
-      ctx.strokeStyle = pass === 0 ? `rgba(80,210,255,${a.toFixed(3)})` : `rgba(255,255,255,${a.toFixed(3)})`;
-      ctx.lineWidth = pass === 0 ? 3.4 : 1.4;
+      ctx.strokeStyle = pass === 0 ? '#FF4A55' : '#FFFFFF';
+      ctx.globalAlpha = a;
+      ctx.lineWidth = pass === 0 ? 2.2 : 0.9;
       ctx.beginPath();
       for (let b = 0; b < 6; b++) {
         const ang = (b / 6) * Math.PI * 2 + hash(seed + b) * 0.8;

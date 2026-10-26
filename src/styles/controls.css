@@ -1,4 +1,4 @@
-/* v5 two-thumb controls card (first play) and its compact copy in the guide sheet. */
+/* Two-thumb control scheme card (first play) and its compact copy in the field manual. */
 .screen--controls {
   padding: calc(var(--safe-t) + 16px) calc(var(--safe-r) + var(--gutter)) calc(var(--safe-b) + 16px) calc(var(--safe-l) + var(--gutter));
   overflow-y: auto;
@@ -7,22 +7,14 @@
 .ctl {
   width: min(400px, 100%);
   margin: auto;
-  padding: 22px 18px 20px;
-  text-align: center;
-}
-
-.ctl__kicker {
-  color: var(--sky);
-  font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 12px;
-  letter-spacing: 0.24em;
+  padding: 18px 16px 16px;
+  --frame: var(--teal);
 }
 
 .ctl__title {
   margin: 4px 0 14px;
-  font-size: 28px;
-  line-height: 1.15;
+  font-size: 22px;
+  line-height: 1.2;
 }
 
 .ctl__split {
@@ -30,10 +22,6 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: stretch;
   gap: 8px;
-  padding: 10px;
-  border-radius: var(--r-lg);
-  background: rgba(4, 8, 22, 0.45);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
 }
 
 .ctl__half {
@@ -43,62 +31,60 @@
   gap: 6px;
   min-width: 0;
   padding: 10px 6px 12px;
-  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .ctl__half--left {
-  background: linear-gradient(180deg, rgba(63, 240, 166, 0.2), rgba(63, 240, 166, 0.05));
-  box-shadow: inset 0 0 0 1.5px rgba(63, 240, 166, 0.4);
+  border-top: 2px solid var(--teal);
 }
 
 .ctl__half--right {
-  background: linear-gradient(180deg, rgba(46, 230, 255, 0.2), rgba(46, 230, 255, 0.05));
-  box-shadow: inset 0 0 0 1.5px rgba(46, 230, 255, 0.4);
+  border-top: 2px solid var(--amber);
 }
 
 .ctl__hand {
-  padding: 2px 10px;
-  border-radius: 999px;
-  color: #062a1d;
-  font-size: 13px;
-  background: var(--mint);
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
 }
 
 .ctl__half--right .ctl__hand {
-  color: #032536;
-  background: var(--sky);
+  color: var(--amber);
 }
 
 .ctl__art {
   width: 100%;
-  max-width: 108px;
+  max-width: 100px;
   height: auto;
   aspect-ratio: 72 / 64;
 }
 
 .ctl__label {
-  color: var(--ink);
-  font-size: 16px;
-  line-height: 1.3;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
   word-break: keep-all;
 }
 
 .ctl__label b {
-  font-weight: inherit;
-  color: var(--sun);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .ctl__divider {
   width: 0;
-  border-left: 2px dashed rgba(255, 255, 255, 0.28);
+  border-left: 1px dashed var(--line-strong);
 }
 
-.ctl__finger {
+.ctl__finger,
+.ctl__agent {
   animation: ctl-swipe 1.8s var(--ease-out) infinite;
 }
 
 .ctl__agent {
-  animation: ctl-swipe 1.8s var(--ease-out) infinite;
   animation-delay: 0.08s;
 }
 
@@ -112,10 +98,9 @@
 .ctl__keys {
   margin: 14px 0 16px;
   color: var(--ink-soft);
-  font-family: var(--font-body);
   font-size: 13px;
-  font-weight: 600;
-  line-height: 1.9;
+  line-height: 2;
+  text-align: center;
   word-break: keep-all;
 }
 
@@ -127,29 +112,24 @@
   display: inline-block;
   min-width: 22px;
   padding: 0 6px;
-  border-radius: 6px;
+  border-radius: 2px;
   color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
   line-height: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.04em;
+  text-align: center;
+  border: 1px solid var(--line-strong);
 }
 
 .ctl__ok {
   width: 100%;
 }
 
-.ctl__ok:focus-visible {
-  outline: 3px solid var(--sky);
-  outline-offset: 3px;
-}
-
-/* compact copy at the top of the guide sheet */
+/* compact copy at the top of the field manual */
 .ctl__split--compact {
   flex: none;
-  padding: 8px;
 }
 
 .ctl__split--compact .ctl__half {
@@ -166,20 +146,20 @@
 
 .ctl__split--compact .ctl__label {
   flex-basis: 100%;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 @media (max-height: 600px) {
   .ctl {
-    padding: 16px 14px 14px;
+    padding: 14px 12px 12px;
   }
 
   .ctl__title {
     margin-bottom: 10px;
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .ctl__art {
-    max-width: 84px;
+    max-width: 80px;
   }
 }

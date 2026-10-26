@@ -35,8 +35,8 @@ export const ARM_TIME = 0.6;
 export const CHARGE_TIME = 1.0;
 export const BEAM_LEN = 120;
 export const ESCORT_DX = -68;
-/** agent drawing scale (art is authored ~58px tall) */
-export const AGENT_SCALE = 1.25;
+/** agent drawing scale (the rig is authored 88px tall, GDD-v6 §3) */
+export const AGENT_SCALE = 1.0;
 
 /** screen y of the floor at (fractional) lane depth d */
 export function laneY(d: number): number {
@@ -67,15 +67,24 @@ export function projY(d: number, height: number): number {
 }
 
 export interface Projected {
-  readonly x: number;
-  readonly y: number;
-  readonly scale: number;
+  x: number;
+  y: number;
+  scale: number;
 }
 
-/** The single 2.5D projection: middle-lane x, lane depth (fractional), height → screen. */
-export function project(x: number, lane: number, height: number): Projected {
+/** shared result of project() (no per-call allocation in the draw loop) */
+const PROJECTED: Projected = { x: 0, y: 0, scale: 1 };
+
+/**
+ * The single 2.5D projection: middle-lane x, lane depth (fractional), height → screen.
+ * Returns a shared object: read it before the next project() call.
+ */
+export function project(x: number, lane: number, height: number): Readonly<Projected> {
   const scale = depthScale(lane);
-  return { x: PLAYER_X + (x - PLAYER_X) * scale, y: laneY(lane) - height * scale, scale };
+  PROJECTED.x = PLAYER_X + (x - PLAYER_X) * scale;
+  PROJECTED.y = laneY(lane) - height * scale;
+  PROJECTED.scale = scale;
+  return PROJECTED;
 }
 
 /** Middle-lane screen x of world-fixed hardware (emitters, guards, crates, pickups, doors). */

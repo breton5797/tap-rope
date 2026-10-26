@@ -1,6 +1,8 @@
-// Floating judgement / combo / info text with scale-pop and fade.
+// Floating judgement / combo / info readouts, tactical-HUD style (GDD-v6 §5): condensed caps,
+// one accent colour per style, a thin underline bar, quick settle-in and fade. No outlines/sparkles.
 import { PLAYER_X, type PopupStyle } from '../types';
-import { easeOutBack, easeOutCubic, FONT, outlinedText, starPath, type Ctx } from './util';
+import { HUD_FONT } from './lane-icons';
+import { easeOutCubic, type Ctx } from './util';
 
 interface Popup {
   text: string;
@@ -17,19 +19,17 @@ const SLOTS = 8;
 interface StyleDef {
   readonly size: number;
   readonly baseY: number;
-  readonly stroke: string;
-  readonly fill: string;
-  readonly fill2: string;
+  readonly color: string;
   readonly life: number;
   readonly group: number;
 }
 
 const STYLES: Readonly<Record<PopupStyle, StyleDef>> = {
-  perfect: { size: 34, baseY: 280, stroke: '#7A3300', fill: '#FFF3A6', fill2: '#FFB21E', life: 0.85, group: 0 },
-  good: { size: 28, baseY: 280, stroke: '#0B5A3A', fill: '#C8FFE6', fill2: '#2FD08A', life: 0.75, group: 0 },
-  miss: { size: 30, baseY: 280, stroke: '#5C0F14', fill: '#FFC2C0', fill2: '#FF4B48', life: 0.8, group: 0 },
-  combo: { size: 22, baseY: 246, stroke: '#5A1FC2', fill: '#FFFFFF', fill2: '#E6D9FF', life: 1.0, group: 1 },
-  info: { size: 18, baseY: 214, stroke: 'rgba(30,20,60,0.9)', fill: '#FFFFFF', fill2: '#FFFFFF', life: 1.4, group: 2 },
+  perfect: { size: 26, baseY: 280, color: '#3FE0D0', life: 0.8, group: 0 },
+  good: { size: 22, baseY: 280, color: '#E8ECEF', life: 0.7, group: 0 },
+  miss: { size: 24, baseY: 280, color: '#FF2A3A', life: 0.8, group: 0 },
+  combo: { size: 16, baseY: 250, color: '#FFB020', life: 1.0, group: 1 },
+  info: { size: 14, baseY: 222, color: '#E8ECEF', life: 1.4, group: 2 },
 };
 
 export class PopupPool {
@@ -44,6 +44,13 @@ export class PopupPool {
   /** playerTop: logical y of the top of the player's head when the popup spawns */
   add(text: string, style: PopupStyle, playerTop: number): void {
     const def = STYLES[style];
+    // the same text fired again within a moment (e.g. two beats judged together): refresh, don't stack
+    for (const p of this.items) {
+      if (p.active && p.text === text && p.style === style && p.age < 0.2) {
+        p.age = 0;
+        return;
+      }
+    }
     let slot = this.items.find((p) => !p.active);
     if (!slot) slot = this.items.reduce((a, b) => (a.age > b.age ? a : b));
     for (const p of this.items) if (p.active && STYLES[p.style].group === def.group) p.bump += def.size + 4;
@@ -54,6 +61,11 @@ export class PopupPool {
     slot.bump = 0;
     slot.y0 = Math.min(STYLES.perfect.baseY, playerTop - 34) - (STYLES.perfect.baseY - def.baseY);
     slot.active = true;
+    // older popups of the group must sit fully above the new one (spawn heights differ when airborne)
+    for (const p of this.items) {
+      if (p === slot || !p.active || STYLES[p.style].group !== def.group) continue;
+      p.bump = Math.max(p.bump, p.y0 - slot.y0 + def.size + 4);
+    }
   }
 
   update(dt: number): void {
@@ -65,48 +77,35 @@ export class PopupPool {
   }
 }
 
-const gradCache = new Map<PopupStyle, CanvasGradient>();
-
-function fillFor(ctx: Ctx, style: PopupStyle, def: StyleDef): CanvasGradient {
-  let g = gradCache.get(style);
-  if (!g) {
-    g = ctx.createLinearGradient(0, -def.size * 0.55, 0, def.size * 0.4);
-    g.addColorStop(0, def.fill);
-    g.addColorStop(1, def.fill2);
-    gradCache.set(style, g);
-  }
-  return g;
-}
-
-function sparkles(ctx: Ctx, w: number, age: number): void {
-  ctx.fillStyle = '#FFFFFF';
-  for (let i = 0; i < 2; i++) {
-    const s = 3 + 3 * Math.abs(Math.sin(age * 9 + i * 1.7));
-    starPath(ctx, (i ? 1 : -1) * (w / 2 + 8), -12 + i * 10, s, s * 0.3, 4);
-    ctx.fill();
-  }
-}
-
 export function drawPopups(ctx: Ctx, pool: PopupPool): void {
   for (const p of pool.items) {
     if (!p.active) continue;
     const def = STYLES[p.style];
     const f = p.age / p.life;
-    const pop = p.age < 0.18 ? Math.max(0.01, easeOutBack(p.age / 0.18)) : 1;
-    const y = p.y0 - 22 * easeOutCubic(f) - p.bump;
-    const wob = p.style === 'miss' ? Math.sin(p.age * 55) * 3 * (1 - f) : 0;
+    // settle from 1.12× to 1× (no overshoot), drift up, fade out
+    const k = Math.min(1, p.age / 0.12);
+    const sc = 1.12 - 0.12 * easeOutCubic(k);
+    const y = p.y0 - 16 * easeOutCubic(f) - p.bump;
+    const glitch = p.style === 'miss' && p.age < 0.2 ? (Math.floor(p.age * 60) % 2 ? 2 : -2) : 0;
     ctx.save();
-    ctx.globalAlpha = f > 0.7 ? 1 - (f - 0.7) / 0.3 : 1;
-    ctx.translate(PLAYER_X + wob, y);
-    ctx.scale(pop, pop);
-    if (p.style === 'perfect') ctx.rotate(Math.sin(p.age * 6) * 0.03);
-    ctx.font = `900 ${def.size}px ${FONT}`;
+    // hold fully opaque for most of the life, then a short fade (no long muddy tail)
+    ctx.globalAlpha = (f > 0.86 ? 1 - (f - 0.86) / 0.14 : 1) * Math.min(1, p.age / 0.05);
+    ctx.translate(PLAYER_X + glitch, y);
+    ctx.scale(sc, sc);
+    ctx.font = `700 ${def.size}px ${HUD_FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(20,10,40,0.35)';
-    ctx.fillText(p.text, 0, 3);
-    outlinedText(ctx, p.text, 0, 0, fillFor(ctx, p.style, def), def.stroke, def.size * 0.22);
-    if (p.style === 'perfect') sparkles(ctx, ctx.measureText(p.text).width, p.age);
+    // thin dark backing keeps the readout crisp on dark scenes
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+    ctx.strokeText(p.text, 0, 0);
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillText(p.text, 1, 1.5);
+    ctx.fillStyle = def.color;
+    ctx.fillText(p.text, 0, 0);
+    const w = ctx.measureText(p.text).width;
+    ctx.fillRect(-w / 2, def.size * 0.5, w * Math.min(1, p.age / 0.15), 1.5);
     ctx.restore();
   }
 }

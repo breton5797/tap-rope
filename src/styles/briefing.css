@@ -1,9 +1,9 @@
-/* MISSION BRIEFING dossier (non-blocking, sits above the countdown). */
+/* Classified mission dossier (non-blocking, above the countdown). */
 .brief {
   position: absolute;
   left: calc(var(--safe-l) + var(--gutter));
   right: calc(var(--safe-r) + var(--gutter));
-  top: calc(var(--safe-t) + 178px);
+  top: calc(var(--safe-t) + 168px);
   max-width: 380px;
   margin: 0 auto;
   pointer-events: none;
@@ -11,64 +11,62 @@
 
 .brief__card {
   position: relative;
-  padding: 18px 18px 14px;
-  border-radius: 6px 22px 22px 22px;
-  color: #3a2a12;
-  background:
-    repeating-linear-gradient(180deg, transparent 0 25px, rgba(120, 90, 40, 0.13) 25px 26px),
-    linear-gradient(170deg, #f8ebc8, #e9d29d);
-  box-shadow: 0 2px 0 #c9ad6c, 0 24px 40px -14px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
-  animation: brief-in 0.6s var(--ease-pop) both;
-  transform-origin: 20% 0;
+  overflow: hidden;
+  padding: 0 14px 12px;
+  border-radius: var(--r-lg);
+  color: var(--ink);
+  background: var(--panel);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--amber);
+  box-shadow: var(--shadow);
+  animation: brief-in 0.35s var(--ease-out) both;
 }
 
-/* folder tab */
-.brief__card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: -14px;
-  width: 120px;
-  height: 16px;
-  border-radius: 8px 12px 0 0;
-  background: #f3e2b6;
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .brief__card {
+    background: var(--panel-solid);
+  }
 }
 
 @keyframes brief-in {
-  from { opacity: 0; transform: rotate(-4deg) translateY(-24px) scale(0.9); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; clip-path: inset(0 0 100% 0); }
+  to { opacity: 1; clip-path: inset(0 0 0 0); }
 }
 
-.brief__clip {
+.brief__photo {
+  position: relative;
+  height: 72px;
+  margin: 0 -14px 10px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  /* scanline + mono grade over the surveillance still */
+  filter: grayscale(0.55) contrast(1.05);
+}
+
+.brief__photo .art {
+  background: linear-gradient(160deg, #1e282e, #0b0f12);
+}
+
+.brief__photo::after {
+  content: '';
   position: absolute;
-  top: -20px;
-  right: 34px;
-  width: 14px;
-  height: 40px;
-  border: 3px solid #9aa6bf;
-  border-radius: 8px;
-  transform: rotate(8deg);
+  inset: 0;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 3px), linear-gradient(180deg, transparent 40%, rgba(7, 9, 12, 0.8));
 }
 
-.brief__stamp {
+.brief__photo-tag {
   position: absolute;
-  right: 14px;
-  bottom: 12px;
-  padding: 3px 8px;
-  border: 2.5px solid rgba(214, 38, 64, 0.8);
-  border-radius: 4px;
-  color: rgba(214, 38, 64, 0.85);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  transform: rotate(-9deg);
-  animation: stamp 0.45s var(--ease-pop) 0.5s both;
-}
-
-@keyframes stamp {
-  from { opacity: 0; transform: rotate(-9deg) scale(2.6); }
-  to { opacity: 1; transform: rotate(-9deg); }
+  left: 10px;
+  bottom: 6px;
+  z-index: 1;
+  padding: 1px 6px;
+  color: var(--teal);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  /* own plate: the strip can be bright sky (zone 10) */
+  background: rgba(7, 9, 12, 0.78);
 }
 
 .brief__head {
@@ -81,64 +79,87 @@
 .brief__kicker {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
+  gap: 6px;
+  color: var(--amber);
+  font-family: var(--font-display);
+  font-weight: 700;
   font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  color: #6b4f1f;
+  letter-spacing: 0.2em;
 }
 
 .brief__kicker .ico {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .brief__part {
-  padding: 3px 9px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 13px;
-  background: #1f4f8a;
-}
-
-.brief--p2 .brief__part {
-  background: #c4123a;
+  color: var(--ink-soft);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .brief__zone {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin: 8px 0 4px;
-  font-size: 27px;
-  color: #2a1d0a;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 1.2;
 }
 
 .brief__no {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 900;
-  color: #8a6a32;
+  color: var(--teal);
+  font-size: 15px;
 }
 
 .brief__text {
-  min-height: 3.1em;
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.5;
+  min-height: 3em;
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
   word-break: keep-all;
 }
 
-.brief__text:not(.is-done)::after {
-  content: '▌';
-  margin-left: 1px;
-  color: #c4123a;
-  animation: rec-blink 0.7s steps(1) infinite;
+/* typing caret */
+.brief__text::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--teal);
+  animation: caret 0.8s steps(1) infinite;
+}
+
+.brief__text.is-done::after {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes caret {
+  50% { opacity: 0; }
 }
 
 .brief__foot {
-  margin-top: 8px;
-  padding-right: 96px;
-  color: #8a6a32;
-  font-size: 12.5px;
+  margin-top: 10px;
+  padding-top: 8px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.brief__stamp {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 1;
+  padding: 2px 6px;
+  color: #ff6b76;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  border: 1px solid var(--red);
+  background: rgba(7, 9, 12, 0.7);
 }

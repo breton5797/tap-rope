@@ -18,17 +18,17 @@ function paintBackdrop(): void {
   canvas.width = innerWidth;
   canvas.height = innerHeight;
   const wall = ctx.createLinearGradient(0, 0, 0, innerHeight);
-  wall.addColorStop(0, '#1a2448');
-  wall.addColorStop(0.7, '#0f1630');
+  wall.addColorStop(0, '#1a2126');
+  wall.addColorStop(0.7, '#0d1114');
   ctx.fillStyle = wall;
   ctx.fillRect(0, 0, innerWidth, innerHeight);
   ctx.fillStyle = 'rgba(255,255,255,0.04)';
   for (let x = 0; x < innerWidth; x += 90) ctx.fillRect(x, 0, 3, innerHeight * 0.73);
-  ctx.fillStyle = '#1c2546';
+  ctx.fillStyle = '#14191d';
   ctx.fillRect(0, innerHeight * 0.73, innerWidth, innerHeight);
-  ctx.fillStyle = '#2ee6ff';
+  ctx.fillStyle = 'rgba(196,214,224,0.25)';
   ctx.fillRect(0, innerHeight * 0.73, innerWidth, 2);
-  ctx.fillStyle = 'rgba(255,59,92,0.85)';
+  ctx.fillStyle = 'rgba(255,42,58,0.9)';
   ctx.fillRect(innerWidth * 0.62, innerHeight * 0.6, 4, innerHeight * 0.13);
 }
 
@@ -46,7 +46,7 @@ const save: SaveData = {
 };
 
 const hud: HudState = {
-  hearts: 2, maxHearts: 3, score: 12340, combo: 14, progress: 0.46, feverGauge: 0.72,
+  hearts: 2, maxHearts: 3, score: 12340, combo: 14, progress: Number(params.get('p') ?? 0.46), feverGauge: Number(params.get('g') ?? 0.72),
   fever: screen === 'fever', shield: true, slowMo: screen === 'fever', title: '3-3 · 하얀 복도', coins: 12,
   sliding: screen === 'slide',
   section: Number(params.get('section') ?? 1), sections: Number(params.get('sections') ?? 3),
@@ -57,7 +57,7 @@ const result: ResultInfo = {
   stageId: ({ boss: 'w7-s10', rescue: 'w5-s10', escape: 'w10-s10' } as Record<string, string>)[screen] ?? 'w1-s3',
   title: ({ endless: '무한 탈출', boss: '7-10 · 비상구 돌파', rescue: '5-10 · 감옥 블록의 문지기', escape: '10-10 · 헬기 탈출' } as Record<string, string>)[screen] ?? '1-3 · 첫 잠입',
   cleared: ['result', 'boss', 'rescue', 'escape'].includes(screen), stars: screen === 'result' ? 2 : screen === 'fail' ? 0 : 3, score: 15320, best: 14800,
-  newRecord: screen !== 'fail', perfects: 32, goods: 11, misses: 2, maxCombo: 27, coinsEarned: 24, hasNext: screen !== 'escape',
+  newRecord: screen !== 'fail', perfects: 32, goods: 11, misses: 2, maxCombo: 27, coinsEarned: Number(params.get('coins') ?? 24), hasNext: screen !== 'escape',
 };
 
 const log = (name: string) => (): void => ui.toast(name);
@@ -99,7 +99,8 @@ const show: Record<string, () => void> = {
     ui.showTitle(save);
     document.querySelector<HTMLButtonElement>('.btn--guide')?.click();
   },
-  toast: () => (ui.showTitle(save), ui.toast('코인이 부족해요!')),
+  toast: () => (ui.showTitle(save), ui.toast('자금 부족')),
+  loading: () => (ui.showTitle(save), ui.showLoading(Number(params.get('p') ?? 0.42))),
   controls: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0, progress: 0 }), ui.showControls(() => ui.toast('controls done'))),
   audio: () => {
     const audio = createAudio();

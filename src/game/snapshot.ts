@@ -44,8 +44,8 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
 
 /** "7-3 · 이름" for campaign stages, mode names otherwise. */
 export function runTitle(s: Session): string {
-  if (s.mode === 'endless') return '무한 탈출';
-  if (s.mode === 'daily') return '오늘의 작전';
+  if (s.mode === 'endless') return '무한 침투';
+  if (s.mode === 'daily') return '일일 작전';
   return `${s.stage.chapter + 1}-${s.stage.index + 1} · ${s.stage.name}`;
 }
 

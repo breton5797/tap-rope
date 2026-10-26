@@ -1,4 +1,4 @@
-// Player-facing move catalogue (v5 LASER ESCAPE): names, hints, gestures and badge glyphs.
+// Player-facing move catalogue (v6 LASER ESCAPE): names, hints, gestures and badge glyphs.
 import type { MoveId } from '../types';
 import { svg } from './dom';
 
@@ -14,20 +14,20 @@ export interface MoveInfo {
 }
 
 export const MOVES: Readonly<Record<MoveId, MoveInfo>> = {
-  jump: { id: 'jump', name: '점프', hint: '오른쪽을 탭하면 점프! 바닥 레이저를 넘어요', gesture: '탭', tone: 'sky' },
-  beam: { id: 'beam', name: '레이저 빔', hint: '날아오는 빔은 줄 수만큼! 1줄이면 1단 점프', gesture: '탭', tone: 'pink' },
-  double: { id: 'double', name: '2단 점프', hint: '공중에서 한 번 더 탭 → 2단 점프', gesture: '탭 ×2', tone: 'violet' },
-  slide: { id: 'slide', name: '슬라이딩', hint: '오른쪽에서 아래로 밀면 슬라이딩! 천장 레이저를 피해요', gesture: '오른쪽 ↓', tone: 'mint' },
-  drone: { id: 'drone', name: '경비 드론', hint: '드론이 있으면 낮게! 2단 점프 금지', gesture: '탭 한 번만', tone: 'sun', warn: true },
-  triple: { id: 'triple', name: '3단 점프', hint: '세 번 탭 → 3단 점프! 빔 3줄도 거뜬해요', gesture: '탭 ×3', tone: 'violet' },
-  high: { id: 'high', name: '머리 빔', hint: '머리 높이로 날아오는 빔! 점프 말고 슬라이딩', gesture: '오른쪽 ↓', tone: 'mint' },
-  rear: { id: 'rear', name: '후방 레이저', hint: '뒤에서 쫓아오는 레이저! 경고를 보고 타이밍', gesture: '경고 보고 탭', tone: 'pink', warn: true },
-  gate: { id: 'gate', name: '레이저 게이트', hint: '바닥 레이저 + 드론 = 딱 한 번만 점프', gesture: '탭 1번', tone: 'sun', warn: true },
-  pulse: { id: 'pulse', name: '펄스 레이저', hint: '연속 바닥 레이저! 리듬에 맞춰 통통 점프', gesture: '리듬 탭', tone: 'sky' },
-  lane: { id: 'lane', name: '레인 이동', hint: '왼쪽에서 위·아래로 밀어 경비로봇을 피해!', gesture: '왼쪽 ↑↓', tone: 'mint' },
-  drop: { id: 'drop', name: '낙하 상자', hint: '빨간 느낌표가 뜬 레인에서 비켜!', gesture: '왼쪽 ↑↓', tone: 'sun', warn: true },
-  chaser: { id: 'chaser', name: '추격 드론', hint: '뒤에서 돌진! 느낌표 레인을 벗어나', gesture: '왼쪽 ↑↓', tone: 'pink', warn: true },
-  lanejump: { id: 'lanejump', name: '피하고 뛰기', hint: '레인을 바꾸면서 점프!', gesture: '↑↓ + 탭', tone: 'violet' },
+  jump: { id: 'jump', name: '점프', hint: '오른쪽 탭: 점프. 바닥 레이저 통과.', gesture: '탭', tone: 'sky' },
+  beam: { id: 'beam', name: '레이저 빔', hint: '빔 개수만큼 점프 단수를 맞춘다.', gesture: '탭', tone: 'pink' },
+  double: { id: 'double', name: '2단 점프', hint: '공중에서 한 번 더 탭: 2단 점프.', gesture: '탭 ×2', tone: 'violet' },
+  slide: { id: 'slide', name: '슬라이딩', hint: '오른쪽 아래로 밀기: 슬라이딩. 천장 레이저 회피.', gesture: '오른쪽 ↓', tone: 'mint' },
+  drone: { id: 'drone', name: '감시 드론', hint: '드론 구간은 저공 유지. 2단 점프 금지.', gesture: '탭 1회', tone: 'sun', warn: true },
+  triple: { id: 'triple', name: '3단 점프', hint: '세 번 탭: 3단 점프. 3열 빔 돌파.', gesture: '탭 ×3', tone: 'violet' },
+  high: { id: 'high', name: '머리 높이 빔', hint: '머리 높이 빔은 점프 불가. 슬라이딩.', gesture: '오른쪽 ↓', tone: 'mint' },
+  rear: { id: 'rear', name: '후방 레이저', hint: '경보: 후방 접근. 경고 표식 확인 후 점프.', gesture: '경고 후 탭', tone: 'pink', warn: true },
+  gate: { id: 'gate', name: '레이저 게이트', hint: '바닥 레이저 + 드론: 1단 점프만 허용.', gesture: '탭 1회', tone: 'sun', warn: true },
+  pulse: { id: 'pulse', name: '펄스 레이저', hint: '연속 바닥 레이저. 박자에 맞춰 연속 점프.', gesture: '박자 탭', tone: 'sky' },
+  lane: { id: 'lane', name: '레인 이동', hint: '왼쪽 위·아래로 밀기: 레인 이동. 경비 로봇 회피.', gesture: '왼쪽 ↑↓', tone: 'mint' },
+  drop: { id: 'drop', name: '낙하 화물', hint: '경고 표식 레인 이탈 필요. 화물 낙하.', gesture: '왼쪽 ↑↓', tone: 'sun', warn: true },
+  chaser: { id: 'chaser', name: '추격 드론', hint: '경보: 후방 추격. 표식 레인에서 이탈.', gesture: '왼쪽 ↑↓', tone: 'pink', warn: true },
+  lanejump: { id: 'lanejump', name: '이동 + 점프', hint: '레인 이동과 점프를 동시에 수행.', gesture: '↑↓ + 탭', tone: 'violet' },
 };
 
 /** Display order for the guide sheet (= order of first appearance in the campaign). */
@@ -35,12 +35,12 @@ export const MOVE_ORDER: readonly MoveId[] = [
   'jump', 'lane', 'beam', 'double', 'slide', 'drone', 'drop', 'triple', 'high', 'rear', 'chaser', 'gate', 'pulse', 'lanejump',
 ];
 
-const S = { fill: 'none', stroke: 'currentColor', 'stroke-width': 2.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
+const S = { fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'square', 'stroke-linejoin': 'miter' } as const;
 
 type Shape = readonly [string, Readonly<Record<string, string | number>>, string?];
 
 function numeral(n: number): Shape[] {
-  return [['text', { x: 12, y: 18.5, 'text-anchor': 'middle', 'font-size': 19, 'font-family': 'Jua, sans-serif', fill: 'currentColor' }, String(n)]];
+  return [['text', { x: 12, y: 18.5, 'text-anchor': 'middle', 'font-size': 19, 'font-family': 'Rajdhani, sans-serif', 'font-weight': 700, fill: 'currentColor' }, String(n)]];
 }
 
 const FLOOR: Shape = ['path', { ...S, d: 'M4 21h16' }];

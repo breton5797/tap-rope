@@ -262,23 +262,41 @@ window.addEventListener('resize', resize);
 resize();
 buildNav();
 
-if (freezeAt !== null) {
-  let n = 0;
-  while (sim.t < freezeAt) {
-    step(sim, 1 / 120);
-    if (n++ % 6 === 0) renderer.render(snapshot(sim));
-  }
-}
+// QA hooks: canvas backing-store bytes, and a ready flag for screenshot scripts
+const qa = window as unknown as { __mem: () => unknown; __ready: boolean; __frameMs: number[] };
+qa.__mem = () => (renderer as unknown as { memoryBytes(): unknown }).memoryBytes();
+qa.__ready = false;
+qa.__frameMs = [];
+
 let last = performance.now();
 function frame(now: number): void {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (freezeAt === null) step(sim, dt);
+  const t0 = performance.now();
   renderer.render(snapshot(sim));
+  qa.__frameMs.push(performance.now() - t0);
+  if (qa.__frameMs.length > 600) qa.__frameMs.shift();
   requestAnimationFrame(frame);
-
-// QA hook: canvas backing-store bytes (main canvas + corridor tiles + sprites + overlays)
-(window as unknown as { __mem: () => unknown }).__mem = () =>
-  (renderer as unknown as { memoryBytes(): unknown }).memoryBytes();
 }
-requestAnimationFrame(frame);
+
+async function boot(): Promise<void> {
+  if (q.get('art') !== '0') {
+    await renderer.load();
+    // one render starts decoding the theme's photos; give the decode a moment before freezing
+    renderer.render(snapshot(sim));
+    await new Promise((r) => setTimeout(r, 400));
+    renderer.render(snapshot(sim));
+  }
+  if (freezeAt !== null) {
+    let n = 0;
+    while (sim.t < freezeAt) {
+      step(sim, 1 / 120);
+      if (n++ % 6 === 0) renderer.render(snapshot(sim));
+    }
+  }
+  qa.__ready = true;
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+void boot();

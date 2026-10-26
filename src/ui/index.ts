@@ -5,6 +5,7 @@ import { createHud } from './hud';
 import { renderBriefing } from './briefing';
 import { buildControls } from './controls';
 import { buildGuide } from './guide';
+import { renderLoading } from './loading';
 import { buildPause, renderCountdown, renderTutorial, showToast } from './overlays';
 import { buildResult } from './result';
 import { buildSettings } from './settings';
@@ -19,6 +20,7 @@ interface Layers {
   readonly tutorial: HTMLElement;
   readonly briefing: HTMLElement;
   readonly toast: HTMLElement;
+  readonly loading: HTMLElement;
 }
 
 function createLayers(root: HTMLElement): Layers {
@@ -29,9 +31,11 @@ function createLayers(root: HTMLElement): Layers {
     briefing: h('div', { cls: 'layer layer--briefing', attrs: { 'aria-live': 'polite' } }),
     screen: h('div', { cls: 'layer layer--screen' }),
     toast: h('div', { cls: 'layer layer--toast', attrs: { 'aria-live': 'polite' } }),
+    loading: h('div', { cls: 'layer layer--loading' }),
   };
+  swallowInput(layers.loading);
   swallowInput(layers.screen);
-  root.replaceChildren(layers.hud, layers.briefing, layers.fx, layers.tutorial, layers.screen, layers.toast);
+  root.replaceChildren(layers.hud, layers.briefing, layers.fx, layers.tutorial, layers.screen, layers.toast, layers.loading);
   return layers;
 }
 
@@ -117,6 +121,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       renderBriefing(layers.briefing, null, true);
     },
     toast: (msg) => showToast(layers.toast, msg),
+    showLoading: (progress) => renderLoading(layers.loading, progress),
   };
 }
 

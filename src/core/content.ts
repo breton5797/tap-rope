@@ -1,7 +1,8 @@
 /**
  * Static game content (GDD v4 §5, §7): 4 corridor themes (WORLDS), 10 zones (CHAPTERS: part 1
  * rescue, part 2 escape, each a designed theme × variant look with a mission briefing),
- * 6 spy skins, and the 100-stage campaign built by the formula in campaign.ts.
+ * 6 operative skins (v6 §3 names), and the 100-stage campaign built by the formula in campaign.ts.
+ * v6: player-facing text uses a terse operations-report voice.
  * v5 §6.1: CHAPTER_SCENES — the look of each section (0 = the chapter look) and the door transitions.
  */
 import type { ChapterMeta, Scene, SkinMeta, StageDef, TransitionKind, Variant, WorldId, WorldMeta } from '../types';
@@ -10,10 +11,10 @@ import { buildCampaign } from './campaign';
 export { movesForMix } from './moves';
 
 export const WORLDS: readonly WorldMeta[] = [
-  { id: 0, name: '경비 초소', subtitle: '기지 바깥 경계선' },
-  { id: 1, name: '연구소', subtitle: '하얀 실험실과 서버' },
-  { id: 2, name: '감옥 블록', subtitle: '철창 너머의 복도' },
-  { id: 3, name: '공장 · 수로', subtitle: '증기와 기계의 지하' },
+  { id: 0, name: '경비 초소', subtitle: '기지 외곽 경계선' },
+  { id: 1, name: '연구소', subtitle: '백색 보안 실험동' },
+  { id: 2, name: '감옥 블록', subtitle: '중구금 수용동' },
+  { id: 3, name: '공장 · 수로', subtitle: '지하 설비 구역' },
 ];
 
 /** The only theme × variant looks the renderer draws (endless/daily use these too). */
@@ -25,26 +26,26 @@ export const DESIGNED_LOOKS: Readonly<Record<WorldId, readonly Variant[]>> = {
 };
 
 export const CHAPTERS: readonly ChapterMeta[] = [
-  { id: 0, part: 1, name: '외곽 경비구역', subtitle: '잠입 작전 개시', theme: 0, variant: 'base',
-    briefing: '포로가 잡혀 있는 기지에 잠입한다. 레이저를 넘어라!' },
-  { id: 1, part: 1, name: '지하 수로', subtitle: '증기 속으로', theme: 3, variant: 'steam',
-    briefing: '경비를 피해 증기 가득한 수로로.' },
-  { id: 2, part: 1, name: '연구동', subtitle: '하얀 보안 구역', theme: 1, variant: 'base',
-    briefing: '하얀 실험실, 보안 레이저가 촘촘하다.' },
-  { id: 3, part: 1, name: '서버실', subtitle: '불 꺼진 데이터 센터', theme: 1, variant: 'dark',
-    briefing: '불이 꺼진 서버실. 드론을 조심해.' },
-  { id: 4, part: 1, name: '감옥 블록', subtitle: '포로가 기다린다', theme: 2, variant: 'base',
-    briefing: '포로가 있는 곳! 보스를 넘으면 구출 성공.' },
-  { id: 5, part: 2, name: '경보 발령', subtitle: '들켰다, 뛰어!', theme: 2, variant: 'alarm',
-    briefing: '경보가 울렸다! 포로와 함께 달려라.' },
-  { id: 6, part: 2, name: '연구동 비상탈출', subtitle: '붉은 비상등 아래', theme: 1, variant: 'alarm',
-    briefing: '붉은 비상등 아래 출구를 찾아라.' },
-  { id: 7, part: 2, name: '공장 라인', subtitle: '멈추지 않는 기계', theme: 3, variant: 'base',
-    briefing: '쉬지 않는 기계 사이로. 프레스에 끼이지 마!' },
-  { id: 8, part: 2, name: '옥상', subtitle: '밤하늘 아래 경비선', theme: 0, variant: 'night',
-    briefing: '밤하늘 아래 마지막 경비선. 헬기가 곧 온다.' },
-  { id: 9, part: 2, name: '헬기 탈출', subtitle: '동이 트는 하늘', theme: 0, variant: 'dawn',
-    briefing: '동이 튼다. 헬기까지 전력 질주!' },
+  { id: 0, part: 1, name: '외곽 경비구역', subtitle: '작전 개시', theme: 0, variant: 'base',
+    briefing: '목표는 기지에 억류된 포로. 외곽 레이저 경계선을 돌파해 침투한다.' },
+  { id: 1, part: 1, name: '지하 수로', subtitle: '증기 배관 구역', theme: 3, variant: 'steam',
+    briefing: '정문을 우회해 지하 수로로 진입한다. 증기로 시야 불량.' },
+  { id: 2, part: 1, name: '연구동', subtitle: '백색 보안 구역', theme: 1, variant: 'base',
+    briefing: '연구동 진입. 보안 레이저 밀도가 높다.' },
+  { id: 3, part: 1, name: '서버실', subtitle: '정전된 데이터 센터', theme: 1, variant: 'dark',
+    briefing: '서버실 전력 차단 상태. 드론 순찰을 확인했다.' },
+  { id: 4, part: 1, name: '감옥 블록', subtitle: '포로 수용 구역', theme: 2, variant: 'base',
+    briefing: '포로 위치 확인. 경비 책임자를 돌파하면 구출 완료.' },
+  { id: 5, part: 2, name: '경보 발령', subtitle: '침투 노출', theme: 2, variant: 'alarm',
+    briefing: '경보 발령. 포로를 데리고 비상 경로로 이탈한다.' },
+  { id: 6, part: 2, name: '연구동 비상탈출', subtitle: '비상등 점등', theme: 1, variant: 'alarm',
+    briefing: '연구동 봉쇄 진행 중. 비상등을 따라 출구로 이동한다.' },
+  { id: 7, part: 2, name: '공장 라인', subtitle: '가동 중인 생산 설비', theme: 3, variant: 'base',
+    briefing: '생산 라인을 가로질러 이탈한다. 프레스와 로봇 팔 작동 중.' },
+  { id: 8, part: 2, name: '옥상', subtitle: '야간 최종 경비선', theme: 0, variant: 'night',
+    briefing: '옥상 도달. 최종 경비선을 돌파하고 헬기와 합류한다.' },
+  { id: 9, part: 2, name: '헬기 탈출', subtitle: '여명의 헬리패드', theme: 0, variant: 'dawn',
+    briefing: '헬기 착륙 중. 헬리패드까지 이동해 탑승, 이탈한다.' },
 ];
 
 export interface ChapterScenes {
@@ -90,11 +91,11 @@ export function transitionFor(stage: StageLook, section: number): TransitionKind
 }
 
 export const SKINS: readonly SkinMeta[] = [
-  { id: 'kid', name: '요원 K', price: 0 },
-  { id: 'cat', name: '고양이 요원', price: 60 },
-  { id: 'bunny', name: '토끼 해커', price: 90 },
-  { id: 'ninja', name: '닌자 요원', price: 140 },
-  { id: 'robot', name: '로봇 R-7', price: 200 },
+  { id: 'kid', name: '에이전트 K', price: 0 },
+  { id: 'cat', name: '블랙캣', price: 60 },
+  { id: 'bunny', name: '해커', price: 90 },
+  { id: 'ninja', name: '섀도우', price: 140 },
+  { id: 'robot', name: 'R-7', price: 200 },
   { id: 'astro', name: '특수부대', price: 300 },
 ];
 

@@ -1,47 +1,37 @@
-/* Tokens, reset and app shell. */
+/* Tokens, reset and app shell — v6 tactical HUD (GDD-v6 §1, §5). */
 :root {
-  --font-display: 'Jua', 'Black Han Sans', ui-rounded, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
-  --font-body: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', -apple-system, system-ui, sans-serif;
+  /* numbers + latin labels; Hangul falls through to Plex */
+  --font-display: 'Rajdhani', 'IBM Plex Sans KR', 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  --font-mono: 'Rajdhani', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  /* dark neutrals (charcoal / gunmetal) */
+  --bg-0: #07090c;
+  --bg-1: #0d1115;
+  --panel: rgba(12, 16, 20, 0.78);
+  --panel-solid: #10151a;
+  --panel-2: rgba(22, 28, 34, 0.86);
+  --line: rgba(196, 214, 224, 0.16);
+  --line-strong: rgba(196, 214, 224, 0.34);
 
-  /* spy palette: navy panels, neon red + cyan accents */
-  --ink: #eef4ff;
-  --ink-soft: #a9b7da;
-  --ink-faint: #7080a8;
-  --bg-0: #070b18;
-  --bg-1: #0f1630;
-  --panel: #151e3a;
-  --panel-2: #1d2850;
-  --line: rgba(110, 200, 255, 0.2);
+  /* text: all ≥ 4.5:1 on --panel-solid */
+  --ink: #e6ebee;
+  --ink-soft: #a9b4bb;
+  --ink-faint: #85929b;
 
-  --sun: #ffc53d;
-  --sun-deep: #d9890b;
-  --pink: #ff3b5c;
-  --pink-deep: #c4123a;
-  --mint: #3ff0a6;
-  --mint-deep: #0fae6c;
-  --sky: #2ee6ff;
-  --sky-deep: #0a9fc0;
-  --violet: #8f7bff;
-  --violet-deep: #5b45e0;
-  --heart: #ff4d6d;
-  --red: var(--pink);
-  --cyan: var(--sky);
+  /* the only three accents */
+  --amber: #ffb020;
+  --teal: #3fe0d0;
+  --red: #ff2a3a;
+  --amber-dim: rgba(255, 176, 32, 0.14);
+  --teal-dim: rgba(63, 224, 208, 0.12);
+  --red-dim: rgba(255, 42, 58, 0.14);
 
-  --glass: rgba(21, 30, 58, 0.78);
-  --glass-strong: rgba(21, 30, 58, 0.94);
-  --glass-dim: rgba(255, 255, 255, 0.1);
-  --glass-line: rgba(110, 200, 255, 0.24);
-  --scrim: rgba(4, 8, 20, 0.6);
+  --r: 3px;
+  --r-lg: 4px;
 
-  --r-xl: 32px;
-  --r-lg: 24px;
-  --r-md: 18px;
-  --r-sm: 12px;
-
-  --shadow-card: 0 1px 0 rgba(160, 220, 255, 0.18) inset, 0 0 0 1px rgba(46, 230, 255, 0.06), 0 24px 48px -18px rgba(0, 0, 0, 0.75), 0 0 40px -18px rgba(46, 230, 255, 0.35);
-  --shadow-soft: 0 10px 24px -10px rgba(0, 0, 0, 0.6);
+  --blur: blur(14px) saturate(1.1);
+  --shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.9);
 
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -49,8 +39,9 @@
   --safe-r: env(safe-area-inset-right, 0px);
   --gutter: 16px;
 
-  --ease-pop: cubic-bezier(0.2, 1.6, 0.4, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* no overshoot anywhere in v6 */
+  --ease-pop: var(--ease-out);
 }
 
 *,
@@ -89,7 +80,7 @@ body,
   height: 100dvh;
   overflow: hidden;
   touch-action: manipulation;
-  background: radial-gradient(120% 80% at 50% 0%, #1d2a56 0%, #0f1630 55%, #070b18 100%);
+  background: radial-gradient(120% 80% at 50% 0%, #161d24 0%, #0b0f13 55%, #07090c 100%);
 }
 
 #game {
@@ -105,7 +96,7 @@ body,
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   z-index: 1;
 }
 
@@ -120,15 +111,21 @@ button {
   touch-action: manipulation;
 }
 
-button:focus-visible {
-  outline: 3px solid #fff;
-  outline-offset: 3px;
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
 }
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
+  font-weight: 600;
+}
+
+p {
   font-weight: 400;
 }
 
@@ -137,6 +134,14 @@ p {
   height: 1em;
   display: block;
   flex: none;
+}
+
+/* latin labels / numbers */
+.mono {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Layers inside #ui. Containers never catch taps; screens opt in. */
@@ -158,13 +163,17 @@ p {
   z-index: 5;
 }
 
+.layer--loading {
+  z-index: 6;
+}
+
 .screen {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   padding: calc(var(--safe-t) + 12px) calc(var(--safe-r) + var(--gutter)) calc(var(--safe-b) + 16px) calc(var(--safe-l) + var(--gutter));
-  animation: screen-in 0.38s var(--ease-out) both;
+  animation: screen-in 0.3s var(--ease-out) both;
 }
 
 .scroll {
@@ -185,32 +194,17 @@ p {
 }
 
 @keyframes screen-in {
-  from {
-    opacity: 0;
-    transform: translateY(14px) scale(0.985);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes pop-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.82) translateY(20px);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.03);
-  }
-  100% {
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
 
 .pop-in {
-  animation: pop-in 0.5s var(--ease-pop) both;
+  animation: pop-in 0.32s var(--ease-out) both;
 }
 
 /* Reduced motion: user setting (.reduced-motion on #app) or the OS preference. */
