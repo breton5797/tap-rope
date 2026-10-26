@@ -6,11 +6,8 @@ import { icons } from './icons';
 
 const COUNT_MS = 900;
 
-/** v7 (endless / daily): leaderboard submission state. Lead adds this to ResultInfo as `online?`. */
-export interface OnlineStatus {
-  readonly state: 'pending' | 'ranked' | 'offline' | 'rejected';
-  readonly rank?: number;
-}
+/** v7 (endless / daily): leaderboard submission state (ResultInfo.online). */
+export type OnlineStatus = NonNullable<ResultInfo['online']>;
 
 const ONLINE_TEXT: Readonly<Record<OnlineStatus['state'], (rank?: number) => string>> = {
   pending: () => '검증 중…',
@@ -20,7 +17,7 @@ const ONLINE_TEXT: Readonly<Record<OnlineStatus['state'], (rank?: number) => str
 };
 
 function onlineLine(r: ResultInfo): HTMLElement | null {
-  const online = (r as ResultInfo & { readonly online?: OnlineStatus }).online;
+  const online = r.online;
   if (r.mode === 'stage' || !online) return null;
   return h('div', { cls: `report__online is-${online.state}`, attrs: { role: 'status', 'aria-live': 'polite' } }, [
     h('span', { cls: 'report__online-dot' }),
@@ -79,6 +76,21 @@ function storyBeat(r: ResultInfo): string | null {
   if (r.stageId === 'w5-s10') return '포로 확보. 2단계 탈출 작전 개시 — ZONE 06';
   if (r.stageId === 'w10-s10' || !r.hasNext) return '탈출 성공. 전 작전 종료.';
   return `거점 제압. ZONE ${String(stage.chapter + 2).padStart(2, '0')} 개방`;
+}
+
+/** Identity of a run's report: a second showResult with the same key only updates the online line. */
+export function resultKey(r: ResultInfo): string {
+  const { online: _online, ...run } = r; // everything except the server status identifies the run
+  return JSON.stringify(run, Object.keys(run).sort());
+}
+
+/** Swap just the online status line of a mounted report (no count-up / entry animation replay). */
+export function patchOnline(screen: HTMLElement, r: ResultInfo): void {
+  const next = onlineLine(r);
+  const current = screen.querySelector('.report__online');
+  if (current && next) current.replaceWith(next);
+  else if (current) current.remove();
+  else if (next) (screen.querySelector('.report__story') ?? screen.querySelector('.report__title'))?.after(next);
 }
 
 function actions(ctx: Ctx, r: ResultInfo): HTMLElement {

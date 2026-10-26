@@ -160,6 +160,29 @@ describe('boss bar', () => {
   });
 });
 
+describe('result online status', () => {
+  it('a second showResult for the same run only swaps the status line', () => {
+    const root = document.createElement('div');
+    const ui = createUi(root, callbacks());
+    const info = {
+      mode: 'endless', stageId: null, title: '무한 침투', cleared: false, stars: 0, score: 4200, best: 5000, newRecord: false,
+      perfects: 10, goods: 2, misses: 1, maxCombo: 9, coinsEarned: 3, hasNext: false,
+    } as const;
+    ui.showResult({ ...info, online: { state: 'pending' } });
+    const card = root.querySelector('.report');
+    expect(root.querySelector('.report__online')?.textContent).toContain('검증 중');
+
+    ui.showResult({ ...info, online: { state: 'ranked', rank: 37 } });
+    expect(root.querySelector('.report')).toBe(card); // not rebuilt: no count-up / entry replay
+    expect(root.querySelector('.report__online')?.textContent).toContain('랭킹 등록 #37');
+    expect(root.querySelectorAll('.report__online').length).toBe(1);
+
+    ui.showResult({ ...info, score: 9999, online: { state: 'offline' } }); // a different run rebuilds
+    expect(root.querySelector('.report')).not.toBe(card);
+    expect(root.querySelector('.report__online')?.textContent).toContain('오프라인');
+  });
+});
+
 describe('leaderboard + banners', () => {
   it('renders loading, offline (retry) and pinned my-row states', () => {
     const root = document.createElement('div');

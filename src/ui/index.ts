@@ -11,7 +11,7 @@ import { buildControls } from './controls';
 import { buildGuide } from './guide';
 import { renderLoading } from './loading';
 import { buildPause, renderCountdown, renderTutorial, showAchievementToast, showToast } from './overlays';
-import { buildResult } from './result';
+import { buildResult, patchOnline, resultKey } from './result';
 import { buildSettings } from './settings';
 import { buildShop } from './shop';
 import { buildStageSelect } from './stages';
@@ -107,6 +107,8 @@ function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
 
 function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
   const hud = createHud(ctx);
+  /** the mounted report, so a follow-up showResult for the same run can patch it in place */
+  let lastResult: { readonly key: string; readonly el: HTMLElement } | null = null;
   layers.hud.appendChild(hud.el);
   return {
     showHud() {
@@ -117,10 +119,17 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
     updateHud: (state: HudState) => hud.update(state),
     showPause: () => mount(buildPause(ctx, () => mount(null, 'hud')), 'pause'),
     showResult(r: ResultInfo) {
+      const key = resultKey(r);
+      if (lastResult && lastResult.key === key && layers.screen.contains(lastResult.el)) {
+        patchOnline(lastResult.el, r); // v7: server answer for the same run — update the status line only
+        return;
+      }
       setHud(false);
       renderTutorial(layers.tutorial, ctx, null);
       renderBriefing(layers.briefing, null, true);
-      mount(buildResult(ctx, r), 'result');
+      const el = buildResult(ctx, r);
+      lastResult = { key, el };
+      mount(el, 'result');
     },
     showTutorial: (step) => renderTutorial(layers.tutorial, ctx, step),
     showControls(onDone) {
