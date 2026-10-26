@@ -202,10 +202,10 @@ describe('snapshot / hud', () => {
 
   it('titles endless and daily modes and shows full gauge in fever', () => {
     const e = createSession('endless', null, { seed: 3 });
-    expect(toHud(e).title).toBe('무한 탈출');
+    expect(toHud(e).title).toBe('무한 침투');
     expect(toHud(e).progress).toBe(0);
     const d = createSession('daily', null, { date: '2026-10-23' });
-    expect(toHud(d).title).toBe('오늘의 작전');
+    expect(toHud(d).title).toBe('일일 작전');
     const fever: Session = { ...d, score: { ...d.score, feverTime: 3, feverGauge: 0 } };
     expect(toHud(fever).feverGauge).toBe(1);
     expect(toSnapshot(fever, 'kid', opts).fever).toBe(true);
