@@ -10,7 +10,7 @@ export const HUD_RED = '#FF4A55';
 export const HUD_AMBER = '#FFB020';
 export const HUD_TEAL = '#3FE0D0';
 const INK = '#E8ECEF';
-export const HUD_FONT = 'Rajdhani, "Arial Narrow", "Roboto Condensed", system-ui, sans-serif';
+export const HUD_FONT = '"Rajdhani", "IBM Plex Sans KR", sans-serif';
 
 function frame(ctx: Ctx, color: string): void {
   ctx.fillStyle = 'rgba(8,10,12,0.82)';

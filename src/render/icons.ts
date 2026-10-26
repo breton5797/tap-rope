@@ -11,7 +11,7 @@ export function creditChip(ctx: Ctx, r: number): void {
   roundRect(ctx, -r * 0.88, -r * 0.6, r * 1.76, r * 1.2, r * 0.2);
   ctx.fill();
   ctx.fillStyle = 'rgba(40,28,6,0.75)';
-  ctx.font = `700 ${Math.round(r * 1.2)}px Rajdhani, "Arial Narrow", sans-serif`;
+  ctx.font = `700 ${Math.round(r * 1.2)}px "Rajdhani", "IBM Plex Sans KR", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('₵', 0, r * 0.06);

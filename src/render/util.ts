@@ -4,7 +4,7 @@ export type Ctx = CanvasRenderingContext2D;
 export type Stops = readonly (readonly [number, string])[];
 
 export const TAU = Math.PI * 2;
-export const FONT = 'Rajdhani, "IBM Plex Sans KR", "Arial Narrow", system-ui, sans-serif';
+export const FONT = '"Rajdhani", "IBM Plex Sans KR", sans-serif';
 
 /** Colors per jump level (index 1..3); index 0 is a neutral fallback. */
 export const LEVEL_FILL: readonly string[] = ['#A7B4C8', '#3DDC97', '#FFB627', '#FF5E5B'];
