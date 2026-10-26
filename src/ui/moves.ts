@@ -25,8 +25,8 @@ export const MOVES: Readonly<Record<MoveId, MoveInfo>> = {
   gate: { id: 'gate', name: '레이저 게이트', hint: '바닥 레이저 + 드론 = 딱 한 번만 점프', gesture: '탭 1번', tone: 'sun', warn: true },
   pulse: { id: 'pulse', name: '펄스 레이저', hint: '연속 바닥 레이저! 리듬에 맞춰 통통 점프', gesture: '리듬 탭', tone: 'sky' },
   lane: { id: 'lane', name: '레인 이동', hint: '왼쪽에서 위·아래로 밀어 경비로봇을 피해!', gesture: '왼쪽 ↑↓', tone: 'mint' },
-  drop: { id: 'drop', name: '낙하 상자', hint: '‘!’가 뜬 레인에서 비켜!', gesture: '왼쪽 ↑↓', tone: 'sun', warn: true },
-  chaser: { id: 'chaser', name: '추격 드론', hint: '뒤에서 돌진! ‘!’ 레인을 벗어나', gesture: '왼쪽 ↑↓', tone: 'pink', warn: true },
+  drop: { id: 'drop', name: '낙하 상자', hint: '빨간 느낌표가 뜬 레인에서 비켜!', gesture: '왼쪽 ↑↓', tone: 'sun', warn: true },
+  chaser: { id: 'chaser', name: '추격 드론', hint: '뒤에서 돌진! 느낌표 레인을 벗어나', gesture: '왼쪽 ↑↓', tone: 'pink', warn: true },
   lanejump: { id: 'lanejump', name: '피하고 뛰기', hint: '레인을 바꾸면서 점프!', gesture: '↑↓ + 탭', tone: 'violet' },
 };
 
