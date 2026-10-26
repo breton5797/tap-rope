@@ -40,6 +40,7 @@ function easeInOut(t: number): number {
 /** reused result object (read it before the next call) */
 const TR: ActiveTransition = { door: null as unknown as DoorView, p: 0 };
 
+/** The door transition in progress, if any. Returns a shared object overwritten on every call — read it, don't keep it. */
 export function activeTransition(doors: readonly DoorView[]): ActiveTransition | null {
   for (const d of doors) {
     if (d.timeUntil <= 0 && d.timeUntil > -TRANSITION_TIME) {
