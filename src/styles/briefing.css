@@ -61,9 +61,12 @@
   left: 10px;
   bottom: 6px;
   z-index: 1;
+  padding: 1px 6px;
   color: var(--teal);
   font-size: 11px;
   letter-spacing: 0.18em;
+  /* own plate: the strip can be bright sky (zone 10) */
+  background: rgba(7, 9, 12, 0.78);
 }
 
 .brief__head {

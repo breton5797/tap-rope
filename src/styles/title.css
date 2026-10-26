@@ -39,12 +39,42 @@
     radial-gradient(70% 45% at 50% 62%, #22303a 0%, #0e1418 55%, #07090c 100%);
 }
 
-/* keeps the logo and menu readable over any key art */
+/* Key art: the operative stands at 65–92% of the 1080x1920 frame, where the menu sits. Lift the photo so
+   the figure lands in the open band between logo and menu; its bottom edge fades into the menu scrim. */
+.art--title .art__img {
+  object-position: 50% 100%;
+  transform: translateY(-24%);
+  -webkit-mask-image: linear-gradient(180deg, #000 82%, transparent 98%);
+  mask-image: linear-gradient(180deg, #000 82%, transparent 98%);
+}
+
+/* wider screens (iPad) crop the photo's top already, so lift it less */
+@media (min-aspect-ratio: 3/5) {
+  .art--title .art__img {
+    transform: translateY(-18%);
+  }
+}
+
+/* keeps the logo (top) and menu (bottom) readable; the band in between stays open for the figure */
 .art--title::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(7, 9, 12, 0.82) 0%, rgba(7, 9, 12, 0.25) 34%, rgba(7, 9, 12, 0.35) 55%, rgba(7, 9, 12, 0.92) 82%);
+  background: linear-gradient(
+    180deg,
+    rgba(7, 9, 12, 0.9) 0%,
+    rgba(7, 9, 12, 0.72) 24%,
+    rgba(7, 9, 12, 0.2) 40%,
+    rgba(7, 9, 12, 0.12) 58%,
+    rgba(7, 9, 12, 0.88) 74%,
+    rgba(7, 9, 12, 0.96) 100%
+  );
+}
+
+.logo__word,
+.logo__ko,
+.logo__code {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 14px rgba(0, 0, 0, 0.8);
 }
 
 .screen--title > :not(.art) {
@@ -89,7 +119,8 @@
 
 .logo__word2 {
   color: var(--red);
-  text-shadow: 0 0 18px rgba(255, 42, 58, 0.45);
+  /* dark halo first so the red stays legible over the red laser grid */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0, 0, 0, 0.85), 0 0 22px rgba(255, 42, 58, 0.35);
 }
 
 .logo__ko {
