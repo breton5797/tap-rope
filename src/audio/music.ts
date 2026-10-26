@@ -55,6 +55,8 @@ export interface Music {
   start(bpm: number, world: WorldId, fromTime: number): void;
   stop(): void;
   setFever(on: boolean): void;
+  /** v7: boss stages add a heavier drum layer (same tempo, same loop) */
+  setBoss(on: boolean): void;
 }
 
 interface Voice {
@@ -120,6 +122,22 @@ function feverLayer(v: Voice, s: Style, step: number, t: number, stepDur: number
   if (step % 4 === 2) noise(v.ctx, v.out, { start: t, dur: 0.16, gain: 0.035, type: 'highpass', freq: 7000 });
 }
 
+/** v7 boss layer: heavy low hits on every beat, a snare-like crack on 2 and 4, low tom fills at the bar end. */
+function bossLayer(v: Voice, step: number, t: number): void {
+  const inBar = step % STEPS_PER_BAR;
+  if (inBar % 4 === 0) {
+    tone(v.ctx, v.out, { type: 'sine', freq: 96, freqEnd: 34, start: t, dur: 0.38, gain: 0.55, attack: 0.002, drive: 0.3 });
+    noise(v.ctx, v.out, { start: t, dur: 0.05, gain: 0.07, type: 'lowpass', freq: 700 });
+  }
+  if (inBar === 4 || inBar === 12) {
+    noise(v.ctx, v.out, { start: t, dur: 0.16, gain: 0.11, type: 'bandpass', freq: 1700, q: 0.8 });
+    tone(v.ctx, v.out, { type: 'triangle', freq: 190, freqEnd: 120, start: t, dur: 0.12, gain: 0.12 });
+  }
+  if (inBar === 13 || inBar === 14 || inBar === 15) {
+    tone(v.ctx, v.out, { type: 'sine', freq: 150 - (inBar - 13) * 22, freqEnd: 70, start: t, dur: 0.16, gain: 0.22 });
+  }
+}
+
 function mod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }
@@ -135,6 +153,7 @@ export function createMusic(ctx: BaseAudioContext, out: AudioNode): Music {
   let nextTime = 0;
   let step = 0;
   let fever = false;
+  let boss = false;
 
   const setCutoff = (): void => {
     filter.frequency.setTargetAtTime(fever ? 16000 : 7000, ctx.currentTime, 0.08);
@@ -145,6 +164,7 @@ export function createMusic(ctx: BaseAudioContext, out: AudioNode): Music {
       percussion(voice, style, inBar, nextTime);
       harmony(voice, style, step, nextTime, stepDur);
       if (fever) feverLayer(voice, style, step, nextTime, stepDur);
+      if (boss) bossLayer(voice, step, nextTime);
       nextTime += stepDur;
       step = (step + 1) % LOOP_STEPS;
     }
@@ -170,6 +190,9 @@ export function createMusic(ctx: BaseAudioContext, out: AudioNode): Music {
     setFever(on) {
       fever = on;
       setCutoff();
+    },
+    setBoss(on) {
+      boss = on;
     },
   };
 }

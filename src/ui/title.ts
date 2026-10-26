@@ -5,6 +5,9 @@ import { icons } from './icons';
 
 export interface TitleNav {
   readonly toStages: () => void;
+  readonly toArchive: () => void;
+  readonly toAchievements: () => void;
+  readonly toLeaderboard: () => void;
   readonly toShop: () => void;
   readonly toSettings: () => void;
   readonly toGuide: () => void;
@@ -64,6 +67,12 @@ export function buildTitle(ctx: Ctx, save: SaveData, nav: TitleNav): HTMLElement
     h('div', { cls: 'title__menu' }, [
       button({ label: '작전 개시', variant: 'sun', size: 'lg', icon: icons.play(), cls: 'btn--start', onPress: ctx.tap(nav.toStages) }),
       modeButtons(ctx, save),
+      // v7: archive · achievements · rankings
+      h('div', { cls: 'row title__records' }, [
+        button({ label: '기록 보관소', variant: 'glass', size: 'sm', icon: icons.book(), onPress: ctx.tap(nav.toArchive) }),
+        button({ label: '업적', variant: 'glass', size: 'sm', icon: icons.star(), onPress: ctx.tap(nav.toAchievements) }),
+        button({ label: '랭킹', variant: 'glass', size: 'sm', icon: icons.crown(), onPress: ctx.tap(nav.toLeaderboard) }),
+      ]),
       h('div', { cls: 'row' }, [
         button({ label: '장비실', variant: 'glass', icon: icons.bag(), onPress: ctx.tap(nav.toShop) }),
         button({ label: '설정', variant: 'glass', icon: icons.gear(), onPress: ctx.tap(nav.toSettings) }),

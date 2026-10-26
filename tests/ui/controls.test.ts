@@ -13,6 +13,7 @@ function callbacks(): UiCallbacks {
     onStartStage: noop, onStartEndless: noop, onStartDaily: noop, onPause: noop, onResume: noop, onRetry: noop,
     onQuit: noop, onNextStage: noop, onBuySkin: noop, onSelectSkin: noop, onSettingsChange: noop, onTutorialDone: noop,
     onUiClick: vi.fn(),
+    onOpenArchive: noop, onPlayCutscene: noop, onOpenAchievements: noop, onOpenLeaderboard: noop, onOpenNickname: noop,
   };
 }
 

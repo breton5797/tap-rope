@@ -1,12 +1,16 @@
 // UI root: owns the overlay layers and routes between screens.
 import type { HudState, ResultInfo, SaveData, Settings, Ui, UiCallbacks } from '../types';
+import { buildAchievements, buildArchive } from './archive';
+import { buildCutscene } from './cutscene';
+import { buildLeaderboard } from './leaderboard';
+import { buildNickname } from './nickname';
 import { h, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
 import { renderBriefing } from './briefing';
 import { buildControls } from './controls';
 import { buildGuide } from './guide';
 import { renderLoading } from './loading';
-import { buildPause, renderCountdown, renderTutorial, showToast } from './overlays';
+import { buildPause, renderCountdown, renderTutorial, showAchievementToast, showToast } from './overlays';
 import { buildResult } from './result';
 import { buildSettings } from './settings';
 import { buildShop } from './shop';
@@ -21,6 +25,10 @@ interface Layers {
   readonly briefing: HTMLElement;
   readonly toast: HTMLElement;
   readonly loading: HTMLElement;
+  /** v7: modal cards over any screen (nickname) */
+  readonly overlay: HTMLElement;
+  /** v7: full-screen cutscene player */
+  readonly cutscene: HTMLElement;
 }
 
 function createLayers(root: HTMLElement): Layers {
@@ -32,10 +40,12 @@ function createLayers(root: HTMLElement): Layers {
     screen: h('div', { cls: 'layer layer--screen' }),
     toast: h('div', { cls: 'layer layer--toast', attrs: { 'aria-live': 'polite' } }),
     loading: h('div', { cls: 'layer layer--loading' }),
+    overlay: h('div', { cls: 'layer layer--overlay' }),
+    cutscene: h('div', { cls: 'layer layer--cutscene' }),
   };
   swallowInput(layers.loading);
   swallowInput(layers.screen);
-  root.replaceChildren(layers.hud, layers.briefing, layers.fx, layers.tutorial, layers.screen, layers.toast, layers.loading);
+  root.replaceChildren(layers.hud, layers.briefing, layers.fx, layers.tutorial, layers.screen, layers.overlay, layers.cutscene, layers.toast, layers.loading);
   return layers;
 }
 
@@ -51,7 +61,7 @@ interface Shared {
   setHud(visible: boolean): void;
 }
 
-type MenuUi = Pick<Ui, 'showTitle' | 'showStageSelect' | 'showShop' | 'showSettings'>;
+type MenuUi = Pick<Ui, 'showTitle' | 'showStageSelect' | 'showShop' | 'showSettings' | 'showArchive' | 'showAchievements' | 'showLeaderboard'>;
 type GameUi = Omit<Ui, keyof MenuUi>;
 
 function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
@@ -71,6 +81,9 @@ function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
     toStages: () => save && menu.showStageSelect(save),
     toShop: () => save && menu.showShop(save),
     toSettings: () => save && menu.showSettings(save),
+    toArchive: () => ctx.cb.onOpenArchive(),
+    toAchievements: () => ctx.cb.onOpenAchievements(),
+    toLeaderboard: () => ctx.cb.onOpenLeaderboard('endless'),
     toGuide: () => {
       // overlays the title instead of replacing it, so closing needs no rebuild
       const sheet = buildGuide(ctx, () => sheet.remove());
@@ -82,6 +95,12 @@ function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
     showStageSelect: (s) => mount(buildStageSelect(ctx, remember(s), back), 'stages'),
     showShop: (s) => mount(buildShop(ctx, remember(s), back), 'shop'),
     showSettings: (s) => mount(buildSettings(ctx, remember(s), back, localSettings), 'settings'),
+    showArchive: (s) => mount(buildArchive(ctx, remember(s), back), 'archive'),
+    showAchievements: (s) => mount(buildAchievements(ctx, remember(s), back), 'achievements'),
+    showLeaderboard: (board, data) => {
+      setHud(false);
+      mount(buildLeaderboard(ctx, board, data, back), 'leaderboard');
+    },
   };
   return menu;
 }
@@ -121,6 +140,15 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       renderBriefing(layers.briefing, null, true);
     },
     toast: (msg) => showToast(layers.toast, msg),
+    toastAchievement: (a) => showAchievementToast(layers.toast, a),
+    showCutscene(c, onDone) {
+      const player = buildCutscene(c, { reduced: ctx.reducedMotion(), onClick: () => ctx.cb.onUiClick() }, onDone);
+      layers.cutscene.replaceChildren(player.el);
+    },
+    showNickname(current, onSubmit) {
+      const card = buildNickname(ctx, current, onSubmit, () => card.remove());
+      layers.overlay.replaceChildren(card);
+    },
     showLoading: (progress) => renderLoading(layers.loading, progress),
   };
 }

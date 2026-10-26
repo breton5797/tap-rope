@@ -6,6 +6,28 @@ import { icons } from './icons';
 
 const COUNT_MS = 900;
 
+/** v7 (endless / daily): leaderboard submission state. Lead adds this to ResultInfo as `online?`. */
+export interface OnlineStatus {
+  readonly state: 'pending' | 'ranked' | 'offline' | 'rejected';
+  readonly rank?: number;
+}
+
+const ONLINE_TEXT: Readonly<Record<OnlineStatus['state'], (rank?: number) => string>> = {
+  pending: () => '검증 중…',
+  ranked: (rank) => (rank !== undefined ? `랭킹 등록 #${rank}` : '랭킹 등록 완료'),
+  offline: () => '오프라인 — 연결되면 등록',
+  rejected: () => '기록 검증 실패 — 랭킹 미등록',
+};
+
+function onlineLine(r: ResultInfo): HTMLElement | null {
+  const online = (r as ResultInfo & { readonly online?: OnlineStatus }).online;
+  if (r.mode === 'stage' || !online) return null;
+  return h('div', { cls: `report__online is-${online.state}`, attrs: { role: 'status', 'aria-live': 'polite' } }, [
+    h('span', { cls: 'report__online-dot' }),
+    h('span', { text: ONLINE_TEXT[online.state](online.rank) }),
+  ]);
+}
+
 /** Rank: three tick marks lit in sequence. */
 function rank(n: number): HTMLElement {
   return h('div', { cls: 'report__rank', attrs: { 'aria-label': `평가 ${n}/3` } }, [
@@ -93,6 +115,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     h('div', { cls: 'report__status mono', text: head.status }),
     h('h2', { cls: 'report__title', text: head.title }),
     story ? h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]) : null,
+    onlineLine(r),
     h('div', { cls: 'report__scorebox' }, [
       h('div', { cls: 'report__label mono', text: 'SCORE' }),
       score,

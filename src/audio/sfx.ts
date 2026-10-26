@@ -138,6 +138,40 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     const k = Math.pow(0.88, Math.max(0, Math.min(2, level)));
     noise(ctx, out, { start: t, dur: 0.14, gain: 0.42, type: 'bandpass', freq: 700 * k, freqEnd: 2800 * k, q: 1.4 });
   },
+  // v7 boss arrival: detuned low brass/synth roar over a sub drop
+  'boss-intro': (ctx, out, t) => {
+    [33, 40, 45].forEach((m, i) =>
+      tone(ctx, out, { type: 'sawtooth', freq: midiToFreq(m), freqEnd: midiToFreq(m) * 0.94, start: t + i * 0.02, dur: 1.6, gain: 0.07, attack: 0.18, filter: 380, filterEnd: 1400, q: 3, drive: 0.4, detune: i % 2 ? 9 : -9 }),
+    );
+    tone(ctx, out, { type: 'sine', freq: 62, freqEnd: 30, start: t, dur: 1.8, gain: 0.5, attack: 0.05 });
+    noise(ctx, out, { start: t, dur: 1.2, gain: 0.06, type: 'bandpass', freq: 300, freqEnd: 1200, q: 0.9 });
+  },
+  // v7 boss charge-up telegraph: rising whine with a resonant filter climb
+  'boss-charge': (ctx, out, t) => {
+    tone(ctx, out, { type: 'sawtooth', freq: 180, freqEnd: 1450, start: t, dur: 1.05, gain: 0.05, attack: 0.2, filter: 600, filterEnd: 6000, q: 8 });
+    tone(ctx, out, { type: 'sine', freq: 360, freqEnd: 2900, start: t, dur: 1.05, gain: 0.025, attack: 0.3 });
+    noise(ctx, out, { start: t + 0.3, dur: 0.75, gain: 0.03, type: 'highpass', freq: 3000, freqEnd: 9000 });
+  },
+  // v7 phase break: metal impact + scattered debris
+  'boss-stagger': (ctx, out, t) => {
+    thump(ctx, out, t, 0.55, 0.45);
+    noise(ctx, out, { start: t, dur: 0.25, gain: 0.12, type: 'bandpass', freq: 1800, q: 6 });
+    noise(ctx, out, { start: t, dur: 0.4, gain: 0.06, type: 'bandpass', freq: 3100, q: 12 });
+    crackle(ctx, out, t + 0.08, [0, 0.05, 0.11, 0.16, 0.24, 0.31, 0.42], 2600, 0.05);
+  },
+  // v7 boss destroyed: explosion body, crackle, long low tail
+  'boss-down': (ctx, out, t) => {
+    noise(ctx, out, { start: t, dur: 0.9, gain: 0.25, type: 'lowpass', freq: 2400, freqEnd: 180 });
+    tone(ctx, out, { type: 'sine', freq: 70, freqEnd: 24, start: t, dur: 2.4, gain: 0.6, attack: 0.004 });
+    crackle(ctx, out, t + 0.12, [0, 0.07, 0.15, 0.26, 0.38, 0.55, 0.7], 1500, 0.07);
+    chord(ctx, out, t + 0.3, [33, 40], 2.2, 'sawtooth', 0.035, 500);
+  },
+  // v7 achievement: short two-note tactical chime
+  achieve: (ctx, out, t) => {
+    tone(ctx, out, { type: 'sine', freq: midiToFreq(83), start: t, dur: 0.18, gain: 0.12, attack: 0.003 });
+    tone(ctx, out, { type: 'sine', freq: midiToFreq(90), start: t + 0.09, dur: 0.42, gain: 0.11, attack: 0.003 });
+    tone(ctx, out, { type: 'triangle', freq: midiToFreq(78), start: t + 0.09, dur: 0.42, gain: 0.04, filter: 3000 });
+  },
   // blast door: hydraulic pump, steam hiss, heavy clunk
   door: (ctx, out, t) => {
     tone(ctx, out, { type: 'sawtooth', freq: 68, freqEnd: 96, start: t, dur: 0.45, gain: 0.08, filter: 420, attack: 0.05 });

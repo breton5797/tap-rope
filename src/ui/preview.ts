@@ -1,7 +1,9 @@
 // Visual QA harness for the UI layer (ui-preview.html?screen=...). Not shipped.
 import '../styles/main.css';
 import { defaultSave } from '../core/storage';
-import type { HudState, MoveId, ResultInfo, SaveData, UiCallbacks } from '../types';
+import type { HudState, LeaderboardRow, MoveId, ResultInfo, SaveData, UiCallbacks } from '../types';
+import { CUTSCENES } from '../core/cutscenes';
+import { ACHIEVEMENTS } from '../core/achievements';
 import { createUi } from './index';
 import { createAudio } from '../audio/index';
 import type { SfxName } from '../types';
@@ -43,6 +45,8 @@ const save: SaveData = {
   bestScores: { 'w1-s1': 12450, 'w1-s2': 9800, 'w1-s3': 15320, 'w1-s4': 7400, 'w3-s5': 21800, endless: 23810 },
   ownedSkins: ['kid', 'cat', 'robot'],
   skin: 'cat',
+  seenCutscenes: ['op-start', 'boss-1', 'boss-2', 'rescue'],
+  achievements: { 'first-clear': Date.parse('2026-10-20T10:00:00'), 'zone-1': Date.parse('2026-10-22T10:00:00'), 'chain-50': Date.parse('2026-10-26T21:00:00'), rescue: Date.parse('2026-10-27T09:00:00') },
 };
 
 const hud: HudState = {
@@ -50,6 +54,7 @@ const hud: HudState = {
   fever: screen === 'fever', shield: true, slowMo: screen === 'fever', title: '3-3 · 하얀 복도', coins: 12,
   sliding: screen === 'slide',
   section: Number(params.get('section') ?? 1), sections: Number(params.get('sections') ?? 3),
+  boss: params.get('boss') ? { name: '정문 경비대장', codename: 'SENTINEL-01', hp: Number(params.get('boss')), phase: Number(params.get('section') ?? 1) } : null,
 };
 
 const result: ResultInfo = {
@@ -66,7 +71,22 @@ const cb: UiCallbacks = {
   onPause: () => ui.showPause(), onResume: log('resume'), onRetry: log('retry'), onQuit: () => ui.showStageSelect(save),
   onNextStage: log('next'), onBuySkin: (id) => ui.toast(`buy ${id}`), onSelectSkin: (id) => ui.showShop({ ...save, skin: id }),
   onSettingsChange: (s) => app.classList.toggle('reduced-motion', s.reducedMotion), onTutorialDone: log('tutorial done'), onUiClick: () => undefined,
+  onOpenArchive: () => ui.showArchive(save), onPlayCutscene: (id) => ui.showCutscene(CUTSCENES.find((c) => c.id === id) ?? CUTSCENES[0], () => ui.toast('cutscene done')),
+  onOpenAchievements: () => ui.showAchievements(save), onOpenLeaderboard: (b) => ui.showLeaderboard(b, board()), onOpenNickname: () => ui.showNickname('GHOST_07', fakeSubmit),
 };
+
+const rows: LeaderboardRow[] = Array.from({ length: 50 }, (_, i) => ({ rank: i + 1, nickname: i === 6 ? 'GHOST_07' : ['NIGHTHAWK', '요원-3F2A', 'VIPER_9', '섀도우런', 'K_ECHO', 'RAZOR', 'OPAL'][i % 7] + (i > 6 ? `_${i}` : ''), score: 98000 - i * 1530, me: i === 6 }));
+function board(): Parameters<typeof ui.showLeaderboard>[1] {
+  const st = params.get('lb') ?? 'data';
+  if (st === 'loading' || st === 'offline') return st;
+  if (st === 'empty') return { top: [], mine: null };
+  if (st === 'far') return { top: rows.map((r) => ({ ...r, me: false })), mine: { rank: 214, nickname: 'GHOST_07', score: 21400, me: true } };
+  return { top: rows, mine: rows[6] };
+}
+async function fakeSubmit(name: string): Promise<string | null> {
+  await new Promise((r) => setTimeout(r, Number(params.get('delay') ?? 600)));
+  return name.toLowerCase().includes('taken') ? '이미 사용 중인 호출명.' : null;
+}
 
 paintBackdrop();
 const ui = createUi(document.getElementById('ui') as HTMLElement, cb);
@@ -100,12 +120,26 @@ const show: Record<string, () => void> = {
     document.querySelector<HTMLButtonElement>('.btn--guide')?.click();
   },
   toast: () => (ui.showTitle(save), ui.toast('자금 부족')),
+  cutscene: () => (ui.showTitle(save), ui.showCutscene(CUTSCENES.find((c) => c.id === (params.get('id') ?? 'op-start')) ?? CUTSCENES[0], () => ui.toast('cutscene done'))),
+  archive: () => (ui.showTitle(save), ui.showArchive(save)),
+  achievements: () => (ui.showTitle(save), ui.showAchievements(save)),
+  leaderboard: () => (ui.showTitle(save), ui.showLeaderboard(params.get('board') === 'week' ? 'endless-week' : 'endless', board())),
+  nickname: () => {
+    ui.showTitle(save);
+    ui.showLeaderboard('endless', board());
+    ui.showNickname(params.get('name') ?? null, fakeSubmit);
+    const err = params.get('err');
+    if (err) setTimeout(() => { const i = document.querySelector<HTMLInputElement>('.nick__input'); if (i) { i.value = err; document.querySelector<HTMLButtonElement>('.nick__submit')?.click(); } }, 200);
+  },
+  achtoast: () => (ui.showTitle(save), ACHIEVEMENTS.slice(0, Number(params.get('n') ?? 2)).forEach((a, i) => setTimeout(() => ui.toastAchievement(a), i * 150))),
+  online: () => ui.showResult({ ...result, mode: 'endless', title: '무한 침투', cleared: false, online: { state: (params.get('state') ?? 'ranked') as 'ranked', rank: 37 } } as ResultInfo),
+  bosshud: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0, boss: hud.boss ?? { name: '정문 경비대장', codename: 'SENTINEL-01', hp: 0.58, phase: 1 } })),
   loading: () => (ui.showTitle(save), ui.showLoading(Number(params.get('p') ?? 0.42))),
   controls: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0, progress: 0 }), ui.showControls(() => ui.toast('controls done'))),
   audio: () => {
     const audio = createAudio();
     audio.unlock();
-    const names: SfxName[] = ['jump', 'boost', 'land', 'perfect', 'good', 'hit', 'coin', 'powerup', 'combo', 'fever', 'clear', 'fail', 'click', 'count', 'slide', 'warn', 'zap', 'rescue', 'lane', 'alert', 'door'];
+    const names: SfxName[] = ['jump', 'boost', 'land', 'perfect', 'good', 'hit', 'coin', 'powerup', 'combo', 'fever', 'clear', 'fail', 'click', 'count', 'slide', 'warn', 'zap', 'rescue', 'lane', 'alert', 'door', 'boss-intro', 'boss-charge', 'boss-stagger', 'boss-down', 'achieve'];
     names.forEach((n, i) => setTimeout(() => audio.sfx(n, 2), i * 120));
     ([0, 1, 2, 3] as const).forEach((w, i) => setTimeout(() => audio.startMusic(120, w, 0.3 + i), i * 500));
     setTimeout(() => audio.setFever(true), 900);

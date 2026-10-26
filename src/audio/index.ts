@@ -50,11 +50,17 @@ function primeOutput(ctx: AudioContext): void {
   src.start(0);
 }
 
-export function createAudio(): AudioApi {
+/** v7: beyond the AudioApi contract — the boss drum layer. Call setBoss(hud.boss !== null) when a stage starts/ends. */
+export interface BossAudio {
+  setBoss(on: boolean): void;
+}
+
+export function createAudio(): AudioApi & BossAudio {
   let graph: Graph | null = null;
   let soundOn = true;
   let musicOn = true;
   let fever = false;
+  let boss = false;
 
   const applyGains = (): void => {
     if (!graph) return;
@@ -93,6 +99,7 @@ export function createAudio(): AudioApi {
       safe((g) => {
         g.loop.start(bpm, world, fromTime);
         g.loop.setFever(fever);
+        g.loop.setBoss(boss);
       });
     },
     stopMusic() {
@@ -101,6 +108,10 @@ export function createAudio(): AudioApi {
     setFever(on) {
       fever = on;
       safe((g) => g.loop.setFever(on));
+    },
+    setBoss(on) {
+      boss = on;
+      safe((g) => g.loop.setBoss(on));
     },
     sfx(name: SfxName, level = 1) {
       if (!soundOn) return;

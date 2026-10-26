@@ -26,6 +26,12 @@ interface Refs {
   readonly shield: HTMLElement;
   readonly slow: HTMLElement;
   readonly slide: HTMLElement;
+  /** v7 boss bar */
+  readonly boss: HTMLElement;
+  readonly bossCode: HTMLElement;
+  readonly bossName: HTMLElement;
+  readonly bossPhase: HTMLElement;
+  readonly bossCells: readonly HTMLElement[];
 }
 
 type Prev = { -readonly [K in keyof HudState]?: HudState[K] };
@@ -58,7 +64,16 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     shield: statusChip('status--shield', icons.shield(), 'SHIELD'),
     slow: statusChip('status--slow', icons.clock(), 'SLOW'),
     slide: h('span', { cls: 'hud__slide', attrs: { 'aria-label': '슬라이딩' } }, [moveGlyph('slide'), h('span', { text: 'SLIDE' })]),
+    boss: h('div', { cls: 'boss', attrs: { role: 'meter', 'aria-label': '보스 내구도', 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: '' } }),
+    bossCode: h('span', { cls: 'boss__code mono' }),
+    bossName: h('span', { cls: 'boss__name' }),
+    bossPhase: h('span', { cls: 'boss__phase mono' }),
+    bossCells: [0, 1, 2].map(() => h('i', { cls: 'boss__cell' }, [h('b', { cls: 'boss__fill' })])),
   };
+  refs.boss.append(
+    h('div', { cls: 'boss__head' }, [refs.bossCode, refs.bossName, refs.bossPhase]),
+    h('div', { cls: 'boss__bar' }, refs.bossCells),
+  );
   refs.feverBar.append(refs.feverFill, icons.fire());
   refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'CHAIN' }));
   const el = h('div', { cls: 'hud' }, [
@@ -73,6 +88,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     ]),
     // labels sit beside the bars, never on the fill
     h('div', { cls: 'hud__bars' }, [refs.progLabel, refs.progressWrap, refs.feverLabel, refs.feverBar]),
+    refs.boss,
     refs.combo,
   ]);
   return { el, refs };
@@ -151,6 +167,41 @@ function renderProgress(refs: Refs, p: number, section: number, sections: number
   refs.progressWrap.setAttribute('aria-valuetext', n > 1 ? `구간 ${cur + 1}/${n}, ${Math.round(p * 100)}%` : `${Math.round(p * 100)}%`);
 }
 
+type BossHud = NonNullable<HudState['boss']>;
+
+/** v7 boss bar: codename · name · PHASE n/3, HP split into 3 phase cells (drains right → left), flash on damage. */
+function renderBoss(refs: Refs, b: HudState['boss'], prev: HudState['boss'] | undefined, reduced: boolean): void {
+  if (!b) {
+    refs.boss.hidden = true;
+    return;
+  }
+  refs.boss.hidden = false;
+  if (prev?.codename !== b.codename) refs.bossCode.textContent = b.codename;
+  if (prev?.name !== b.name) refs.bossName.textContent = b.name;
+  const hp = Math.max(0, Math.min(1, b.hp));
+  const phase = Math.max(0, Math.min(2, Math.floor(b.phase)));
+  if (prev?.phase !== b.phase) refs.bossPhase.textContent = `PHASE ${phase + 1}/3`;
+  refs.bossCells.forEach((cell, i) => {
+    (cell.firstElementChild as HTMLElement).style.transform = `scaleX(${Math.max(0, Math.min(1, hp * 3 - i))})`;
+    // the cell currently draining belongs to the active phase
+    cell.classList.toggle('is-active', i === 2 - phase);
+    cell.classList.toggle('is-gone', hp * 3 - i <= 0);
+  });
+  refs.boss.setAttribute('aria-valuenow', String(Math.round(hp * 100)));
+  refs.boss.setAttribute('aria-valuetext', `${b.codename} ${Math.round(hp * 100)}%, 페이즈 ${phase + 1}/3`);
+  if (prev && hp < prev.hp - 1e-4) {
+    refs.boss.classList.remove('is-hit');
+    void refs.boss.offsetWidth; // restart the flash
+    refs.boss.classList.add('is-hit');
+    if (reduced) refs.boss.classList.remove('is-hit');
+  }
+}
+
+function sameBoss(a: BossHud | null | undefined, b: BossHud | null): boolean {
+  if (!a || !b) return a === b;
+  return a.hp === b.hp && a.phase === b.phase && a.name === b.name && a.codename === b.codename;
+}
+
 /** "7-3 · 이름" renders the stage number as a small badge. */
 function renderTitle(el: HTMLElement, title: string): void {
   const m = /^(\d+-\d+) · (.*)$/.exec(title);
@@ -190,6 +241,7 @@ export function createHud(ctx: Ctx): Hud {
       if (prev.combo !== s.combo) renderCombo(refs, s.combo, prev.combo, reduced);
       renderValues(refs, s, prev, reduced);
       renderFever(refs, s, prev);
+      if (!sameBoss(prev.boss, s.boss ?? null)) renderBoss(refs, s.boss ?? null, prev.boss ?? undefined, reduced);
       prev = {
         ...s,
         progress: Math.round(Math.max(0, Math.min(1, s.progress)) * 400) / 400,
@@ -199,6 +251,8 @@ export function createHud(ctx: Ctx): Hud {
     reset(): void {
       prev = {};
       refs.combo.classList.remove('is-visible');
+      refs.boss.hidden = true;
+      refs.boss.classList.remove('is-hit');
     },
   };
 }
