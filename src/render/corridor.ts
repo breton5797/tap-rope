@@ -31,10 +31,19 @@ const MAX_TILE_K = 2.0;
 const PHOTO_FLOOR_RES = 0.8;
 const PHOTO_TOP_RES = 0.5;
 /** floor surface strips (more = smoother converging seams) */
-const FLOOR_STRIPS = 20;
-const APRON_STRIPS = 6;
+const FLOOR_STRIPS = 36;
+const APRON_STRIPS = 12;
+/**
+ * Each tile is drawn this many logical px wider than its step, so the next tile (drawn on top)
+ * covers its anti-aliased right edge: with a sub-pixel overlap the two half-covered edge pixels
+ * let the black underneath through as a 1px dark line while scrolling.
+ */
+const TILE_OVERLAP = 1.5;
 /** frames a scene may show the neutral stand-in while waiting for its photos (~0.75s) */
 const WAIT_CAP = 45;
+/** frames a downloaded photo set may take to decode + bake before falling back (a decode that
+ * never returns); much longer than WAIT_CAP so a slow device never flashes the procedural look */
+const STUCK_CAP = 240;
 const VARIANT_INDEX: Readonly<Record<Variant, number>> = { base: 0, alarm: 1, dark: 2, steam: 3, night: 4, dawn: 5 };
 /** an open-sky tile extends this far down over the wall photo, fading out (no visible step) */
 const SKY_FEATHER = 44;
@@ -258,7 +267,11 @@ class SceneCache {
   ): HTMLCanvasElement {
     const k = this.k * res;
     const { canvas, ctx } = makeCanvas(w * k, h * k);
-    ctx.setTransform(k, 0, 0, k, 0, -y * k);
+    // scale to the canvas's whole-pixel size (makeCanvas rounds up): with a plain k the last
+    // column / row stayed partly empty and showed as 1px dark seams between tiles
+    const kx = canvas.width / w;
+    const ky = canvas.height / h;
+    ctx.setTransform(kx, 0, 0, ky, 0, -y * ky);
     draw(ctx);
     // the dawn exterior set is brighter than the interiors: a little extra dim keeps it in family
     const dim = themeDim(this.world) + (this.photo?.sky === 'dawn' ? 0.12 : 0);
@@ -355,7 +368,7 @@ export class Corridor {
     // never show the procedural look when photos exist (or may still arrive): the caller draws a
     // dark neutral stand-in instead until the photo cache is complete
     // a photo cache that can't finish (e.g. a decode that never returns) also falls back after the cap
-    const stuck = waited >= WAIT_CAP;
+    const stuck = waited >= STUCK_CAP;
     if (!stand && mustDraw && (!photo || stuck)) stand = this.procedural(v, s);
     if (mustDraw && !stand) this.waited.set(key, waited + 1);
     if (stand) this.keep.push(stand);
@@ -434,8 +447,8 @@ export class Corridor {
     const wn = c.spec[L.Wall].count;
     eachTile(xMin, xMax, ww, scroll, WALL_S, (m, sx) => {
       const img = c.tile(L.Wall, tileHash(m, 5) % wn);
-      // +0.5px overlap: no hairline gaps where neighbouring wall photos meet
-      ctx.drawImage(img, sx, FLOOR_BACK - WALL_H * WALL_S, ww * WALL_S + 0.5, WALL_H * WALL_S);
+      // TILE_OVERLAP: no hairline gaps where neighbouring wall photos meet
+      ctx.drawImage(img, sx, FLOOR_BACK - WALL_H * WALL_S, ww * WALL_S + TILE_OVERLAP, WALL_H * WALL_S);
     });
     // an open sky is drawn over the wall's top edge: its feathered bottom blends into the photo sky
     if (sky) this.drawTop(ctx, v, c, scroll, t, xMin, xMax);
@@ -458,7 +471,7 @@ export class Corridor {
       // the photo ceiling (or open sky) hangs right above the back wall, at its depth and scroll
       const h = PHOTO_TOP_H * WALL_S;
       const extra = c.photo?.sky ? SKY_FEATHER * WALL_S : 0;
-      eachTile(xMin, xMax, tw, scroll, WALL_S, (_m, sx) => ctx.drawImage(c.tile(L.Top, 0), sx, WALL_TOP_Y - h, tw * WALL_S + 0.5, h + extra));
+      eachTile(xMin, xMax, tw, scroll, WALL_S, (_m, sx) => ctx.drawImage(c.tile(L.Top, 0), sx, WALL_TOP_Y - h, tw * WALL_S + TILE_OVERLAP, h + extra));
       return;
     }
     eachTile(xMin, xMax, tw, sc, 1, (m, sx) => {
@@ -474,9 +487,9 @@ export class Corridor {
     const strip = (y0: number, y1: number, s: number): void => {
       const sy = (y0 - FLOOR_TOP) * ky;
       const sh = Math.max(1, (y1 - y0) * ky);
-      // +0.6 logical px of overlap hides hairline gaps between strips
+      // strips overlap vertically by 0.6 and tiles horizontally by TILE_OVERLAP (no hairline gaps)
       eachTile(xMin, xMax, fw, scroll, s, (_m, sx) => {
-        ctx.drawImage(img, 0, sy, img.width, sh, sx, y0, fw * s + 0.6, y1 - y0 + 0.6);
+        ctx.drawImage(img, 0, sy, img.width, sh, sx, y0, fw * s + TILE_OVERLAP, y1 - y0 + 0.6);
       });
     };
     const step = (FLOOR_FRONT - FLOOR_BACK) / FLOOR_STRIPS;

@@ -7,7 +7,7 @@ import {
   type Variant,
 } from '../types';
 import { AgentPainter } from './agent';
-import { drawBoss, drawBossFront } from './boss';
+import { bossBytes, drawBoss, drawBossFront } from './boss';
 import { ArtStore } from './art';
 import { Corridor } from './corridor';
 import { alarmWash, Darkness, fog, sirens, steamPuffs } from './corridor-fx';
@@ -89,7 +89,7 @@ class CanvasRenderer implements Renderer {
       main: this.canvas.width * this.canvas.height * 4,
       corridor: this.corridor.bytes(),
       sprites: this.sprites.bytes(),
-      other: this.darkness.bytes() + this.overlays.bytes() + this.post.bytes(),
+      other: this.darkness.bytes() + this.overlays.bytes() + this.post.bytes() + bossBytes(),
       photos: this.art.bytes(),
     };
   }
