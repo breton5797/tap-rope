@@ -1,8 +1,9 @@
 // Full-width laser hazards spanning all three lanes (GDD-v6 §4): thin white-hot cores with red bloom.
 // Every laser stays red (also in overdrive); jump vs slide reads from silhouette, as in a hurdle vs a
 // limbo bar:
-//   JUMP  (floor)   — per lane a pair of squat floor posts with ONE tripwire stretched between them at
-//                     CLEAR_H; a status light per beam on each post. Nothing above the wire.
+//   JUMP  (floor)   — per lane a pair of floor posts (red cap light once armed) with ONE long tripwire
+//                     at CLEAR_H and a red floor bounce under it; posts appear just before arming and
+//                     vanish once the wire has passed. Nothing above the wire.
 //   JUMP  (beam N)  — N short beams stacked at clearly separated heights per lane, each with a bright
 //                     head and a short faint trail. Count the heads = taps needed.
 //   SLIDE (ceiling) — per lane a chunky ceiling housing firing two beams DOWN that stop at
@@ -17,7 +18,7 @@ import {
   ARM_TIME, BEAM_H, CEIL_H, CEIL_LASER_END, CHARGE_TIME, ENTER_TIME, FLOOR_LASER_H, HIGH_H, SPAN_D0, SPAN_D1,
   depthScale, fixedX, flyingX, projX, projY,
 } from './layout';
-import { blitScaled, type SpriteCache } from './sprites';
+import { blitScaled, type Sprite, type SpriteCache } from './sprites';
 import { clamp, type Ctx } from './util';
 import type { View } from './view';
 
@@ -27,8 +28,10 @@ const LANE_CENTRES: readonly number[] = [0, 1, 2];
 const STEEL_DARK = '#16191C';
 const STEEL = '#2E343A';
 const STEEL_LIT = '#5A636D';
-/** half the x-span of a lane's emitter pair (world px) */
+/** half the x-span of a lane's ceiling emitter pair (world px) */
 const POST_DX = 8;
+/** half the x-span of a floor tripwire (world px): a long, unmissable wire */
+const WIRE_DX = 17;
 /** trail behind a flying beam's head (px at depth 1) */
 const TRAIL = 54;
 /** solid lit length of a flying beam behind its head (px at depth 1) */
@@ -36,6 +39,8 @@ const BODY = 18;
 const TRAIL_KEYS = ['lzTrailR', 'lzTrailL'];
 /** beam alpha in the lanes away from the agent (fixed / flying) */
 const DIM_FIXED = 0.4;
+/** floor tripwires (beam AND posts) in the lanes away from the agent */
+const DIM_WIRE = 0.3;
 const DIM_FLYING = 0.2;
 
 function seedOf(id: string): number {
@@ -45,7 +50,7 @@ function seedOf(id: string): number {
 }
 
 /** A laser segment: faint haze scatter, red bloom, coloured body, crisp white-hot core (additive). */
-export function beam(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, color: string, a: number): void {
+export function beam(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, color: string, a: number, w = 1): void {
   const op = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
   ctx.lineCap = 'round';
@@ -54,17 +59,17 @@ export function beam(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, c
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1, y1);
   ctx.globalAlpha = a * 0.07;
-  ctx.lineWidth = 14;
+  ctx.lineWidth = 14 * w;
   ctx.stroke();
   ctx.globalAlpha = a * 0.22;
-  ctx.lineWidth = 6;
+  ctx.lineWidth = 6 * w;
   ctx.stroke();
   ctx.globalAlpha = a * 0.95;
-  ctx.lineWidth = 2.6;
+  ctx.lineWidth = 2.6 * w;
   ctx.stroke();
   ctx.strokeStyle = '#FFFFFF';
   ctx.globalAlpha = a;
-  ctx.lineWidth = 1.1;
+  ctx.lineWidth = 1.1 * w;
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = op;
@@ -140,39 +145,55 @@ function rail(ctx: Ctx, x: number, s: Readonly<Seg>, h: number): void {
   ctx.stroke();
 }
 
-/** A row of `n` status lights stacked upward from (x, y). */
-function lights(ctx: Ctx, x: number, y: number, s: number, n: number, glow: number): void {
+/** A row of `n` status lights stacked upward from (x, y), at opacity pa. */
+function lights(ctx: Ctx, x: number, y: number, s: number, n: number, glow: number, pa: number): void {
   for (let i = 0; i < n; i++) {
+    ctx.globalAlpha = pa;
     ctx.fillStyle = '#0A0B0D';
     ctx.fillRect(x - 1.5 * s, y - (i * 3.2 + 2.6) * s, 3 * s, 2.6 * s);
     ctx.fillStyle = LASER_RED;
-    ctx.globalAlpha = 0.35 + 0.65 * glow;
+    ctx.globalAlpha = pa * (0.35 + 0.65 * glow);
     ctx.fillRect(x - 0.9 * s, y - (i * 3.2 + 2) * s, 1.8 * s, 1.4 * s);
-    ctx.globalAlpha = 1;
   }
+  ctx.globalAlpha = 1;
 }
 
-/** Squat floor emitter post with its lens at height h, `n` status lights on its face. */
-function floorPost(ctx: Ctx, x: number, d: number, h: number, n: number, glow: number): void {
+/**
+ * Floor emitter post with its lens at height h and `n` status lights, at opacity pa. Armed (glow 1)
+ * it carries a bright red cap light so a live tripwire never reads as a harmless bollard.
+ */
+function floorPost(ctx: Ctx, x: number, d: number, h: number, n: number, glow: number, pa: number, flare: Sprite): void {
+  if (pa <= 0.01) return;
   const s = depthScale(d);
   const fy = projY(d, 0);
-  const top = projY(d, h + 5);
+  const top = projY(d, h + 6);
+  ctx.globalAlpha = pa;
   ctx.fillStyle = STEEL_DARK;
-  ctx.fillRect(x - 3.6 * s, fy - 1.6 * s, 7.2 * s, 2.2 * s); // foot plate
+  ctx.fillRect(x - 4.6 * s, fy - 2 * s, 9.2 * s, 2.6 * s); // foot plate
   ctx.fillStyle = STEEL;
-  ctx.fillRect(x - 2.4 * s, top, 4.8 * s, fy - top);
+  ctx.fillRect(x - 3.2 * s, top, 6.4 * s, fy - top);
   ctx.fillStyle = STEEL_LIT;
-  ctx.fillRect(x - 2.4 * s, top, 1 * s, fy - top);
-  ctx.fillRect(x - 3 * s, top - 1.4 * s, 6 * s, 1.6 * s); // cap
+  ctx.fillRect(x - 3.2 * s, top, 1.2 * s, fy - top);
+  ctx.fillStyle = '#9C7418'; // hazard band
+  ctx.fillRect(x - 3.2 * s, fy - 7 * s, 6.4 * s, 1.6 * s);
+  ctx.fillStyle = STEEL_DARK;
+  ctx.fillRect(x - 3.8 * s, top - 2.2 * s, 7.6 * s, 2.4 * s); // cap
   // lens collar at the beam height
   const ly = projY(d, h);
   ctx.fillStyle = '#0B0C0E';
-  ctx.fillRect(x - 2.8 * s, ly - 1.8 * s, 5.6 * s, 3.6 * s);
+  ctx.fillRect(x - 3.4 * s, ly - 2 * s, 6.8 * s, 4 * s);
   ctx.fillStyle = LASER_RED;
-  ctx.globalAlpha = 0.3 + 0.7 * glow;
-  ctx.fillRect(x - 1.2 * s, ly - 1 * s, 2.4 * s, 2 * s);
+  ctx.globalAlpha = pa * (0.3 + 0.7 * glow);
+  ctx.fillRect(x - 1.6 * s, ly - 1.2 * s, 3.2 * s, 2.4 * s);
+  // cap light
+  ctx.fillRect(x - 2 * s, top - 3 * s, 4 * s, 1.4 * s);
+  // the cap light burns from the moment the post appears (never a bare bollard), brightest when armed
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = pa * Math.max(glow, 0.6);
+  blitScaled(ctx, flare, x, top - 2.4 * s, s * 0.9, s * 0.9);
+  ctx.globalCompositeOperation = 'source-over';
   ctx.globalAlpha = 1;
-  lights(ctx, x, fy - 3 * s, s, n, glow);
+  lights(ctx, x, fy - 9 * s, s, n, glow, pa);
 }
 
 /** Chunky ceiling housing over lane d with two downward lenses at x0 / x1. */
@@ -235,16 +256,34 @@ function slideStencil(ctx: Ctx, x: number, d: number, a: number): void {
   ctx.globalAlpha = 1;
 }
 
-/** Floor tripwire (jump): posts + one wire sweeping on from the far post. */
-function floorLane(ctx: Ctx, x: number, d: number, on: boolean, grow: number, glow: number, a: number): void {
-  const xa = projX(x - POST_DX, d);
-  const xb = projX(x + POST_DX, d);
-  floorPost(ctx, xb, d, FLOOR_LASER_H, 1, glow);
-  if (on) {
+/**
+ * Floor tripwire (jump): two posts and one long wire sweeping on from the far post, with a faint red
+ * bounce on the floor under it. `em` = lane emphasis (posts fade with their wire), `pa` = presence
+ * (posts appear before arming and vanish once the wire has passed).
+ */
+function floorLane(
+  ctx: Ctx, x: number, d: number, on: boolean, grow: number, glow: number, a: number, em: number, pa: number, flare: Sprite,
+): void {
+  const s = depthScale(d);
+  const xa = projX(x - WIRE_DX, d);
+  const xb = projX(x + WIRE_DX, d);
+  const post = pa * em;
+  floorPost(ctx, xb, d, FLOOR_LASER_H, 1, glow, post, flare);
+  if (on && a > 0.01) {
     const y = projY(d, FLOOR_LASER_H);
-    beam(ctx, xb, y, xb + (xa - xb) * grow, y, LASER_RED, a);
+    const xe = xb + (xa - xb) * grow;
+    const fy = projY(d, 0);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = LASER_RED;
+    ctx.globalAlpha = 0.3 * a;
+    ctx.beginPath();
+    ctx.ellipse((xb + xe) / 2, fy, Math.abs(xb - xe) / 2 + 4 * s, 3 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    beam(ctx, xb, y, xe, y, LASER_RED, a, s * (1 + em));
   }
-  floorPost(ctx, xa, d, FLOOR_LASER_H, 1, glow);
+  floorPost(ctx, xa, d, FLOOR_LASER_H, 1, glow, post, flare);
 }
 
 /**
@@ -290,7 +329,7 @@ function ceilingLane(
   ctx.globalAlpha = 1;
 }
 
-function fence(ctx: Ctx, o: VisibleObstacle, s: Readonly<Seg>, t: number, reduced: boolean, focus: number): void {
+function fence(ctx: Ctx, o: VisibleObstacle, s: Readonly<Seg>, t: number, sprites: SpriteCache, reduced: boolean, focus: number): void {
   const x = fixedX(o.timeUntil);
   const floor = o.kind === 'floor';
   const tu = o.timeUntil;
@@ -302,13 +341,17 @@ function fence(ctx: Ctx, o: VisibleObstacle, s: Readonly<Seg>, t: number, reduce
   const a = (reduced ? 1 : flicker(t, seedOf(o.id))) * (tu < 0 ? clamp(1 + tu / 0.3, 0, 1) : 1);
   // the floor stencil fades before the agent reaches it (it would paint over a sliding agent)
   const stencil = clamp((CHARGE_TIME + 0.4 - tu) / 0.4, 0, 1) * clamp((tu - 0.06) / 0.2, 0, 1);
+  // floor posts: fade in ahead of arming, gone once the wire has passed
+  const presence = clamp((CHARGE_TIME + 0.9 - tu) / 0.3, 0, 1) * clamp(1 + tu / 0.25, 0, 1);
+  const flare = sprites.get('lzFlare', 14, 14, 7, 7, flareSprite);
   for (const d of LANE_CENTRES) {
     if (d < s.a || d >= s.b) continue;
-    const la = a * emphasis(d, focus, DIM_FIXED);
     if (floor) {
-      floorLane(ctx, x, d, on, grow, glow, la);
+      const em = emphasis(d, focus, DIM_WIRE);
+      floorLane(ctx, x, d, on, grow, glow, a * em * Math.min(1, presence * 1.25), em, presence, flare);
       continue;
     }
+    const la = a * emphasis(d, focus, DIM_FIXED);
     // a lane nearer than the agent: its curtain crosses the agent's gap on screen near arrival
     const near = focus >= 0 && d > focus + 0.01;
     const cut = near ? projY(focus, CEIL_LASER_END) - 2 : Infinity;
@@ -380,7 +423,7 @@ export function drawLaserSeg(
   if (!s) return;
   for (const o of obs) {
     if (o.lanes) continue;
-    if (o.kind === 'floor' || o.kind === 'ceiling') fence(ctx, o, s, t, reduced, focus);
+    if (o.kind === 'floor' || o.kind === 'ceiling') fence(ctx, o, s, t, sprites, reduced, focus);
     else if (o.kind === 'beam' || o.kind === 'high') flying(ctx, v, o, s, t, sprites, reduced, focus);
   }
 }
@@ -415,4 +458,34 @@ export function drawLaserWarnings(
     }
   }
   ctx.globalAlpha = 1;
+}
+
+/** shared result of laserContact() */
+const CONTACT = { x: 0, y: 0 };
+
+/**
+ * Where the full-width laser at the agent (|timeUntil| ≤ 0.2s) meets the agent's lane, for the hit
+ * spark: the wire / bar / beam nearest the agent's body. Returns a shared object, or null when no
+ * laser is at the agent (lane hazards keep the body-centred burst).
+ */
+export function laserContact(obs: readonly VisibleObstacle[], lane: number, height: number): Readonly<{ x: number; y: number }> | null {
+  let best: VisibleObstacle | null = null;
+  for (const o of obs) {
+    if (o.lanes || (o.kind !== 'floor' && o.kind !== 'ceiling' && o.kind !== 'beam' && o.kind !== 'high')) continue;
+    if (Math.abs(o.timeUntil) > 0.2) continue;
+    if (!best || Math.abs(o.timeUntil) < Math.abs(best.timeUntil)) best = o;
+  }
+  if (!best) return null;
+  let h = FLOOR_LASER_H;
+  if (best.kind === 'ceiling') h = CEIL_LASER_END;
+  else if (best.kind === 'high') h = HIGH_H;
+  else if (best.kind === 'beam') {
+    const hs = heightsOf(best);
+    const body = height + 20;
+    h = hs[0];
+    for (let i = 1; i < hs.length; i++) if (Math.abs(hs[i] - body) < Math.abs(h - body)) h = hs[i];
+  }
+  CONTACT.x = PLAYER_X + 4;
+  CONTACT.y = projY(lane, h);
+  return CONTACT;
 }
