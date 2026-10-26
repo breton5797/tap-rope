@@ -3,6 +3,7 @@ import type { HudState, ResultInfo, SaveData, Settings, Ui, UiCallbacks } from '
 import { h, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
 import { renderBriefing } from './briefing';
+import { buildControls } from './controls';
 import { buildGuide } from './guide';
 import { buildPause, renderCountdown, renderTutorial, showToast } from './overlays';
 import { buildResult } from './result';
@@ -99,6 +100,13 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       mount(buildResult(ctx, r), 'result');
     },
     showTutorial: (step) => renderTutorial(layers.tutorial, ctx, step),
+    showControls(onDone) {
+      const card = buildControls(ctx, () => {
+        if (layers.screen.firstElementChild === card) mount(null, layers.hud.hidden ? 'none' : 'hud');
+        onDone();
+      });
+      mount(card, 'controls');
+    },
     showBriefing: (chapter) => renderBriefing(layers.briefing, chapter, ctx.reducedMotion()),
     showCountdown: (n) => renderCountdown(layers.fx, n),
     hideAll() {

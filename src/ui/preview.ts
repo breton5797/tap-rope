@@ -49,6 +49,7 @@ const hud: HudState = {
   hearts: 2, maxHearts: 3, score: 12340, combo: 14, progress: 0.46, feverGauge: 0.72,
   fever: screen === 'fever', shield: true, slowMo: screen === 'fever', title: '3-3 · 하얀 복도', coins: 12,
   sliding: screen === 'slide',
+  section: Number(params.get('section') ?? 1), sections: Number(params.get('sections') ?? 3),
 };
 
 const result: ResultInfo = {
@@ -99,10 +100,11 @@ const show: Record<string, () => void> = {
     document.querySelector<HTMLButtonElement>('.btn--guide')?.click();
   },
   toast: () => (ui.showTitle(save), ui.toast('코인이 부족해요!')),
+  controls: () => (ui.showHud(), ui.updateHud({ ...hud, combo: 0, progress: 0 }), ui.showControls(() => ui.toast('controls done'))),
   audio: () => {
     const audio = createAudio();
     audio.unlock();
-    const names: SfxName[] = ['jump', 'boost', 'land', 'perfect', 'good', 'hit', 'coin', 'powerup', 'combo', 'fever', 'clear', 'fail', 'click', 'count', 'slide', 'warn', 'zap', 'rescue'];
+    const names: SfxName[] = ['jump', 'boost', 'land', 'perfect', 'good', 'hit', 'coin', 'powerup', 'combo', 'fever', 'clear', 'fail', 'click', 'count', 'slide', 'warn', 'zap', 'rescue', 'lane', 'alert', 'door'];
     names.forEach((n, i) => setTimeout(() => audio.sfx(n, 2), i * 120));
     ([0, 1, 2, 3] as const).forEach((w, i) => setTimeout(() => audio.startMusic(120, w, 0.3 + i), i * 500));
     setTimeout(() => audio.setFever(true), 900);
