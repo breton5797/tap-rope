@@ -262,7 +262,9 @@ export function startApp(): void {
       hasNext: cleared && next !== null,
     };
     ui.showTutorial(null);
-    const info = progress.afterRun(runLog.summary(session, stageId), runLog.record(session), base);
+    // bot runs (?autoplay=1, QA/demo) are never submitted to the leaderboard
+    const record = AUTOPLAY ? null : runLog.record(session);
+    const info = progress.afterRun(runLog.summary(session, stageId), record, base);
     const after = cutsceneAfter(stageId, cleared, save);
     const showResult = (): void => {
       screen = 'result';
