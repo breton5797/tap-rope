@@ -43,7 +43,7 @@ export function newPose(): Pose {
 /** Human joint ranges (radians). Every pose goes through clampPose before it is drawn, so blends
  * and layered reactions (landing + hit + lean) can never fold a limb the wrong way. */
 export const RANGE = {
-  spine: [-1.0, 1.15],
+  spine: [-1.15, 1.15],
   head: [-0.55, 0.6],
   /** hip flexion = thigh angle + spine lean (thigh relative to the torso) */
   hipFlex: [-0.45, 2.25],

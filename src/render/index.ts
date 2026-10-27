@@ -252,9 +252,10 @@ class CanvasRenderer implements Renderer {
       x, id: snap.skin, p, mood: snap.mood, t: snap.realTime, scroll: snap.scroll,
       running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE * depth, floorY, depth,
       lean: snap.reducedMotion ? 0 : laneLean(p), rim: rimColor(snap.variant),
+      fever: snap.fever, reduced: snap.reducedMotion,
     });
     if (snap.shield) {
-      this.overlays.shield(ctx, x, floorY - p.height * depth - (p.sliding ? 20 : 46) * depth, snap.realTime);
+      this.overlays.shield(ctx, x, floorY - p.height * depth - (p.sliding ? 22 : 54) * depth, snap.realTime); // v7.1: ×1.2 figure
     }
   }
 
