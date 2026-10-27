@@ -179,6 +179,10 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     thump(ctx, out, t + 0.45, 0.5, 0.24);
     noise(ctx, out, { start: t + 0.45, dur: 0.05, gain: 0.08, type: 'bandpass', freq: 1300, q: 4 });
   },
+  // v7.1 placeholders (GDD-v7.1 §5 replaces them with layered recipes)
+  shield: (ctx, out, t) => noise(ctx, out, { start: t, dur: 0.3, gain: 0.12, type: 'highpass', freq: 3000 }),
+  graze: (ctx, out, t) => noise(ctx, out, { start: t, dur: 0.12, gain: 0.06, type: 'bandpass', freq: 5200, q: 3 }),
+  bump: (ctx, out, t) => thump(ctx, out, t, 0.2, 0.12),
 };
 
 export function playSfx(ctx: BaseAudioContext, out: AudioNode, name: SfxName, level: number): void {

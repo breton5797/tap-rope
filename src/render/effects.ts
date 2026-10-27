@@ -1,6 +1,7 @@
 // Pooled particles (dust, sparks), impact rings, text popups, screen shake, flash and the hit
 // timer the post pass uses for its red hit edge (GDD-v6 §4). No stars or confetti.
-import { GROUND_Y, PLAYER_X, type BurstKind, type EffectsApi, type PopupStyle } from '../types';
+import { GROUND_Y, PLAYER_X, type BurstKind, type EffectsApi, type ImpactKind, type ImpactOpts, type PopupStyle } from '../types';
+import { pushCue, tickCues } from './cues';
 import { drawPopups, PopupPool } from './popups';
 import { ZapPool } from './zaps';
 import { clamp, TAU, type Ctx } from './util';
@@ -97,8 +98,14 @@ export class Effects implements EffectsApi {
     this.flashAlpha = Math.max(this.flashAlpha, 0.3);
   }
 
+  /** v7.1: records the cue for the rig; the particle/post look is layered on in GDD-v7.1 §3 */
+  impact(kind: ImpactKind, opts: ImpactOpts = {}): void {
+    pushCue(kind, opts);
+  }
+
   update(dt: number): void {
     const d = clamp(dt, 0, 0.1);
+    tickCues(d);
     this.clock += d;
     this.hitAge += d;
     this.shakeAmp *= Math.exp(-d * 9);

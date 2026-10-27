@@ -20,7 +20,7 @@ const beat = (time: number, obstacles: Obstacle[]): Beat => {
 };
 
 function mocks() {
-  const fx: EffectsApi = { burst: vi.fn(), popup: vi.fn(), shake: vi.fn(), flash: vi.fn(), update: vi.fn() };
+  const fx: EffectsApi = { burst: vi.fn(), popup: vi.fn(), shake: vi.fn(), flash: vi.fn(), impact: vi.fn(), update: vi.fn() };
   const audio: AudioApi = {
     unlock: vi.fn(), setEnabled: vi.fn(), startMusic: vi.fn(), stopMusic: vi.fn(), setFever: vi.fn(), sfx: vi.fn(),
   };
@@ -129,7 +129,7 @@ describe('feedback', () => {
       { type: 'lane', action: 'lane', lane: 0 }, { type: 'lane', action: 'none', lane: 0 },
       { type: 'alert', lanes: [1] }, { type: 'door', transition: 'turn' }, judged('miss', 'lane'),
     ]);
-    expect(d.audio.sfx).toHaveBeenCalledWith('lane');
+    expect(d.audio.sfx).toHaveBeenCalledWith('lane', 1, -0.6); // v7.1: panned toward lane 0
     expect(d.audio.sfx).toHaveBeenCalledWith('alert');
     expect(d.audio.sfx).toHaveBeenCalledWith('door');
     expect(vi.mocked(d.audio.sfx).mock.calls.filter((c) => c[0] === 'lane')).toHaveLength(1);

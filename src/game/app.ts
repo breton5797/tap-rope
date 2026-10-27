@@ -22,9 +22,10 @@ import { sessionBoss, toHud, toSnapshot } from './snapshot';
 import { createRunLog, type RunLog } from './runlog';
 import { bossCues } from './boss-cues';
 import { createProgress } from './progress';
-import { playFeedback } from './feedback';
+import { playFeedback, type FeedbackDeps } from './feedback';
 import { HINT_DURATION, introducedMoves, upcomingHint } from './hints';
 import { bindInput } from './input';
+import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
 type Screen = 'menu' | 'controls' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
@@ -90,7 +91,16 @@ export function startApp(): void {
   const renderer = createRenderer(canvas);
   const audio = createAudio();
   const haptics = createHaptics();
-  const deps = { fx: renderer.fx, audio, haptics };
+  // v7.1 hit stop / slow motion: scales only the real dt fed to step() (session time stays exact for replays)
+  let warp: Warp = WARP0;
+  const deps: FeedbackDeps = {
+    fx: renderer.fx, audio, haptics,
+    time: {
+      hitStop: (seconds) => { warp = hitStop(warp, seconds, reducedMotion()); },
+      slowMo: (seconds, factor) => { warp = slowMo(warp, seconds, factor, reducedMotion()); },
+    },
+    view: () => session,
+  };
 
   let save: SaveData = loadSave();
   let screen: Screen = 'menu';
@@ -456,11 +466,17 @@ export function startApp(): void {
   const frame = (now: number): void => {
     const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
     last = now;
+    let fxDt = dt;
     if (screen === 'menu') tickMenu(dt);
     else if (screen === 'countdown') tickCountdown(dt);
-    else if (screen === 'play') tickPlay(dt);
-    else if (screen === 'result') tickResult(dt);
-    renderer.fx.update(dt);
+    else if (screen === 'play') {
+      const w = stepWarp(warp, dt);
+      warp = w.warp;
+      tickPlay(w.dt);
+      fxDt = Math.max(w.dt, dt * 0.35); // particles crawl (not freeze) through a hit stop
+    } else if (screen === 'result') tickResult(dt);
+    if (screen !== 'play') warp = WARP0;
+    renderer.fx.update(fxDt);
     renderer.render(toSnapshot(session, save.skin, {
       realTime: now / 1000, reducedMotion: reducedMotion(), running: screen !== 'paused',
     }));
