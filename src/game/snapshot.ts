@@ -1,14 +1,21 @@
 /** Builds the renderer/HUD view-models from a Session. */
-import type { HudState, RenderSnapshot, SkinId } from '../types';
+import type { BossView, HudState, RenderSnapshot, SkinId } from '../types';
 import { SCROLL_SPEED } from '../types';
 import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
 import { CHAPTERS } from '../core/content';
+import { bossFor, bossView } from '../core/boss';
 import { MAX_HEARTS, sessionProgress, type Session } from './session';
 
 /** Part 2 (escape) zones: the rescued prisoner runs behind the agent. */
 export function hasEscort(s: Session): boolean {
   if (s.mode === 'endless') return false;
   return (CHAPTERS[s.stage.chapter]?.part ?? 1) === 2;
+}
+
+/** v7: the zone boss as seen at the session's current time (null off boss stages). */
+export function sessionBoss(s: Session): BossView | null {
+  if (s.mode !== 'stage') return null;
+  return bossView(s.stage, s.beats, s.doors, s.time, s.hazardDone, s.hazardTotal);
 }
 
 export interface SnapshotOpts {
@@ -39,7 +46,15 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     scroll: s.time * SCROLL_SPEED,
     running: o.running,
     doors: visibleDoors(s.doors, s.time),
+    boss: sessionBoss(s),
   };
+}
+
+function bossHud(s: Session): HudState['boss'] {
+  const meta = s.mode === 'stage' ? bossFor(s.stage) : null;
+  if (!meta) return null;
+  const hp = s.hazardTotal > 0 ? Math.max(0, 1 - s.hazardDone / s.hazardTotal) : 1;
+  return { name: meta.name, codename: meta.codename, hp, phase: s.section };
 }
 
 /** "7-3 · 이름" for campaign stages, mode names otherwise. */
@@ -65,5 +80,6 @@ export function toHud(s: Session): HudState {
     sliding: s.player.sliding,
     section: s.section,
     sections: s.mode === 'endless' ? 1 : s.stage.sections,
+    boss: bossHud(s),
   };
 }

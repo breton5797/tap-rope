@@ -23,7 +23,13 @@ export const SLOW_SCALE = 0.7;
 export const LEAD_IN = 2.0;
 const END_GRACE = 0.7;
 const ENDLESS_LOOKAHEAD = 8;
-const MAX_STEP = 1 / 30;
+/**
+ * v7 deterministic stepping (GDD-v7 §3.2): session time only ever stops on the TICK grid or on a beat
+ * time, both assigned (never accumulated), so the same inputs at the same session times give the same
+ * run regardless of frame timing. Inputs are applied between steps, i.e. always at such a boundary.
+ */
+export const TICK = 1 / 240;
+const nextGrid = (t: number): number => (Math.floor(t / TICK + 1e-7) + 1) * TICK;
 /** the security door slides open this long before the agent reaches it (GDD v5 §6) */
 export const DOOR_OPEN_LEAD = 1.0;
 /** endless chunks are joined by a door break at least this long */
@@ -72,6 +78,8 @@ export interface Session {
   readonly doorCue: number;
   /** v5: next beat whose "!" alert cue has not been considered yet */
   readonly alertCue: number;
+  /** v7: stage seconds owed to the next step (< TICK) — time is only advanced to whole boundaries */
+  readonly lag: number;
 }
 
 export type GameEvent =
@@ -122,7 +130,7 @@ export function createSession(mode: GameMode, stage: StageDef | null, opts: { da
     player: initialPlayer(), score: initialScore(), hearts: MAX_HEARTS, hitsTaken: 0,
     shield: false, slowTime: 0, invulnTime: 0, mood: 'idle', moodTime: 0, status: 'playing',
     hazardTotal: mode === 'endless' ? Infinity : beats.filter(isHazardBeat).length,
-    hazardDone: 0, endlessChunk: 0, seed, doors, section: 0, doorCue: 0, alertCue: 0,
+    hazardDone: 0, endlessChunk: 0, seed, doors, section: 0, doorCue: 0, alertCue: 0, lag: 0,
   };
 }
 
@@ -305,33 +313,49 @@ function checkClear(s: Session): Applied {
   return { s: { ...s, status: 'cleared', mood: 'cheer', moodTime: 99 }, events: [{ type: 'end', cleared: true }] };
 }
 
-/** Advance by real-time dt (slow-mo is applied here). Judges beats at their exact times. */
-export function step(s0: Session, realDt: number): StepOutput {
-  if (s0.status !== 'playing') return { session: s0, events: [] };
-  const scale = s0.slowTime > 0 ? SLOW_SCALE : 1;
-  const target = s0.time + Math.min(realDt, 0.1) * scale;
+/**
+ * Advance to the last boundary (TICK grid point or beat time) at or before `target` stage time.
+ * Judges beats at their exact times. Pure function of (session, target) at boundary granularity.
+ */
+export function advanceTo(s0: Session, target: number): StepOutput {
   const events: GameEvent[] = [];
-  let s = extendEndless(s0);
-  while (s.status === 'playing' && s.time < target) {
+  let s = s0;
+  while (s.status === 'playing') {
+    s = extendEndless(s);
     const beat = s.beats[s.cursor];
-    const until = beat ? Math.min(target, beat.time) : target;
-    const dt = Math.min(MAX_STEP, Math.max(0, until - s.time));
-    const adv = advance(s, dt > 0 ? dt : 0);
-    s = dt > 0 ? applyTempo(adv.s) : s;
-    events.push(...(dt > 0 ? adv.events : []));
-    const cue = cues(s);
-    s = cue.s;
-    events.push(...cue.events);
-    if (beat && s.time >= beat.time - 1e-9) {
+    const grid = nextGrid(s.time);
+    const boundary = beat && beat.time > s.time && beat.time < grid ? beat.time : grid;
+    const due = beat !== undefined && beat.time <= s.time + 1e-12;
+    if (!due && boundary > target + 1e-12) break;
+    if (!due) {
+      const adv = advance(s, boundary - s.time);
+      s = applyTempo({ ...adv.s, time: boundary });
+      events.push(...adv.events);
+      const cue = cues(s);
+      s = cue.s;
+      events.push(...cue.events);
+    }
+    const next = s.beats[s.cursor];
+    if (next && next.time <= s.time + 1e-12) {
       const j = judgeNext(s);
       s = j.s;
       events.push(...j.events);
-    } else if (dt <= 0) {
-      break;
     }
+    const c = checkClear(s);
+    s = c.s;
+    events.push(...c.events);
   }
-  const c = checkClear(s);
-  return { session: c.s, events: [...events, ...c.events] };
+  return { session: s, events };
+}
+
+/** Advance by real-time dt (slow-mo is applied here); the remainder below one boundary carries over. */
+export function step(s0: Session, realDt: number): StepOutput {
+  if (s0.status !== 'playing') return { session: s0, events: [] };
+  const scale = s0.slowTime > 0 ? SLOW_SCALE : 1;
+  const target = s0.time + s0.lag + Math.min(realDt, 0.1) * scale;
+  const out = advanceTo(s0, target);
+  const lag = out.session.status === 'playing' ? Math.max(0, target - out.session.time) : 0;
+  return { session: { ...out.session, lag }, events: out.events };
 }
 
 export function sessionStars(s: Session): number {

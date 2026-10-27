@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "ios": "npm run build && cap sync ios"
+    "ios": "npm run build && cap sync ios",
+    "build:sim": "vite build --config vite.sim.config.ts"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",

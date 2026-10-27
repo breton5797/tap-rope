@@ -289,7 +289,7 @@ describe('session rules', () => {
   it('slow-mo pickup scales stage time', () => {
     const base = createSession('stage', STAGES[0]);
     const s = step({ ...base, slowTime: 2 }, 0.1).session;
-    expect(s.time).toBeCloseTo(0.07, 5);
+    expect(s.time + s.lag).toBeCloseTo(0.07, 5); // v7: time stops on a boundary, the rest carries over
   });
 
   it('lane(): moves one lane per swipe, bumps at the edges, works in the air', () => {

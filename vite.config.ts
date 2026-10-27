@@ -7,7 +7,9 @@ const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.s
 /** v6 photographic art (public/art) and self-hosted fonts (public/fonts) are precached too (the game must work offline) */
 const listPublic = (dir: string, ext: string): string[] => {
   try {
-    return readdirSync(new URL(`./public/${dir}`, import.meta.url)).filter((f) => f.endsWith(ext)).sort().map((f) => `./${dir}/${f}`);
+    // recursive: v7 cutscene stills live in public/art/cut
+    const files = readdirSync(new URL(`./public/${dir}`, import.meta.url), { recursive: true }) as string[];
+    return files.filter((f) => f.endsWith(ext)).map((f) => `./${dir}/${f.split('\\').join('/')}`).sort();
   } catch {
     return [];
   }

@@ -1,5 +1,5 @@
 // Pause menu, countdown, tutorial hints and toasts.
-import type { MoveId } from '../types';
+import type { AchievementMeta, MoveId } from '../types';
 import { button, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
 import { moveArt } from './move-art';
@@ -74,6 +74,32 @@ export function renderTutorial(layer: HTMLElement, ctx: Ctx, move: MoveId | null
       skip,
     ]),
   );
+}
+
+// ---------- achievement banner (v7) ----------
+
+export const ACHIEVEMENT_MS = 3000;
+const MAX_BANNERS = 3;
+
+/** Non-blocking "ACHIEVEMENT UNLOCKED" banner at the top; several stack, each leaves after 3s. */
+export function showAchievementToast(layer: HTMLElement, a: AchievementMeta): void {
+  let stack = layer.querySelector<HTMLElement>('.ach-stack');
+  if (!stack) {
+    stack = h('div', { cls: 'ach-stack', attrs: { 'aria-live': 'polite' } });
+    layer.appendChild(stack);
+  }
+  const el = h('div', { cls: 'ach-toast', attrs: { role: 'status' } }, [
+    h('span', { cls: 'ach-toast__icon' }, [icons.star()]),
+    h('div', { cls: 'ach-toast__body' }, [
+      h('div', { cls: 'ach-toast__kicker mono', text: 'ACHIEVEMENT UNLOCKED' }),
+      h('div', { cls: 'ach-toast__name', text: a.name }),
+      h('div', { cls: 'ach-toast__desc', text: a.desc }),
+    ]),
+  ]);
+  stack.appendChild(el);
+  while (stack.children.length > MAX_BANNERS) stack.firstElementChild?.remove();
+  window.setTimeout(() => el.classList.add('is-leaving'), ACHIEVEMENT_MS);
+  window.setTimeout(() => el.remove(), ACHIEVEMENT_MS + 350);
 }
 
 // ---------- toast ----------

@@ -248,6 +248,140 @@ export interface SaveData {
   readonly briefed: readonly number[];
   /** v5: the two-thumb controls card was shown (old saves load as false) */
   readonly controlsSeen: boolean;
+  /** v7: cutscenes already played (never auto-play twice; replayable from the archive) */
+  readonly seenCutscenes: readonly CutsceneId[];
+  /** v7: unlocked achievements → unix ms of unlock */
+  readonly achievements: Readonly<Partial<Record<AchievementId, number>>>;
+  /** v7: consecutive daily-operation clears (date of the last one) for streak achievements */
+  readonly dailyStreak: { readonly last: string | null; readonly count: number };
+}
+
+// ---------- v7: bosses (GDD-v7 §1) ----------
+
+/** One boss per zone, fought on the zone's 10th stage (3 sections = 3 phases). */
+export type BossId =
+  | 'warden' | 'sewer-eye' | 'lab-ai' | 'core' | 'jailer'
+  | 'apc' | 'chimera' | 'crane' | 'sniper' | 'gunship';
+
+export interface BossMeta {
+  readonly id: BossId;
+  readonly chapter: number; // 0..9
+  readonly name: string; // Korean display name, e.g. "정문 경비대장"
+  readonly codename: string; // e.g. "SENTINEL-01"
+}
+
+/** How a boss delivers a hazard beat (presentation only — the beat itself is the v5/v6 hazard). */
+export type BossAttackKind =
+  | 'beam' // fires flying beams (beam/high from front/back)
+  | 'floor' // arms floor tripwires / pulse
+  | 'ceiling' // triggers ceiling lasers
+  | 'drone' // launches a drone / gate
+  | 'lane'; // guard / drop / chaser lane attack
+
+export type BossState = 'intro' | 'fight' | 'stagger' | 'defeated';
+
+export interface BossView {
+  readonly id: BossId;
+  readonly phase: 0 | 1 | 2; // = section
+  readonly hp: number; // 1..0 (hazards remaining / total)
+  readonly state: BossState;
+  /** seconds since the state began (intro ~2s before the first beat, stagger after a phase door, defeated at the end) */
+  readonly stateAge: number;
+  /** the next hazard beat as a boss attack (telegraph from ~1.6s before), null when none is close */
+  readonly attack: { readonly kind: BossAttackKind; readonly timeUntil: number; readonly lanes: readonly LaneId[] | null } | null;
+}
+
+// ---------- v7: cutscenes (GDD-v7 §2) ----------
+
+export type CutsceneId =
+  | 'op-start' | 'rescue' | 'escape-end'
+  | 'boss-1' | 'boss-2' | 'boss-3' | 'boss-4' | 'boss-5'
+  | 'boss-6' | 'boss-7' | 'boss-8' | 'boss-9' | 'boss-10';
+
+export interface CutsceneShot {
+  readonly image: string; // './art/cut/<file>.webp'
+  readonly caption: string; // one or two short Korean lines, operations voice
+  readonly speaker?: string; // e.g. "본부", "포로", "요원 K"
+  readonly seconds: number; // 2..4
+  /** Ken Burns: start/end zoom and focus (0..1 of the image) */
+  readonly from: { readonly zoom: number; readonly x: number; readonly y: number };
+  readonly to: { readonly zoom: number; readonly x: number; readonly y: number };
+}
+
+export interface Cutscene {
+  readonly id: CutsceneId;
+  readonly title: string; // archive title
+  readonly shots: readonly CutsceneShot[];
+}
+
+// ---------- v7: achievements & online (GDD-v7 §3) ----------
+
+export type AchievementId =
+  | 'first-clear' | 'zone-1' | 'zone-3' | 'zone-5' | 'zone-7' | 'zone-10'
+  | 'rescue' | 'escape' | 'flawless-boss' | 'perfect-stage' | 'chain-50' | 'chain-100'
+  | 'overdrive-3' | 'all-stars-zone' | 'stars-150' | 'endless-60' | 'endless-180'
+  | 'daily-1' | 'daily-7' | 'all-operators' | 'archivist';
+
+export interface AchievementMeta {
+  readonly id: AchievementId;
+  readonly name: string; // Korean
+  readonly desc: string; // one short line
+}
+
+/** The summary of a finished run that achievements are evaluated against. */
+export interface RunSummary {
+  readonly mode: GameMode;
+  readonly stageId: string | null;
+  readonly cleared: boolean;
+  readonly hitsTaken: number;
+  readonly perfects: number;
+  readonly goods: number;
+  readonly misses: number;
+  readonly maxCombo: number;
+  readonly fevers: number; // overdrive activations this run
+  readonly seconds: number; // stage time survived
+  readonly score: number;
+  readonly date: string; // YYYY-MM-DD (local)
+}
+
+/** One recorded input, at a deterministic session time (GDD-v7 §3.2). */
+export type RunInput = readonly [time: number, code: 'T' | 'D' | 'S' | 'U' | 'N'];
+// T tap, D swipe-down (after its tap), S slide key, U lane −1, N lane +1
+
+/** Everything the server needs to re-simulate a run and compute its score. */
+export interface RunRecord {
+  readonly sim: string; // simulation version (SIM_VERSION); the server rejects other versions
+  readonly mode: 'endless' | 'daily';
+  readonly seed: number; // endless seed (daily: hashed date, informational)
+  readonly date: string; // daily: the operation date; endless: client date (weekly board)
+  readonly inputs: readonly RunInput[];
+  readonly endTime: number; // session time when the run ended
+  readonly clientScore: number;
+}
+
+export type Board = 'endless' | 'endless-week' | `daily:${string}`;
+
+export interface LeaderboardRow {
+  readonly rank: number;
+  readonly nickname: string;
+  readonly score: number;
+  readonly me: boolean;
+}
+
+export interface OnlineApi {
+  /** true once a device identity exists on the server */
+  readonly ready: boolean;
+  init(): Promise<void>;
+  nickname(): string | null;
+  /** 2–12 chars; resolves to an error message (Korean) or null on success */
+  setNickname(name: string): Promise<string | null>;
+  /**
+   * Resolves to the server-verified score and the run's rank on its board, or null when offline (the
+   * record is queued and retried). Rejects when the server refuses the run (bad replay, version, rate).
+   */
+  submitRun(record: RunRecord): Promise<{ readonly score: number; readonly rank: number } | null>;
+  leaderboard(board: Board): Promise<{ readonly top: readonly LeaderboardRow[]; readonly mine: LeaderboardRow | null }>;
+  syncAchievements(unlocked: Readonly<Partial<Record<AchievementId, number>>>): Promise<void>;
 }
 
 // ---------- Rendering contract ----------
@@ -311,6 +445,8 @@ export interface RenderSnapshot {
   readonly running: boolean; // false on menus: agent idles in place, corridor stops
   /** v5: doors near the agent (see DoorView); world/variant above already switch at the door time */
   readonly doors: readonly DoorView[];
+  /** v7: the zone boss on boss stages, else null */
+  readonly boss: BossView | null;
 }
 
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';
@@ -352,6 +488,8 @@ export interface HudState {
   readonly sliding: boolean; // highlight the slide hint while sliding
   readonly section: number; // v5: current section (0-based)
   readonly sections: number; // v5: section count (endless: 1, pips hidden)
+  /** v7: boss bar (name, hp 1..0, phase) on boss stages */
+  readonly boss: { readonly name: string; readonly codename: string; readonly hp: number; readonly phase: number } | null;
 }
 
 export type GameMode = 'stage' | 'endless' | 'daily';
@@ -371,6 +509,8 @@ export interface ResultInfo {
   readonly maxCombo: number;
   readonly coinsEarned: number;
   readonly hasNext: boolean;
+  /** v7: endless/daily leaderboard submission state (absent for campaign stages) */
+  readonly online?: { readonly state: 'pending' | 'ranked' | 'offline' | 'rejected'; readonly rank?: number };
 }
 
 export interface UiCallbacks {
@@ -387,6 +527,12 @@ export interface UiCallbacks {
   onSettingsChange(s: Settings): void;
   onTutorialDone(): void;
   onUiClick(): void; // play click sfx
+  // v7
+  onOpenArchive(): void;
+  onPlayCutscene(id: CutsceneId): void;
+  onOpenAchievements(): void;
+  onOpenLeaderboard(board: Board): void;
+  onOpenNickname(): void;
 }
 
 export interface Ui {
@@ -409,6 +555,15 @@ export interface Ui {
   toast(msg: string): void;
   /** v6: boot loading overlay, progress 0..1; null = hide */
   showLoading(progress: number | null): void;
+  /** v7: full-screen cutscene player (skippable); onDone after the last shot or a skip */
+  showCutscene(c: Cutscene, onDone: () => void): void;
+  /** v7: archive (replay seen cutscenes), achievements, leaderboards, nickname */
+  showArchive(save: SaveData): void;
+  showAchievements(save: SaveData): void;
+  showLeaderboard(board: Board, data: { readonly top: readonly LeaderboardRow[]; readonly mine: LeaderboardRow | null } | 'loading' | 'offline'): void;
+  showNickname(current: string | null, onSubmit: (name: string) => Promise<string | null>): void;
+  /** v7: achievement unlocked banner (non-blocking) */
+  toastAchievement(a: AchievementMeta): void;
 }
 
 // ---------- Audio contract ----------
@@ -418,7 +573,9 @@ export type SfxName =
   | 'powerup' | 'combo' | 'fever' | 'clear' | 'fail' | 'click' | 'count'
   | 'slide' | 'warn' | 'zap' | 'rescue'
   // v5: lane change whoosh, "!" sudden-attack alert, security door opening
-  | 'lane' | 'alert' | 'door';
+  | 'lane' | 'alert' | 'door'
+  // v7: boss roar/arrival, boss charge-up telegraph, boss phase break, boss destroyed, achievement chime
+  | 'boss-intro' | 'boss-charge' | 'boss-stagger' | 'boss-down' | 'achieve';
 
 export interface AudioApi {
   unlock(): void; // call inside a user gesture

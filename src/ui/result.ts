@@ -6,6 +6,25 @@ import { icons } from './icons';
 
 const COUNT_MS = 900;
 
+/** v7 (endless / daily): leaderboard submission state (ResultInfo.online). */
+export type OnlineStatus = NonNullable<ResultInfo['online']>;
+
+const ONLINE_TEXT: Readonly<Record<OnlineStatus['state'], (rank?: number) => string>> = {
+  pending: () => '검증 중…',
+  ranked: (rank) => (rank !== undefined ? `랭킹 등록 #${rank}` : '랭킹 등록 완료'),
+  offline: () => '오프라인 — 연결되면 등록',
+  rejected: () => '기록 검증 실패 — 랭킹 미등록',
+};
+
+function onlineLine(r: ResultInfo): HTMLElement | null {
+  const online = r.online;
+  if (r.mode === 'stage' || !online) return null;
+  return h('div', { cls: `report__online is-${online.state}`, attrs: { role: 'status', 'aria-live': 'polite' } }, [
+    h('span', { cls: 'report__online-dot' }),
+    h('span', { text: ONLINE_TEXT[online.state](online.rank) }),
+  ]);
+}
+
 /** Rank: three tick marks lit in sequence. */
 function rank(n: number): HTMLElement {
   return h('div', { cls: 'report__rank', attrs: { 'aria-label': `평가 ${n}/3` } }, [
@@ -59,6 +78,21 @@ function storyBeat(r: ResultInfo): string | null {
   return `거점 제압. ZONE ${String(stage.chapter + 2).padStart(2, '0')} 개방`;
 }
 
+/** Identity of a run's report: a second showResult with the same key only updates the online line. */
+export function resultKey(r: ResultInfo): string {
+  const { online: _online, ...run } = r; // everything except the server status identifies the run
+  return JSON.stringify(run, Object.keys(run).sort());
+}
+
+/** Swap just the online status line of a mounted report (no count-up / entry animation replay). */
+export function patchOnline(screen: HTMLElement, r: ResultInfo): void {
+  const next = onlineLine(r);
+  const current = screen.querySelector('.report__online');
+  if (current && next) current.replaceWith(next);
+  else if (current) current.remove();
+  else if (next) (screen.querySelector('.report__story') ?? screen.querySelector('.report__title'))?.after(next);
+}
+
 function actions(ctx: Ctx, r: ResultInfo): HTMLElement {
   const next =
     r.mode === 'stage' && r.cleared && r.hasNext
@@ -93,6 +127,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     h('div', { cls: 'report__status mono', text: head.status }),
     h('h2', { cls: 'report__title', text: head.title }),
     story ? h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]) : null,
+    onlineLine(r),
     h('div', { cls: 'report__scorebox' }, [
       h('div', { cls: 'report__label mono', text: 'SCORE' }),
       score,

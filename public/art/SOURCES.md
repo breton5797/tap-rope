@@ -104,3 +104,29 @@ Floors (tileable both axes; same flatten → best window → seam-cut x/y → ed
 | floor-0-dawn | 127 | *(re-prompted)* `flat top-down orthographic photograph looking straight down at weathered grey rooftop concrete helipad surface, a few long straight faded worn white and yellow painted stripes running horizontally across the whole width, peeling paint, cracks, stains, uniform even dawn light, seamless texture, no circles, no letters, no numbers, no objects, highly detailed, realistic material` | gain 0.62 |
 
 Rejected: the first dawn floors (s31 had perspective, s47 had a single large circle that would repeat visibly) and dawn re-prompt seeds 101/113 (stripes too saturated).
+
+## v7 — bosses and cutscene stills (generated 2026-10-27, same model and settings)
+
+### Boss sprites (raw 1280×1024 → keyed RGBA WebP q80, long side 1024)
+Prompt = `studio photograph of <subject>, full body in frame with margin, side view facing left, isolated on a solid flat bright chroma key green background, evenly lit backdrop, no floor, no shadow, dramatic cinematic rim lighting, gunmetal and matte dark steel, worn industrial military hardware, realistic, highly detailed, menacing, grounded, no text, no logos, no people`.
+Subjects: GDD-v7 §1 boss descriptions (warden, lab-ai, core, jailer, apc, chimera, crane, gunship were picked from seeds 11/23/37).
+
+`sewer-eye` and `sniper` were re-prompted (v1 rendered fixed-wing drones on landing gear; v2 sniper read as a flying rifle) with
+`… seen from the side, four rotors …, no wings, no landing gear, no legs, …, hovering high in mid air, …, no ground, no shadow, bright even fill light on the underside, …`:
+| file | seed | subject |
+|---|---|---|
+| boss-sewer-eye | 201 | heavy armored quadcopter surveillance drone, four rotors on short arms on top, boxy armored olive hull, a huge round glowing searchlight lamp mounted on the front left of the hull |
+| boss-sniper | 211 | large armored military quadcopter drone, four big rotors on thick horizontal arms at the top, compact angular armored central body with a red sensor eye, a long black sniper rifle with a scope mounted under the body pointing left |
+
+Post-processing: chroma key (greenness ramp, speck removal, edge unmix + despill, 1 px choke), saturated red/amber emissives toned to 55 %
+(the game draws live glows), padded to the rig box aspect and bottom-aligned. Anchors are measured on the delivered sprites
+(`BOSS_PHOTO_RIGS` in `src/render/boss-rigs.ts`, fractions of the opaque bbox).
+
+### Cutscene stills (raw 864×1536 → 1080×1920, Lanczos + unsharp r1.2 35 %, WebP q80; 19 files, 1.3 MB)
+Prompt = `<subject>, cinematic film still, vertical composition, moody teal shadows, warm amber practical lights, subtle haze, 35mm film, highly detailed, realistic, no text, no letters, no logos, no faces visible`.
+People appear only from behind (GDD-v7 §2). Seeds: op-1/op-3/rescue-1/rescue-3/end-1/end-2 from 61/83; op-2 s113, rescue-2 s101, end-3 s113 (re-prompted);
+boss-1 s11, boss-2 s11, boss-3 s23, boss-4 s11, boss-5 s11, boss-6 s11, boss-7 s23, boss-8 s11, boss-9 s23, boss-10 s23.
+Boss stills (`boss-N-a`) use `cinematic film still, vertical composition, low angle, <boss subject>, the whole machine visible and centered with empty space around it, menacing, in a <zone setting>, no people, …`.
+
+Rejected: rescue-2 seeds 61/83 (lettering on the operative's vest), op-2 seeds 61/83 (profile view of the face),
+end-3 seeds 61/83 (helicopter in frame contradicts "seen from the departing helicopter").
