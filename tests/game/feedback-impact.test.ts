@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AudioApi, Beat, EffectsApi, JudgeResult, Obstacle } from '../../src/types';
-import { playFeedback, type FeedbackView, type TimeApi } from '../../src/game/feedback';
+import { playFeedback, resetFeedback, type FeedbackView, type TimeApi } from '../../src/game/feedback';
 import type { GameEvent } from '../../src/game/session';
 
 const beat = (id: number, obstacles: Obstacle[], requiredLevel: Beat['requiredLevel'] = 0): Beat => ({
@@ -102,6 +102,23 @@ describe('feedback → impacts (v7.1)', () => {
     expect(s.time.slowMo).not.toHaveBeenCalled();
     playFeedback(s.deps, [judged(1, 'perfect')]);
     expect(s.time.slowMo).toHaveBeenCalledOnce();
+  });
+
+  it('a hit draws the impact once (no second legacy hit burst)', () => {
+    const s = setup();
+    playFeedback(s.deps, [{ type: 'hit', shielded: false, hearts: 2 }]);
+    expect(s.fx.burst).not.toHaveBeenCalledWith('hit');
+  });
+
+  it('resetFeedback starts a run fresh: slow-motion cooldown and jump level forgotten', () => {
+    const s = setup([beat(0, [{ kind: 'beam', level: 3 }], 3)]);
+    playFeedback(s.deps, [judged(0, 'perfect'), { type: 'tap', action: 'boost', level: 3 }]);
+    expect(s.time.slowMo).toHaveBeenCalledOnce();
+    resetFeedback(s.deps);
+    s.view.time = 10.5; // later in session time, but a new run: no cooldown carried over
+    playFeedback(s.deps, [judged(0, 'perfect'), { type: 'land' }]);
+    expect(s.time.slowMo).toHaveBeenCalledTimes(2);
+    expect(s.fx.impact).toHaveBeenLastCalledWith('land', { level: 1 });
   });
 
   it('attract mode shows the motion impacts without sound', () => {

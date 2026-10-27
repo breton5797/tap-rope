@@ -54,6 +54,11 @@ function zoneOf(b: Beat): ImpactOpts['zone'] | null {
   return null;
 }
 
+/** forget the jump level and the slow-motion cooldown (call when a run starts) */
+export function resetFeedback(d: FeedbackDeps): void {
+  memos.delete(d);
+}
+
 const findBeat = (v: FeedbackView, id: number): Beat | undefined => (v.beats[id]?.id === id ? v.beats[id] : v.beats.find((b) => b.id === id));
 
 const MISS_TEXT: Record<string, string> = {
@@ -155,11 +160,10 @@ function onHit(d: FeedbackDeps, e: Extract<GameEvent, { type: 'hit' }>): void {
     d.haptics.vibrate(20);
     return;
   }
-  d.fx.impact('hit', {});
+  d.fx.impact('hit', {}); // debris, zap and ring (replaces the v6 burst('hit'))
   d.time?.hitStop(HIT_STOP);
   d.fx.shake(0.75);
   d.fx.flash('rgba(255,70,70,0.45)');
-  d.fx.burst('hit');
   d.audio.sfx('zap');
   d.haptics.vibrate([40, 30, 70]);
 }

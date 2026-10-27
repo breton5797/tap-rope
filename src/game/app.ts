@@ -22,7 +22,8 @@ import { sessionBoss, toHud, toSnapshot } from './snapshot';
 import { createRunLog, type RunLog } from './runlog';
 import { bossCues } from './boss-cues';
 import { createProgress } from './progress';
-import { playFeedback, type FeedbackDeps } from './feedback';
+import { playFeedback, resetFeedback, type FeedbackDeps } from './feedback';
+import { resetCues } from '../render/cues';
 import { HINT_DURATION, introducedMoves, upcomingHint } from './hints';
 import { bindInput } from './input';
 import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
@@ -191,6 +192,9 @@ export function startApp(): void {
     session = createSession(mode, stage, { date, seed });
     runLog = createRunLog(mode, seed, date);
     prevBoss = null;
+    warp = WARP0;
+    resetCues(); // no slide sparks / recoil carried over from the last run or the menu demo
+    resetFeedback(deps);
     audio.setBoss(sessionBoss(session) !== null); // heavier drum layer on boss stages
     audio.stopMusic();
     audio.setFever(false);
@@ -470,9 +474,12 @@ export function startApp(): void {
     if (screen === 'menu') tickMenu(dt);
     else if (screen === 'countdown') tickCountdown(dt);
     else if (screen === 'play') {
+      const warped = warp !== WARP0;
       const w = stepWarp(warp, dt);
       warp = w.warp;
       tickPlay(w.dt);
+      // the music clock kept running through the stop / slow motion: re-anchor it to session time
+      if (warped && warp === WARP0 && session.status === 'playing') startMusic();
       fxDt = Math.max(w.dt, dt * 0.35); // particles crawl (not freeze) through a hit stop
     } else if (screen === 'result') tickResult(dt);
     if (screen !== 'play') warp = WARP0;
