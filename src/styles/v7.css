@@ -766,6 +766,11 @@
   display: none;
 }
 
+/* the boss bar sits where the combo chain used to be: move the chain below it during a fight */
+.hud:has(.boss:not([hidden])) > .combo {
+  top: calc(var(--safe-t) + 196px);
+}
+
 .boss__head {
   display: flex;
   align-items: baseline;
