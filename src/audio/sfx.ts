@@ -1,6 +1,11 @@
 // Procedural sound effects (v6 realistic tone). Each recipe schedules a few short voices at `t`.
+// v7.1: action sounds are layered — transient + body + sub + tail (see layers.ts).
 import type { SfxName } from '../types';
+import { rattle, ring, sub, tail, tick } from './layers';
 import { midiToFreq, noise, tone } from './synth';
+
+/** Clamp a recipe level into lo..hi (non-finite → lo). */
+const lvl = (level: number, lo: number, hi: number): number => (Number.isFinite(level) ? Math.max(lo, Math.min(hi, level)) : lo);
 
 type Recipe = (ctx: BaseAudioContext, out: AudioNode, t: number, level: number) => void;
 
@@ -23,32 +28,40 @@ const crackle = (ctx: BaseAudioContext, out: AudioNode, t: number, offsets: read
 };
 
 const RECIPES: Readonly<Record<SfxName, Recipe>> = {
-  // cloth swish + foot push; higher jump levels push a little harder
+  // push-off: boot tick + air whoosh + sub kick + gear rattle; higher jump levels push a little harder
   jump: (ctx, out, t, level) => {
-    const k = 1 + 0.15 * Math.max(0, Math.min(3, level) - 1);
-    noise(ctx, out, { start: t, dur: 0.15, gain: 0.15 * k, type: 'bandpass', freq: 800, freqEnd: 2600 * k, q: 0.8 });
-    tone(ctx, out, { type: 'sine', freq: 120, freqEnd: 58, start: t, dur: 0.07, gain: 0.26 });
-    noise(ctx, out, { start: t, dur: 0.035, gain: 0.08, type: 'lowpass', freq: 600 });
+    const k = 1 + 0.15 * (lvl(level, 1, 3) - 1);
+    tick(ctx, out, t, 0.14, 2600);
+    noise(ctx, out, { start: t, dur: 0.17, gain: 0.2 * k, type: 'bandpass', freq: 650, freqEnd: 2500 * k, q: 0.9 });
+    sub(ctx, out, t, 0.34, 115, 52, 0.09);
+    rattle(ctx, out, t + 0.03, [0, 0.034], 2300, 0.07);
   },
-  // mid-air push: a sharper, brighter swish
+  // mid-air thrust: rising filtered saw + jet hiss over a kick; level 3 climbs higher
   boost: (ctx, out, t, level) => {
-    const k = 1 + 0.1 * Math.max(0, Math.min(3, level) - 2);
-    noise(ctx, out, { start: t, dur: 0.12, gain: 0.17, type: 'bandpass', freq: 1500 * k, freqEnd: 5200 * k, q: 1.3 });
-    tone(ctx, out, { type: 'sine', freq: 170, freqEnd: 90, start: t, dur: 0.05, gain: 0.1 });
+    const k = 1 + 0.25 * (lvl(level, 2, 3) - 2);
+    tick(ctx, out, t, 0.12, 3800);
+    tone(ctx, out, { type: 'sawtooth', freq: 150 * k, freqEnd: 460 * k, start: t, dur: 0.2, gain: 0.07, attack: 0.01, drive: 0.3, filter: 700, filterEnd: 3400 * k, q: 2 });
+    noise(ctx, out, { start: t, dur: 0.18, gain: 0.18, type: 'bandpass', freq: 1300 * k, freqEnd: 5400 * k, q: 1.2 });
+    sub(ctx, out, t, 0.24, 95, 48, 0.08);
   },
-  // heavy footstep: low thud + floor grit
-  land: (ctx, out, t) => {
-    tone(ctx, out, { type: 'sine', freq: 96, freqEnd: 40, start: t, dur: 0.15, gain: 0.48 });
-    noise(ctx, out, { start: t, dur: 0.09, gain: 0.22, type: 'lowpass', freq: 320 });
-    noise(ctx, out, { start: t, dur: 0.03, gain: 0.05, type: 'bandpass', freq: 1900, q: 1 });
+  // touchdown: sub thump + boot scuff + floor tail, all scaled by the height (level 1..3) of the jump that ended
+  land: (ctx, out, t, level) => {
+    const h = lvl(level, 1, 3);
+    sub(ctx, out, t, 0.5 + 0.1 * h, 88, 32, 0.16 + 0.05 * h);
+    noise(ctx, out, { start: t, dur: 0.05, gain: 0.24 + 0.04 * h, type: 'lowpass', freq: 520 });
+    noise(ctx, out, { start: t + 0.006, dur: 0.07, gain: 0.07 + 0.015 * h, type: 'bandpass', freq: 1700, freqEnd: 650, q: 1.2 });
+    if (h >= 2) tail(ctx, out, t, 0.05 * h, 0.14 + 0.08 * h, 260, 90);
   },
-  // clean HUD confirm: two quick sine tones a fifth apart
+  // metallic confirm ping, bright: struck-plate partials + the old fifth-up blip
   perfect: (ctx, out, t) => {
-    tone(ctx, out, { type: 'sine', freq: midiToFreq(88), start: t, dur: 0.08, gain: 0.11, attack: 0.002 });
-    tone(ctx, out, { type: 'sine', freq: midiToFreq(95), start: t + 0.045, dur: 0.13, gain: 0.08, attack: 0.002 });
+    tick(ctx, out, t, 0.08, 7200, 0.008);
+    ring(ctx, out, t, midiToFreq(88), 0.12, 0.34);
+    tone(ctx, out, { type: 'sine', freq: midiToFreq(95), start: t + 0.045, dur: 0.2, gain: 0.07, attack: 0.002 });
   },
+  // duller metallic ping
   good: (ctx, out, t) => {
-    tone(ctx, out, { type: 'triangle', freq: midiToFreq(83), start: t, dur: 0.09, gain: 0.1, attack: 0.002, filter: 4000 });
+    tick(ctx, out, t, 0.05, 4200, 0.008);
+    ring(ctx, out, t, midiToFreq(83), 0.1, 0.22, [1, 2.4]);
   },
   // electric shock: distorted buzz, crackle, body hit
   hit: (ctx, out, t) => {
@@ -105,9 +118,12 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     if (go) thump(ctx, out, t, 0.35, 0.3);
   },
   // knee slide: fabric/floor scrape with a low rumble
+  // v7.1: friction sweep + resonant metal scrape over a low rumble, ~0.5 s
   slide: (ctx, out, t) => {
-    noise(ctx, out, { start: t, dur: 0.34, gain: 0.3, type: 'bandpass', freq: 2300, freqEnd: 800, q: 0.9 });
-    noise(ctx, out, { start: t, dur: 0.3, gain: 0.09, type: 'lowpass', freq: 420 });
+    tick(ctx, out, t, 0.1, 1800, 0.018);
+    noise(ctx, out, { start: t, dur: 0.6, gain: 0.3, type: 'bandpass', freq: 2600, freqEnd: 750, q: 0.9 });
+    noise(ctx, out, { start: t + 0.02, dur: 0.52, gain: 0.07, type: 'bandpass', freq: 3900, freqEnd: 3100, q: 16 });
+    tail(ctx, out, t, 0.14, 0.56, 380, 140);
   },
   // low two-tone alarm (rear laser warning)
   warn: (ctx, out, t) => {
@@ -122,10 +138,13 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
       tone(ctx, out, { type: 'sine', freq: 1150, freqEnd: 1500, start: t + dt, dur: 0.06, gain: 0.08, attack: 0.002 });
     });
   },
-  // laser emitter sizzle
+  // v7.1 real laser hit (the heaviest): electric crack + sub drop + distorted buzz + crackle + dark tail
   zap: (ctx, out, t) => {
-    tone(ctx, out, { type: 'sawtooth', freq: 60, start: t, dur: 0.24, gain: 0.08, drive: 0.6, filter: 6000, filterEnd: 1500 });
-    crackle(ctx, out, t, [0, 0.03, 0.07, 0.12, 0.17], 5200, 0.1);
+    noise(ctx, out, { start: t, dur: 0.03, gain: 0.42, type: 'highpass', freq: 2400 });
+    sub(ctx, out, t, 0.7, 120, 26, 0.48);
+    tone(ctx, out, { type: 'sawtooth', freq: 92, freqEnd: 46, start: t, dur: 0.34, gain: 0.2, drive: 0.9, filter: 4200, filterEnd: 450 });
+    crackle(ctx, out, t + 0.01, [0, 0.04, 0.09, 0.15], 3600, 0.16);
+    tail(ctx, out, t, 0.14, 0.42, 900, 140);
   },
   // prisoner rescued: resolved low major stinger
   rescue: (ctx, out, t) => {
@@ -133,10 +152,12 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     chord(ctx, out, t, [36, 43, 48, 52, 55], 1.5, 'sawtooth', 0.04, 1600);
     tone(ctx, out, { type: 'sine', freq: midiToFreq(79), start: t + 0.12, dur: 1.2, gain: 0.035, attack: 0.03 });
   },
-  // lane change: air cut whoosh; level = target lane (0 far … 2 near) lowers the pitch toward the camera
-  lane: (ctx, out, t, level) => {
-    const k = Math.pow(0.88, Math.max(0, Math.min(2, level)));
-    noise(ctx, out, { start: t, dur: 0.14, gain: 0.42, type: 'bandpass', freq: 700 * k, freqEnd: 2800 * k, q: 1.4 });
+  // lane change: stereo air-cut whoosh (the bus pans it toward the move) with a light step under it
+  lane: (ctx, out, t) => {
+    tick(ctx, out, t, 0.05, 3000);
+    noise(ctx, out, { start: t, dur: 0.16, gain: 0.42, type: 'bandpass', freq: 600, freqEnd: 2600, q: 1.3 });
+    noise(ctx, out, { start: t + 0.03, dur: 0.1, gain: 0.05, type: 'highpass', freq: 5200 });
+    sub(ctx, out, t, 0.12, 100, 60, 0.06);
   },
   // v7 boss arrival: detuned low brass/synth roar over a sub drop
   'boss-intro': (ctx, out, t) => {
@@ -179,10 +200,25 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     thump(ctx, out, t + 0.45, 0.5, 0.24);
     noise(ctx, out, { start: t + 0.45, dur: 0.05, gain: 0.08, type: 'bandpass', freq: 1300, q: 4 });
   },
-  // v7.1 placeholders (GDD-v7.1 §5 replaces them with layered recipes)
-  shield: (ctx, out, t) => noise(ctx, out, { start: t, dur: 0.3, gain: 0.12, type: 'highpass', freq: 3000 }),
-  graze: (ctx, out, t) => noise(ctx, out, { start: t, dur: 0.12, gain: 0.06, type: 'bandpass', freq: 5200, q: 3 }),
-  bump: (ctx, out, t) => thump(ctx, out, t, 0.2, 0.12),
+  // v7.1 shield absorbs a hit: glassy shatter + scattered shards + a ringing resonance over a soft thump
+  shield: (ctx, out, t) => {
+    noise(ctx, out, { start: t, dur: 0.2, gain: 0.26, type: 'highpass', freq: 4600, freqEnd: 2600 });
+    rattle(ctx, out, t + 0.02, [0, 0.05, 0.11], 5200, 0.12, 14);
+    ring(ctx, out, t, 740, 0.09, 0.8, [1, 1.5, 3.1]);
+    sub(ctx, out, t, 0.28, 90, 44, 0.16);
+  },
+  // v7.1 PERFECT clear skimming a beam: laser sizzle sweep + crackle that grows with the level (1..3)
+  graze: (ctx, out, t, level) => {
+    const n = lvl(level, 1, 3);
+    noise(ctx, out, { start: t, dur: 0.13, gain: 0.09 + 0.02 * n, type: 'bandpass', freq: 7000, freqEnd: 2800, q: 4 });
+    crackle(ctx, out, t, [0, 0.025, 0.05, 0.08].slice(0, 1 + n), 5200, 0.07 + 0.015 * n);
+  },
+  // v7.1 edge-lane bump: dull thud + small rattle (panned toward the wall by the bus)
+  bump: (ctx, out, t) => {
+    sub(ctx, out, t, 0.42, 72, 38, 0.15);
+    noise(ctx, out, { start: t, dur: 0.06, gain: 0.22, type: 'lowpass', freq: 320 });
+    rattle(ctx, out, t + 0.025, [0, 0.03], 2100, 0.05);
+  },
 };
 
 export function playSfx(ctx: BaseAudioContext, out: AudioNode, name: SfxName, level: number): void {

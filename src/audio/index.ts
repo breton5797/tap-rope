@@ -2,6 +2,7 @@
 // missing or blocked AudioContext degrades to silence instead of throwing.
 import type { AudioApi, SfxName, WorldId } from '../types';
 import { createMusic, type Music } from './music';
+import { createDedupe, createLimiter, createMaster, panBus } from './mixer';
 import { playSfx } from './sfx';
 
 interface Graph {
@@ -26,21 +27,15 @@ function buildGraph(): Graph | null {
   const Ctor = audioCtor();
   if (!Ctor) return null;
   const ctx = new Ctor();
-  const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -14;
-  comp.knee.value = 12;
-  comp.ratio.value = 4;
-  comp.attack.value = 0.004;
-  comp.release.value = 0.2;
-  const master = ctx.createGain();
-  master.gain.value = 0.85;
-  comp.connect(master).connect(ctx.destination);
+  const master = createMaster(ctx, ctx.destination);
   const sfx = ctx.createGain();
   const music = ctx.createGain();
-  sfx.connect(comp);
-  music.connect(comp);
+  sfx.connect(createLimiter(ctx, master));
+  music.connect(master);
   return { ctx, sfx, music, loop: createMusic(ctx, music) };
 }
+
+const nowMs = (): number => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /** iOS needs a sound started inside the gesture to fully unlock output. */
 function primeOutput(ctx: AudioContext): void {
@@ -61,6 +56,7 @@ export function createAudio(): AudioApi & BossAudio {
   let musicOn = true;
   let fever = false;
   let boss = false;
+  const fresh = createDedupe();
 
   const applyGains = (): void => {
     if (!graph) return;
@@ -113,9 +109,9 @@ export function createAudio(): AudioApi & BossAudio {
       boss = on;
       safe((g) => g.loop.setBoss(on));
     },
-    sfx(name: SfxName, level = 1) {
-      if (!soundOn) return;
-      safe((g) => playSfx(g.ctx, g.sfx, name, level));
+    sfx(name: SfxName, level = 1, pan = 0) {
+      if (!soundOn || !graph || !fresh(name, nowMs())) return;
+      safe((g) => playSfx(g.ctx, panBus(g.ctx, g.sfx, pan), name, level));
     },
   };
 }
