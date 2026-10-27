@@ -1,5 +1,5 @@
 // GET /leaderboard?board=endless|endless-week|daily:YYYY-MM-DD — optional header x-device-secret adds `mine`/`me`.
-import { error, json, preflight } from '../_shared/http.ts';
+import { accept, error, json } from '../_shared/http.ts';
 import { playerFromRequest, sql } from '../_shared/db.ts';
 import { resolveBoard } from '../_shared/rules.ts';
 
@@ -9,8 +9,8 @@ const TOP = 50;
 interface Row { rank: string | number; player_id: string; nickname: string; score: number }
 
 Deno.serve(async (req) => {
-  const early = preflight(req, M);
-  if (early) return early;
+  const start = await accept(req, M, 1024);
+  if (start instanceof Response) return start;
   const board = resolveBoard(new URL(req.url).searchParams.get('board'), Date.now());
   if (!board) return error(req, M, 400, 'bad_board');
   try {

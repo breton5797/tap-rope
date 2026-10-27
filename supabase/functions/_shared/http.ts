@@ -29,19 +29,13 @@ export function json(req: Request, methods: string, status: number, body: unknow
 export const error = (req: Request, methods: string, status: number, code: string, extra: Record<string, unknown> = {}): Response =>
   json(req, methods, status, { error: code, ...extra }, { 'Cache-Control': 'no-store' });
 
-/** Handles the preflight and method check; returns a response to send, or null to continue. */
-export function preflight(req: Request, methods: string): Response | null {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req, methods) });
-  if (!methods.split(', ').includes(req.method)) return error(req, methods, 405, 'method_not_allowed');
-  return null;
-}
-
 /**
- * Reads a JSON body of at most `maxBytes`. An oversized body is drained but not kept: the platform
- * gateway hangs if we answer (or cancel the stream) while the client is still uploading.
+ * Reads the body, keeping at most `maxBytes`. It is always drained to the end before we answer: the platform
+ * gateway hangs (~160 s) if a function responds — or cancels the stream — while the client is still
+ * uploading (measured: cancel() on a 700 KB upload hangs; draining it answers in well under a second).
  */
-export async function readJson(req: Request, maxBytes: number): Promise<{ ok: true; value: unknown } | { ok: false; error: string }> {
-  if (!req.body) return { ok: false, error: 'bad_json' };
+async function readBody(req: Request, maxBytes: number): Promise<{ ok: true; text: string } | { ok: false; error: 'too_large' }> {
+  if (!req.body) return { ok: true, text: '' };
   const declared = Number(req.headers.get('content-length') ?? '0');
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -55,9 +49,23 @@ export async function readJson(req: Request, maxBytes: number): Promise<{ ok: tr
   if (size > maxBytes || declared > maxBytes) return { ok: false, error: 'too_large' };
   const bytes = new Uint8Array(size);
   chunks.reduce((offset, c) => (bytes.set(c, offset), offset + c.byteLength), 0);
+  return { ok: true, text: new TextDecoder().decode(bytes) };
+}
+
+/**
+ * Entry point of every function: drains the body, answers the CORS preflight, rejects a body larger than
+ * `maxBytes` (413), then checks the method (405) and parses JSON (400 bad_json). Returns the parsed body
+ * (null when empty), or the response to send. Nothing may answer before this has run.
+ */
+export async function accept(req: Request, methods: string, maxBytes: number): Promise<{ body: unknown } | Response> {
+  const raw = await readBody(req, maxBytes);
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req, methods) });
+  if (!raw.ok) return error(req, methods, 413, raw.error);
+  if (!methods.split(', ').includes(req.method)) return error(req, methods, 405, 'method_not_allowed');
+  if (raw.text.trim() === '') return { body: null };
   try {
-    return { ok: true, value: JSON.parse(new TextDecoder().decode(bytes)) };
+    return { body: JSON.parse(raw.text) };
   } catch {
-    return { ok: false, error: 'bad_json' };
+    return error(req, methods, 400, 'bad_json');
   }
 }

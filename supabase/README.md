@@ -36,3 +36,7 @@ are refused until players update, and a new client's runs are refused until the 
 - `register` has no IP-based rate limit: anyone can create many device identities (each still limited to
   6 well-formed submissions per minute).
 - The daily-operation date must be within ±1 day of the server's Korea (UTC+9) date.
+- Layouts are generated client-side from public inputs: the endless seed is chosen by the client (a player can
+  hunt for an easy seed and submit only that), and daily layouts are a pure function of the date, so with the
+  ±1 day window tomorrow's daily can be practised (or solved offline) before it opens.
+- Runs scoring 0 are stored for audit but never enter a board.

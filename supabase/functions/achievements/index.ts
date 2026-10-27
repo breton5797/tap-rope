@@ -1,19 +1,17 @@
 // POST /achievements { unlocked: { [AchievementId]: unixMs } } — header x-device-secret. Keeps the earliest unlock time.
-import { error, json, preflight, readJson } from '../_shared/http.ts';
+import { accept, error, json } from '../_shared/http.ts';
 import { playerFromRequest, sql } from '../_shared/db.ts';
 import { checkAchievements } from '../_shared/rules.ts';
 
 const M = 'POST';
 
 Deno.serve(async (req) => {
-  const early = preflight(req, M);
-  if (early) return early;
+  const start = await accept(req, M, 4096);
+  if (start instanceof Response) return start;
   try {
     const player = await playerFromRequest(req);
     if (!player) return error(req, M, 401, 'bad_secret');
-    const body = await readJson(req, 4096);
-    if (!body.ok) return error(req, M, 400, body.error);
-    const checked = checkAchievements(body.value, Date.now());
+    const checked = checkAchievements(start.body, Date.now());
     if (!checked.ok) return error(req, M, 400, checked.error);
     if (checked.value.length > 0) {
       const rows = checked.value.map(([id, ms]) => ({

@@ -1,7 +1,7 @@
 // POST /submit-run RunRecord — header x-device-secret.
 // Validates limits → rate limit (6/min) → re-simulates with the bundled game code → stores the
-// server score → upserts best_scores if higher. Responds { score, rank, best, board }.
-import { error, json, preflight, readJson } from '../_shared/http.ts';
+// server score → upserts best_scores if higher. Responds { score, rank, best, board, status }.
+import { accept, error, json } from '../_shared/http.ts';
 import { playerFromRequest, sql } from '../_shared/db.ts';
 import { boardsFor, checkRecord, RATE_LIMIT_PER_MIN } from '../_shared/rules.ts';
 // @ts-ignore generated ESM bundle (see vite.sim.config.ts)
@@ -14,27 +14,34 @@ interface SimResult { score: number; endTime: number; status: 'playing' | 'clear
 const SIM_VERSION: string = sim.SIM_VERSION;
 const simulateRun: (record: unknown) => SimResult = sim.simulateRun;
 
+/** Records the attempt and reports whether it is within the per-player limit. Every well-formed attempt
+ *  counts (before simulating), so junk can't burn simulator CPU; the per-player advisory lock serialises
+ *  concurrent submits so parallel requests can't slip past the count. */
+const withinRateLimit = (playerId: string): Promise<boolean> =>
+  sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtext(${playerId}::text))`;
+    const [{ recent }] = await tx<{ recent: number }[]>`
+      select count(*)::int as recent from game.submissions
+      where player_id = ${playerId} and created_at > now() - interval '60 seconds'`;
+    if (recent >= RATE_LIMIT_PER_MIN) return false;
+    await tx`insert into game.submissions (player_id) values (${playerId})`;
+    await tx`delete from game.submissions where player_id = ${playerId} and created_at < now() - interval '1 day'`;
+    return true;
+  });
+
 Deno.serve(async (req) => {
-  const early = preflight(req, M);
-  if (early) return early;
+  const start = await accept(req, M, MAX_BODY);
+  if (start instanceof Response) return start;
   if (SIM_VERSION === 'unavailable') return error(req, M, 503, 'sim_unavailable');
   try {
     const player = await playerFromRequest(req);
     if (!player) return error(req, M, 401, 'bad_secret');
-    const body = await readJson(req, MAX_BODY);
-    if (!body.ok) return error(req, M, body.error === 'too_large' ? 413 : 400, body.error);
     const now = Date.now();
-    const checked = checkRecord(body.value, now);
+    const checked = checkRecord(start.body, now);
     if (!checked.ok) return error(req, M, 400, checked.error);
     const record = checked.value;
     if (record.sim !== SIM_VERSION) return error(req, M, 409, 'sim_version', { expected: SIM_VERSION });
-
-    // every well-formed attempt counts (before simulating), so junk records can't be used to burn simulator CPU
-    const [{ recent }] = await sql<{ recent: number }[]>`
-      with ins as (insert into game.submissions (player_id) values (${player.id}) returning 1)
-      select count(*)::int + 1 as recent from game.submissions
-      where player_id = ${player.id} and created_at > now() - interval '60 seconds'`;
-    if (recent > RATE_LIMIT_PER_MIN) return error(req, M, 429, 'rate_limited');
+    if (!(await withinRateLimit(player.id))) return error(req, M, 429, 'rate_limited');
 
     let result: SimResult;
     try {
@@ -53,6 +60,7 @@ Deno.serve(async (req) => {
         insert into game.runs (player_id, board, score, client_score, sim, inputs, end_time)
         values (${player.id}, ${boards[0]}, ${score}, ${record.clientScore}, ${record.sim}, ${tx.json(record.inputs as never)}, ${record.endTime})
         returning id`;
+      if (score <= 0) return false; // kept for audit, but zero runs never enter a board
       let improved = false;
       for (const board of boards) {
         const updated = await tx`
@@ -64,7 +72,6 @@ Deno.serve(async (req) => {
           returning 1`;
         if (board === boards[0]) improved = updated.length > 0;
       }
-      await tx`delete from game.submissions where player_id = ${player.id} and created_at < now() - interval '1 day'`;
       return improved;
     });
     const [mine] = await sql<{ rank: string }[]>`select rank from game.leaderboard_row(${boards[0]}, ${player.id})`;

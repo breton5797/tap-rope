@@ -1,13 +1,13 @@
 // POST /register — header x-device-secret (64 hex). Idempotent: returns the existing player for a known secret.
-import { error, json, preflight } from '../_shared/http.ts';
+import { accept, error, json } from '../_shared/http.ts';
 import { sha256Hex, sql } from '../_shared/db.ts';
 import { isSecret } from '../_shared/rules.ts';
 
 const M = 'POST';
 
 Deno.serve(async (req) => {
-  const early = preflight(req, M);
-  if (early) return early;
+  const start = await accept(req, M, 1024);
+  if (start instanceof Response) return start;
   const secret = req.headers.get('x-device-secret');
   if (!isSecret(secret)) return error(req, M, 401, 'bad_secret');
   try {
