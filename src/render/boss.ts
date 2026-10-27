@@ -8,9 +8,9 @@ import {
   PLAYER_X, WARN_LEAD, type BossAttackKind, type BossView, type LaneId, type LaserFrom, type RenderSnapshot,
   type VisibleObstacle,
 } from '../types';
-import { bossPhoto, bossPhotoFit } from './boss-art';
+import { bossPhoto, bossPhotoFit, bossPhotoPending } from './boss-art';
 import { fxSprites, glowAt, puffAt, SCATTER, sparks, type FxSprites } from './boss-fx';
-import { BOSS_RIGS, type BossRig, type Pt } from './boss-rigs';
+import { BOSS_PHOTO_RIGS, BOSS_RIGS, type BossRig, type Pt } from './boss-rigs';
 import { BOSS_SHAPES } from './boss-shapes';
 import {
   ARM_TIME, BEAM_H, CEIL_H, CEIL_Y, ENTER_TIME, FLOOR_BACK, HIGH_H, beamSpeed, fixedX, flyingX, laneY, projX, projY, visualLane,
@@ -138,9 +138,17 @@ function attackPhase(b: BossView): Readonly<AttackPhase> {
   return PHASE;
 }
 
+/** drawn scale of a rig: its width share of the visible screen */
+function scaleOf(r: BossRig, v: View): number {
+  return clamp((v.w * r.frac) / r.w, 0.7, 1.7);
+}
+
+/** the rig drawn this frame (photo rig once the photo is baked), shared with drawBossFront */
+let curRig: BossRig = BOSS_RIGS.warden;
+
 /** Pose for this frame: placement + idle motion + state animation + launch recoil. */
 function pose(b: BossView, r: BossRig, v: View, t: number, reduced: boolean): void {
-  const s = clamp((v.w * r.frac) / r.w, 0.7, 1.7);
+  const s = scaleOf(r, v);
   anchorOf(r, v, s);
   POSE.s = s;
   POSE.rot = 0;
@@ -296,12 +304,18 @@ export function drawBoss(ctx: Ctx, v: View, snap: RenderSnapshot, t: number, spr
   POSE.ok = false;
   const b = snap.boss;
   if (!b || (b.state === 'defeated' && b.stateAge > DEFEAT_END)) return;
-  const r = BOSS_RIGS[b.id];
+  const pr = BOSS_PHOTO_RIGS[b.id];
+  const ps = pr ? scaleOf(pr, v) : 1;
+  const photo = pr ? bossPhoto(b.id, pr.w * ps, pr.h * ps, v.k) : null;
+  // a photo is on its way (first frames of the fight): draw nothing rather than baking the
+  // procedural fallback too — the intro hides the short wait and it saves the second bitmap
+  if (pr && !photo && bossPhotoPending()) return;
+  const r = photo && pr ? pr : BOSS_RIGS[b.id];
+  curRig = r;
   const reduced = snap.reducedMotion;
   pose(b, r, v, t, reduced);
   const s = POSE.s;
   const fx = fxSprites(sprites);
-  const photo = bossPhoto(b.id, r.w * s, r.h * s, v.k);
   const fit = bossPhotoFit();
   FITTED.w = r.w;
   FITTED.h = r.h;
@@ -425,7 +439,7 @@ function link(ctx: Ctx, b: BossView, r: BossRig, snap: RenderSnapshot, v: View, 
 export function drawBossFront(ctx: Ctx, v: View, snap: RenderSnapshot, t: number, sprites: SpriteCache): void {
   const b = snap.boss;
   if (!b || !POSE.ok || b.state !== 'fight' || !b.attack) return;
-  const r = BOSS_RIGS[b.id];
+  const r = curRig;
   const lanes = b.attack.lanes;
   const lane: number = b.attack.kind === 'lane' && lanes && lanes.length > 0 ? (lanes[0] as LaneId) : visualLane(snap.player);
   link(ctx, b, r, snap, v, fxSprites(sprites), lane, t, snap.reducedMotion);

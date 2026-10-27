@@ -83,3 +83,92 @@ export const BOSS_RIGS: Readonly<Record<BossId, BossRig>> = {
     rotors: [[96, 16, 96], [236, 36, 14]],
   }),
 };
+
+// ---------- photo rigs: anchors measured on the delivered sprites (fractions of the opaque bbox) ----------
+
+type N = readonly [number, number];
+
+interface PhotoSpec {
+  /** opaque-bbox aspect (w / h) of the sprite */
+  readonly aspect: number;
+  /** logical width of the box (height follows the aspect) */
+  readonly w: number;
+  readonly frac?: number;
+  readonly fx?: number;
+  readonly eye: N;
+  readonly eyeR: number;
+  readonly src: Readonly<Record<BossAttackKind, N>>;
+  readonly damage: N;
+  /** rotor discs: fractions x, y and radius as a fraction of the box width */
+  readonly rotors?: readonly (readonly [number, number, number])[];
+}
+
+function photoRig(base: BossRig, p: PhotoSpec): BossRig {
+  const w = p.w;
+  const h = Math.round(w / p.aspect);
+  const at = (n: N): Pt => [n[0] * w, n[1] * h];
+  return {
+    ...base,
+    w,
+    h,
+    frac: p.frac ?? base.frac,
+    fx: p.fx ?? base.fx,
+    eye: at(p.eye),
+    eyeR: p.eyeR,
+    src: { beam: at(p.src.beam), floor: at(p.src.floor), ceiling: at(p.src.ceiling), drone: at(p.src.drone), lane: at(p.src.lane) },
+    damage: at(p.damage),
+    rotors: (p.rotors ?? []).map(([x, y, r]) => [x * w, y * h, r * w] as const),
+  };
+}
+
+/** rigs for the photo sprites (public/art/boss-<id>.webp); a boss without an entry keeps its procedural rig */
+export const BOSS_PHOTO_RIGS: Readonly<Partial<Record<BossId, BossRig>>> = {
+  // shoulder cannon aimed up-left, red visor, chest lens; feet planted wide
+  warden: photoRig(BOSS_RIGS.warden, {
+    aspect: 0.96, w: 180, frac: 0.52, eye: [0.56, 0.08], eyeR: 5,
+    src: { beam: [0.02, 0.05], floor: [0.27, 0.97], ceiling: [0.82, 0.12], drone: [0.82, 0.12], lane: [0.02, 0.05] },
+    damage: [0.45, 0.35],
+  }),
+  // riot shield on the left, red visor, stun baton angled down-right
+  jailer: photoRig(BOSS_RIGS.jailer, {
+    aspect: 0.76, w: 150, frac: 0.46, eye: [0.46, 0.045], eyeR: 5,
+    src: { beam: [0.11, 0.36], floor: [0.98, 0.67], ceiling: [0.98, 0.67], drone: [0.46, 0.045], lane: [0.11, 0.36] },
+    damage: [0.55, 0.3],
+  }),
+  // server rack: red core window, LED matrix above, cable loom below
+  core: photoRig(BOSS_RIGS.core, {
+    aspect: 0.38, w: 100, frac: 0.26, eye: [0.32, 0.43], eyeR: 12,
+    src: { beam: [0.32, 0.43], floor: [0.5, 0.98], ceiling: [0.5, 0.01], drone: [0.75, 0.25], lane: [0.32, 0.43] },
+    damage: [0.7, 0.35],
+  }),
+  // quadruped walker: long gun with a red muzzle at the top-left, red sensor block on the turret
+  chimera: photoRig(BOSS_RIGS.chimera, {
+    aspect: 1.07, w: 210, frac: 0.54, eye: [0.5, 0.1], eyeR: 6,
+    src: { beam: [0.01, 0.05], floor: [0.46, 0.97], ceiling: [0.85, 0.12], drone: [0.85, 0.12], lane: [0.16, 0.95] },
+    damage: [0.62, 0.25],
+  }),
+  // wheeled APC facing right: long autocannon, headlights at the front-right, turret hatch
+  apc: photoRig(BOSS_RIGS.apc, {
+    aspect: 1.73, w: 230, frac: 0.44, fx: 0.1, eye: [0.67, 0.49], eyeR: 5,
+    src: { beam: [0.97, 0.03], floor: [0.97, 0.03], ceiling: [0.38, 0.06], drone: [0.38, 0.06], lane: [0.38, 0.06] },
+    damage: [0.2, 0.3],
+  }),
+  // overhead gantry with a trolley, hook and a hanging press platform
+  crane: photoRig(BOSS_RIGS.crane, {
+    aspect: 1.55, w: 230, frac: 0.66, eye: [0.52, 0.14], eyeR: 5,
+    src: { beam: [0.52, 0.14], floor: [0.47, 0.98], ceiling: [0.47, 0.98], drone: [0.47, 0.76], lane: [0.47, 0.76] },
+    damage: [0.45, 0.25],
+  }),
+  // attack helicopter facing left: chin gun, cockpit, stub-wing rocket pods; the photo has rotor blades
+  gunship: photoRig(BOSS_RIGS.gunship, {
+    aspect: 2.55, w: 250, eye: [0.13, 0.64], eyeR: 5,
+    src: { beam: [0.05, 0.66], floor: [0.53, 0.74], ceiling: [0.47, 0.1], drone: [0.63, 0.74], lane: [0.53, 0.74] },
+    damage: [0.53, 0.38], rotors: [[0.47, 0.1, 0.42], [0.86, 0.27, 0.05]],
+  }),
+  // a cluster of security cameras around a hub, hung from the ceiling
+  'lab-ai': photoRig(BOSS_RIGS['lab-ai'], {
+    aspect: 2.36, w: 230, frac: 0.56, eye: [0.48, 0.9], eyeR: 9,
+    src: { beam: [0.04, 0.37], floor: [0.48, 0.92], ceiling: [0.6, 0.13], drone: [0.91, 0.27], lane: [0.28, 0.18] },
+    damage: [0.62, 0.5],
+  }),
+};

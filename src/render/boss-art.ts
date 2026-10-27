@@ -104,6 +104,15 @@ async function bake(gen: number, k: number, w: number, h: number): Promise<void>
     const dy = ch - dh;
     surf.ctx.drawImage(bmp, BOX.x, BOX.y, BOX.w, BOX.h, dx, dy, dw, dh);
     bmp.close();
+    // grade the photo into the corridor: teal shadow tone, darker toward its base (background depth)
+    const g = surf.ctx.createLinearGradient(0, 0, 0, ch);
+    g.addColorStop(0, 'rgba(14,40,48,0.28)');
+    g.addColorStop(0.6, 'rgba(6,16,20,0.38)');
+    g.addColorStop(1, 'rgba(0,0,0,0.55)');
+    surf.ctx.globalCompositeOperation = 'source-atop';
+    surf.ctx.fillStyle = g;
+    surf.ctx.fillRect(0, 0, cw, ch);
+    surf.ctx.globalCompositeOperation = 'source-over';
     FIT.x = dx / cw;
     FIT.y = dy / ch;
     FIT.w = dw / cw;
@@ -143,6 +152,11 @@ export function bossPhoto(id: BossId, w: number, h: number, k: number): HTMLCanv
     else void bake(generation, k, w, h);
   }
   return baked ? baked.canvas : null;
+}
+
+/** The current boss's photo is still being fetched / decoded (not known missing, not baked yet). */
+export function bossPhotoPending(): boolean {
+  return currentId !== null && !missing && !baked;
 }
 
 /** Where the photo's subject sits in the boss box (fractions; full box when no photo is baked). */
