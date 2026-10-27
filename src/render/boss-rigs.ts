@@ -165,6 +165,18 @@ export const BOSS_PHOTO_RIGS: Readonly<Partial<Record<BossId, BossRig>>> = {
     src: { beam: [0.05, 0.66], floor: [0.53, 0.74], ceiling: [0.47, 0.1], drone: [0.63, 0.74], lane: [0.53, 0.74] },
     damage: [0.53, 0.38], rotors: [[0.47, 0.1, 0.42], [0.86, 0.27, 0.05]],
   }),
+  // armored quadcopter facing left: big searchlight lamp at the front-left, four rotors, landing struts
+  'sewer-eye': photoRig(BOSS_RIGS['sewer-eye'], {
+    aspect: 2.9, w: 210, eye: [0.3, 0.46], eyeR: 9,
+    src: { beam: [0.3, 0.46], floor: [0.3, 0.46], ceiling: [0.5, 0.09], drone: [0.54, 0.56], lane: [0.54, 0.56] },
+    damage: [0.58, 0.38], rotors: [[0.22, 0.09, 0.2], [0.65, 0.04, 0.26], [0.84, 0.09, 0.15]],
+  }),
+  // quadcopter facing left: scoped rifle with the muzzle at the far left, red sensor dot on the hull
+  sniper: photoRig(BOSS_RIGS.sniper, {
+    aspect: 3.3, w: 220, eye: [0.465, 0.32], eyeR: 4,
+    src: { beam: [0.15, 0.51], floor: [0.15, 0.51], ceiling: [0.465, 0.32], drone: [0.465, 0.32], lane: [0.15, 0.51] },
+    damage: [0.59, 0.49], rotors: [[0.21, 0.16, 0.2], [0.67, 0.07, 0.22], [0.81, 0.15, 0.19], [0.43, 0.23, 0.09]],
+  }),
   // a cluster of security cameras around a hub, hung from the ceiling
   'lab-ai': photoRig(BOSS_RIGS['lab-ai'], {
     aspect: 2.36, w: 230, frac: 0.56, eye: [0.48, 0.9], eyeR: 9,
