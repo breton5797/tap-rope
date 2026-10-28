@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
-const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg'];
+const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg', './icon-180.png', './icon-192.png', './icon-512.png'];
 /** v6 photographic art (public/art) and self-hosted fonts (public/fonts) are precached too (the game must work offline) */
 const listPublic = (dir: string, ext: string): string[] => {
   try {
