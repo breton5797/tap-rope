@@ -247,3 +247,27 @@ describe('judge popups (art review)', () => {
     expect(popupAlpha(0.8, 0.8)).toBe(0);
   });
 });
+
+describe('review fixes', () => {
+  it('a thrown prop is visible (in the hand, then flying) at least as early as its v8 hazard', async () => {
+    const { propVisibleFrom } = await import('../../src/office/render/boss-throw');
+    const { CHARGE_TIME, ENTER_TIME } = await import('../../src/render/layout');
+    const { VISIBLE_LEAD } = await import('../../src/types');
+    expect(propVisibleFrom('floor')).toBeGreaterThanOrEqual(CHARGE_TIME + 0.9);
+    expect(propVisibleFrom('ceiling')).toBeGreaterThanOrEqual(CHARGE_TIME + 0.9);
+    expect(propVisibleFrom('drone')).toBeGreaterThanOrEqual(VISIBLE_LEAD);
+    expect(propVisibleFrom('beam')).toBeGreaterThanOrEqual(ENTER_TIME);
+  });
+
+  it('runFrame survives a NaN scroll', () => {
+    expect(runFrame(Number.NaN, 96, 8)).toBe(0);
+  });
+
+  it('popupRise keeps the scaled top popup below the HUD / callout line', async () => {
+    const { popupRise } = await import('../../src/office/render/popups');
+    // highest popup text centre at 100, drift 16, scale 1.35: its scaled top must stay ≥ line + gap
+    const shift = popupRise(150, 100);
+    expect(100 + 16 + shift - 16 * 1.35).toBeGreaterThanOrEqual(150 + 16 - 1e-9);
+    expect(popupRise(0, 100)).toBe(0);
+  });
+});

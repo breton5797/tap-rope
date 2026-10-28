@@ -29,8 +29,8 @@ export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<numb
   frame.carts = carts;
 }
 
-/** prop heights in logical px at depth scale 1: each prop fills (and slightly overfills) its hazard's footprint */
-export const PROP_SIZE = { floor: 50, ceiling: 72, drone: 54, guard: 82, drop: 70, chaser: 68, high: 46 } as const;
+/** prop heights in logical px at depth scale 1: each fills its hazard's footprint, all ≤ 0.8× the hero (110) */
+export const PROP_SIZE = { floor: 50, ceiling: 72, drone: 54, guard: 70, drop: 70, chaser: 68, high: 46 } as const;
 /** a beam stack's prop rises this much over its top beam, then is scaled like the others */
 const BEAM_PAD = 16;
 const PROP_SCALE = 1.3;

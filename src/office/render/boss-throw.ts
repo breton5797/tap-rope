@@ -2,11 +2,12 @@
 // hand on an arc during the attack telegraph (ATTACK_LEAD) and lands on its normal path at the join time,
 // then moves exactly as before, so judge timing and hit boxes are untouched. Things that come from behind
 // or fall from above (rear beams, chasers, drops) are never thrown; a guard gets a stomp instead.
-// Visibility: a thrown prop is in the boss's hand from ATTACK_LEAD (≥ WARN_LEAD) on — never hidden later.
+// Visibility: a thrown prop is held in the boss's hand from when its v8 hazard would have appeared
+// (propVisibleFrom), so it is never visible later than in v8, and never hidden once shown.
 import type { LaserFrom, ObstacleKind } from '../../types';
-import { PLAYER_X } from '../../types';
+import { PLAYER_X, VISIBLE_LEAD } from '../../types';
 import { ATTACK_LEAD } from '../core/boss';
-import { FLOOR_BACK } from '../../render/layout';
+import { CHARGE_TIME, FLOOR_BACK } from '../../render/layout';
 import type { View } from '../../render/view';
 import { HAND_FRAC, PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
 
@@ -59,12 +60,23 @@ export function joinTime(speed: number): number {
 }
 
 /**
- * The throw step of an obstacle `tu` s before arrival: null = draw it on its normal path, −1 = not thrown
- * yet (still with the boss, drawn nowhere), 0..1 = held / flying along the arc toward its join point.
+ * Seconds before arrival a thrown prop first shows (held in the boss's hand), never later than its v8 hazard
+ * showed: floor / ceiling emitters fade in from CHARGE_TIME + 0.9, drones from VISIBLE_LEAD; flying beams
+ * appeared only at ENTER_TIME, so the telegraph start (ATTACK_LEAD) is already earlier.
+ */
+export function propVisibleFrom(kind: ObstacleKind): number {
+  if (kind === 'drone') return VISIBLE_LEAD;
+  if (kind === 'floor' || kind === 'ceiling') return CHARGE_TIME + 0.9;
+  return ATTACK_LEAD;
+}
+
+/**
+ * The throw step of an obstacle `tu` s before arrival: null = draw it on its normal path, −1 = not shown yet,
+ * 0 = held in the boss's hand (from propVisibleFrom through the wind-up), 0..1 = flying toward its join point.
  */
 export function throwStep(kind: ObstacleKind, from: LaserFrom | null, tu: number, join: number): number | null {
   if (!frame.active || launchFor(kind, from) !== 'throw' || tu <= join) return null;
-  if (tu > ATTACK_LEAD) return -1;
+  if (tu > propVisibleFrom(kind)) return -1;
   const flyFrom = ATTACK_LEAD - WIND_UP;
   return tu >= flyFrom ? 0 : (flyFrom - tu) / (flyFrom - join);
 }

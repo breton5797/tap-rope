@@ -18,9 +18,11 @@ export interface HudBand {
   countdown: Rect | null;
   /** logical x of the view's left edge */
   left: number;
+  /** logical y under the attack callout drawn last frame, else −Infinity (popups stay below it) */
+  callout: number;
 }
 
-const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN };
+const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN, callout: Number.NEGATIVE_INFINITY };
 let lastRead = Number.NEGATIVE_INFINITY;
 
 function lowest(selector: string, canvasTop: number): number {
@@ -51,3 +53,8 @@ export function hudBand(canvas: HTMLCanvasElement, v: View, realTime: number): R
 
 /** the band as last read (for modules drawn inside the v8 frame, e.g. popups) */
 export const lastHudBand = (): Readonly<HudBand> => band;
+
+/** the office renderer records the callout's bottom each frame (−Infinity when none is shown) */
+export function setCalloutBottom(y: number): void {
+  band.callout = y;
+}

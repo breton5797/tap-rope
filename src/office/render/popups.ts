@@ -85,13 +85,23 @@ function drawOne(ctx: Ctx, p: PopupPool['items'][number]): void {
  * v8 contract. Office: popups centred right above the hero at 1.35×, kept on screen and under the HUD, never
  * two with the same text, dimming to half within 0.15 s so a PERFECT never hides the hero.
  */
+/**
+ * How far to push the popups down so the highest one's scaled text (centre `highest`, scaled POPUP_SCALE×
+ * around its resting line) stays GAP below `line` (the HUD rows / the attack callout); 0 without a line.
+ */
+export function popupRise(line: number, highest: number): number {
+  if (!Number.isFinite(line)) return 0;
+  return Math.max(0, line + GAP - highest - DRIFT + DRIFT * POPUP_SCALE);
+}
+
 export function drawPopups(ctx: Ctx, pool: PopupPool): void {
   coalesce(pool);
   const band = lastHudBand();
   let highest = Number.POSITIVE_INFINITY;
   for (const p of pool.items) if (p.active) highest = Math.min(highest, p.y0 - p.bump - DRIFT);
   if (!Number.isFinite(highest)) return;
-  const shift = Number.isFinite(band.top) ? Math.max(0, band.top + GAP - highest) : 0;
+  // below the HUD rows and below the attack callout while it shows
+  const shift = popupRise(Math.max(band.top, band.callout), highest);
   const dx = Number.isFinite(band.left) ? popupShift(PLAYER_X, band.left, halfWidest(ctx, pool)) : 0;
   const anchor = highest + DRIFT;
   ctx.save();

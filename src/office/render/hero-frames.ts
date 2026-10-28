@@ -64,6 +64,7 @@ const LAND_FRAME = 0.08;
 
 /** run frame index 0..frameCount-1 for the scroll distance covered */
 export function runFrame(scrollPx: number, strideLen: number, frameCount: number): number {
+  if (!Number.isFinite(scrollPx)) return 0;
   const k = Math.floor((scrollPx / strideLen) * frameCount);
   return ((k % frameCount) + frameCount) % frameCount;
 }

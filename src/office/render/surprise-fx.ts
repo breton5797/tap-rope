@@ -199,10 +199,10 @@ const PROP_NAMES: Readonly<Record<string, string>> = {
 };
 const ACTION_HINT: Readonly<Record<ActionCue, string>> = { jump: '점프!', slide: '숙여!', lane: '옆으로!', low: '낮게!' };
 
-/** the attack telegraph as a boss-bubble-sized callout: prop icon, attack name, action hint in its colour */
+/** the attack telegraph as a boss-bubble-sized callout: prop icon, attack name, action hint in its colour; returns its bottom y */
 export function drawAttackCallout(
   ctx: Ctx, v: View, icon: HTMLImageElement | null, propId: string, cue: ActionCue, below: number, avoid: Rect | null,
-): void {
+): number {
   const name = PROP_NAMES[propId] ?? '기습!';
   const hint = ACTION_HINT[cue];
   const color = ACTION_COLORS[cue];
@@ -237,6 +237,7 @@ export function drawAttackCallout(
   ctx.font = HINT_FONT;
   ctx.fillText(hint, cx - w / 2 + 40 + textW + 10, cy + 1);
   ctx.restore();
+  return cy + h / 2;
 }
 
 const CALLOUT_FONT = '900 15px ui-rounded, system-ui, sans-serif';
