@@ -30,6 +30,24 @@ export const MOVES: Readonly<Record<MoveId, MoveInfo>> = {
   lanejump: { id: 'lanejump', name: '이동 + 점프', hint: '레인 이동과 점프를 동시에 수행.', gesture: '↑↓ + 탭', tone: 'violet' },
 };
 
+/** result card tip: what the hazard is → what to do (one line) */
+export const FAIL_TIPS: Readonly<Record<MoveId, string>> = {
+  jump: '바닥 레이저 → 레이저가 발 앞에 오기 직전 탭',
+  beam: '레이저 빔 → 빔 개수만큼 탭',
+  double: '2열 빔 → 점프 꼭대기에서 한 번 더 탭',
+  triple: '3열 빔 → 박자에 맞춰 탭 세 번',
+  slide: '천장 레이저 → 오른쪽 아래로 밀어 슬라이딩',
+  high: '머리 높이 빔 → 점프 말고 슬라이딩',
+  drone: '감시 드론 → 2단 점프 금지, 탭 한 번만',
+  gate: '레이저 게이트 → 1단 점프만 (탭 한 번)',
+  rear: '후방 레이저 → 경고 표식을 보고 박자에 탭',
+  pulse: '펄스 레이저 → 박자마다 짧게 연속 탭',
+  lane: '경비 로봇 → 왼쪽 위·아래로 밀어 레인 이동',
+  drop: '낙하 화물 → 경고 표식 레인에서 미리 이탈',
+  chaser: '추격 드론 → 표식 레인에서 옆으로 이동',
+  lanejump: '이동 + 점프 → 레인 먼저 옮기고 바로 탭',
+};
+
 /** Display order for the guide sheet (= order of first appearance in the campaign). */
 export const MOVE_ORDER: readonly MoveId[] = [
   'jump', 'lane', 'beam', 'double', 'slide', 'drone', 'drop', 'triple', 'high', 'rear', 'chaser', 'gate', 'pulse', 'lanejump',

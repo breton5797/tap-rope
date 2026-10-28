@@ -19,6 +19,7 @@ import { cosmeticsOf } from '../core/economy';
 import { parseChallenge, type ChallengeLink } from '../ui/share';
 import { CUTSCENES, cutsceneAfter, cutsceneBefore } from '../core/cutscenes';
 import { createOnline } from '../platform/online';
+import { FEATURES, runSeedFor } from '../flavor';
 import { stepPlayer } from '../core/physics';
 import { createSession, lane, sessionStars, slide, step, swipe, tap, type Session, type StepOutput } from './session';
 import { botAction, type BotAction } from './bot';
@@ -36,7 +37,7 @@ import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
 import { autoplayResult, takeChallenge, withoutChallenge } from './run-policy';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
-type Screen = 'menu' | 'controls' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
+type Screen = 'menu' | 'controls' | 'picker' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
 
 const COUNT_STEP = 0.6;
 /** the mission briefing card reads for this long before 3-2-1 starts */
@@ -128,7 +129,7 @@ export function startApp(): void {
   let music = { bpm: 0, world: -1 };
   let runLog: RunLog = createRunLog('stage', 0, '');
   let prevBoss: BossView | null = null;
-  const online = createOnline();
+  const online = createOnline(FEATURES.online ? {} : { baseUrl: '' }); // an offline build never calls the server
   const seenHints = new Set<MoveId>();
   /** v8 (A3): last boss phase announced (−1 none); the finisher: 'armed' after the last hazard, then its landing time */
   let bossLine = -1;
@@ -212,7 +213,28 @@ export function startApp(): void {
     },
   });
 
+  /** the first-run picker was answered this session (the save shows it too, once the controls card is seen) */
+  let picked = false;
+  /**
+   * FEATURES.firstRunPick: the first run of a fresh save (controls card not yet seen) chooses its character
+   * before the controls card and the opening cutscene. True when the picker took over (it calls `then` once
+   * the choice is saved). v8 never picks.
+   */
+  const maybeFirstRunPick = (then: () => void): boolean => {
+    if (!FEATURES.firstRunPick || picked || save.controlsSeen) return false;
+    screen = 'picker';
+    audio.stopMusic();
+    ui.hideAll();
+    ui.showPicker(save, (id) => {
+      picked = true;
+      if (save.ownedSkins.includes(id)) persist({ ...save, skin: id });
+      then();
+    });
+    return true;
+  };
+
   const startRun = (mode: GameMode, stage: StageDef | null): void => {
+    if (mode === 'stage' && maybeFirstRunPick(() => startRun(mode, stage))) return;
     const before = mode === 'stage' && stage && save.controlsSeen ? cutsceneBefore(stage, save) : null;
     if (before) {
       playCutscene(before, () => startRun(mode, stage));
@@ -238,7 +260,9 @@ export function startApp(): void {
     challenge = taken.pending;
     challengeRun = taken.seed !== null;
     const seed = taken.seed ?? Math.floor(Math.random() * 1e9);
-    session = createSession(mode, stage, { date, seed });
+    // the run's own stage copy carries its seed, drawn once here (v8: the stage's designed seed; never
+    // changed by input). run.stage keeps the original, so a retry draws again.
+    session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed });
     runLog = createRunLog(mode, seed, date);
     prevBoss = null;
     bossLine = -1;
@@ -413,8 +437,12 @@ export function startApp(): void {
       if (c && save.seenCutscenes.includes(id)) playCutscene(c, () => toMenu((s) => ui.showArchive(s)));
     },
     onOpenAchievements: () => ui.showAchievements(save),
-    onOpenLeaderboard: (board: Board) => progress.openLeaderboard(board),
-    onOpenNickname: () => progress.openNickname(),
+    onOpenLeaderboard: (board: Board) => {
+      if (FEATURES.leaderboard) progress.openLeaderboard(board);
+    },
+    onOpenNickname: () => {
+      if (FEATURES.leaderboard) progress.openNickname();
+    },
     onMetaUpdate: (update) => {
       const next = update(save); // against the current save, so another tab's progress is never overwritten
       if (next) persist(next);
@@ -427,7 +455,7 @@ export function startApp(): void {
     ui, audio, online, getSave: () => save, persist, resultShowing: () => screen === 'result',
   });
   setStorageNotice((msg) => ui.toast(msg));
-  challenge = parseChallenge(window.location.search);
+  challenge = FEATURES.endless ? parseChallenge(window.location.search) : null;
   progress.setChallenge(challenge);
   // the link is spent by its first endless run: a reload must not pin every later run to the friend's seed
   if (challenge) history.replaceState(history.state, '', `${location.pathname}${withoutChallenge(location.search)}${location.hash}`);
@@ -583,7 +611,7 @@ export function startApp(): void {
   applySettings(save.settings);
   registerServiceWorker();
   bootArt(renderer, ui, () => ui.showTitle(save));
-  void online.init(); // never throws; flushes runs queued while offline
+  if (FEATURES.online) void online.init(); // never throws; flushes runs queued while offline
 
   let last = performance.now();
   let lastDraw = -Infinity;

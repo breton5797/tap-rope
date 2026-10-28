@@ -1,7 +1,10 @@
 /* TAP ROPE offline service worker. Generated at build time: the cache version and precache list
  * are filled in by the tap-rope-sw Vite plugin, so every deploy installs a fresh worker and cache. */
-const CACHE = 'tap-rope-__VERSION__';
+const PREFIX = __CACHE_PREFIX__;
+const CACHE = `${PREFIX}__VERSION__`;
 const PRECACHE = __PRECACHE__;
+/** sub-apps in this scope that run their own worker (v8: the office build at ./office/) are never handled here */
+const SKIP = __SKIP__.map((p) => new URL(p, self.registration.scope).pathname);
 // Vite tags assets crossorigin; servers answer with "Vary: Origin", which would make precached entries miss
 const MATCH = { ignoreVary: true };
 
@@ -15,7 +18,8 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      // only this build's older caches: another build on the same origin keeps its own
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -45,6 +49,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (SKIP.some((p) => url.pathname.startsWith(p))) return; // network / the sub-app's own worker
   if (req.mode === 'navigate') {
     event.respondWith(networkFirst(req, './index.html'));
   } else if (url.pathname.includes('/assets/') || url.pathname.includes('/art/') || url.pathname.includes('/fonts/')) {

@@ -1,6 +1,7 @@
 /** Translates GameEvents into juice: particles, popups, sound and haptics. */
 import type { AudioApi, Beat, EffectsApi, ImpactOpts, ObstacleKind, StageDef } from '../types';
 import type { GameEvent, Session } from './session';
+import { COPY } from '../flavor';
 
 export interface Haptics {
   vibrate(p: number | number[]): void;
@@ -71,9 +72,9 @@ const MISS_TEXT: Record<string, string> = {
 };
 
 const PICKUP_TEXT: Partial<Record<ObstacleKind, string>> = {
-  shield: '방탄 실드 확보',
-  slow: '시간 감속',
-  heart: '방탄판 +1',
+  shield: COPY.pickupShield,
+  slow: COPY.pickupSlow,
+  heart: COPY.pickupHeart,
 };
 
 function onTap(d: FeedbackDeps, e: Extract<GameEvent, { type: 'tap' }>): void {

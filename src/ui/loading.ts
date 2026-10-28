@@ -1,12 +1,13 @@
 // v6 boot overlay ("SYSTEM BOOT"): a progress bar while the renderer loads the photographic art.
 // Built once and then only patched, so it can be updated every progress tick.
+import { COPY } from '../flavor';
 import { h } from './dom';
 
 const STEPS: readonly (readonly [number, string])[] = [
-  [0, '보안망 접속 중'],
-  [0.35, '시설 도면 수신 중'],
-  [0.7, '장비 점검 중'],
-  [1, '접속 완료'],
+  [0, COPY.loadStep0],
+  [0.35, COPY.loadStep1],
+  [0.7, COPY.loadStep2],
+  [1, COPY.loadStep3],
 ];
 
 interface LoadingView {
@@ -26,9 +27,9 @@ function build(): LoadingView {
   const bar = h('div', { cls: 'boot__bar', attrs: { role: 'progressbar', 'aria-label': '로딩', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' } }, [fill]);
   const el = h('div', { cls: 'boot', attrs: { role: 'status' } }, [
     h('div', { cls: 'boot__panel' }, [
-      h('div', { cls: 'kicker', text: 'SYSTEM BOOT // LE-06' }),
-      h('div', { cls: 'boot__logo mono', text: 'LASER ESCAPE' }),
-      h('div', { cls: 'boot__sub', text: '레이저 탈출작전' }),
+      h('div', { cls: 'kicker', text: COPY.loadKicker }),
+      h('div', { cls: 'boot__logo mono', text: COPY.loadLogo }),
+      h('div', { cls: 'boot__sub', text: COPY.loadSub }),
       bar,
       h('div', { cls: 'boot__row' }, [status, pct]),
     ]),

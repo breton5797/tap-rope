@@ -14,15 +14,18 @@ import { ACHIEVEMENTS } from './achievements';
 import { CHAPTERS, SKINS, STAGES } from './content';
 import { CUTSCENES } from './cutscenes';
 import { NO_COSMETICS, cosmeticById } from './economy';
+import { SAVE_PREFIX } from '../flavor';
 
 /** v8: version-2 saves live under their own key, so an older build (stale tab / cached SW) that only
  * knows the v1 key can never overwrite them; the v1 key is read once to migrate and left untouched. */
-export const SAVE_KEY = 'laserescape.save.v2';
-export const LEGACY_SAVE_KEY = 'laserescape.save.v1';
+export const SAVE_KEY = `${SAVE_PREFIX}.save.v2`;
+export const LEGACY_SAVE_KEY = `${SAVE_PREFIX}.save.v1`;
 const KEY = SAVE_KEY;
 export const SAVE_VERSION = 2;
-const CORRUPT_KEY = 'laserescape.save.corrupt'; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
+const CORRUPT_KEY = `${SAVE_PREFIX}.save.corrupt`; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
 const SKIN_IDS: readonly SkinId[] = SKINS.map((s) => s.id);
+/** free operators are always owned (v8: the starting agent only) */
+const FREE_SKINS: readonly SkinId[] = SKINS.filter((s) => s.price === 0).map((s) => s.id);
 const CUTSCENE_IDS: readonly CutsceneId[] = CUTSCENES.map((c) => c.id);
 const ACHIEVEMENT_IDS: readonly AchievementId[] = ACHIEVEMENTS.map((a) => a.id);
 const NO_STREAK: SaveData['dailyStreak'] = { last: null, count: 0 };
@@ -38,7 +41,7 @@ const clampStars = (n: number) => Math.min(3, Math.max(0, Math.floor(n)));
 
 export function defaultSave(): SaveData {
   return {
-    version: 2, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
+    version: 2, stars: {}, bestScores: {}, coins: 0, ownedSkins: [...FREE_SKINS], skin: 'kid',
     settings: DEFAULT_SETTINGS, tutorialDone: false, briefed: [], controlsSeen: false,
     seenCutscenes: [], achievements: {}, dailyStreak: NO_STREAK, cosmetics: NO_COSMETICS, tutorialSteps: [],
   };
@@ -64,7 +67,7 @@ function parseSettings(raw: unknown): Settings {
 
 function parseSkins(raw: unknown): SkinId[] {
   const listed = Array.isArray(raw) ? raw.filter(isSkin) : [];
-  return SKIN_IDS.filter((id) => id === 'kid' || listed.includes(id));
+  return SKIN_IDS.filter((id) => FREE_SKINS.includes(id) || listed.includes(id));
 }
 
 /** Version a raw save claims: undefined/1 → 1, a positive integer as is, anything else → null. */

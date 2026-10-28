@@ -1,4 +1,5 @@
 // In-game HUD. updateHud runs every frame, so every write is diffed first.
+import { COPY, fillCopy } from '../flavor';
 import type { HudState } from '../types';
 import { animate, formatNumber, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
@@ -58,11 +59,11 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     progressWrap: h('div', { cls: 'prog', attrs: { role: 'progressbar', 'aria-label': '진행도', 'aria-valuemin': '0', 'aria-valuemax': '100' } }),
     feverBar: h('div', { cls: 'bar bar--fever' }),
     feverFill: h('div', { cls: 'bar__fill' }),
-    feverLabel: h('span', { cls: 'hud__barlabel hud__barlabel--fever', text: '오버드라이브' }),
+    feverLabel: h('span', { cls: 'hud__barlabel hud__barlabel--fever', text: COPY.hudFever }),
     combo: h('div', { cls: 'combo' }),
     comboNum: h('span', { cls: 'combo__num' }),
-    shield: statusChip('status--shield', icons.shield(), 'SHIELD'),
-    slow: statusChip('status--slow', icons.clock(), 'SLOW'),
+    shield: statusChip('status--shield', icons.shield(), COPY.hudShield),
+    slow: statusChip('status--slow', icons.clock(), COPY.hudSlow),
     slide: h('span', { cls: 'hud__slide', attrs: { 'aria-label': '슬라이딩' } }, [moveGlyph('slide'), h('span', { text: 'SLIDE' })]),
     boss: h('div', { cls: 'boss', attrs: { role: 'meter', 'aria-label': '보스 내구도', 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: '' } }),
     bossCode: h('span', { cls: 'boss__code mono' }),
@@ -98,7 +99,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
 function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduced: boolean): void {
   if (prev.maxHearts !== max) {
     // armor gauge: one cell per heart
-    refs.hearts.replaceChildren(h('span', { cls: 'hud__armor-label', text: '방어구' }), ...Array.from({ length: max }, () => h('i', { cls: 'heart' })));
+    refs.hearts.replaceChildren(h('span', { cls: 'hud__armor-label', text: COPY.hudArmor }), ...Array.from({ length: max }, () => h('i', { cls: 'heart' })));
   }
   const nodes = Array.from(refs.hearts.querySelectorAll('.heart'));
   nodes.forEach((node, i) => {
@@ -133,7 +134,7 @@ function renderFever(refs: Refs, s: HudState, prev: Prev): void {
   if (prev.fever !== s.fever) {
     refs.feverBar.classList.toggle('is-fever', s.fever);
     refs.feverLabel.classList.toggle('is-on', s.fever);
-    refs.feverLabel.textContent = s.fever ? '오버드라이브 ×2' : '오버드라이브';
+    refs.feverLabel.textContent = s.fever ? `${COPY.hudFever} ×2` : COPY.hudFever;
   }
   const wasFull = !prev.fever && (prev.feverGauge ?? 0) >= 1;
   const full = !s.fever && g >= 1;
@@ -183,7 +184,7 @@ function renderBoss(refs: Refs, b: HudState['boss'], prev: HudState['boss'] | un
   if (prev?.name !== b.name) refs.bossName.textContent = b.name;
   const hp = Math.max(0, Math.min(1, b.hp));
   const phase = Math.max(0, Math.min(2, Math.floor(b.phase)));
-  if (prev?.phase !== b.phase) refs.bossPhase.textContent = `PHASE ${phase + 1}/3`;
+  if (prev?.phase !== b.phase) refs.bossPhase.textContent = fillCopy(COPY.bossPhase, { n: phase + 1 });
   refs.bossCells.forEach((cell, i) => {
     (cell.firstElementChild as HTMLElement).style.transform = `scaleX(${Math.max(0, Math.min(1, hp * 3 - i))})`;
     // the cell currently draining belongs to the active phase
@@ -191,7 +192,7 @@ function renderBoss(refs: Refs, b: HudState['boss'], prev: HudState['boss'] | un
     cell.classList.toggle('is-gone', hp * 3 - i <= 0);
   });
   refs.boss.setAttribute('aria-valuenow', String(Math.round(hp * 100)));
-  refs.boss.setAttribute('aria-valuetext', `${b.codename} ${Math.round(hp * 100)}%, 페이즈 ${phase + 1}/3`);
+  refs.boss.setAttribute('aria-valuetext', `${b.codename} ${Math.round(hp * 100)}%, ${fillCopy(COPY.bossPhaseAria, { n: phase + 1 })}`);
   if (prev && hp < prev.hp - 1e-4) {
     refs.boss.classList.remove('is-hit');
     void refs.boss.offsetWidth; // restart the flash

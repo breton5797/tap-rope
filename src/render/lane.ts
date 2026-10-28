@@ -4,6 +4,7 @@
 // jump / slide icons reach the ring at the ideal input time (lane-timing.ts) and the ring pulses then.
 import { DEFAULT_PHYSICS } from '../core/physics';
 import { LANE_LEAD, LOGICAL_W, PLAYER_X, type LaneItem, type ObstacleKind } from '../types';
+import { LANE_STYLE } from './lane-style';
 import { displayTimes } from './lane-timing';
 import { LANE_HEIGHT, LANE_TOP, type View } from './view';
 import {
@@ -29,25 +30,33 @@ const KIND_INDEX: Readonly<Record<ObstacleKind, number>> = {
 const ICON_KEYS: string[] = [];
 for (let i = 0; i < 48; i++) ICON_KEYS.push(`lane${i}`);
 
-/** Dark glass strip with 1px lines and tick marks (tactical HUD). */
+/** The strip (v8: dark glass with 1px lines) with tick marks; colours from LANE_STYLE. */
 function panel(ctx: Ctx): void {
-  ctx.fillStyle = 'rgba(6,8,10,0.66)';
-  roundRect(ctx, 0, 0, PANEL_W, LANE_H, 4);
+  const st = LANE_STYLE;
+  if (st.shadow) {
+    ctx.fillStyle = st.shadow;
+    roundRect(ctx, 0, 4, PANEL_W, LANE_H, st.radius);
+    ctx.fill();
+  }
+  ctx.fillStyle = st.fill;
+  roundRect(ctx, 0, 0, PANEL_W, LANE_H, st.radius);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(63,224,208,0.32)';
-  ctx.lineWidth = 1;
-  roundRect(ctx, 0.5, 0.5, PANEL_W - 1, LANE_H - 1, 3.5);
+  ctx.strokeStyle = st.edge;
+  ctx.lineWidth = st.edgeW;
+  roundRect(ctx, st.edgeW / 2, st.edgeW / 2, PANEL_W - st.edgeW, LANE_H - st.edgeW, st.radius - st.edgeW / 2);
   ctx.stroke();
-  ctx.fillStyle = 'rgba(63,224,208,0.75)';
-  ctx.fillRect(0, 0, 14, 1.5);
-  ctx.fillRect(PANEL_W - 14, LANE_H - 1.5, 14, 1.5);
+  if (st.accent) {
+    ctx.fillStyle = st.accent;
+    ctx.fillRect(0, 0, 14, 1.5);
+    ctx.fillRect(PANEL_W - 14, LANE_H - 1.5, 14, 1.5);
+  }
   // timeline ticks (one per ~0.25s)
-  ctx.fillStyle = 'rgba(232,236,239,0.22)';
+  ctx.fillStyle = st.tick;
   for (let x = HIT_X - LANE_X + 28, i = 0; x < PANEL_W - 10; x += SPAN / 9.6, i++) {
     const h = i % 4 === 3 ? 7 : 3.5;
     ctx.fillRect(x, LANE_H / 2 - h / 2, 1, h);
   }
-  ctx.fillStyle = 'rgba(232,236,239,0.1)';
+  ctx.fillStyle = st.rule;
   ctx.fillRect(HIT_X - LANE_X + 24, LANE_H / 2 - 0.5, PANEL_W - (HIT_X - LANE_X + 34), 1);
 }
 
@@ -106,7 +115,7 @@ function drawItem(ctx: Ctx, it: LaneItem, tu: number, sprites: SpriteCache, t: n
 function pulseRing(ctx: Ctx, age: number): void {
   const k = age / 0.3;
   if (k < 0 || k >= 1) return;
-  ctx.strokeStyle = '#3FE0D0';
+  ctx.strokeStyle = LANE_STYLE.ringLit;
   ctx.globalAlpha = 0.85 * (1 - k);
   ctx.lineWidth = 2.5 * (1 - k) + 0.5;
   circle(ctx, HIT_X, CY, 19 + 14 * k);
@@ -118,13 +127,13 @@ function pulseRing(ctx: Ctx, age: number): void {
 function hitRing(ctx: Ctx, glow: number): void {
   const r = 19;
   if (glow > 0) {
-    ctx.fillStyle = '#3FE0D0';
+    ctx.fillStyle = LANE_STYLE.ringLit;
     ctx.globalAlpha = 0.16 * glow;
     circle(ctx, HIT_X, CY, r + 3);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
-  ctx.strokeStyle = glow > 0.5 ? '#3FE0D0' : 'rgba(232,236,239,0.75)';
+  ctx.strokeStyle = glow > 0.5 ? LANE_STYLE.ringLit : LANE_STYLE.ring;
   ctx.lineWidth = 1.2;
   circle(ctx, HIT_X, CY, r);
   ctx.stroke();

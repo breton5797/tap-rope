@@ -1,50 +1,43 @@
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
-import type { Plugin } from 'vite';
+import { readFileSync } from 'node:fs';
+import { OFFICE_SWAPS } from './build/office-swaps.ts';
+import { serviceWorker } from './build/service-worker.ts';
+import { swapModules } from './build/swap-modules.ts';
 import { defineConfig } from 'vitest/config';
 
-const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
-/** v6 photographic art (public/art) and self-hosted fonts (public/fonts) are precached too (the game must work offline) */
-const listPublic = (dir: string, ext: string): string[] => {
-  try {
-    // recursive: v7 cutscene stills live in public/art/cut
-    const files = readdirSync(new URL(`./public/${dir}`, import.meta.url), { recursive: true }) as string[];
-    return files.filter((f) => f.endsWith(ext)).map((f) => `./${dir}/${f.split('\\').join('/')}`).sort();
-  } catch {
-    return [];
-  }
-};
-const artFiles = (): string[] => [...listPublic('art', '.webp'), ...listPublic('fonts', '.woff2')];
+/** the office project transforms the same sources differently (swapped imports): it gets its own transform
+ * cache, keyed by the swap plugin and map so a change to either never reuses stale output */
+const OFFICE_CACHE = `node_modules/.vitest-cache/office-${createHash('sha256')
+  .update(readFileSync(new URL('./build/swap-modules.ts', import.meta.url)))
+  .update(JSON.stringify(OFFICE_SWAPS))
+  .digest('hex')
+  .slice(0, 12)}`;
 
-/** Emits sw.js with a content-derived cache version and the full hashed-asset precache list. */
-function serviceWorker(): Plugin {
-  return {
-    name: 'tap-rope-sw',
-    apply: 'build',
-    enforce: 'post',
-    generateBundle(_options, bundle) {
-      const built = Object.keys(bundle).filter((f) => !f.endsWith('.map')).sort();
-      const art = artFiles();
-      const precache = ['./', ...built.map((f) => `./${f}`), ...PUBLIC_FILES, ...art];
-      const hash = createHash('sha256').update(built.join('|'));
-      // art keeps its file names across edits, so its bytes go into the cache version
-      for (const f of art) hash.update(readFileSync(new URL(`./public/${f.slice(2)}`, import.meta.url)));
-      const version = hash.digest('hex').slice(0, 12);
-      const source = readFileSync(new URL('./sw/sw.template.js', import.meta.url), 'utf8')
-        .replace('__VERSION__', version)
-        .replace('__PRECACHE__', JSON.stringify(precache));
-      this.emitFile({ type: 'asset', fileName: 'sw.js', source });
-    },
-  };
-}
+const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 export default defineConfig({
   base: './',
-  plugins: [serviceWorker()],
+  // the office build (vite.office.config.ts) ships under ./office/ with its own worker
+  plugins: [serviceWorker({ publicDir: 'public', publicFiles: PUBLIC_FILES, cachePrefix: 'tap-rope-', skip: ['office/'] })],
   build: { target: 'es2022', outDir: 'dist' },
   test: {
-    include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // two module graphs: v8 as shipped, and the office build's (src/office swapped in, as vite.office.config.ts
+    // does). *.parity.test.ts compare the two builds side by side, so they run on the v8 graph.
+    projects: [
+      {
+        extends: true,
+        test: { name: 'v8', include: ['tests/**/*.test.ts'], exclude: ['tests/office/**'] },
+      },
+      { extends: true, test: { name: 'parity', include: ['tests/office/**/*.parity.test.ts'] } },
+      {
+        extends: true,
+        plugins: [swapModules(OFFICE_SWAPS)],
+        test: {
+          name: 'office', include: ['tests/office/**/*.test.ts'], exclude: ['tests/office/**/*.parity.test.ts'], fsModuleCachePath: OFFICE_CACHE,
+        },
+      },
+    ],
     coverage: {
       provider: 'v8',
       // pure logic is unit-tested; canvas/DOM/audio layers are covered by the e2e smoke run

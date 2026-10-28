@@ -30,6 +30,8 @@ export interface BossRig {
   readonly searchlight: boolean;
   /** where battle-damage smoke leaks out */
   readonly damage: Pt;
+  /** contact-shadow alpha on the floor (absent = 0.4) */
+  readonly shadow?: number;
 }
 
 const NO_ROTORS: readonly (readonly [number, number, number])[] = [];
@@ -125,6 +127,11 @@ function photoRig(base: BossRig, p: PhotoSpec): BossRig {
     rotors: (p.rotors ?? []).map(([x, y, r]) => [x * w, y * h, r * w] as const),
   };
 }
+
+/** the grade baked over a boss photo (boss-art.ts): teal shadow tone, darker toward its base; null = none */
+export const BOSS_PHOTO_GRADE: readonly (readonly [number, string])[] | null = [
+  [0, 'rgba(14,40,48,0.28)'], [0.6, 'rgba(6,16,20,0.38)'], [1, 'rgba(0,0,0,0.55)'],
+];
 
 /** rigs for the photo sprites (public/art/boss-<id>.webp); a boss without an entry keeps its procedural rig */
 export const BOSS_PHOTO_RIGS: Readonly<Partial<Record<BossId, BossRig>>> = {

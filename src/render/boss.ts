@@ -328,7 +328,7 @@ export function drawBoss(ctx: Ctx, v: View, snap: RenderSnapshot, t: number, spr
   if (r.place === 'ground' || r.place === 'rear') {
     // contact shadow on the back floor edge
     ctx.fillStyle = '#000000';
-    ctx.globalAlpha = 0.4 * POSE.alpha;
+    ctx.globalAlpha = (r.shadow ?? 0.4) * POSE.alpha;
     oval(ctx, POSE.x, FLOOR_BACK + 3, r.w * 0.42 * s, 5 * s);
     ctx.fill();
     ctx.globalAlpha = 1;

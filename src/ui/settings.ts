@@ -1,4 +1,5 @@
 // Settings: four toggles. Each change emits a fresh Settings object.
+import { COPY, FEATURES } from '../flavor';
 import type { SaveData, Settings } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -14,7 +15,7 @@ interface ToggleDef {
 
 const TOGGLES: readonly ToggleDef[] = [
   { key: 'sound', label: '효과음', desc: '동작음, 경보, 시스템음', icon: icons.sound, tone: 'sun' },
-  { key: 'music', label: '배경음악', desc: '작전 박자에 맞춘 신스 트랙', icon: icons.music, tone: 'sky' },
+  { key: 'music', label: '배경음악', desc: COPY.settingsMusicDesc, icon: icons.music, tone: 'sky' },
   { key: 'vibration', label: '진동', desc: '피격 시 진동 피드백', icon: icons.vibrate, tone: 'sky' },
   { key: 'reducedMotion', label: '모션 줄이기', desc: '화면 흔들림·그레인·플래시 해제', icon: icons.sparkle, tone: 'violet' },
 ];
@@ -67,11 +68,11 @@ export function buildSettings(ctx: Ctx, save: SaveData, onBack: () => void, onLo
     header(ctx, '설정', onBack, [], icons.back()),
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'card settings' }, TOGGLES.map((d) => toggleRow(ctx, d, () => current, set))),
-      buildTransfer(ctx, save),
+      FEATURES.transfer ? buildTransfer(ctx, save) : null,
       h('div', { cls: 'credits' }, [
-        h('div', { cls: 'credits__logo mono', text: 'LASER ESCAPE // 레이저 탈출작전' }),
-        h('p', { text: 'v8 · 사운드 전량 절차 합성. 아트는 생성 이미지 기반.' }),
-        h('p', { cls: 'credits__small', text: '통신 종료. 무사 귀환 바람.' }),
+        h('div', { cls: 'credits__logo mono', text: COPY.creditsLogo }),
+        h('p', { text: COPY.creditsLine }),
+        h('p', { cls: 'credits__small', text: COPY.creditsSmall }),
       ]),
     ]),
   ]);

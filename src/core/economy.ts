@@ -10,6 +10,7 @@
 import type { AchievementId, CosmeticLook, Reward, SaveData, SaveCosmetics, SkinId } from '../types';
 import { ACHIEVEMENTS } from './achievements';
 import { STAGES } from './content';
+import { COPY } from '../flavor';
 
 export const FIRST_CLEAR_COINS = 10;
 export const BOSS_CLEAR_COINS = 30;
@@ -45,7 +46,7 @@ export function runRewards(
     const prev = before.stars[id] ?? 0;
     if (prev === 0 && now >= 1) {
       out.push(isBoss.has(id)
-        ? { kind: 'boss-clear', label: `거점 제압 · ${stageName.get(id) ?? id}`, coins: BOSS_CLEAR_COINS }
+        ? { kind: 'boss-clear', label: `${COPY.rewardBossClear} · ${stageName.get(id) ?? id}`, coins: BOSS_CLEAR_COINS }
         : { kind: 'first-clear', label: '첫 클리어', coins: FIRST_CLEAR_COINS });
     }
     stars += Math.max(0, now - prev);
@@ -53,7 +54,7 @@ export function runRewards(
   if (stars > 0) out.push({ kind: 'star', label: `새 별 ★${stars}`, coins: stars * STAR_COINS });
   for (const id of unlocked) {
     out.push(id === 'first-clear'
-      ? { kind: 'first-mission', label: '첫 임무 보상 → 장비실', coins: FIRST_MISSION_COINS }
+      ? { kind: 'first-mission', label: COPY.rewardFirst, coins: FIRST_MISSION_COINS }
       : { kind: 'achievement', label: `업적 · ${achName.get(id) ?? id}`, coins: ACH_REWARD[id] });
   }
   // the first-mission line sits right after the clear lines it explains

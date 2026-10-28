@@ -4,6 +4,7 @@
 import { SKINS } from '../core/content';
 import { watchSave } from '../core/storage';
 import { COSMETICS, buyCosmetic, equipCosmetic, type Cosmetic, type CosmeticKind } from '../core/economy';
+import { COPY, FEATURES } from '../flavor';
 import type { SaveData, SkinMeta } from '../types';
 import { button, formatNumber, h, header, type Ctx } from './dom';
 import { avatar } from './avatar';
@@ -11,7 +12,7 @@ import { icons } from './icons';
 import { coinChip } from './title';
 
 /** portrait photo over the vector avatar: the avatar shows while loading or when the file is missing */
-function portrait(id: SkinMeta['id'], cls: string): HTMLElement {
+export function portrait(id: SkinMeta['id'], cls: string): HTMLElement {
   const img = h('img', { cls: 'portrait__img', attrs: { src: `./art/op-${id}.webp`, alt: '', decoding: 'async', draggable: 'false' } });
   const box = h('div', { cls: `portrait ${cls}` }, [avatar(id, false), img]);
   img.addEventListener('load', () => box.classList.add('has-photo'));
@@ -19,14 +20,15 @@ function portrait(id: SkinMeta['id'], cls: string): HTMLElement {
   return box;
 }
 
-function priceAction(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement {
+function priceAction(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement | null {
   const owned = save.ownedSkins.includes(skin.id);
   if (save.skin === skin.id) {
-    return h('div', { cls: 'skin__state', attrs: { 'aria-label': '배치 중' } }, [icons.check(), h('span', { text: '배치 중' })]);
+    return h('div', { cls: 'skin__state', attrs: { 'aria-label': COPY.shopSelected } }, [icons.check(), h('span', { text: COPY.shopSelected })]);
   }
   if (owned) {
-    return button({ label: '배치', variant: 'mint', size: 'sm', aria: `${skin.name} 배치`, onPress: ctx.tap(() => ctx.cb.onSelectSkin(skin.id)) });
+    return button({ label: COPY.shopSelect, variant: 'mint', size: 'sm', aria: `${skin.name} ${COPY.shopSelect}`, onPress: ctx.tap(() => ctx.cb.onSelectSkin(skin.id)) });
   }
+  if (!FEATURES.shop && skin.price > 0) return null; // builds without purchases only hand out free operators
   const affordable = save.coins >= skin.price;
   return button({
     label: formatNumber(skin.price),
@@ -108,7 +110,7 @@ export function buildShop(ctx: Ctx, initial: SaveData, onBack: () => void, onLoc
   const chip = h('div', { cls: 'shop__chip' });
   const body = h('div', { cls: 'scroll' });
   const status = h('p', { cls: 'shop__status', attrs: { role: 'status', 'aria-live': 'polite' } });
-  const section = h('section', { cls: 'screen screen--shop', attrs: { 'aria-label': '장비실' } });
+  const section = h('section', { cls: 'screen screen--shop', attrs: { 'aria-label': COPY.titleShop } });
   const adopt = (next: SaveData): void => {
     onLocalChange?.(next);
     render(next);
@@ -132,16 +134,18 @@ export function buildShop(ctx: Ctx, initial: SaveData, onBack: () => void, onLoc
       h('div', { cls: 'shop__hero card' }, [
         h('div', { cls: 'shop__stage' }, [portrait(current.id, 'portrait--hero'), h('div', { cls: 'shop__floor' })]),
         h('div', { cls: 'shop__info' }, [
-          h('div', { cls: 'kicker', text: 'DEPLOYED OPERATOR' }),
+          h('div', { cls: 'kicker', text: COPY.shopKicker }),
           h('div', { cls: 'shop__name', text: current.name }),
           h('div', { cls: 'shop__count mono', text: `ROSTER ${owned}/${SKINS.length}` }),
         ]),
       ]),
       h('div', { cls: 'shop__grid' }, SKINS.map((s) => skinCard(ctx, save, s))),
-      h('h2', { cls: 'shop__section kicker', text: 'COSMETICS // 외형' }),
-      status,
-      cosmetics(ctx, save, apply),
-      h('p', { cls: 'shop__hint', text: '첫 클리어·새 별·업적·연속 일일 작전으로 자금(₵)을 받는다. 외형은 성능에 영향이 없다.' }),
+      ...(FEATURES.shop ? [
+        h('h2', { cls: 'shop__section kicker', text: 'COSMETICS // 외형' }),
+        status,
+        cosmetics(ctx, save, apply),
+        h('p', { cls: 'shop__hint', text: '첫 클리어·새 별·업적·연속 일일 작전으로 자금(₵)을 받는다. 외형은 성능에 영향이 없다.' }),
+      ] : []),
     );
   };
   render(initial);
@@ -150,6 +154,6 @@ export function buildShop(ctx: Ctx, initial: SaveData, onBack: () => void, onLoc
     if (section.isConnected) adopt(s);
     else stop();
   });
-  section.append(header(ctx, '장비실', onBack, [chip], icons.back()), body);
+  section.append(header(ctx, COPY.titleShop, onBack, [chip], icons.back()), body);
   return section;
 }

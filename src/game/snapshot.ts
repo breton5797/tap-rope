@@ -3,7 +3,8 @@ import type { BossView, CosmeticLook, HudState, RenderSnapshot, SkinId } from '.
 import { SCROLL_SPEED } from '../types';
 import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
 import { CHAPTERS } from '../core/content';
-import { bossFor, bossView } from '../core/boss';
+import { COPY, fillCopy, stageVars } from '../flavor';
+import { bossForSection, bossView } from '../core/boss';
 import { MAX_HEARTS, sessionProgress, type Session } from './session';
 
 /** Part 2 (escape) zones: the rescued prisoner runs behind the agent. */
@@ -53,13 +54,15 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     boss: sessionBoss(s),
     bossFinish: o.bossFinish ?? -1,
     cosmetics: o.cosmetics,
+    run: { seed: s.stage.seed, stageIndex: s.stage.chapter, progress: sessionProgress(s), beats: s.beats },
   };
 }
 
 function bossHud(s: Session): HudState['boss'] {
-  const meta = s.mode === 'stage' ? bossFor(s.stage) : null;
+  const meta = s.mode === 'stage' ? bossForSection(s.stage, s.section) : null;
   if (!meta) return null;
-  const hp = s.hazardTotal > 0 ? Math.max(0, 1 - s.hazardDone / s.hazardTotal) : 1;
+  // the gauge the boss view shows (office stage 5: the current section's superior only)
+  const hp = sessionBoss(s)?.hp ?? (s.hazardTotal > 0 ? Math.max(0, 1 - s.hazardDone / s.hazardTotal) : 1);
   return { name: meta.name, codename: meta.codename, hp, phase: s.section };
 }
 
@@ -67,7 +70,7 @@ function bossHud(s: Session): HudState['boss'] {
 export function runTitle(s: Session): string {
   if (s.mode === 'endless') return '무한 침투';
   if (s.mode === 'daily') return '일일 작전';
-  return `${s.stage.chapter + 1}-${s.stage.index + 1} · ${s.stage.name}`;
+  return `${fillCopy(COPY.stageTag, stageVars(s.stage))} · ${s.stage.name}`;
 }
 
 export function toHud(s: Session): HudState {

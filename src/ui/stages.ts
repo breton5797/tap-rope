@@ -1,6 +1,7 @@
 // Stage select: scrollable chapter chips, a themed chapter card and its stage trail.
 import { CHAPTERS, STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
+import { COPY, FEATURES, fillCopy, stageVars } from '../flavor';
 import type { ChapterMeta, SaveData, StageDef } from '../types';
 import { button, h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -15,7 +16,7 @@ export function chapterSkin(c: Pick<ChapterMeta, 'theme' | 'variant'>): string {
   return `zone--${zoneKey(c.theme, c.variant)}`;
 }
 
-const PART_LABEL: Readonly<Record<1 | 2, string>> = { 1: 'PHASE 1 · 구출', 2: 'PHASE 2 · 탈출' };
+const PART_LABEL: Readonly<Record<1 | 2, string>> = { 1: COPY.briefPart1, 2: COPY.briefPart2 };
 
 function chapterStages(chapter: number): StageDef[] {
   return STAGES.filter((s) => s.chapter === chapter);
@@ -69,7 +70,7 @@ function chapterCard(save: SaveData, c: ChapterMeta, stages: readonly StageDef[]
     zoneArt(c.id),
     h('div', { cls: 'world__kicker' }, [
       h('span', { cls: `world__part world__part--${c.part}`, text: PART_LABEL[c.part] }),
-      h('span', { text: `ZONE ${String(c.id + 1).padStart(2, '0')}` }),
+      h('span', { text: fillCopy(COPY.zoneTag, stageVars({ chapter: c.id, index: 0 })) }),
     ]),
     h('h2', { cls: 'world__name', text: c.name }),
     h('p', { cls: 'world__sub', text: c.subtitle }),
@@ -78,7 +79,7 @@ function chapterCard(save: SaveData, c: ChapterMeta, stages: readonly StageDef[]
         icons.star(),
         h('span', { text: `RANK ${starsOf(save, stages)}/${stages.length * 3}` }),
       ]),
-      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: '이전 구역 거점 제압 후 개방' })]),
+      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: COPY.stagesLocked })]),
     ]),
   ]);
 }
@@ -110,7 +111,7 @@ function centreNextNode(screen: HTMLElement, reduced: boolean): void {
 
 export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): HTMLElement {
   const active = selectedChapter ?? currentChapter(save);
-  const screen = h('section', { cls: 'screen screen--stages', attrs: { 'aria-label': '작전 지도' } });
+  const screen = h('section', { cls: 'screen screen--stages', attrs: { 'aria-label': COPY.resultMap } });
   const pick = (c: number): void => {
     selectedChapter = c;
     screen.replaceWith(buildStageSelect(ctx, save, onBack));
@@ -120,10 +121,10 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
     h('span', { cls: 'chip__value', text: `${starsOf(save, STAGES)}/${STAGES.length * 3}` }),
   ]);
   requestAnimationFrame(() => centreNextNode(screen, ctx.reducedMotion()));
-  const ranking = button({ label: '랭킹', variant: 'glass', size: 'icon', icon: icons.crown(), cls: 'btn--rank', onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard('endless')) });
+  const ranking = FEATURES.leaderboard && button({ label: '랭킹', variant: 'glass', size: 'icon', icon: icons.crown(), cls: 'btn--rank', onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard('endless')) });
   screen.append(
     artImage('./art/map-bg.webp', 'art--map'), // v8 facility blueprint behind the trail
-    header(ctx, '작전 지도', onBack, [ranking, total], icons.back()),
+    header(ctx, COPY.resultMap, onBack, [ranking, total], icons.back()),
     chapterTabs(ctx, save, active, pick),
     h('div', { cls: 'scroll' }, [chapterBody(ctx, save, active)]),
   );

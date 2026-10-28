@@ -1,0 +1,555 @@
+/* 칼퇴근 대작전 skin (office build only, loaded after the v8 styles by src/office/main.ts): light pastel
+ * cards with rounded corners and a dark comic outline instead of the tactical glass — no corner brackets,
+ * no scanlines. v8 keeps its own look; this file only overrides tokens and classes. */
+
+:root {
+  --bg-0: #fff3e6;
+  --bg-1: #ffe8d6;
+  --panel: rgba(255, 251, 243, 0.96);
+  --panel-solid: #fffbf3;
+  --panel-2: rgba(255, 244, 230, 0.97);
+  --outline: #3a2e3f;
+  --line: rgba(58, 46, 63, 0.22);
+  --line-strong: #3a2e3f;
+
+  /* text: ≥ 4.5:1 on the cream panels */
+  --ink: #2e2433;
+  --ink-soft: #5b4f60;
+  --ink-faint: #6e6273;
+
+  /* accents darkened for light panels (text use), with pastel fills */
+  --amber: #ffbe4d;
+  --teal: #13806f;
+  --red: #d8344b;
+  --amber-dim: #fff0cc;
+  --teal-dim: #d9f4ee;
+  --red-dim: #ffe1e6;
+  --pastel-mint: #c9f0e4;
+  --pastel-pink: #ffd6de;
+  --pastel-sky: #d6ebff;
+  --pastel-sun: #ffe7a8;
+
+  --r: 14px;
+  --r-lg: 18px;
+  --blur: none;
+  --shadow: 0 4px 0 var(--outline);
+}
+
+body {
+  background: var(--bg-0);
+}
+
+/* ---------- panels ---------- */
+.card {
+  border: 2.5px solid var(--outline);
+  box-shadow: var(--shadow);
+}
+
+.card::before,
+.card::after {
+  display: none;
+}
+
+.kicker {
+  color: #b23a6a;
+  letter-spacing: 0.08em;
+}
+
+.screen--modal {
+  background: rgba(255, 238, 222, 0.55);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+/* ---------- buttons and chips ---------- */
+.btn {
+  --bg: #fffaf0;
+  --bc: var(--outline);
+  --tc: var(--ink);
+  border-width: 2px;
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--outline);
+}
+
+.btn.is-pressed,
+.btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--outline);
+  filter: none;
+}
+
+.btn--sun {
+  --bg: var(--amber);
+  --bc: var(--outline);
+  --tc: #2e2433;
+}
+
+.btn--pink {
+  --bg: var(--pastel-pink);
+  --bc: var(--outline);
+  --tc: #9e1f33;
+}
+
+.btn--mint,
+.btn--sky,
+.btn--violet {
+  --bg: var(--pastel-mint);
+  --bc: var(--outline);
+  --tc: #0f5f53;
+}
+
+.btn--icon {
+  border-radius: 14px;
+}
+
+.chip {
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  box-shadow: 0 2px 0 var(--outline);
+}
+
+/* ---------- menu screens and their header ---------- */
+.screen--stages,
+.screen--shop,
+.screen--settings,
+.screen--archive,
+.screen--achievements,
+.screen--leaderboard {
+  background: linear-gradient(180deg, #fff3e6, #ffe6d2);
+}
+
+.topbar {
+  border-bottom: 2px solid var(--line);
+}
+
+.topbar__title {
+  font-weight: 700;
+}
+
+/* ---------- title (key art stays dark at the bottom: keep its text light) ---------- */
+/* the Korean title is the big headline (칼퇴근 / 대작전); CLOCK OUT is the small sub-line */
+.logo__word {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: clamp(56px, 17vw, 96px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-shadow: 0 4px 0 var(--outline), 0 0 14px rgba(46, 36, 51, 0.7);
+  -webkit-text-stroke: 2px var(--outline);
+  paint-order: stroke fill;
+}
+
+.logo__word2 {
+  color: #ff6f86;
+  text-shadow: 0 4px 0 var(--outline), 0 0 14px rgba(46, 36, 51, 0.7);
+}
+
+.logo__ko {
+  margin-top: 6px;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.32em;
+  text-shadow: 0 2px 0 var(--outline), 0 0 10px rgba(46, 36, 51, 0.8);
+}
+
+.logo__code {
+  color: var(--pastel-mint);
+}
+
+.title__goal {
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  box-shadow: 0 2px 0 var(--outline);
+}
+
+.title__goal-label {
+  color: #b23a6a;
+}
+
+/* ---------- in-game HUD ---------- */
+.hud::before {
+  background: linear-gradient(180deg, rgba(255, 244, 232, 0.7), rgba(255, 244, 232, 0));
+}
+
+.hud__pause {
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: 14px;
+  box-shadow: 0 3px 0 var(--outline);
+}
+
+.hud__title {
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.hud__score {
+  color: var(--ink);
+  -webkit-text-stroke: 0;
+  text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0 4px 0 rgba(58, 46, 63, 0.25);
+}
+
+.hud__barlabel,
+.hud__armor-label {
+  padding: 1px 8px;
+  color: var(--ink);
+  background: var(--panel-solid);
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+}
+
+.bar,
+.prog__seg {
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+  background: rgba(255, 251, 243, 0.85);
+  overflow: hidden;
+}
+
+.heart {
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+}
+
+/* boss bar: "퇴근 게이지" */
+.boss {
+  padding: 8px 12px 10px;
+  background: var(--panel);
+  border: 2.5px solid var(--outline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+
+.boss__code {
+  color: #b23a6a;
+  letter-spacing: 0.02em;
+}
+
+.boss__name {
+  text-shadow: none;
+}
+
+.boss__phase {
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+
+.boss__bar {
+  height: 10px;
+  gap: 4px;
+}
+
+.boss__cell {
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+  background: var(--pastel-pink);
+}
+
+.boss__fill {
+  background: #ff7a8f;
+}
+
+.boss__cell.is-active {
+  box-shadow: none;
+  outline: 2px solid var(--amber);
+}
+
+.boss__cell.is-gone {
+  background: #efe6ea;
+}
+
+/* ---------- tutorial / hint cards ---------- */
+.tut__card {
+  background: var(--panel);
+  border: 2.5px solid var(--outline);
+  border-left-width: 2.5px;
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+
+.tut__tag {
+  border-radius: 999px;
+  border-color: var(--outline);
+}
+
+/* every office stage has a superior: hint cards sit below the boss bar instead of over it */
+#ui:has(.boss:not([hidden])) .tut {
+  top: calc(var(--safe-t) + 184px);
+}
+
+/* ---------- briefing card ---------- */
+.brief__card {
+  background: var(--panel);
+  border: 2.5px solid var(--outline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+
+.brief__photo {
+  border-radius: 12px;
+  border: 2px solid var(--outline);
+  overflow: hidden;
+}
+
+.brief__photo::after {
+  background: linear-gradient(180deg, transparent 55%, rgba(46, 36, 51, 0.35));
+}
+
+.brief__stamp {
+  color: #b23a6a;
+  border-color: #b23a6a;
+  border-radius: 10px;
+}
+
+/* ---------- result card ---------- */
+.report {
+  --frame: var(--outline);
+}
+
+.report--framed {
+  border: 2.5px solid var(--outline);
+  box-shadow: var(--shadow);
+}
+
+.report__boss {
+  border-bottom: 2.5px solid var(--outline);
+  background: var(--pastel-sun);
+}
+
+.report--lose .report__boss {
+  background: var(--pastel-pink);
+}
+
+.report__boss::after {
+  /* a cream band on the left carries the text; the superior stays visible on the right */
+  background: linear-gradient(90deg, rgba(255, 251, 243, 0.96) 0%, rgba(255, 251, 243, 0.85) 42%, rgba(255, 251, 243, 0) 72%);
+}
+
+.report__boss .art__img {
+  object-position: 80% 25%;
+}
+
+.report__boss-banner {
+  color: #b23a6a;
+}
+
+.report__boss-text {
+  text-shadow: 0 0 6px #fffbf3, 0 0 2px #fffbf3;
+}
+
+.report__status {
+  color: var(--teal);
+}
+
+.report__story {
+  background: var(--amber-dim);
+  border: 2px solid var(--outline);
+  border-radius: 12px;
+  color: var(--ink);
+}
+
+.report__scorebox {
+  background: #fff;
+  border: 2px solid var(--outline);
+  border-radius: var(--r);
+}
+
+/* fail: "야근 확정" lands as a big red rubber stamp */
+.report--lose .report__status {
+  display: inline-block;
+  margin: 6px 0 2px 4px;
+  padding: 4px 16px 2px;
+  color: var(--red);
+  font-family: var(--font-body);
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border: 4px double var(--red);
+  border-radius: 12px;
+  transform: rotate(-8deg);
+  opacity: 0.92;
+  mix-blend-mode: multiply;
+  animation: stamp-thunk 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) 0.15s both;
+}
+
+@keyframes stamp-thunk {
+  0% { transform: rotate(-8deg) scale(2.4); opacity: 0; }
+  60% { transform: rotate(-8deg) scale(0.92); opacity: 1; }
+  100% { transform: rotate(-8deg) scale(1); opacity: 0.92; }
+}
+
+#app.reduced-motion .report--lose .report__status {
+  animation: none;
+}
+
+.report__status {
+  font-family: var(--font-body);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.report__label,
+.report__rank-label,
+.report__new {
+  font-family: var(--font-body);
+  letter-spacing: 0.04em;
+}
+
+/* rewards a failed run only caught up on (earned by earlier clears) */
+.report__earlier {
+  margin-top: 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* cutscenes keep their black letterbox: light text there */
+.cut {
+  --ink: #f6efe9;
+  --ink-soft: #ddd2da;
+  --ink-faint: #c3b6c0;
+}
+
+.cut__skip {
+  font-family: var(--font-body);
+  color: #2e2433;
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+/* ---------- picker + character room ---------- */
+.skin,
+.picker__pick {
+  border-radius: var(--r-lg);
+}
+
+.portrait {
+  background: radial-gradient(80% 60% at 50% 70%, #fff6e8 0%, var(--pastel-sky) 80%);
+  border-radius: 12px;
+}
+
+.skin.is-selected {
+  --frame: var(--teal);
+  border-color: var(--teal);
+  box-shadow: 0 4px 0 var(--teal);
+}
+
+/* picker cards: solid pastel (no fade-in on the portrait), the current pick clearly marked */
+.picker__pick {
+  background: var(--panel-solid);
+}
+
+.picker__pick .portrait__img {
+  transition: none;
+}
+
+.picker__pick.is-selected {
+  background: var(--teal-dim);
+  border-width: 3px;
+}
+
+/* ---------- floor map (stage select): one stage per floor of the building ---------- */
+.screen--floors .floors__scroll {
+  padding: 0;
+}
+
+.floors {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  aspect-ratio: 1080 / 2400;
+  background: linear-gradient(180deg, #ffe0cc, #fff3e6);
+}
+
+.floors__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* a light wash (~15%) so the nodes read over the art */
+.floors::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(46, 36, 51, 0.15);
+  pointer-events: none;
+}
+
+.floors__node {
+  z-index: 1;
+  gap: 3px;
+}
+
+/* one floor is ~200 px tall on a phone: the node keeps disc, stars and name only */
+.floors__node .node__moves,
+.floors__node .node__best,
+.floors__node .node__crown,
+.floors__node .node__diff {
+  display: none;
+}
+
+.floors__node .node__disc {
+  width: 52px;
+  height: 52px;
+}
+
+.floors__node .node__disc.is-next .node__num,
+.floors__node .node__disc .node__num {
+  color: var(--ink);
+}
+
+.floors__node .node__disc.is-next::after {
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.floors__node .node__name {
+  max-width: none;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.floors__node .node__flag {
+  color: var(--ink);
+  background: var(--amber);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.floors__node .node__name,
+.floors__node .node__meta,
+.floors__node .node__best {
+  padding: 2px 10px;
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.floors__node .node__disc {
+  border: 2.5px solid var(--outline);
+  border-radius: 999px;
+  background: var(--panel-solid);
+  box-shadow: 0 3px 0 var(--outline);
+}
+
+.floors__node .node__disc.is-next {
+  background: var(--amber);
+}
+
+.floors__node .node__disc.is-locked {
+  background: #efe6ea;
+  color: var(--ink-faint);
+}
+
+.node__kind--boss {
+  color: #b23a6a;
+}

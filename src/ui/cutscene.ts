@@ -1,6 +1,7 @@
 // v7 cutscene player (GDD-v7 §2): full-screen letterboxed stills with a Ken Burns move per shot, 0.4s dissolves,
 // typed captions with a speaker label, SKIP (button / Escape / long-press). Reduced motion: static frames + fades.
 // `onDone` fires exactly once — after the last shot or on a skip — and the player cleans up after itself.
+import { COPY } from '../flavor';
 import type { Cutscene, CutsceneShot } from '../types';
 import { h, swallowInput } from './dom';
 
@@ -46,7 +47,7 @@ export function buildCutscene(c: Cutscene, opts: { readonly reduced: boolean; re
   const speaker = h('span', { cls: 'cut__speaker mono' });
   const caption = h('p', { cls: 'cut__caption' });
   const counter = h('span', { cls: 'cut__count mono' });
-  const skipBtn = h('button', { cls: 'cut__skip mono', text: 'SKIP ▸▸', attrs: { type: 'button', 'aria-label': '컷신 건너뛰기' } });
+  const skipBtn = h('button', { cls: 'cut__skip mono', text: COPY.cutSkip, attrs: { type: 'button', 'aria-label': '컷신 건너뛰기' } });
   const el = h('section', { cls: `cut${opts.reduced ? ' is-reduced' : ''}`, attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': c.title } }, [
     h('div', { cls: 'cut__stage' }, [slots[0].el, slots[1].el]),
     h('div', { cls: 'cut__bar cut__bar--top' }, [h('span', { cls: 'cut__title mono', text: c.title }), counter, skipBtn]),

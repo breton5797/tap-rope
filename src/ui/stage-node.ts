@@ -3,6 +3,7 @@ import { STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
 import { stageDifficulty } from '../core/difficulty';
 import { generateBeats } from '../core/levels';
+import { COPY, fillCopy, stageVars } from '../flavor';
 import { physicsForWorld } from '../core/physics';
 import type { MoveId, SaveData, StageDef } from '../types';
 import { formatNumber, h, svg, type Ctx } from './dom';
@@ -104,7 +105,7 @@ export function trailPath(stages: readonly StageDef[]): SVGElement {
 function discFace(stage: StageDef, unlocked: boolean): Node {
   if (!unlocked) return icons.lock();
   if (stage.kind === 'bonus') return icons.gift();
-  return h('span', { cls: 'node__num mono', text: String(stage.index + 1).padStart(2, '0') });
+  return h('span', { cls: 'node__num mono', text: fillCopy(COPY.stageNum, stageVars(stage)) });
 }
 
 /** Core names bonus/boss stages "보너스 …"/"보스 …"; the kind pill already says so. */
@@ -112,7 +113,7 @@ function displayName(stage: StageDef): string {
   return stage.name.replace(/^(보너스|보스)\s+/, '');
 }
 
-const KIND_LABEL: Readonly<Record<string, string>> = { bonus: 'SUPPLY', boss: 'TARGET' };
+const KIND_LABEL: Readonly<Record<string, string>> = { bonus: COPY.nodeBonus, boss: COPY.nodeBoss };
 
 function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean): HTMLButtonElement {
   const kind = stage.kind ?? 'normal';
@@ -120,7 +121,7 @@ function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean
     'button',
     {
       cls: `node__disc node__disc--${kind}${unlocked ? '' : ' is-locked'}${isNext ? ' is-next' : ''}`,
-      attrs: { type: 'button', 'aria-label': `작전 ${stage.chapter + 1}-${stage.index + 1} ${stage.name}${unlocked ? '' : ' 잠김'}` },
+      attrs: { type: 'button', 'aria-label': `${COPY.stageAriaPrefix} ${fillCopy(COPY.stageTag, stageVars(stage))} ${stage.name}${unlocked ? '' : ' 잠김'}` },
     },
     [
       kind === 'boss' ? h('span', { cls: 'node__crown' }, [icons.crown()]) : null,

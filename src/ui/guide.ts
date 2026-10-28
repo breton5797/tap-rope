@@ -4,6 +4,7 @@ import { button, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
 import { moveArt } from './move-art';
 import { STAGES } from '../core/content';
+import { COPY, fillCopy, stageVars } from '../flavor';
 import type { MoveId } from '../types';
 import { MOVE_ORDER, MOVES, moveGlyph } from './moves';
 
@@ -11,7 +12,7 @@ import { MOVE_ORDER, MOVES, moveGlyph } from './moves';
 function firstSeen(id: MoveId): HTMLElement | null {
   const stage = STAGES.find((s) => (s.moves ?? []).includes(id));
   if (!stage) return null;
-  return h('div', { cls: 'guide__modes' }, [h('span', { cls: 'pill', text: `OP ${stage.chapter + 1}-${stage.index + 1}` })]);
+  return h('div', { cls: 'guide__modes' }, [h('span', { cls: 'pill', text: `${COPY.guideStagePrefix} ${fillCopy(COPY.stageTag, stageVars(stage))}` })]);
 }
 
 function moveCard(id: (typeof MOVE_ORDER)[number], i: number): HTMLElement {
@@ -33,16 +34,16 @@ export function buildGuide(ctx: Ctx, onClose: () => void): HTMLElement {
   const close = ctx.tap(onClose);
   const scrim = h('div', { cls: 'sheet__scrim' });
   scrim.addEventListener('click', close);
-  const sheet = h('div', { cls: 'sheet', attrs: { role: 'dialog', 'aria-label': '작전 교범' } }, [
+  const sheet = h('div', { cls: 'sheet', attrs: { role: 'dialog', 'aria-label': COPY.titleGuide } }, [
     h('div', { cls: 'sheet__grip' }),
     h('header', { cls: 'sheet__head' }, [
-      h('div', {}, [h('div', { cls: 'kicker', text: 'FIELD MANUAL' }), h('h2', { cls: 'sheet__title', text: '작전 교범' })]),
+      h('div', {}, [h('div', { cls: 'kicker', text: COPY.guideKicker }), h('h2', { cls: 'sheet__title', text: COPY.titleGuide })]),
       button({ label: '닫기', variant: 'glass', size: 'icon', icon: icons.close(), onPress: close }),
     ]),
-    h('p', { cls: 'sheet__lead', text: `왼손: 레인 이동. 오른손: 점프·슬라이딩. 기본 기술 ${MOVE_ORDER.length}종.` }),
+    h('p', { cls: 'sheet__lead', text: COPY.guideLead.replace('{n}', String(MOVE_ORDER.length)) }),
     h('div', { cls: 'sheet__list' }, [controlsDiagram(true), ...MOVE_ORDER.map(moveCard)]),
   ]);
-  const screen = h('section', { cls: 'screen screen--sheet', attrs: { 'aria-label': '작전 교범' } }, [scrim, sheet]);
+  const screen = h('section', { cls: 'screen screen--sheet', attrs: { 'aria-label': COPY.titleGuide } }, [scrim, sheet]);
   swallowInput(screen);
   return screen;
 }

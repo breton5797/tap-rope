@@ -488,6 +488,15 @@ export interface RenderSnapshot {
   readonly bossFinish?: number;
   /** v8 (A5): equipped cosmetic colours (null fields / absent = default look) */
   readonly cosmetics?: CosmeticLook;
+  /** the run behind this frame (office build: surprise events, clock, attack looks); v8 draws without it */
+  readonly run?: RenderRun;
+}
+
+export interface RenderRun {
+  readonly seed: number; // the stage's run seed
+  readonly stageIndex: number; // chapter
+  readonly progress: number; // 0..1 of the stage
+  readonly beats: readonly Beat[];
 }
 
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';
@@ -660,6 +669,8 @@ export interface Ui {
   showTutorialStop(stop: { readonly step: 'jump' | 'slide' | 'lane'; readonly dir: LaneDir | null } | null): void;
   /** v8 (A3): boss phase announcement ("PHASE 2" + attack name), fades by itself */
   showBossLine(kicker: string, text: string): void;
+  /** first-run character picker (FEATURES.firstRunPick); onPick with the chosen owned skin */
+  showPicker(save: SaveData, onPick: (id: SkinId) => void): void;
 }
 
 // ---------- Audio contract ----------

@@ -3,6 +3,7 @@
 // (box × scale × device px), after which the bitmap is closed. A resize re-bakes from the Blob. Any
 // failure (missing file, decode error) leaves the procedural silhouette in place.
 import type { BossId } from '../types';
+import { BOSS_PHOTO_GRADE } from './boss-rigs';
 import { makeCanvas, releaseCanvas } from './util';
 
 interface Baked {
@@ -105,14 +106,14 @@ async function bake(gen: number, k: number, w: number, h: number): Promise<void>
     surf.ctx.drawImage(bmp, BOX.x, BOX.y, BOX.w, BOX.h, dx, dy, dw, dh);
     bmp.close();
     // grade the photo into the corridor: teal shadow tone, darker toward its base (background depth)
-    const g = surf.ctx.createLinearGradient(0, 0, 0, ch);
-    g.addColorStop(0, 'rgba(14,40,48,0.28)');
-    g.addColorStop(0.6, 'rgba(6,16,20,0.38)');
-    g.addColorStop(1, 'rgba(0,0,0,0.55)');
-    surf.ctx.globalCompositeOperation = 'source-atop';
-    surf.ctx.fillStyle = g;
-    surf.ctx.fillRect(0, 0, cw, ch);
-    surf.ctx.globalCompositeOperation = 'source-over';
+    if (BOSS_PHOTO_GRADE) {
+      const g = surf.ctx.createLinearGradient(0, 0, 0, ch);
+      for (const [at, c] of BOSS_PHOTO_GRADE) g.addColorStop(at, c);
+      surf.ctx.globalCompositeOperation = 'source-atop';
+      surf.ctx.fillStyle = g;
+      surf.ctx.fillRect(0, 0, cw, ch);
+      surf.ctx.globalCompositeOperation = 'source-over';
+    }
     FIT.x = dx / cw;
     FIT.y = dy / ch;
     FIT.w = dw / cw;

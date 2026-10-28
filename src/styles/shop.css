@@ -370,3 +370,25 @@
 .setting.is-forced .switch {
   opacity: 0.6;
 }
+
+/* ---------- first-run character picker (FEATURES.firstRunPick) ---------- */
+.modal--picker {
+  width: min(420px, 100%);
+}
+
+.picker__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.picker__pick {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.picker__pick:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
