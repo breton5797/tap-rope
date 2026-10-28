@@ -36,6 +36,11 @@ export function bossFor(stage: BossStage): BossMeta | null {
   return BOSSES[stage.chapter] ?? null;
 }
 
+/** the boss of `section` on a boss stage — v8: the zone boss in every section (the office build has one per section on its last stage) */
+export function bossForSection(stage: BossStage, _section: number): BossMeta | null {
+  return bossFor(stage);
+}
+
 const isHazardBeat = (b: Beat) => b.obstacles.some((o) => HAZARD_KINDS.includes(o.kind));
 
 /** lane hazards first (lanejump = a lane attack), then beams, ceiling, floor (gate, pulse), drone */
