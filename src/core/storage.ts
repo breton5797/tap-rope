@@ -1,5 +1,5 @@
 /**
- * Save data persistence (localStorage key 'laserescape.save.v1'), incl. briefed chapters and (v5) whether
+ * Save data persistence (localStorage key 'laserescape.save.v2'; v1 key read once to migrate), incl. briefed chapters and (v5) whether
  * the controls card was seen — older saves without it load as false (same key and version).
  * v7: seen cutscenes, unlocked achievements (id → unix ms) and the daily streak; older saves load
  * them empty, each field validated on its own.

@@ -335,6 +335,7 @@ describe('v8 save (version 2)', () => {
     };
     fire(KEY, JSON.stringify({ ...defaultSave(), coins: 12 }));
     fire('other', JSON.stringify({ ...defaultSave(), coins: 99 }));
+    fire(LEGACY, JSON.stringify({ ...defaultSave(), coins: 98 })); // an old-build tab writing v1 is not our save
     fire(KEY, '{bad');
     fire(KEY, null);
     stop();
