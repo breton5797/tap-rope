@@ -92,6 +92,8 @@ export interface Beat {
   readonly blockedLanes: readonly LaneId[];
   /** v5: 0-based section of the stage this beat belongs to (doors separate sections) */
   readonly section: number;
+  /** office v2: the mission part (0..2) this beat was generated in; absent in v8 */
+  readonly part?: number;
 }
 
 /** How the scene changes after a section door. */

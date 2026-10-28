@@ -26,6 +26,7 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/audio/sfx.ts': 'src/office/audio/sfx.ts',
   'src/core/achievements.ts': 'src/office/core/achievements.ts',
   'src/core/goals.ts': 'src/office/core/goals.ts',
+  'src/core/levels.ts': 'src/office/core/levels.ts',
   'src/ui/moves.ts': 'src/office/ui/moves.ts',
   'src/ui/stages.ts': 'src/office/ui/stages.ts',
 };
