@@ -1,8 +1,9 @@
 // Office build stand-in for src/render/boss-rigs.ts (build/office-swaps.ts): every superior is a standing
 // comic figure (public-office/art/boss-<slot>.webp), so all seven slots share one "ground" photo rig at the
 // back of the corridor — no rotors, searchlights or eye glow; attacks leave from the hand, steam from the head.
-import type { BossAttackKind, BossId } from '../../types';
-import { BOSS_RIGS, type BossRig, type Pt } from '../../render/boss-rigs';
+import type { BossAttackKind, BossId, BossView } from '../../types';
+import type { View } from '../../render/view';
+import { BOSS_RIGS, type BossMotion, type BossRig, type Pt } from '../../render/boss-rigs';
 
 export * from '../../render/boss-rigs';
 
@@ -21,10 +22,31 @@ export const HAND_FRAC = { x: 0.2, y: 0.55 } as const;
 const HAND = at(HAND_FRAC.x, HAND_FRAC.y);
 const SRC: Readonly<Record<BossAttackKind, Pt>> = { beam: HAND, floor: at(0.5, 0.97), ceiling: HAND, drone: HAND, lane: HAND };
 
+/** steps per second of the superior's backpedal (it runs backwards ahead of the hero) */
+export const STEP_HZ = 2.6;
+const BOB = 4;
+const EXIT_TIME = 1.1;
+
+/** set by the office renderer: realTime when the current superior's gauge ran out (−Infinity = not yet) */
+export const bossExit = { at: Number.NEGATIVE_INFINITY };
+
+/**
+ * F9: the superior backpedals at stride rate (bounce + a slight sway), and once its gauge is empty the hero
+ * overtakes it — it slides out to the left (its -tired frame is shown meanwhile).
+ */
+function personMotion(_b: BossView, v: View, t: number, out: BossMotion): void {
+  const step = Math.sin(t * Math.PI * STEP_HZ);
+  out.dy = -Math.abs(step) * BOB;
+  out.rot = step * 0.03;
+  if (!Number.isFinite(bossExit.at)) return;
+  const k = Math.min(1, Math.max(0, (t - bossExit.at) / EXIT_TIME));
+  out.dx = -k * k * v.w * 0.9;
+}
+
 const person: BossRig = {
   ...BOSS_RIGS.warden,
   w: W, h: H, place: 'ground', idle: 'breathe', frac: PERSON_FRAC, fx: PERSON_FX, facesRight: false,
-  eye: at(0.5, 0.2), eyeR: 0, src: SRC, rotors: [], searchlight: false, damage: at(0.5, 0.03), shadow: 0.25,
+  eye: at(0.5, 0.2), eyeR: 0, src: SRC, rotors: [], searchlight: false, damage: at(0.5, 0.03), shadow: 0.25, motion: personMotion,
 };
 
 /** the pastel figures are drawn as painted (no v8 teal grade) */

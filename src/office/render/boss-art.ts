@@ -1,7 +1,7 @@
 // Office build stand-in for src/render/boss-art.ts (build/office-swaps.ts): the superior's standing figure
-// (public-office/art/boss-<slot>.webp) with two more poses (v2 F5): boss-<slot>-attack while it winds up and
-// throws, boss-<slot>-tired once its own gauge has run out. A pose frame that is missing falls back to the
-// idle figure. Each image is trimmed to its opaque box once and baked at the drawn size (one canvas per pose).
+// (public-office/art/boss-<slot>.webp) with more poses (v2 F5/F9): -idle2 alternating while it backpedals,
+// -throw1..6 (or the single -attack) across the attack telegraph, -tired once its own gauge has run out.
+// A pose frame that is missing falls back (throwN → attack → idle). Each image is trimmed to its opaque box once and baked at the drawn size (one canvas per pose).
 import type { BossId } from '../../types';
 import { makeCanvas, releaseCanvas } from '../../render/util';
 import { imageState, officeImage } from './images';
@@ -13,7 +13,15 @@ export interface FitRect {
   h: number;
 }
 
-export type BossPose = 'idle' | 'attack' | 'tired';
+/** idle (+ idle2 alternating with the backpedal), throw1..6 across the telegraph, attack (single-frame throw), tired */
+export type BossPose = 'idle' | 'idle2' | 'attack' | 'tired' | 'throw1' | 'throw2' | 'throw3' | 'throw4' | 'throw5' | 'throw6';
+const POSES: readonly BossPose[] = ['idle', 'idle2', 'attack', 'tired', 'throw1', 'throw2', 'throw3', 'throw4', 'throw5', 'throw6'];
+
+/** what to try when a pose frame is missing: throwN → attack → idle, idle2 / tired → idle */
+const FALLBACK: Readonly<Record<BossPose, BossPose | null>> = {
+  idle: null, idle2: 'idle', attack: 'idle', tired: 'idle',
+  throw1: 'attack', throw2: 'attack', throw3: 'attack', throw4: 'attack', throw5: 'attack', throw6: 'attack',
+};
 
 interface Baked {
   canvas: HTMLCanvasElement;
@@ -43,7 +51,7 @@ export function setBossPose(p: BossPose): void {
 function namesOf(id: BossId): Record<BossPose, string> {
   let n = NAMES.get(id);
   if (!n) {
-    n = { idle: `boss-${id}`, attack: `boss-${id}-attack`, tired: `boss-${id}-tired` };
+    n = Object.fromEntries(POSES.map((p) => [p, p === 'idle' ? `boss-${id}` : `boss-${id}-${p}`])) as Record<BossPose, string>;
     NAMES.set(id, n);
   }
   return n;
@@ -109,10 +117,13 @@ export function bossPhoto(id: BossId, w: number, h: number, k: number): HTMLCanv
     clear();
   }
   const names = namesOf(id);
-  const want = pose !== 'idle' ? officeImage(names[pose]) : null;
-  const usePose: BossPose = want ? pose : 'idle';
-  const img = want ?? officeImage(names.idle);
-  if (!img) {
+  let usePose: BossPose | null = pose;
+  let img: HTMLImageElement | null = null;
+  while (usePose && !img) {
+    img = officeImage(names[usePose]);
+    if (!img) usePose = FALLBACK[usePose];
+  }
+  if (!img || !usePose) {
     Object.assign(FIT, FULL);
     return null;
   }

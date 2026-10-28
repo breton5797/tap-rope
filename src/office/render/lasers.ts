@@ -13,7 +13,7 @@ import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
 import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
 import {
-  PROP_SIZE, beatIdOf, drawFootprint, drawProp, flyingPropCenter, flyingSpan, propIdFor, propImage, propMotion,
+  PROP_SIZE, beatIdOf, drawFootprint, drawProp, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage, propMotion,
 } from './props';
 
 export * from '../../render/lasers';
@@ -76,7 +76,7 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   const tu = o.timeUntil;
   const s = depthScale(d);
   const floor = o.kind === 'floor';
-  const size = (floor ? PROP_SIZE.floor : PROP_SIZE.ceiling) * s;
+  const size = (floor ? PROP_SIZE.floor : PROP_SIZE.ceiling) * s * laneSizeK(d);
   const join = joinTime(SCROLL_SPEED);
   const step = throwStep(o.kind, o.from, tu, join);
   if (step === -1) return;
@@ -108,7 +108,7 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
 function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle, d: number, a: number, t: number): void {
   const back = o.from === 'back';
   const { bottom, h } = flyingSpan(o);
-  const size = h * depthScale(d);
+  const size = h * depthScale(d) * laneSizeK(d);
   const join = joinTime(beamSpeed('front', v));
   const step = throwStep(o.kind, o.from, o.timeUntil, join);
   if (step === -1) return;

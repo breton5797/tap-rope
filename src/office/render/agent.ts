@@ -64,6 +64,7 @@ export class AgentPainter {
     const reduced = f.reduced === true;
     const feetY = f.floorY - f.p.height * f.depth;
     if (pose.dust > 0 && !reduced) dust(ctx, f.x, f.floorY, s, pose.dust);
+    if (f.p.sliding && !reduced) slideStreaks(ctx, f.x, f.floorY, s, f.t);
     ctx.save();
     ctx.translate(f.x, feetY);
     const lean = reduced ? 0 : heroLean(f.p);
@@ -94,10 +95,11 @@ export class AgentPainter {
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
-/** optional frames fall back to the base set: jump-* → jump, slide-* → slide, run5..8 → run1..4 */
+/** animation frames fall back to the base set: jumpN → jump, slideN → slide, hitN → hit, run5..8 → run1..4 */
 function baseFrame(frame: string): HeroFrameId {
   if (frame.startsWith('jump')) return 'jump';
   if (frame.startsWith('slide')) return 'slide';
+  if (frame.startsWith('hit')) return 'hit';
   const n = /^run(\d)$/.exec(frame);
   if (n) return `run${((Number(n[1]) - 1) % 4) + 1}` as HeroFrameId;
   return (frame === 'hit' || frame === 'win' ? frame : 'run1') as HeroFrameId;
@@ -124,6 +126,25 @@ function dust(ctx: Ctx, x: number, floorY: number, s: number, k: number): void {
     ctx.beginPath();
     ctx.ellipse(x + i * (8 * s + spread), floorY - 2 * s, (5 + 4 * (1 - k)) * s, (2.5 + 2 * (1 - k)) * s, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** F11: a slide reads as speed — white streaks trailing behind the low hero, not an impact puff */
+function slideStreaks(ctx: Ctx, x: number, floorY: number, s: number, t: number): void {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    const y = floorY - (6 + i * 7) * s;
+    const run = ((t * 14 + i * 0.37) % 1) * 10 * s;
+    const len = (18 + (i % 2) * 10) * s;
+    ctx.globalAlpha = 0.7 - i * 0.12;
+    ctx.lineWidth = (2 - i * 0.3) * s;
+    ctx.beginPath();
+    ctx.moveTo(x - 30 * s - run, y);
+    ctx.lineTo(x - 30 * s - run - len, y);
+    ctx.stroke();
   }
   ctx.restore();
 }

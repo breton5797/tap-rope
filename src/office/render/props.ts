@@ -30,7 +30,7 @@ export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<numb
 }
 
 /** prop heights in logical px at depth scale 1: each prop fills (and slightly overfills) its hazard's footprint */
-export const PROP_SIZE = { floor: 50, ceiling: 72, drone: 54, guard: 96, drop: 70, chaser: 68, high: 46 } as const;
+export const PROP_SIZE = { floor: 50, ceiling: 72, drone: 54, guard: 82, drop: 70, chaser: 68, high: 46 } as const;
 /** a beam stack's prop rises this much over its top beam, then is scaled like the others */
 const BEAM_PAD = 16;
 const PROP_SCALE = 1.3;
@@ -89,9 +89,11 @@ export const ACTION_COLORS: Readonly<Record<ActionCue, string>> = {
 
 /**
  * The hazard's footprint on its lane's floor: a soft tinted ellipse in the cue colour with a crisp rim
- * (lane hazards also tint a strip of the blocked lane red), so the lane and the move read at a glance.
+ * (lane hazards also paint the blocked lane red across `laneBand` px), so the lane and the move read at a glance.
  */
-export function drawFootprint(ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1): void {
+export function drawFootprint(
+  ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1, laneBand = 0,
+): void {
   const cue = actionCue(kind);
   const color = ACTION_COLORS[cue];
   const rx = width * (cue === 'lane' ? 0.75 : 0.55);
@@ -99,10 +101,12 @@ export function drawFootprint(ctx: CanvasRenderingContext2D, kind: ObstacleKind,
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (cue === 'lane') {
-    ctx.globalAlpha *= 0.22;
+    // F8: the blocked lane as a full red strip (its whole floor width when `laneBand` is given)
+    const half = laneBand > 0 ? laneBand / 2 : ry;
+    ctx.globalAlpha *= 0.3;
     ctx.fillStyle = color;
-    ctx.fillRect(x - rx * 1.6, floorY - ry, rx * 3.2, ry * 2);
-    ctx.globalAlpha /= 0.22;
+    ctx.fillRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
+    ctx.globalAlpha /= 0.3;
   }
   ctx.beginPath();
   ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
@@ -217,4 +221,19 @@ export function propMotion(id: string, t: number): PropMotion {
     case 'door': case 'revolving-door': case 'elevator': return motion(0, 0, Math.sin(t * 4) * 0.06); // swinging
     default: return motion(0, Math.sin(t * 4) * 1.5, Math.sin(t * 3) * 0.05); // gentle bob
   }
+}
+
+/** the hero's (visual) lane this frame, set by the office renderer */
+let focusLane = 1;
+
+export function setFocusLane(lane: number): void {
+  focusLane = lane;
+}
+
+/**
+ * Declutter: a full-width hazard is drawn full size in the hero's lane and smaller in the other lanes, so
+ * three hero-sized props never stack on top of each other (the hit box is the lane, not the drawing).
+ */
+export function laneSizeK(d: number): number {
+  return 1 - 0.25 * Math.min(1, Math.abs(d - focusLane));
 }

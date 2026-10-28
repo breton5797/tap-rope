@@ -6,6 +6,11 @@ import { OFFICE_BOSSES } from '../core/boss';
 import { OFFICE_PROPS } from '../core/events';
 import type { HeroFrameId } from './hero-frames';
 
+/** name1..nameN */
+function seq(name: string, n: number): string[] {
+  return Array.from({ length: n }, (_, i) => `${name}${i + 1}`);
+}
+
 const HERO_FRAMES: readonly HeroFrameId[] = ['run1', 'run2', 'run3', 'run4', 'jump', 'slide', 'hit', 'win'];
 
 /** every sprite the office renderer draws: both heroes' frames, the props, the superiors */
@@ -16,15 +21,14 @@ export const OFFICE_ART: readonly string[] = [
 ];
 
 /**
- * v2 feel pack art, used when present (older art sets lack it): 8-frame run, jump / slide phases, boss
- * attack / tired frames, office pickup sprites and the stage collectibles.
+ * v2 feel pack art, used when present (older art sets lack it): run5..8, jump1..8, slide1..4, hit1..4, boss
+ * idle2 / throw1..6 / attack / tired, office pickup sprites and the stage collectibles.
  */
 export const OFFICE_EXTRA_ART: readonly string[] = [
   ...(['kid', 'cat'] as const).flatMap((skin) => [
-    ...['run5', 'run6', 'run7', 'run8', 'jump-launch', 'jump-apex', 'jump-spin', 'jump-glide', 'slide-in', 'slide-hold']
-      .map((f) => `hero-${skin}-${f}`),
+    ...['run5', 'run6', 'run7', 'run8', ...seq('jump', 8), ...seq('slide', 4), ...seq('hit', 4)].map((f) => `hero-${skin}-${f}`),
   ]),
-  ...OFFICE_BOSSES.flatMap((b) => [`boss-${b.slot}-attack`, `boss-${b.slot}-tired`]),
+  ...OFFICE_BOSSES.flatMap((b) => ['idle2', 'attack', 'tired', ...seq('throw', 6)].map((p) => `boss-${b.slot}-${p}`)),
   ...['coin', 'shield', 'slow', 'heart'].map((k) => `pickup-${k}`),
   ...['coupon', 'docs', 'cookie', 'badge', 'envelope'].map((c) => `collect-${c}`),
 ];

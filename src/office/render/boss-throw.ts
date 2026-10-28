@@ -19,8 +19,8 @@ export function launchFor(kind: ObstacleKind, from: LaserFrom | null): Launch | 
   return kind === 'guard' ? 'stomp' : null;
 }
 
-/** the prop is held (wind-up, the boss's -attack frame) this long before it flies */
-export const WIND_UP = 0.25;
+/** the prop is held while the boss winds up (throw1..6) this long before it leaves the hand */
+export const WIND_UP = 0.45;
 /** it lands this far in front of the hand (logical px), so it never flies backwards */
 export const THROW_JOIN_GAP = 24;
 const MIN_FLIGHT = 0.35;
@@ -68,3 +68,16 @@ export function throwStep(kind: ObstacleKind, from: LaserFrom | null, tu: number
   const flyFrom = ATTACK_LEAD - WIND_UP;
   return tu >= flyFrom ? 0 : (flyFrom - tu) / (flyFrom - join);
 }
+
+/**
+ * The boss's throw frame (boss-<slot>-throw1..6: wind-up → throw → follow-through) `tu` s before the hazard
+ * arrives, when the prop leaves the hand at `release`: 1 at ATTACK_LEAD … 6 at release, 0 outside.
+ */
+export function bossThrowFrame(tu: number, release: number): number {
+  if (tu > ATTACK_LEAD + 1e-9 || tu < release - 1e-9) return 0;
+  const k = (ATTACK_LEAD - tu) / Math.max(1e-6, ATTACK_LEAD - release);
+  return 1 + Math.min(5, Math.floor(k * 6));
+}
+
+/** the moment (s before arrival) a thrown prop leaves the hand */
+export const RELEASE = ATTACK_LEAD - WIND_UP;

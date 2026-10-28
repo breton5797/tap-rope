@@ -3,18 +3,16 @@
 // (pickup-coin = 칼퇴 포인트, -shield = 노캔 이어폰, -slow = 아이스 아메리카노, -heart = 삼각김밥). The renderer
 // falls back to the v8 icons while a sprite is missing.
 import type { Beat, ObstacleKind } from '../../types';
+import { STAGE_MISSIONS } from '../core/missions';
 
-/**
- * The collectible id of mission part `part` on stage `stageIndex`, or null when that part is not a collect
- * mission. Adapter over src/office/core/missions.ts (STAGE_MISSIONS[stage id][part].collectible): until the
- * mission composer lands, no part collects.
- */
-export function collectibleFor(_stageIndex: number, _part: number | undefined): string | null {
-  return null;
+/** the collectible id of mission part `part` on stage `stageIndex` (STAGE_MISSIONS), or null when it has none */
+export function collectibleFor(stageIndex: number, part: number | undefined): string | null {
+  if (part === undefined) return null;
+  return STAGE_MISSIONS[`w${stageIndex + 1}-s10`]?.[part]?.collectible ?? null;
 }
 
 /** the mission part a beat belongs to (Beat.part from the office stage composer; absent = none) */
-export const partOf = (beat: Beat | undefined): number | undefined => (beat as { readonly part?: number } | undefined)?.part;
+export const partOf = (beat: Beat | undefined): number | undefined => beat?.part;
 
 /** sprite name for a pickup obstacle on `beat` */
 export function pickupSprite(kind: ObstacleKind, beat: Beat | undefined, stageIndex: number): string {

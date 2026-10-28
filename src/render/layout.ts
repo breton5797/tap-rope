@@ -4,14 +4,15 @@
 // lanes are 38px apart on screen and scale 0.9 / 1.0 / 1.1, and x converges on PLAYER_X with
 // depth, so a world-fixed object reaches the agent at the same moment in every lane.
 import { GROUND_Y, LANE_SWITCH_TIME, PLAYER_X, SCROLL_SPEED, type LaserFrom, type PlayerState } from '../types';
+import { LANE_GEOMETRY } from './layout-config';
 import type { View } from './view';
 
 /** screen y of the corridor ceiling */
 export const CEIL_Y = 150;
 /** screen px between neighbouring lane floor lines */
-export const LANE_STEP = 38;
+export const LANE_STEP = LANE_GEOMETRY.laneStep;
 /** depth scale change per lane (0.9 / 1.0 / 1.1) */
-export const DEPTH_STEP = 0.1;
+export const DEPTH_STEP = LANE_GEOMETRY.depthStep;
 /** depth of the back wall's foot and of the floor's front edge (half a lane outside lanes 0 / 2) */
 export const WALL_DEPTH = -0.5;
 export const FRONT_DEPTH = 2.5;

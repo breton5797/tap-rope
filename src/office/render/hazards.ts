@@ -14,6 +14,9 @@ export * from '../../render/hazards';
 
 const CHASER_Y = 34;
 
+/** the floor width of lane `l` on screen */
+const band = (l: number): number => laneY(l + 0.5) - laneY(l - 0.5);
+
 function propHazard(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle, lane: number, t: number, reduced: boolean): void {
   const tu = o.timeUntil;
   const s = depthScale(lane);
@@ -21,17 +24,17 @@ function propHazard(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
   const m = propMotion(propIdFor(o), t + beatIdOf(o) * 0.61 + lane * 0.23);
   if (o.kind === 'guard') {
     const p = project(fixedX(tu), lane, 0);
-    drawFootprint(ctx, o.kind, p.x, p.y, PROP_SIZE.guard * 0.6 * s);
+    drawFootprint(ctx, o.kind, p.x, p.y, PROP_SIZE.guard * 0.6 * s, 1, band(lane));
     drawProp(ctx, img, p.x, p.y, PROP_SIZE.guard * s, 1, false, 1, m);
   } else if (o.kind === 'drop') {
     const x = projX(fixedX(tu), lane);
     const k = Math.min(1, Math.max(0, 1 - tu / WARN_LEAD));
-    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.drop * 0.7 * s, 0.5 + 0.5 * k);
+    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.drop * 0.7 * s, 0.5 + 0.5 * k, band(lane));
     if (tu <= WARN_LEAD && tu > 0.1) targetRing(ctx, x, laneY(lane) + 1, s, t, reduced, 0.4 + 0.6 * k);
     drawProp(ctx, img, x, projY(lane, dropHeight(tu)), PROP_SIZE.drop * s, 1, false, 1, m);
   } else if (o.kind === 'chaser' && tu <= CHASE_ENTER) {
     const x = projX(chaserX(tu, v), lane);
-    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.chaser * 0.6 * s);
+    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.chaser * 0.6 * s, 1, band(lane));
     // it comes from behind, facing the way it runs
     drawProp(ctx, img, x, projY(lane, CHASER_Y), PROP_SIZE.chaser * s, 0.5, true, 1, m);
   }

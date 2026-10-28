@@ -11,7 +11,7 @@ import type { Ctx } from '../../render/util';
 import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
 import { pickupSprite } from './collectibles';
 import { officeImage } from './images';
-import { PROP_SIZE, beatIdOf, drawFootprint, drawProp, propIdFor, propImage, propMotion } from './props';
+import { PROP_SIZE, beatIdOf, drawFootprint, drawProp, laneSizeK, propIdFor, propImage, propMotion } from './props';
 
 export * from '../../render/gadgets';
 
@@ -33,7 +33,7 @@ function droneProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: nu
   const step = throwStep(o.kind, o.from, o.timeUntil, join);
   if (step === -1) return;
   const at = project(fixedX(step === null ? o.timeUntil : join), lane, h);
-  const s = at.scale * 0.86;
+  const s = at.scale * 0.86 * laneSizeK(lane);
   const x = at.x;
   const y = at.y;
   const m = propMotion(propIdFor(o), t + beatIdOf(o) * 0.61 + lane * 0.23);
