@@ -200,6 +200,41 @@ export function designStage(s: StageShape): StageDef {
   };
 }
 
+/** a mixed custom stage keeps every listed move: an intro share stops below the 100% that would crowd others out */
+const CUSTOM_FOCUS_MAX = 0.5;
+/** mix field each introduced move's share lives in (jump levels are levelWeights, not mix) */
+const MIX_OF: Partial<Record<MoveId, keyof Mix>> = {
+  beam: 'beam', slide: 'slide', high: 'high', rear: 'rear', drone: 'drone', gate: 'gate', pulse: 'pulse',
+  lane: 'lane', drop: 'drop', chaser: 'chaser', lanejump: 'laneCombo',
+};
+
+/**
+ * Like designStage for a boss stage, but with an explicit move list (re-skinned builds with their own
+ * teaching order). `intro` moves get their INTRO_FOCUS share (≤ CUSTOM_FOCUS_MAX, never below the normal one).
+ */
+export function designCustomStage(s: StageShape, moves: readonly MoveId[], intro: readonly MoveId[] = []): StageDef {
+  const levelWeights = weightsFor(moves, s.d, s.kind);
+  const base = mixFor(moves, s.d, s.chapter >= 5);
+  const focused = intro.reduce<Mix>((mix, m) => {
+    const key = MIX_OF[m];
+    const share = INTRO_FOCUS[m];
+    if (!key || share === undefined || !moves.includes(m)) return mix;
+    return { ...mix, [key]: Math.max(mix[key], Math.min(CUSTOM_FOCUS_MAX, share)) };
+  }, base);
+  return {
+    id: s.id, world: s.world, chapter: s.chapter, variant: s.variant, kind: s.kind, index: s.index, name: s.name,
+    moves: movesForMix(levelWeights, focused),
+    bpm: Math.min(150, Math.round(88 + 62 * s.d)),
+    hazardBeats: hazardsFor(s.kind, s.d),
+    seed: s.seed,
+    levelWeights,
+    mix: focused,
+    sections: SECTIONS[s.kind],
+    pickupRate: pickupRateFor(s.kind, s.d),
+    ...(s.campaign ? { campaign: true as const } : {}),
+  };
+}
+
 export function buildCampaign(chapters: readonly ChapterMeta[]): StageDef[] {
   return Array.from({ length: chapters.length * 10 }, (_, i) => {
     const n = i + 1;
