@@ -5,7 +5,7 @@ import { bossFor } from '../core/boss';
 import { STAGES } from '../core/content';
 import { ACH_REWARD } from '../core/economy';
 import { starRule } from '../core/goals';
-import { COPY } from '../flavor';
+import { COPY, fillCopy } from '../flavor';
 import type { MoveId, ResultInfo, ResultMeta } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
@@ -29,7 +29,7 @@ export function bossBanner(r: ResultInfo): HTMLElement | null {
   return h('div', { cls: 'report__boss' }, [
     artImage(`./art/boss-${boss.id}.webp`, 'art--boss'),
     h('div', { cls: 'report__boss-text' }, [
-      h('span', { cls: 'report__boss-code mono', text: `${boss.codename} // NEUTRALIZED` }),
+      h('span', { cls: 'report__boss-code mono', text: fillCopy(COPY.resultBossCode, { code: boss.codename }) }),
       h('strong', { cls: 'report__boss-banner', text: COPY.resultBossBanner }),
       h('span', { cls: 'report__boss-name', text: boss.name }),
     ]),

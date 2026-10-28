@@ -43,7 +43,7 @@ export function renderBriefing(layer: HTMLElement, chapter: number | null, reduc
   layer.replaceChildren(
     h('div', { cls: `brief brief--p${c.part}`, attrs: { role: 'status' } }, [
       h('div', { cls: 'brief__card' }, [
-        h('div', { cls: 'brief__photo' }, [zoneArt(c.id), h('span', { cls: 'brief__photo-tag mono', text: `${zone} // ${COPY.briefTag}` })]),
+        h('div', { cls: 'brief__photo' }, [zoneArt(c.id), h('span', { cls: 'brief__photo-tag mono', text: fillCopy(COPY.briefPhotoTag, { zone }) })]),
         h('span', { cls: 'brief__stamp', text: COPY.briefStamp }),
         h('div', { cls: 'brief__head' }, [
           h('span', { cls: 'brief__kicker' }, [icons.book(), h('span', { text: COPY.briefKicker })]),
@@ -51,7 +51,7 @@ export function renderBriefing(layer: HTMLElement, chapter: number | null, reduc
         ]),
         h('h2', { cls: 'brief__zone' }, [h('span', { cls: 'brief__no mono', text: zone }), c.name]),
         text,
-        h('div', { cls: 'brief__foot', text: `${COPY.briefFrom} // ${c.subtitle}` }),
+        h('div', { cls: 'brief__foot', text: fillCopy(COPY.briefFrom, { sub: c.subtitle }) }),
       ]),
     ]),
   );

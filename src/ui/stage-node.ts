@@ -113,7 +113,7 @@ function displayName(stage: StageDef): string {
   return stage.name.replace(/^(보너스|보스)\s+/, '');
 }
 
-const KIND_LABEL: Readonly<Record<string, string>> = { bonus: 'SUPPLY', boss: 'TARGET' };
+const KIND_LABEL: Readonly<Record<string, string>> = { bonus: COPY.nodeBonus, boss: COPY.nodeBoss };
 
 function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean): HTMLButtonElement {
   const kind = stage.kind ?? 'normal';
