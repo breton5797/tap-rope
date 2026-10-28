@@ -53,6 +53,7 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     boss: sessionBoss(s),
     bossFinish: o.bossFinish ?? -1,
     cosmetics: o.cosmetics,
+    run: { seed: s.stage.seed, stageIndex: s.stage.chapter, progress: sessionProgress(s), beats: s.beats },
   };
 }
 

@@ -488,6 +488,15 @@ export interface RenderSnapshot {
   readonly bossFinish?: number;
   /** v8 (A5): equipped cosmetic colours (null fields / absent = default look) */
   readonly cosmetics?: CosmeticLook;
+  /** the run behind this frame (office build: surprise events, clock, attack looks); v8 draws without it */
+  readonly run?: RenderRun;
+}
+
+export interface RenderRun {
+  readonly seed: number; // the stage's run seed
+  readonly stageIndex: number; // chapter
+  readonly progress: number; // 0..1 of the stage
+  readonly beats: readonly Beat[];
 }
 
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';
