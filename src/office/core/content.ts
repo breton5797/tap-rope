@@ -1,7 +1,8 @@
 /**
  * Office content (칼퇴근 대작전, office spec §4, §13), swapped in for src/core/content.ts: the 야근상사
  * building as four corridor themes, five chapters of one boss stage each (12층 사무실 → 1층 로비), the two
- * new hires and the 17:30 → 18:00 clock. Stage ids keep the v8 `w{n}-s10` form so boss lookup, progress
+ * new hires and the 17:30 → 18:00 clock. Stage 5's lobby is world 0 'dawn': the art's sunset glass set (the
+ * renderer only has exterior sets for theme 0). Stage ids keep the v8 `w{n}-s10` form so boss lookup, progress
  * and stars work unchanged. Each stage introduces 1–3 moves (spec §13 table) on top of everything before it.
  */
 import type { ChapterMeta, MoveId, Scene, SkinMeta, StageDef, TransitionKind, Variant, WorldId, WorldMeta } from '../../types';
@@ -17,12 +18,12 @@ export const WORLDS: readonly WorldMeta[] = [
   { id: 3, name: '엘리베이터홀 · 로비', subtitle: '비상계단과 1층 회전문' },
 ];
 
-/** the looks the office art covers; the lobby glows at dusk on the last stage */
+/** the looks the office art covers; world 0 dawn is the sunset lobby glass (the renderer's exterior set) */
 export const DESIGNED_LOOKS: Readonly<Record<WorldId, readonly Variant[]>> = {
-  0: ['base'],
+  0: ['base', 'dawn'],
   1: ['base'],
   2: ['base'],
-  3: ['base', 'dawn'],
+  3: ['base'],
 };
 
 export const CHAPTERS: readonly ChapterMeta[] = [
@@ -34,7 +35,7 @@ export const CHAPTERS: readonly ChapterMeta[] = [
     briefing: '5분만 회의하자. 진짜 5분. 최팀장의 회의실 문이 열리기 전에 지나간다.' },
   { id: 3, part: 1, name: '엘리베이터홀·비상계단', subtitle: '17:48 → 17:54', theme: 3, variant: 'base',
     briefing: '라떼는 말이야, 9시 퇴근이 기본이었어. 오부장을 지나 계단으로.' },
-  { id: 4, part: 1, name: '1층 로비·회전문', subtitle: '17:54 → 18:00', theme: 3, variant: 'dawn',
+  { id: 4, part: 1, name: '1층 로비·회전문', subtitle: '17:54 → 18:00', theme: 0, variant: 'dawn',
     briefing: '다들 저녁 먹고 가지? 내가 쏜다! 전무·이사·사장님을 뚫고 18:00 정각에 나간다.' },
 ];
 
@@ -51,7 +52,8 @@ export const CHAPTER_SCENES: readonly ChapterScenes[] = [
   { scenes: [sc(1, 'base'), sc(1, 'base'), sc(2, 'base')], transitions: ['turn', 'stairs'] },
   { scenes: [sc(2, 'base'), sc(2, 'base'), sc(3, 'base')], transitions: ['turn', 'turn'] },
   { scenes: [sc(3, 'base'), sc(3, 'base'), sc(3, 'base')], transitions: ['elevator', 'stairs'] },
-  { scenes: [sc(3, 'dawn'), sc(3, 'dawn'), sc(3, 'dawn')], transitions: ['stairs', 'turn'] },
+  // lobby glass at sunset → down the last stairs past the elevator hall → the revolving door
+  { scenes: [sc(0, 'dawn'), sc(3, 'base'), sc(0, 'dawn')], transitions: ['stairs', 'turn'] },
 ];
 
 type StageLook = Pick<StageDef, 'chapter' | 'world' | 'variant'>;

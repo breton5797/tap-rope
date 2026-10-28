@@ -60,8 +60,11 @@ describe('office stages', () => {
     expect(nextStageId('w5-s10')).toBeNull();
   });
 
-  it('stage 5 is the lobby at dusk (world 3, dawn) and every look is designed', () => {
-    expect(STAGES[4]).toMatchObject({ world: 3, variant: 'dawn' });
+  it('stage 5 is the sunset lobby (world 0 dawn: the exterior glass set), stage 1 the office, every look designed', () => {
+    expect(STAGES[0]).toMatchObject({ world: 0, variant: 'base' });
+    expect(STAGES[4]).toMatchObject({ world: 0, variant: 'dawn' });
+    expect(CHAPTER_SCENES[4].scenes[2]).toEqual({ world: 0, variant: 'dawn' }); // ends at the revolving door
+    expect(DESIGNED_LOOKS[3]).not.toContain('dawn'); // the renderer has no exterior set for theme 3
     expect(CHAPTER_SCENES).toHaveLength(CHAPTERS.length);
     for (const c of CHAPTERS) expect(DESIGNED_LOOKS[c.theme]).toContain(c.variant);
     for (const s of CHAPTER_SCENES) for (const sc of s.scenes) expect(DESIGNED_LOOKS[sc.world]).toContain(sc.variant);
