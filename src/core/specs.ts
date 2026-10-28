@@ -27,6 +27,8 @@ export interface Spec {
   readonly tight: boolean;
   /** first spec of a planned chunk (single, pattern or pulse run): a section door may come before it */
   readonly head: boolean;
+  /** v8: added by the move quota (not by a random chunk) — the guard tests cap their share */
+  readonly forced?: true;
 }
 
 const PULSE_MIN = 4;
@@ -200,7 +202,7 @@ export function planSpecs(stage: StageDef, rng: Rng): Spec[] {
     const reserved = missing.reduce((n, m) => n + quotaSize(m), 0);
     const room = stage.hazardBeats - specs.length - reserved;
     const chunk = room <= 0 && missing.length > 0
-      ? forcedSpecs(missing[0], rng)
+      ? forcedSpecs(missing[0], rng).map((s): Spec => ({ ...s, forced: true }))
       : planChunk(stage, rng, {
         room,
         pulseLeft: pulseCap - specs.filter((s) => s.pulse).length,

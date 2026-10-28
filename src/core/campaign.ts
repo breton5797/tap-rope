@@ -1,18 +1,20 @@
 /**
  * The 100-stage campaign as a formula (GDD v4 §5, v3 §17). Stage number n = chapter·10 + index + 1.
  * - kind: n % 10 == 5 → bonus, n % 10 == 0 → boss, otherwise normal.
- * - difficulty d(n) = 0.80·(n−1)/99 + 0.20·index/9, then boss +0.08, bonus −0.25,
+ * - difficulty d(n) = 0.80·(n−1)/99 + 0.20·index/9, then boss +0.04 (v8: was +0.08), bonus −0.25,
  *   first-introduction stage −0.04. A chapter's first stage is automatically easier than the
  *   previous boss. The generator's random slack shrinks continuously with tempo; bosses get none.
- * - mapping: bpm = 88 + 62·d (≤ 150); hazards = 14 + 34·d (boss ×1.4 ≤ 60, bonus 12–16);
+ * - mapping: bpm = 88 + 62·d (≤ 150); hazards = 14 + 34·d (v8 boss ×1.25 ≤ 52, bonus 12–16);
  *   level weights and mix values grow with d, restricted to the stage's moves.
  * - moves: intro stage = jump + lane + 이단 (once unlocked) + the new move, which gets a focused mix
- *   (high/rear/gate/chaser intros use a 100% share so nothing else shadows it); every other normal stage
- *   and every boss = all unlocked moves; bonus = jump (+ 이단), coin-rich.
+ *   (high/rear/gate/chaser intros use a 100% share so nothing else shadows it; v8: intro stages keep 이단
+ *   ≤ 0.1 and no 삼단); every boss = all unlocked moves; bonus = jump (+ 이단), coin-rich.
+ *   v8 (GDD-v8 A4): other campaign normal stages = jump + lane + the zone's focus moves + OTHERS moves of
+ *   the rest rotated by stage, so each stage has an identity (daily / endless keep every unlocked move).
  * - v5 lanes (GDD v5 §5, §7): lane-beat share 0.2 + 0.15·d once unlocked (0.5 on the lane / drop /
  *   chaser / lanejump intro stages); part 2 (chapter ≥ 5) adds +0.1 to the chaser and rear shares.
  * - sections (doors): bonus 1, normal 2, boss 3.
- * - pickups: bonus 0.8, boss 0.1, normal 0.3 − 0.15·d.
+ * - pickups: bonus 0.8, boss 0.25 (v8: was 0.1, plus a shield at each boss door — levels.ts), normal 0.3 − 0.15·d.
  */
 import type { ChapterMeta, MoveId, StageDef, StageKind, WorldId } from '../types';
 import { MOVE_ORDER, movesForMix } from './moves';
@@ -25,9 +27,19 @@ export const INTRO_STAGE: Readonly<Record<MoveId, number>> = {
 /** share given to the newly introduced feature on its intro stage (lane: of hazards; drop / chaser /
  * lanejump: of lane beats) */
 const INTRO_FOCUS: Partial<Record<MoveId, number>> = {
-  beam: 0.85, slide: 0.35, drone: 0.35, high: 1, rear: 1, gate: 1, pulse: 0.6,
-  lane: 0.5, drop: 0.6, chaser: 1, lanejump: 0.6,
+  beam: 0.85, slide: 0.35, drone: 0.35, high: 1, rear: 1, gate: 1, pulse: 0.4,
+  lane: 0.5, drop: 0.6, chaser: 1, lanejump: 0.35,
 };
+/** intro stages of other moves: at most this 이단 weight (and no 삼단) so the new move stands out */
+const INTRO_DOUBLE_MAX = 0.1;
+/** v8: each zone's signature moves, used by all of its normal stages once unlocked */
+const ZONE_FOCUS: readonly (readonly MoveId[])[] = [
+  ['beam', 'double', 'slide'], ['triple', 'high', 'rear'], ['gate', 'pulse', 'lanejump'], ['drone', 'gate', 'high'],
+  ['chaser', 'drop', 'pulse'], ['rear', 'chaser', 'drop'], ['slide', 'gate', 'lanejump'], ['double', 'drop', 'drone'],
+  ['triple', 'pulse', 'high'], ['lanejump', 'rear', 'triple'],
+];
+/** v8: moves outside the core (jump / lane / slide / zone focus) a campaign normal stage adds, rotated by stage */
+const OTHERS = 2;
 const LANE_MOVES: readonly MoveId[] = ['lane', 'drop', 'chaser', 'lanejump'];
 /** part 2 (the escape) sends more attacks from behind */
 const PART2_REAR_BONUS = 0.1;
@@ -79,7 +91,7 @@ export function curveD(n: number): number {
   const index = (n - 1) % 10;
   const kind = kindFor(n);
   const base = 0.8 * ((n - 1) / 99) + 0.2 * (index / 9);
-  const bump = (kind === 'boss' ? 0.08 : kind === 'bonus' ? -0.25 : 0) + (introMove(n) ? -0.04 : 0);
+  const bump = (kind === 'boss' ? 0.04 : kind === 'bonus' ? -0.25 : 0) + (introMove(n) ? -0.04 : 0);
   return clamp01(base + bump);
 }
 
@@ -91,9 +103,25 @@ export function movesFor(n: number, kind: StageKind, intro?: MoveId): MoveId[] {
   return unlocked;
 }
 
+/** v8: a campaign normal stage's subset — jump, lane, a slide laser (unless the focus has high), the zone
+ * focus and OTHERS rotated others */
+export function campaignMoves(n: number): MoveId[] {
+  const unlocked = movesFor(n, 'normal');
+  const focus = ZONE_FOCUS[Math.floor((n - 1) / 10) % ZONE_FOCUS.length];
+  const always: readonly MoveId[] = focus.includes('high') ? ['jump', 'lane'] : ['jump', 'lane', 'slide'];
+  const core = unlocked.filter((m) => always.includes(m) || focus.includes(m));
+  const rest = unlocked.filter((m) => !core.includes(m));
+  if (rest.length <= OTHERS) return unlocked;
+  const picked = Array.from({ length: OTHERS }, (_, k) => rest[(n * OTHERS + k) % rest.length]);
+  // beams from behind need beams: a rear pick brings the 1단 beam along
+  const needs: readonly MoveId[] = [...core, ...picked].includes('rear') ? ['beam'] : [];
+  return unlocked.filter((m) => core.includes(m) || picked.includes(m) || needs.includes(m));
+}
+
 function weightsFor(moves: readonly MoveId[], d: number, kind: StageKind, intro?: MoveId): Weights {
-  const w2 = !moves.includes('double') ? 0 : intro === 'double' ? 0.3 : kind === 'bonus' ? 0.15 : 0.2 + 0.25 * d;
-  const w3 = !moves.includes('triple') ? 0 : intro === 'triple' ? 0.3 : 0.08 + 0.27 * d;
+  const w2Normal = intro ? Math.min(INTRO_DOUBLE_MAX, 0.2 + 0.25 * d) : 0.2 + 0.25 * d;
+  const w2 = !moves.includes('double') ? 0 : intro === 'double' ? 0.3 : kind === 'bonus' ? 0.15 : w2Normal;
+  const w3 = !moves.includes('triple') ? 0 : intro === 'triple' ? 0.3 : intro ? 0 : 0.08 + 0.27 * d;
   return [round2(1 - w2 - w3), round2(w2), round2(w3)];
 }
 
@@ -132,11 +160,13 @@ export interface StageShape {
   readonly seed: number;
   /** endless: use every move unlocked at n, without the intro-stage focus */
   readonly unlockedOnly?: boolean;
+  /** v8: a campaign stage — move subset and campaign-only generator shaping (never daily / endless) */
+  readonly campaign?: boolean;
 }
 
 function hazardsFor(kind: StageKind, d: number): number {
   const normal = Math.round(14 + 34 * d);
-  if (kind === 'boss') return Math.min(60, Math.round(normal * 1.4));
+  if (kind === 'boss') return Math.min(52, Math.round(normal * 1.25));
   if (kind === 'bonus') return 12 + Math.round(4 * d);
   return normal;
 }
@@ -144,14 +174,15 @@ function hazardsFor(kind: StageKind, d: number): number {
 /** Coin-rich bonus, sparse boss; normal stages get fewer pickups as d rises. */
 function pickupRateFor(kind: StageKind, d: number): number {
   if (kind === 'bonus') return 0.8;
-  if (kind === 'boss') return 0.1;
+  if (kind === 'boss') return 0.25;
   return round2(0.3 - 0.15 * d);
 }
 
 /** Turns a stage's place on the curve into a full StageDef. */
 export function designStage(s: StageShape): StageDef {
   const intro = s.kind === 'normal' && !s.unlockedOnly ? introMove(s.n) : undefined;
-  const chosen = movesFor(s.n, s.kind, intro);
+  const subset = s.campaign && s.kind === 'normal' && !intro;
+  const chosen = subset ? campaignMoves(s.n) : movesFor(s.n, s.kind, intro);
   const levelWeights = weightsFor(chosen, s.d, s.kind, intro);
   const mix = mixFor(chosen, s.d, s.chapter >= 5, intro);
   return {
@@ -164,6 +195,8 @@ export function designStage(s: StageShape): StageDef {
     mix,
     sections: SECTIONS[s.kind],
     pickupRate: pickupRateFor(s.kind, s.d),
+    ...(s.campaign ? { campaign: true as const } : {}),
+    ...(intro && s.campaign ? { intro } : {}),
   };
 }
 
@@ -174,7 +207,7 @@ export function buildCampaign(chapters: readonly ChapterMeta[]): StageDef[] {
     const id = `w${chapter.id + 1}-s${(i % 10) + 1}`;
     return designStage({
       id, name: nameFor(n), n, chapter: chapter.id, index: i % 10, kind: kindFor(n),
-      world: chapter.theme, variant: chapter.variant, d: curveD(n), seed: hashString(`laserescape:${id}`),
+      world: chapter.theme, variant: chapter.variant, d: curveD(n), seed: hashString(`laserescape:${id}`), campaign: true,
     });
   });
 }

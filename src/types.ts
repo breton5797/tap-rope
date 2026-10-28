@@ -202,6 +202,11 @@ export interface StageDef {
   /** v5: number of sections (1–3) separated by doors; normal 2, boss 3, bonus 1 */
   readonly sections: number;
   readonly pickupRate: number; // 0..1 chance of a pickup beat between hazards
+  /** v8: campaign-only shaping (warm-up section openers, isolated first new move, boss door supply);
+   * absent on daily / endless so their server-simulated layouts never change */
+  readonly campaign?: true;
+  /** v8: the move a campaign intro stage teaches */
+  readonly intro?: MoveId;
 }
 
 /** One of the 10 player-facing zones ("구역") of 10 stages each. Part 1 = rescue, part 2 = escape. */
@@ -236,7 +241,8 @@ export interface Settings {
 }
 
 export interface SaveData {
-  readonly version: 1;
+  /** v8: 2 (v1 saves migrate on load; a save from a newer build is never overwritten) */
+  readonly version: 2;
   readonly stars: Readonly<Record<string, number>>; // stageId -> 0..3
   readonly bestScores: Readonly<Record<string, number>>; // stageId | 'endless' | 'daily:YYYY-MM-DD'
   readonly coins: number;
@@ -254,6 +260,25 @@ export interface SaveData {
   readonly achievements: Readonly<Partial<Record<AchievementId, number>>>;
   /** v7: consecutive daily-operation clears (date of the last one) for streak achievements */
   readonly dailyStreak: { readonly last: string | null; readonly count: number };
+  /** v8: owned cosmetic ids and what is equipped (render-only; see core/economy) */
+  readonly cosmetics: SaveCosmetics;
+}
+
+/** v8 cosmetics: per-skin colour variants, laser-trail / landing-ring colours, result-card frames. */
+export interface SaveCosmetics {
+  readonly owned: readonly string[];
+  /** equipped colour variant id per skin (absent = the skin's default colours) */
+  readonly tint: Readonly<Partial<Record<SkinId, string>>>;
+  readonly trail: string | null;
+  readonly ring: string | null;
+  readonly frame: string | null;
+}
+
+/** v8: resolved render colours of the equipped cosmetics (hex); null = default look. */
+export interface CosmeticLook {
+  readonly tint: string | null;
+  readonly trail: string | null;
+  readonly ring: string | null;
 }
 
 // ---------- v7: bosses (GDD-v7 §1) ----------
@@ -342,6 +367,8 @@ export interface RunSummary {
   readonly seconds: number; // stage time survived
   readonly score: number;
   readonly date: string; // YYYY-MM-DD (local)
+  /** v8: the move that would have dodged the hit that ended a failed run (fail-screen tip), else null */
+  readonly hitBy?: MoveId | null;
 }
 
 /** One recorded input, at a deterministic session time (GDD-v7 §3.2). */
@@ -480,7 +507,8 @@ export interface Renderer {
    * never rejects — a missing image falls back to the procedural look. render() works before and during loading.
    */
   load(onProgress?: (done: number, total: number) => void): Promise<void>;
-  resize(cssWidth: number, cssHeight: number, dpr: number): void;
+  /** v8: safeBottom = css px of the bottom safe-area inset (the rhythm lane docks above it) */
+  resize(cssWidth: number, cssHeight: number, dpr: number, safeBottom?: number): void;
   render(snap: RenderSnapshot): void;
   readonly fx: EffectsApi;
 }
@@ -524,7 +552,28 @@ export interface ResultInfo {
   readonly coinsEarned: number;
   readonly hasNext: boolean;
   /** v7: endless/daily leaderboard submission state (absent for campaign stages) */
-  readonly online?: { readonly state: 'pending' | 'ranked' | 'offline' | 'rejected'; readonly rank?: number };
+  /** v7: rank on the board; v8: gap = points to the next rank up (when known) */
+  readonly online?: { readonly state: 'pending' | 'ranked' | 'offline' | 'rejected'; readonly rank?: number; readonly gap?: number };
+  /** v8 meta layer: rewards, streak, achievements and goals for the result card */
+  readonly meta?: ResultMeta;
+}
+
+/** v8: one ₵ reward line on the result card. */
+export interface Reward {
+  readonly kind: 'first-clear' | 'boss-clear' | 'star' | 'achievement' | 'streak' | 'first-mission';
+  readonly label: string;
+  readonly coins: number;
+}
+
+export interface ResultMeta {
+  readonly rewards: readonly Reward[];
+  /** daily: streak after this run (extended = grew today) */
+  readonly streak: { readonly count: number; readonly extended: boolean } | null;
+  readonly unlocked: readonly AchievementId[];
+  readonly hitBy: MoveId | null;
+  /** endless: the seed (challenge link); vs = the challenger's score when this run used their seed */
+  readonly seed: number | null;
+  readonly vs: number | null;
 }
 
 export interface UiCallbacks {
@@ -547,6 +596,8 @@ export interface UiCallbacks {
   onOpenAchievements(): void;
   onOpenLeaderboard(board: Board): void;
   onOpenNickname(): void;
+  /** v8: the menu changed the save (cosmetic bought / equipped); app persists it */
+  onMetaChange?(next: SaveData): void;
 }
 
 export interface Ui {

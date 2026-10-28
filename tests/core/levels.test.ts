@@ -135,8 +135,9 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
     }
     doors.forEach((door, j) => {
       expect(door.section).toBe(j + 1);
-      const before = beats.filter((b) => b.section === j).pop() as Beat;
-      const after = beats.find((b) => b.section === j + 1) as Beat;
+      // hazards only: v8 boss stages leave a shield pickup inside the break
+      const before = hazards.filter((b) => b.section === j).pop() as Beat;
+      const after = hazards.find((b) => b.section === j + 1) as Beat;
       expect(after.time - before.time).toBeGreaterThanOrEqual(DOOR_BREAK);
       expect(door.time).toBeGreaterThan(before.time + 0.8);
       expect(door.time).toBeLessThan(after.time - 0.8);

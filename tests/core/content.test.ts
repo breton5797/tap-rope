@@ -13,10 +13,10 @@ describe('WORLDS (themes)', () => {
 });
 
 describe('SKINS', () => {
-  it('names the six operatives per GDD v6 §3 (ids and prices unchanged)', () => {
+  it('names the six operatives per GDD v6 §3 (v8 prices: roster reachable around story end with clear/star/achievement ₵)', () => {
     expect(SKINS.map((s) => [s.id, s.name, s.price])).toEqual([
-      ['kid', '에이전트 K', 0], ['cat', '블랙캣', 60], ['bunny', '해커', 90],
-      ['ninja', '섀도우', 140], ['robot', 'R-7', 200], ['astro', '특수부대', 300],
+      ['kid', '에이전트 K', 0], ['cat', '블랙캣', 70], ['bunny', '해커', 250],
+      ['ninja', '섀도우', 450], ['robot', 'R-7', 700], ['astro', '특수부대', 1200],
     ]);
   });
 });
@@ -170,7 +170,7 @@ describe('STAGES', () => {
     }
     expect(stageById('w1-s9')?.mix.drop).toBe(0.6);
     expect(stageById('w2-s8')?.mix.chaser).toBe(1);
-    expect(stageById('w3-s7')?.mix.laneCombo).toBe(0.6);
+    expect(stageById('w3-s7')?.mix.laneCombo).toBe(0.35); // v8: softer lanejump intro
   });
 
   it('part 2 adds +0.1 to chaser and rear shares', () => {
