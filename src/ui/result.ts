@@ -2,7 +2,7 @@
 // v8: boss-win banner, fail tip (what hit you), ★3 rule, ₵ rewards, achievement badges, daily streak,
 // next-rank gap, leaderboard / share / challenge buttons; stats fold away on a failed run.
 import { STAGES } from '../core/content';
-import { COPY, FEATURES } from '../flavor';
+import { COPY, FEATURES, fillCopy, stageVars } from '../flavor';
 import type { Board, ResultInfo } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
@@ -95,7 +95,7 @@ function storyBeat(r: ResultInfo): string | null {
   if (r.mode !== 'stage' || !r.cleared || stage?.kind !== 'boss') return null;
   if (r.stageId === 'w5-s10') return COPY.resultStoryRescue;
   if (r.stageId === 'w10-s10' || !r.hasNext) return COPY.resultStoryEnd;
-  return COPY.resultStoryNext.replace('{zone}', String(stage.chapter + 2).padStart(2, '0'));
+  return fillCopy(COPY.resultStoryNext, stageVars({ chapter: stage.chapter + 1, index: 0 }));
 }
 
 /** Identity of a run's report: a second showResult with the same key only updates the online line. */

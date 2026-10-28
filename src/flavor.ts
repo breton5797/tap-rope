@@ -113,11 +113,28 @@ export const V8_COPY = {
   resultBossBanner: '거점 제압',
   rewardBossClear: '거점 제압',
   rewardFirst: '첫 임무 보상 → 장비실',
+  // labels, filled by fillCopy: {chapter} {index} 1-based, {index2} / {zone} 2-digit, {n} plain
+  stageTag: '{chapter}-{index}',
+  stageNum: '{index2}',
+  zoneTag: 'ZONE {zone}',
+  bossPhase: 'PHASE {n}/3',
+  bossPhaseAria: '페이즈 {n}/3',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;
 
 export const COPY: Readonly<Record<CopyKey, string>> = V8_COPY;
+
+/** fills `{key}` placeholders of a copy template (unknown keys stay as they are) */
+export function fillCopy(template: string, vars: Readonly<Record<string, string | number>>): string {
+  return template.replace(/\{(\w+)\}/g, (all, k: string) => (k in vars ? String(vars[k]) : all));
+}
+
+/** the label placeholders of a stage (chapter / index 0-based in, 1-based out) */
+export function stageVars(s: Readonly<{ chapter: number; index: number }>): Record<string, string | number> {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return { chapter: s.chapter + 1, index: s.index + 1, index2: pad(s.index + 1), zone: pad(s.chapter + 1), n: s.chapter + 1 };
+}
 
 /** v8: a stage plays its fixed designed seed (stars and replays depend on it) */
 export function runSeedFor(stage: StageDef): number {

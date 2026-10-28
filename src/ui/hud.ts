@@ -1,5 +1,5 @@
 // In-game HUD. updateHud runs every frame, so every write is diffed first.
-import { COPY } from '../flavor';
+import { COPY, fillCopy } from '../flavor';
 import type { HudState } from '../types';
 import { animate, formatNumber, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
@@ -184,7 +184,7 @@ function renderBoss(refs: Refs, b: HudState['boss'], prev: HudState['boss'] | un
   if (prev?.name !== b.name) refs.bossName.textContent = b.name;
   const hp = Math.max(0, Math.min(1, b.hp));
   const phase = Math.max(0, Math.min(2, Math.floor(b.phase)));
-  if (prev?.phase !== b.phase) refs.bossPhase.textContent = `PHASE ${phase + 1}/3`;
+  if (prev?.phase !== b.phase) refs.bossPhase.textContent = fillCopy(COPY.bossPhase, { n: phase + 1 });
   refs.bossCells.forEach((cell, i) => {
     (cell.firstElementChild as HTMLElement).style.transform = `scaleX(${Math.max(0, Math.min(1, hp * 3 - i))})`;
     // the cell currently draining belongs to the active phase
@@ -192,7 +192,7 @@ function renderBoss(refs: Refs, b: HudState['boss'], prev: HudState['boss'] | un
     cell.classList.toggle('is-gone', hp * 3 - i <= 0);
   });
   refs.boss.setAttribute('aria-valuenow', String(Math.round(hp * 100)));
-  refs.boss.setAttribute('aria-valuetext', `${b.codename} ${Math.round(hp * 100)}%, 페이즈 ${phase + 1}/3`);
+  refs.boss.setAttribute('aria-valuetext', `${b.codename} ${Math.round(hp * 100)}%, ${fillCopy(COPY.bossPhaseAria, { n: phase + 1 })}`);
   if (prev && hp < prev.hp - 1e-4) {
     refs.boss.classList.remove('is-hit');
     void refs.boss.offsetWidth; // restart the flash

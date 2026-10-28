@@ -4,7 +4,7 @@ import { button, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
 import { moveArt } from './move-art';
 import { STAGES } from '../core/content';
-import { COPY } from '../flavor';
+import { COPY, fillCopy, stageVars } from '../flavor';
 import type { MoveId } from '../types';
 import { MOVE_ORDER, MOVES, moveGlyph } from './moves';
 
@@ -12,7 +12,7 @@ import { MOVE_ORDER, MOVES, moveGlyph } from './moves';
 function firstSeen(id: MoveId): HTMLElement | null {
   const stage = STAGES.find((s) => (s.moves ?? []).includes(id));
   if (!stage) return null;
-  return h('div', { cls: 'guide__modes' }, [h('span', { cls: 'pill', text: `${COPY.guideStagePrefix} ${stage.chapter + 1}-${stage.index + 1}` })]);
+  return h('div', { cls: 'guide__modes' }, [h('span', { cls: 'pill', text: `${COPY.guideStagePrefix} ${fillCopy(COPY.stageTag, stageVars(stage))}` })]);
 }
 
 function moveCard(id: (typeof MOVE_ORDER)[number], i: number): HTMLElement {

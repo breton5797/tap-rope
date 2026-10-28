@@ -1,7 +1,7 @@
 // Stage select: scrollable chapter chips, a themed chapter card and its stage trail.
 import { CHAPTERS, STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
-import { COPY, FEATURES } from '../flavor';
+import { COPY, FEATURES, fillCopy, stageVars } from '../flavor';
 import type { ChapterMeta, SaveData, StageDef } from '../types';
 import { button, h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -70,7 +70,7 @@ function chapterCard(save: SaveData, c: ChapterMeta, stages: readonly StageDef[]
     zoneArt(c.id),
     h('div', { cls: 'world__kicker' }, [
       h('span', { cls: `world__part world__part--${c.part}`, text: PART_LABEL[c.part] }),
-      h('span', { text: `ZONE ${String(c.id + 1).padStart(2, '0')}` }),
+      h('span', { text: fillCopy(COPY.zoneTag, stageVars({ chapter: c.id, index: 0 })) }),
     ]),
     h('h2', { cls: 'world__name', text: c.name }),
     h('p', { cls: 'world__sub', text: c.subtitle }),

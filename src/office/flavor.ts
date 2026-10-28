@@ -5,9 +5,9 @@
  * Imports of '../flavor' from here reach the real v8 module (the swap skips its own replacement).
  */
 import type { StageDef } from '../types';
-import { V8_COPY, type CopyKey, type Features } from '../flavor';
+import { V8_COPY, fillCopy, stageVars, type CopyKey, type Features } from '../flavor';
 
-export { V8_COPY, type CopyKey, type Features };
+export { V8_COPY, fillCopy, stageVars, type CopyKey, type Features };
 
 export const FEATURES: Features = {
   online: false, endless: false, daily: false, shop: false, leaderboard: false, transfer: false, firstRunPick: true,
@@ -72,7 +72,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   // shown after stage 5 (w5-s10): the ending
   resultStoryRescue: '칼퇴 성공! 18:00:00 — 타임카드 쾅!',
   resultStoryEnd: '칼퇴 성공! 18:00:00 — 타임카드 쾅!',
-  resultStoryNext: '한 층 내려왔다! {zone}단계 개방',
+  resultStoryNext: '한 층 내려왔다! {n}단계 개방',
   resultNext: '다음 층으로',
   resultRetry: '내일은 꼭…!',
   resultReplay: '한 번 더!',
@@ -86,7 +86,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   pickTitle: '오늘 칼퇴할 사원은?',
   pickHint: '나중에 사원 선택에서 언제든 바꿀 수 있어요.',
   // stage select, guide, archive, settings, share card, result rewards
-  stageAriaPrefix: '단계',
+  stageAriaPrefix: '퇴근길',
   stagesLocked: '윗층 상사를 따돌리면 열림',
   guideKicker: '신입 사원 매뉴얼',
   guideLead: '왼손: 레인 이동. 오른손: 점프·숙이기. 칼퇴 기술 {n}가지.',
@@ -101,6 +101,12 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   resultBossBanner: '상사 따돌림!',
   rewardBossClear: '상사 따돌림',
   rewardFirst: '첫 칼퇴 보너스',
+  // labels: one stage per floor, so a stage is just "N단계"
+  stageTag: '{chapter}단계',
+  stageNum: '{chapter}',
+  zoneTag: '{n}단계',
+  bossPhase: '{n}차 공격 · {n}/3',
+  bossPhaseAria: '{n}차 공격',
 };
 
 /** a fresh uniform uint32 for every run start (P3: chosen once, kept on the run, never steered by input) */

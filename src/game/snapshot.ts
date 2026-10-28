@@ -3,6 +3,7 @@ import type { BossView, CosmeticLook, HudState, RenderSnapshot, SkinId } from '.
 import { SCROLL_SPEED } from '../types';
 import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
 import { CHAPTERS } from '../core/content';
+import { COPY, fillCopy, stageVars } from '../flavor';
 import { bossForSection, bossView } from '../core/boss';
 import { MAX_HEARTS, sessionProgress, type Session } from './session';
 
@@ -69,7 +70,7 @@ function bossHud(s: Session): HudState['boss'] {
 export function runTitle(s: Session): string {
   if (s.mode === 'endless') return '무한 침투';
   if (s.mode === 'daily') return '일일 작전';
-  return `${s.stage.chapter + 1}-${s.stage.index + 1} · ${s.stage.name}`;
+  return `${fillCopy(COPY.stageTag, stageVars(s.stage))} · ${s.stage.name}`;
 }
 
 export function toHud(s: Session): HudState {

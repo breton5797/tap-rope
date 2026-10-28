@@ -35,8 +35,8 @@ describe('office copy', () => {
     expect(COPY.tutJumpKicker + COPY.tutSlideKicker + COPY.tutLaneKicker).toContain('김대리');
   });
 
-  it('keeps the {zone} placeholder where v8 has one', () => {
-    expect(COPY.resultStoryNext).toContain('{zone}');
+  it('keeps a stage-number placeholder where v8 has one', () => {
+    expect(COPY.resultStoryNext).toMatch(/\{(zone|n)\}/);
   });
 });
 
