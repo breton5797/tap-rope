@@ -43,13 +43,16 @@ const DIM_FIXED = 0.4;
 const DIM_WIRE = 0.3;
 const DIM_FLYING = 0.2;
 
+/** v8 (A2): light outline on emitter hardware (matches the sprite hazard rims) */
+const RIM_LIGHT = 'rgba(234,247,245,0.9)';
+
 function seedOf(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
   return (h & 1023) / 97;
 }
 
-/** A laser segment: faint haze scatter, red bloom, coloured body, crisp white-hot core (additive). */
+/** A laser segment: faint haze scatter, red bloom, coloured body, crisp white-hot core (additive). v8: thicker body/core, wider bloom. */
 export function beam(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, color: string, a: number, w = 1): void {
   const op = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
@@ -58,18 +61,18 @@ export function beam(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, c
   ctx.beginPath();
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1, y1);
-  ctx.globalAlpha = a * 0.07;
-  ctx.lineWidth = 14 * w;
+  ctx.globalAlpha = a * 0.08;
+  ctx.lineWidth = 18 * w;
   ctx.stroke();
-  ctx.globalAlpha = a * 0.22;
-  ctx.lineWidth = 6 * w;
+  ctx.globalAlpha = a * 0.24;
+  ctx.lineWidth = 7.5 * w;
   ctx.stroke();
   ctx.globalAlpha = a * 0.95;
-  ctx.lineWidth = 2.6 * w;
+  ctx.lineWidth = 3.4 * w;
   ctx.stroke();
   ctx.strokeStyle = '#FFFFFF';
   ctx.globalAlpha = a;
-  ctx.lineWidth = 1.1 * w;
+  ctx.lineWidth = 1.5 * w;
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = op;
@@ -178,6 +181,12 @@ function floorPost(ctx: Ctx, x: number, d: number, h: number, n: number, glow: n
   ctx.fillRect(x - 3.2 * s, fy - 7 * s, 6.4 * s, 1.6 * s);
   ctx.fillStyle = STEEL_DARK;
   ctx.fillRect(x - 3.8 * s, top - 2.2 * s, 7.6 * s, 2.4 * s); // cap
+  // v8 (A2): light rim so the post separates from photo floors
+  ctx.strokeStyle = RIM_LIGHT;
+  ctx.lineWidth = 1.1;
+  ctx.globalAlpha = pa * 0.75;
+  ctx.strokeRect(x - 3.8 * s, top - 2.2 * s, 7.6 * s, fy - top + 2.2 * s);
+  ctx.globalAlpha = pa;
   // lens collar at the beam height
   const ly = projY(d, h);
   ctx.fillStyle = '#0B0C0E';
@@ -205,6 +214,12 @@ function ceilingHousing(ctx: Ctx, x0: number, x1: number, d: number, glow: numbe
   const left = (x0 + x1) / 2 - w / 2;
   ctx.fillStyle = STEEL_DARK;
   ctx.fillRect(left - 1, y - 1, w + 2, h + 2);
+  // v8 (A2): light rim
+  ctx.strokeStyle = RIM_LIGHT;
+  ctx.lineWidth = 1.1;
+  ctx.globalAlpha *= 0.75;
+  ctx.strokeRect(left - 1.5, y - 1.5, w + 3, h + 3);
+  ctx.globalAlpha /= 0.75;
   ctx.fillStyle = STEEL;
   ctx.fillRect(left, y, w, h);
   ctx.fillStyle = STEEL_LIT;

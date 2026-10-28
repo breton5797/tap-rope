@@ -486,6 +486,8 @@ export interface RenderSnapshot {
   readonly boss: BossView | null;
   /** v8 (A3): seconds since the boss finisher landing (the boss blows up), absent / < 0 = none */
   readonly bossFinish?: number;
+  /** v8 (A5): equipped cosmetic colours (null fields / absent = default look) */
+  readonly cosmetics?: CosmeticLook;
 }
 
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';

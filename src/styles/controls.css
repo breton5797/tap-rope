@@ -108,6 +108,13 @@
   white-space: nowrap;
 }
 
+/* v8 (A1): touch-only devices never see keyboard keys */
+@media (hover: none) and (pointer: coarse) {
+  .ctl__keys {
+    display: none;
+  }
+}
+
 .ctl__kbd {
   display: inline-block;
   min-width: 22px;

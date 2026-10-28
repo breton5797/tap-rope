@@ -21,7 +21,7 @@ import {
 } from './rig-poses';
 import { J, P } from './rig-skeleton';
 import { newSpring, springKick, springStep } from './rig-spring';
-import { lookFor, type LookId } from './skins';
+import { lookFor, type AgentLook, type LookId } from './skins';
 import { clamp, oval, type Ctx } from './util';
 
 const SPIN_2 = 0.46;
@@ -58,6 +58,9 @@ export interface AgentFrame {
   readonly fever?: boolean;
   /** v7.1 reduced motion: no ghost trails, smaller rotations */
   readonly reduced?: boolean;
+  /** v8 (A5) cosmetics: accent (visor / LED) colour variant and ghost-trail colour; null = the skin's own */
+  readonly tint?: string | null;
+  readonly trail?: string | null;
 }
 
 /** soft contact shadow: radial falloff in a unit circle, stretched per draw (built once) */
@@ -108,7 +111,18 @@ export class AgentPainter {
   private lastHitAge = Number.POSITIVE_INFINITY;
   private lastLandTimer = 0;
   private readonly ghosts = new GhostTrail();
+  /** v8: the tinted look for the last (skin, tint) pair (one object per change, not per frame) */
+  private tinted: { id: LookId; tint: string; look: AgentLook } | null = null;
   private ghostColor = GHOST_LANE;
+
+  /** the skin's look, with the accent swapped for an equipped colour variant (cached per pair) */
+  private lookOf(id: LookId, tint: string | null): AgentLook {
+    if (!tint) return lookFor(id);
+    if (!this.tinted || this.tinted.id !== id || this.tinted.tint !== tint) {
+      this.tinted = { id, tint, look: { ...lookFor(id), accent: tint } };
+    }
+    return this.tinted.look;
+  }
 
   /** Soft, slightly elongated contact shadow on the floor plane (floorY = the lane's floor line). */
   shadow(ctx: Ctx, x: number, floorY: number, height: number, sliding: boolean, scale: number): void {
@@ -151,14 +165,14 @@ export class AgentPainter {
     const oy = f.floorY - p.height * f.depth * hScale - this.lift * s;
     this.secondary(f, oy / s, dt);
     const paint = this.paint;
-    paint.look = lookFor(f.id);
+    paint.look = this.lookOf(f.id, f.tint ?? null);
     paint.rim = f.rim;
     paint.torch = f.torch;
     paint.outline = f.blink ? (f.reduced ? 0.6 : 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * Math.PI * 10))) : 0;
     const lean = f.lean + this.tilt;
     const ghosts = !f.civilian && !f.reduced;
     const trail = ghosts && (f.fever === true || laneProgress(p) < 1);
-    if (trail) this.ghostColor = f.fever ? GHOST_FEVER : GHOST_LANE;
+    if (trail) this.ghostColor = f.fever ? GHOST_FEVER : f.trail ?? GHOST_LANE;
     if (f.fever && !f.civilian) this.aura(ctx, f.x, oy - 46 * s, s, t);
     // ghosts already sampled fade out on their own once the trail stops
     if (ghosts) this.ghosts.draw(ctx, paint, this.ghostColor, t, 1, f.fever ? 240 * f.scale : 0);

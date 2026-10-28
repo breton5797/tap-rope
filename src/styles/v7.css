@@ -251,7 +251,7 @@
   bottom: 5px;
   z-index: 1;
   color: var(--teal);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .arc__icon {
@@ -280,7 +280,7 @@
 .arc__len {
   padding: 0 4px;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .arc.is-locked {
@@ -433,7 +433,7 @@
   grid-template-columns: 40px 1fr auto;
   padding: 0 12px 6px;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.16em;
   border-bottom: 1px solid var(--line);
 }
@@ -474,7 +474,7 @@
 .lb__me {
   padding: 0 5px;
   color: #120d03;
-  font-size: 11px;
+  font-size: 12px;
   background: var(--amber);
 }
 
@@ -576,7 +576,7 @@
   justify-content: space-between;
   margin-bottom: 6px;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.16em;
 }
 
@@ -649,6 +649,15 @@
   pointer-events: none;
 }
 
+/* v8 (A6): during play the banner sits under the HUD (and the boss bar), never over the score or armor */
+.layer--hud:not([hidden]) ~ .layer--toast .ach-stack {
+  top: calc(var(--safe-t) + 128px);
+}
+
+.layer--hud:not([hidden]):has(.boss:not([hidden])) ~ .layer--toast .ach-stack {
+  top: calc(var(--safe-t) + 186px);
+}
+
 .ach-toast {
   display: flex;
   align-items: center;
@@ -692,9 +701,22 @@
   border: 1px solid rgba(63, 224, 208, 0.6);
 }
 
+/* v8: embroidered badge art replaces the framed star */
+.ach-toast__icon:has(.ach-toast__badge) {
+  width: 44px;
+  height: 44px;
+  border: 0;
+}
+
+.ach-toast__badge {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
 .ach-toast__kicker {
   color: var(--teal);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.2em;
 }
 
@@ -768,7 +790,7 @@
 
 /* the boss bar sits where the combo chain used to be: move the chain below it during a fight */
 .hud:has(.boss:not([hidden])) > .combo {
-  top: calc(var(--safe-t) + 196px);
+  top: calc(var(--safe-t) + 176px);
 }
 
 .boss__head {
@@ -799,7 +821,7 @@
 
 .boss__phase {
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.14em;
   white-space: nowrap;
 }
@@ -826,8 +848,7 @@
 }
 
 .boss__cell.is-active {
-  outline: 1px solid var(--amber);
-  outline-offset: 1px;
+  box-shadow: inset 0 -2px 0 var(--amber);
 }
 
 .boss__cell.is-gone {

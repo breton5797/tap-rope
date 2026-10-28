@@ -13,7 +13,7 @@
   left: 0;
   right: 0;
   top: 0;
-  height: calc(var(--safe-t) + 150px);
+  height: calc(var(--safe-t) + 124px);
   background: linear-gradient(180deg, rgba(7, 9, 12, 0.78), rgba(7, 9, 12, 0));
   pointer-events: none;
 }
@@ -103,10 +103,11 @@
 }
 
 .hud__armor-label {
-  margin-right: 4px;
+  margin-right: 5px;
   color: var(--ink-soft);
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .heart {
@@ -138,7 +139,7 @@
   color: var(--ink-faint);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.14em;
   border: 1px solid var(--line);
 }
@@ -192,22 +193,31 @@
   background: var(--amber-dim);
 }
 
-/* ---------- progress + overdrive: label column | bar column ---------- */
+/* ---------- progress + overdrive: one row, label | bar | label | bar (v8 A2: compact HUD) ---------- */
 .hud__bars {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto 1fr;
   align-items: center;
-  gap: 7px 8px;
+  gap: 6px 8px;
   margin-top: 8px;
+  max-width: 560px;
+}
+
+/* boss stages: boss HP is the progress, so the sector bar goes and overdrive takes the row */
+.hud--boss .hud__barlabel--prog,
+.hud--boss .prog {
+  display: none;
+}
+
+.hud--boss .hud__bars {
+  grid-template-columns: auto 1fr;
 }
 
 .hud__barlabel {
-  min-width: 78px;
   color: var(--ink-soft);
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12px;
   line-height: 1;
   white-space: nowrap;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
@@ -249,10 +259,9 @@
   background: var(--teal);
 }
 
-/* the sector you are in: amber frame, same colour as its "SECTOR n/m" label */
+/* the sector you are in: a brighter track (v8: no second frame that reads as another bar) */
 .prog__seg.is-current {
-  outline: 1px solid var(--amber);
-  outline-offset: 1px;
+  background: rgba(255, 176, 32, 0.22);
 }
 
 .bar {
@@ -311,7 +320,7 @@
 .hud > .combo {
   position: absolute;
   right: calc(var(--safe-r) + 14px);
-  top: calc(var(--safe-t) + 150px);
+  top: calc(var(--safe-t) + 124px);
   display: grid;
   justify-items: end;
   padding-right: 8px;
@@ -371,13 +380,21 @@
   animation: count-in 0.9s var(--ease-out) both;
 }
 
-/* square reticle around the number */
+/* v8: corner-bracket reticle around the number (was two faint boxes that read as a debug frame) */
 .countdown__ring {
   width: 168px;
   height: 168px;
-  border: 1px solid rgba(196, 214, 224, 0.5);
-  outline: 1px solid rgba(196, 214, 224, 0.15);
-  outline-offset: 10px;
+  --c: rgba(196, 214, 224, 0.7);
+  background:
+    linear-gradient(var(--c), var(--c)) top left / 22px 2px,
+    linear-gradient(var(--c), var(--c)) top left / 2px 22px,
+    linear-gradient(var(--c), var(--c)) top right / 22px 2px,
+    linear-gradient(var(--c), var(--c)) top right / 2px 22px,
+    linear-gradient(var(--c), var(--c)) bottom left / 22px 2px,
+    linear-gradient(var(--c), var(--c)) bottom left / 2px 22px,
+    linear-gradient(var(--c), var(--c)) bottom right / 22px 2px,
+    linear-gradient(var(--c), var(--c)) bottom right / 2px 22px;
+  background-repeat: no-repeat;
   animation: count-ring 0.9s var(--ease-out) both;
 }
 
@@ -388,7 +405,7 @@
 }
 
 .countdown--go .countdown__ring {
-  border-color: var(--amber);
+  --c: var(--amber);
 }
 
 @keyframes count-in {
@@ -427,4 +444,17 @@
   .hud__score {
     font-size: 30px;
   }
+}
+
+/* landscape / wide: the bars never stretch across the whole screen */
+@media (min-aspect-ratio: 1/1) {
+  .hud__bars,
+  .boss {
+    max-width: 420px;
+  }
+}
+
+/* v8: the HUD moves out of the way while the 1-1 tutorial freezes the world */
+.hud__slide {
+  display: none;
 }

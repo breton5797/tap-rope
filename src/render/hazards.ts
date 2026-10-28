@@ -6,7 +6,7 @@
 // chaser — a pursuit quadcopter with a searchlight dashing in from the left screen edge along its lane.
 import { PLAYER_X, WARN_LEAD, type VisibleObstacle } from '../types';
 import { CEIL_H, fixedX, laneY, project, projX, projY } from './layout';
-import { blitScaled, type SpriteCache } from './sprites';
+import { blitRimmed, blitScaled, type SpriteCache } from './sprites';
 import { clamp, oval, vGrad, type Ctx } from './util';
 import type { View } from './view';
 
@@ -205,7 +205,7 @@ function guard(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: S
   oval(ctx, p.x, p.y + 1, 17 * s, 3.4 * s);
   ctx.fill();
   ctx.globalAlpha = 1;
-  blitScaled(ctx, sprites.get('guard', 52, 88, 34, 85, guardSprite), p.x, p.y + bob, s, s);
+  blitRimmed(ctx, sprites, 'guard~rim', sprites.get('guard', 52, 88, 34, 85, guardSprite), p.x, p.y + bob, s, s);
   // red sensor slit + its glow, scanning
   const glow = reduced ? 0.7 : 0.55 + 0.45 * Math.sin(t * 7 + seed);
   const sx = p.x + (-15 + (reduced ? 2 : 2 + Math.sin(t * 2.2 + seed) * 2)) * s;
@@ -326,7 +326,7 @@ function drop(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: Sp
   const settle = tu <= DROP_LAND && tu > DROP_LAND - 0.12 && !reduced ? Math.sin(((DROP_LAND - tu) / 0.12) * Math.PI) * 1.5 : 0;
   const y = projY(lane, h) + settle;
   const cx = p.x + sway * (h / HANG_H);
-  blitScaled(ctx, sprites.get('crate', 38, 34, 19, 32, crateSprite), cx, y, s, s);
+  blitRimmed(ctx, sprites, 'crate~rim', sprites.get('crate', 38, 34, 19, 32, crateSprite), cx, y, s, s);
   emissive(ctx, sprites, cx - 12 * s, y - 25 * s, 2.6 * s, reduced ? 0.8 : 0.4 + 0.6 * Math.max(0, Math.sin(t * 5)), true);
 }
 
@@ -428,7 +428,7 @@ function chaser(ctx: Ctx, v: View, o: VisibleObstacle, lane: number, t: number, 
   ctx.save();
   ctx.translate(p.x, p.y + wob);
   ctx.rotate(0.14);
-  blitScaled(ctx, sprites.get('chaser', 40, 18, 20, 8, chaserSprite), 0, 0, s, s);
+  blitRimmed(ctx, sprites, 'chaser~rim', sprites.get('chaser', 40, 18, 20, 8, chaserSprite), 0, 0, s, s);
   ctx.fillStyle = '#9AA3AD';
   ctx.globalAlpha = 0.28;
   for (let dx = -17; dx <= 17; dx += 34) {

@@ -119,3 +119,45 @@ export function header(ctx: Ctx, title: string, onBack: () => void, right: reado
     h('div', { cls: 'topbar__right' }, right),
   ]);
 }
+
+const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * v8 (A6): a modal takes focus when it opens (first button, or the element itself) and keeps Tab inside
+ * it, so keyboard and VoiceOver users land on the dialog instead of the canvas behind it.
+ */
+export function holdFocus(el: HTMLElement): void {
+  if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
+  el.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const items = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE));
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+  const go = (): void => {
+    if (!el.isConnected || el.contains(document.activeElement)) return;
+    (el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus({ preventScroll: true });
+  };
+  // focus that escapes the dialog (VoiceOver swipe, Tab from the canvas) is pulled back while it is open
+  const onFocusIn = (e: FocusEvent): void => {
+    if (!el.isConnected) {
+      document.removeEventListener('focusin', onFocusIn);
+      return;
+    }
+    const t = e.target;
+    // another modal stacked on top (nickname card, overlay layer) keeps its own focus
+    if (!(t instanceof Element) || el.contains(t) || t.closest('[role="dialog"], .layer--overlay')) return;
+    go();
+  };
+  document.addEventListener('focusin', onFocusIn);
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(go);
+  else go();
+}

@@ -1,5 +1,5 @@
 /** Builds the renderer/HUD view-models from a Session. */
-import type { BossView, HudState, RenderSnapshot, SkinId } from '../types';
+import type { BossView, CosmeticLook, HudState, RenderSnapshot, SkinId } from '../types';
 import { SCROLL_SPEED } from '../types';
 import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
 import { CHAPTERS } from '../core/content';
@@ -23,6 +23,10 @@ export interface SnapshotOpts {
   readonly reducedMotion: boolean;
   /** menus: the agent idles and the corridor stands still */
   readonly running: boolean;
+  /** v8 (A3): seconds since the boss finisher landing, < 0 = none */
+  readonly bossFinish?: number;
+  /** v8 (A5): equipped cosmetic colours */
+  readonly cosmetics?: CosmeticLook;
 }
 
 export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSnapshot {
@@ -47,6 +51,8 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     running: o.running,
     doors: visibleDoors(s.doors, s.time),
     boss: sessionBoss(s),
+    bossFinish: o.bossFinish ?? -1,
+    cosmetics: o.cosmetics,
   };
 }
 

@@ -4,18 +4,24 @@ import { buildAchievements, buildArchive } from './archive';
 import { buildCutscene } from './cutscene';
 import { buildLeaderboard } from './leaderboard';
 import { buildNickname } from './nickname';
-import { h, swallowInput, type Ctx } from './dom';
+import { h, holdFocus, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
 import { renderBriefing } from './briefing';
 import { buildControls } from './controls';
 import { buildGuide } from './guide';
 import { renderLoading } from './loading';
-import { buildPause, renderCountdown, renderTutorial, showAchievementToast, showToast } from './overlays';
+import {
+  buildPause, renderBossLine, renderCountdown, renderTutorial, renderTutorialStop, showAchievementBanner, showToast,
+} from './overlays';
+import { createToastQueue } from './toast-queue';
 import { buildResult, patchOnline, resultKey } from './result';
 import { buildSettings } from './settings';
 import { buildShop } from './shop';
 import { buildStageSelect } from './stages';
 import { buildTitle } from './title';
+
+/** v8 (A6): screens that are modal dialogs take focus when mounted */
+const MODALS = new Set(['pause', 'result', 'controls']);
 
 interface Layers {
   readonly screen: HTMLElement;
@@ -93,7 +99,7 @@ function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
   const menu: MenuUi = {
     showTitle: (s) => mount(buildTitle(ctx, remember(s), nav), 'title'),
     showStageSelect: (s) => mount(buildStageSelect(ctx, remember(s), back), 'stages'),
-    showShop: (s) => mount(buildShop(ctx, remember(s), back), 'shop'),
+    showShop: (s) => mount(buildShop(ctx, remember(s), back, (n) => { save = n; }), 'shop'),
     showSettings: (s) => mount(buildSettings(ctx, remember(s), back, localSettings), 'settings'),
     showArchive: (s) => mount(buildArchive(ctx, remember(s), back), 'archive'),
     showAchievements: (s) => mount(buildAchievements(ctx, remember(s), back), 'achievements'),
@@ -107,6 +113,13 @@ function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
 
 function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
   const hud = createHud(ctx);
+  // v8 (A6): achievement banners one at a time, held while the countdown / briefing / a cutscene is up
+  const banners = createToastQueue((b) => showAchievementBanner(layers.toast, b));
+  const busy = { countdown: false, briefing: false, cutscene: false };
+  const setBusy = (key: keyof typeof busy, on: boolean): void => {
+    busy[key] = on;
+    banners.setBlocked(busy.countdown || busy.briefing || busy.cutscene);
+  };
   /** the mounted report, so a follow-up showResult for the same run can patch it in place */
   let lastResult: { readonly key: string; readonly el: HTMLElement } | null = null;
   layers.hud.appendChild(hud.el);
@@ -127,6 +140,8 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       setHud(false);
       renderTutorial(layers.tutorial, ctx, null);
       renderBriefing(layers.briefing, null, true);
+      setBusy('briefing', false);
+      banners.clear(); // the report card shows this run's badges
       const el = buildResult(ctx, r);
       lastResult = { key, el };
       mount(el, 'result');
@@ -139,19 +154,34 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       });
       mount(card, 'controls');
     },
-    showBriefing: (chapter) => renderBriefing(layers.briefing, chapter, ctx.reducedMotion()),
-    showCountdown: (n) => renderCountdown(layers.fx, n),
+    showBriefing(chapter) {
+      setBusy('briefing', chapter !== null);
+      renderBriefing(layers.briefing, chapter, ctx.reducedMotion());
+    },
+    showCountdown(n) {
+      setBusy('countdown', n !== null);
+      renderCountdown(layers.fx, n);
+    },
     hideAll() {
       setHud(false);
       mount(null, 'none');
       renderCountdown(layers.fx, null);
       renderTutorial(layers.tutorial, ctx, null);
       renderBriefing(layers.briefing, null, true);
+      setBusy('countdown', false);
+      setBusy('briefing', false);
     },
     toast: (msg) => showToast(layers.toast, msg),
-    toastAchievement: (a) => showAchievementToast(layers.toast, a),
+    toastAchievement: (a) => banners.push(a),
+    showTutorialStop: (stop) => renderTutorialStop(layers.tutorial, stop),
+    showBossLine: (kicker, text) => renderBossLine(layers.briefing, kicker, text),
     showCutscene(c, onDone) {
-      const player = buildCutscene(c, { reduced: ctx.reducedMotion(), onClick: () => ctx.cb.onUiClick() }, onDone);
+      setBusy('cutscene', true);
+      const done = (): void => {
+        setBusy('cutscene', false);
+        onDone();
+      };
+      const player = buildCutscene(c, { reduced: ctx.reducedMotion(), onClick: () => ctx.cb.onUiClick() }, done);
       layers.cutscene.replaceChildren(player.el);
     },
     showNickname(current, onSubmit) {
@@ -179,9 +209,15 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
       layers.screen.dataset.screen = name;
       if (el) layers.screen.replaceChildren(el);
       else layers.screen.replaceChildren();
+      if (el && MODALS.has(name)) holdFocus(el);
     },
     setHud(visible) {
       layers.hud.hidden = !visible;
+      // v8 (A6): live regions stay quiet while playing (countdown, hints, banners would flood a screen reader)
+      for (const el of [layers.fx, layers.tutorial, layers.briefing, layers.toast]) {
+        if (!el.dataset.live) el.dataset.live = el.getAttribute('aria-live') ?? 'polite';
+        el.setAttribute('aria-live', visible ? 'off' : el.dataset.live);
+      }
     },
   };
   return { ...menuScreens(shared), ...gameScreens(shared) };

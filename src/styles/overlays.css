@@ -28,6 +28,35 @@
   animation: pop-in 0.3s var(--ease-out) both;
 }
 
+/* v8 (A1): single line under the compact HUD */
+.tut--line {
+  top: calc(var(--safe-t) + 128px);
+}
+
+.tut--line .tut__card {
+  gap: 10px;
+  padding: 7px 10px;
+  box-shadow: none;
+}
+
+.tut--line .tut__text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tut--line .tut__skip {
+  bottom: -38px;
+  height: 30px;
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .tut__card {
     background: var(--panel-solid);
@@ -87,7 +116,7 @@
   top: 6px;
   right: 10px;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.2em;
 }
 
@@ -307,4 +336,172 @@
   .countdown__ring {
     display: none;
   }
+}
+
+/* ---------- v8 (A1): tutorial freeze — the half to use lights up, input passes through to the canvas ---------- */
+.tstop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: pop-in 0.25s var(--ease-out) both;
+}
+
+.tstop__pad {
+  position: absolute;
+  top: calc(var(--safe-t) + 120px);
+  bottom: calc(var(--safe-b) + 110px);
+  width: 50%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  background: radial-gradient(closest-side, rgba(63, 224, 208, 0.16), rgba(63, 224, 208, 0.03));
+  border: 1px solid rgba(63, 224, 208, 0.45);
+}
+
+.tstop--right .tstop__pad {
+  right: 0;
+  border-right: 0;
+}
+
+.tstop--left .tstop__pad {
+  left: 0;
+  border-left: 0;
+}
+
+.tstop__glyph {
+  width: 120px;
+  height: 120px;
+  overflow: visible;
+}
+
+.tstop__label {
+  color: var(--teal);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 16px rgba(63, 224, 208, 0.6), 0 2px 6px rgba(0, 0, 0, 0.9);
+  animation: tstop-blink 0.9s ease-in-out infinite;
+}
+
+.tstop__card {
+  position: absolute;
+  left: calc(var(--safe-l) + var(--gutter));
+  right: calc(var(--safe-r) + var(--gutter));
+  top: calc(var(--safe-t) + 128px);
+  max-width: 420px;
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--r-lg);
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--teal);
+}
+
+.tstop__kicker {
+  color: var(--amber);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tstop__hint {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  word-break: keep-all;
+}
+
+.tstop__ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tstop-ring 1.1s var(--ease-out) infinite;
+}
+
+.tstop__ring--2 {
+  animation-delay: 0.35s;
+}
+
+.tstop__tap {
+  animation: tstop-tap 1.1s ease-in-out infinite;
+}
+
+.tstop__swipe--down {
+  animation: tstop-down 1.1s ease-in-out infinite;
+}
+
+.tstop__swipe--up {
+  animation: tstop-up 1.1s ease-in-out infinite;
+}
+
+@keyframes tstop-ring {
+  0% { opacity: 0.9; transform: scale(0.6); }
+  100% { opacity: 0; transform: scale(2.2); }
+}
+
+@keyframes tstop-tap {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(5px) scale(0.96); }
+}
+
+@keyframes tstop-down {
+  0% { transform: translateY(-26px); opacity: 0; }
+  20% { opacity: 1; }
+  80% { transform: translateY(12px); opacity: 1; }
+  100% { transform: translateY(12px); opacity: 0; }
+}
+
+@keyframes tstop-up {
+  0% { transform: translateY(12px); opacity: 0; }
+  20% { opacity: 1; }
+  80% { transform: translateY(-26px); opacity: 1; }
+  100% { transform: translateY(-26px); opacity: 0; }
+}
+
+@keyframes tstop-blink {
+  50% { opacity: 0.55; }
+}
+
+/* ---------- v8 (A3): boss phase line ---------- */
+.bossline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--safe-t) + 214px);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  pointer-events: none;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  animation: bossline 2.2s var(--ease-out) both;
+}
+
+.bossline__kicker {
+  color: var(--red);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.3em;
+}
+
+.bossline__text {
+  padding: 4px 18px;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 600;
+  background: linear-gradient(90deg, transparent, rgba(255, 42, 58, 0.28) 20%, rgba(255, 42, 58, 0.28) 80%, transparent);
+  border-top: 1px solid rgba(255, 42, 58, 0.6);
+  border-bottom: 1px solid rgba(255, 42, 58, 0.6);
+}
+
+@keyframes bossline {
+  0% { opacity: 0; transform: scaleX(1.25); }
+  12% { opacity: 1; transform: none; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
