@@ -8,17 +8,26 @@ import { STAGE_MISSIONS } from '../core/missions';
 /** the collectible id of mission part `part` on stage `stageIndex` (STAGE_MISSIONS), or null when it has none */
 export function collectibleFor(stageIndex: number, part: number | undefined): string | null {
   if (part === undefined) return null;
-  return STAGE_MISSIONS[`w${stageIndex + 1}-s10`]?.[part]?.collectible ?? null;
+  return STAGE_MISSIONS[STAGE_IDS[stageIndex] ?? `w${stageIndex + 1}-s10`]?.[part]?.collectible ?? null;
 }
 
 /** the mission part a beat belongs to (Beat.part from the office stage composer; absent = none) */
 export const partOf = (beat: Beat | undefined): number | undefined => beat?.part;
 
+const STAGE_IDS: readonly string[] = [0, 1, 2, 3, 4].map((i) => `w${i + 1}-s10`);
+/** sprite names per (stage, part, kind), built once (no string building per pickup per frame) */
+const NAMES = new Map<number, string>();
+const KINDS: readonly ObstacleKind[] = ['coin', 'shield', 'slow', 'heart'];
+
 /** sprite name for a pickup obstacle on `beat` */
 export function pickupSprite(kind: ObstacleKind, beat: Beat | undefined, stageIndex: number): string {
-  if (kind === 'coin') {
-    const c = collectibleFor(stageIndex, partOf(beat));
-    if (c) return `collect-${c}`;
+  const part = kind === 'coin' ? partOf(beat) ?? -1 : -1;
+  const key = (stageIndex * 4 + (part + 1)) * KINDS.length + Math.max(0, KINDS.indexOf(kind));
+  let name = NAMES.get(key);
+  if (!name) {
+    const c = kind === 'coin' ? collectibleFor(stageIndex, part < 0 ? undefined : part) : null;
+    name = c ? `collect-${c}` : `pickup-${kind}`;
+    NAMES.set(key, name);
   }
-  return `pickup-${kind}`;
+  return name;
 }

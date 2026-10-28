@@ -81,11 +81,14 @@ function attackObstacle(snap: RenderSnapshot, test: (o: VisibleObstacle) => bool
   return snap.obstacles.find((o) => beatIdOf(o) === beat && test(o));
 }
 
+const isThrown = (o: VisibleObstacle): boolean => launchFor(o.kind, o.from) !== null;
+const isHazard = (o: VisibleObstacle): boolean => HAZARD_KINDS.includes(o.kind);
+
 /** the throw frame for the boss's next attack, when that attack is thrown (not rear / chaser / drop) */
 function throwPose(b: BossView, snap: RenderSnapshot): BossPose | null {
   const a = b.attack;
   if (!a || b.state !== 'fight') return null;
-  if (!attackObstacle(snap, (o) => launchFor(o.kind, o.from) !== null)) return null;
+  if (!attackObstacle(snap, isThrown)) return null;
   const f = bossThrowFrame(a.timeUntil, RELEASE);
   if (f > 0) return THROW_FRAMES[f - 1];
   return a.timeUntil > THROW_POSE_END ? 'throw6' : null; // follow-through while it flies
@@ -215,7 +218,7 @@ class OfficeRenderer implements Renderer {
     if (broadcast) drawBroadcast(ctx, v);
     setCalloutBottom(Number.NEGATIVE_INFINITY);
     this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown);
-    const stampAt = (snap as { readonly mission?: { readonly stampAt?: number } }).mission?.stampAt;
+    const stampAt = snap.mission?.stampAt;
     if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
     ctx.globalAlpha = 1;
@@ -258,7 +261,7 @@ class OfficeRenderer implements Renderer {
     // F10: the attack telegraph as a callout — prop icon, action colour, attack name
     const a = b.attack;
     if (!a || b.state !== 'fight' || a.timeUntil < CALLOUT_END) return;
-    const o = attackObstacle(snap, (x) => HAZARD_KINDS.includes(x.kind));
+    const o = attackObstacle(snap, isHazard);
     if (o) setCalloutBottom(drawAttackCallout(ctx, v, propImage(o), propIdFor(o), actionCue(o.kind), below, avoid));
   }
 }
