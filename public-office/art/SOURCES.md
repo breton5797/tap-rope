@@ -208,3 +208,9 @@ GPT Image 2.5 (`gpt_image_2_5`, medium, transparent) → trimmed, contained with
 
 v2 feel review (2026-10-29): prop-golf (ball only) and prop-paper-plane (neon planes, no faces) regenerated and mirrored to travel LEFT (the renderer flips only rear attacks); floor-3 and floor-0-dawn regenerated calmer (no speckle / reflections), soften 0.25 / 0.2, mirror-tiled.
 prop-postit regenerated (loose 4-note cluster), contained with a 40 px margin so it keeps air around it.
+
+## Boss second idle pose (`boss-<slot>-idle2.webp`)
+
+nano_banana_flash edit of each approved idle reference (`ref-boss-<slot>`), same prompt for all 7: $STYLE. Edit the reference image into a second idle animation frame of the SAME character: identical face, hair, outfit, colors, props, proportions, line style, size and framing, still standing and facing slightly to the LEFT. Change only this: body weight shifted onto the other foot with a slight hip shift, arms held slightly differently (a small natural change), mouth and eyebrows a touch different. Pure flat white background, no ground, no shadow, no speed lines, nothing added.
+
+Cut out locally, then placed so its opaque box has the same height, bottom and centre-x as `boss-<slot>.webp` (768×1024), so idle ↔ idle2 alternate without a jump. `cwebp -q 82`.
