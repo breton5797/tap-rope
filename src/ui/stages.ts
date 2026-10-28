@@ -1,7 +1,7 @@
 // Stage select: scrollable chapter chips, a themed chapter card and its stage trail.
 import { CHAPTERS, STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
-import { FEATURES } from '../flavor';
+import { COPY, FEATURES } from '../flavor';
 import type { ChapterMeta, SaveData, StageDef } from '../types';
 import { button, h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -111,7 +111,7 @@ function centreNextNode(screen: HTMLElement, reduced: boolean): void {
 
 export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): HTMLElement {
   const active = selectedChapter ?? currentChapter(save);
-  const screen = h('section', { cls: 'screen screen--stages', attrs: { 'aria-label': '작전 지도' } });
+  const screen = h('section', { cls: 'screen screen--stages', attrs: { 'aria-label': COPY.resultMap } });
   const pick = (c: number): void => {
     selectedChapter = c;
     screen.replaceWith(buildStageSelect(ctx, save, onBack));
@@ -124,7 +124,7 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
   const ranking = FEATURES.leaderboard && button({ label: '랭킹', variant: 'glass', size: 'icon', icon: icons.crown(), cls: 'btn--rank', onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard('endless')) });
   screen.append(
     artImage('./art/map-bg.webp', 'art--map'), // v8 facility blueprint behind the trail
-    header(ctx, '작전 지도', onBack, [ranking, total], icons.back()),
+    header(ctx, COPY.resultMap, onBack, [ranking, total], icons.back()),
     chapterTabs(ctx, save, active, pick),
     h('div', { cls: 'scroll' }, [chapterBody(ctx, save, active)]),
   );

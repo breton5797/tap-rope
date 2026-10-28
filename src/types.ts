@@ -660,6 +660,8 @@ export interface Ui {
   showTutorialStop(stop: { readonly step: 'jump' | 'slide' | 'lane'; readonly dir: LaneDir | null } | null): void;
   /** v8 (A3): boss phase announcement ("PHASE 2" + attack name), fades by itself */
   showBossLine(kicker: string, text: string): void;
+  /** first-run character picker (FEATURES.firstRunPick); onPick with the chosen owned skin */
+  showPicker(save: SaveData, onPick: (id: SkinId) => void): void;
 }
 
 // ---------- Audio contract ----------

@@ -9,7 +9,7 @@ const TICK_MS = 25;
 const STEPS_PER_BAR = 16;
 const LOOP_STEPS = STEPS_PER_BAR * 4;
 
-interface Style {
+export interface Style {
   readonly root: number; // bass root (midi)
   readonly prog: readonly number[]; // semitone offset of each of the 4 bars
   readonly pad: readonly number[]; // pad chord intervals above root + 24
@@ -25,6 +25,8 @@ interface Style {
   readonly motif: readonly (readonly [number, number])[];
   readonly motifType: OscillatorType;
   readonly clank?: readonly number[]; // metallic percussion steps (industrial / prison)
+  /** bass pulse length in 16th steps (default 1.7; shorter = bouncier) */
+  readonly bassLen?: number;
 }
 
 /** Per-theme timbre: 0 outpost, 1 lab, 2 prison, 3 industrial. */
@@ -92,7 +94,7 @@ function harmony(v: Voice, s: Style, step: number, t: number, stepDur: number): 
     const off = s.bassLine[(inBar / 2) % s.bassLine.length] ?? 0;
     const beat = inBar % 4 === 0;
     tone(v.ctx, v.out, {
-      type: s.bassType, freq: midiToFreq(root + off), start: t, dur: stepDur * 1.7, gain: beat ? 0.2 : 0.14,
+      type: s.bassType, freq: midiToFreq(root + off), start: t, dur: stepDur * (s.bassLen ?? 1.7), gain: beat ? 0.2 : 0.14,
       filter: s.bassCut * (beat ? 1.4 : 1), filterEnd: 90, q: 4, attack: 0.004,
     });
   }
@@ -143,12 +145,17 @@ function mod(n: number, m: number): number {
 }
 
 export function createMusic(ctx: BaseAudioContext, out: AudioNode): Music {
+  return createStyledMusic(ctx, out, STYLES);
+}
+
+/** the loop engine with another build's per-theme styles (the office build's music swaps in its own) */
+export function createStyledMusic(ctx: BaseAudioContext, out: AudioNode, styles: Readonly<Record<WorldId, Style>>): Music {
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
   filter.connect(out);
   const voice: Voice = { ctx, out: filter };
   let timer: ReturnType<typeof setInterval> | null = null;
-  let style: Style = STYLES[0];
+  let style: Style = styles[0];
   let stepDur = 0.125;
   let nextTime = 0;
   let step = 0;
@@ -176,7 +183,7 @@ export function createMusic(ctx: BaseAudioContext, out: AudioNode): Music {
   return {
     start(bpm, world, fromTime) {
       stop();
-      style = STYLES[world] ?? STYLES[0];
+      style = styles[world] ?? styles[0];
       const beatDur = 60 / Math.max(40, bpm);
       stepDur = beatDur / 4;
       const nextBeatIndex = Math.ceil(fromTime / beatDur - 1e-6);

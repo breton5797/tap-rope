@@ -23,7 +23,7 @@ export function buildPause(ctx: Ctx, close: () => void): HTMLElement {
             ctx.cb.onResume();
           }),
         }),
-        button({ label: COPY.resultRetry, variant: 'glass', icon: icons.retry(), onPress: ctx.tap(() => ctx.cb.onRetry()) }),
+        button({ label: COPY.pauseRetry, variant: 'glass', icon: icons.retry(), onPress: ctx.tap(() => ctx.cb.onRetry()) }),
         button({ label: COPY.pauseQuit, variant: 'pink', icon: icons.grid(), onPress: ctx.tap(() => ctx.cb.onQuit()) }),
       ]),
     ]),

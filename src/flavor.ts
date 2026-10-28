@@ -57,12 +57,18 @@ export const V8_COPY = {
   // HUD
   hudArmor: '방어구',
   hudFever: '오버드라이브',
+  hudShield: 'SHIELD',
+  hudSlow: 'SLOW',
+  pickupShield: '방탄 실드 확보',
+  pickupSlow: '시간 감속',
+  pickupHeart: '방탄판 +1',
   // overlays: pause + first-run tutorial cards
   pauseKicker: 'OPERATION HOLD',
   pauseTitle: '작전 일시정지',
   pauseText: '통신 유지 중. 준비되면 재개.',
   pauseResume: '작전 재개',
   pauseQuit: '작전 중단',
+  pauseRetry: '재투입',
   tutJumpKicker: '바닥 레이저',
   tutJumpHint: '오른쪽을 탭해 점프',
   tutSlideKicker: '천장 레이저',
@@ -81,8 +87,16 @@ export const V8_COPY = {
   resultStoryNext: '거점 제압. ZONE {zone} 개방',
   resultNext: '다음 작전',
   resultRetry: '재투입',
+  resultReplay: '재투입',
   resultMap: '작전 지도',
   resultDetails: '작전 기록 상세',
+  // loadout room, and the first-run character picker (builds with FEATURES.firstRunPick)
+  shopKicker: 'DEPLOYED OPERATOR',
+  shopSelect: '배치',
+  shopSelected: '배치 중',
+  pickKicker: 'OPERATIVE SELECT',
+  pickTitle: '요원 선택',
+  pickHint: '투입할 요원을 고른다.',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;

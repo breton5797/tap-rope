@@ -4,6 +4,7 @@ import { buildAchievements, buildArchive } from './archive';
 import { buildCutscene } from './cutscene';
 import { buildLeaderboard } from './leaderboard';
 import { buildNickname } from './nickname';
+import { buildPicker } from './picker';
 import { h, holdFocus, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
 import { renderBriefing } from './briefing';
@@ -21,7 +22,7 @@ import { buildStageSelect } from './stages';
 import { buildTitle } from './title';
 
 /** v8 (A6): screens that are modal dialogs take focus when mounted */
-const MODALS = new Set(['pause', 'result', 'controls']);
+const MODALS = new Set(['pause', 'result', 'controls', 'picker']);
 
 interface Layers {
   readonly screen: HTMLElement;
@@ -189,6 +190,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       layers.overlay.replaceChildren(card);
     },
     showLoading: (progress) => renderLoading(layers.loading, progress),
+    showPicker: (save, onPick) => mount(buildPicker(ctx, save, onPick), 'picker'),
   };
 }
 

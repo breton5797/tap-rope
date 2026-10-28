@@ -37,7 +37,7 @@ import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
 import { autoplayResult, takeChallenge, withoutChallenge } from './run-policy';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
-type Screen = 'menu' | 'controls' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
+type Screen = 'menu' | 'controls' | 'picker' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
 
 const COUNT_STEP = 0.6;
 /** the mission briefing card reads for this long before 3-2-1 starts */
@@ -213,13 +213,24 @@ export function startApp(): void {
     },
   });
 
+  /** the first-run picker was answered this session (the save shows it too, once the controls card is seen) */
+  let picked = false;
   /**
-   * FEATURES.firstRunPick: a fresh save chooses its character before the first cutscene. True when the
-   * picker took over (it calls `then` once a choice is saved). v8 never picks; the office build fills this in.
+   * FEATURES.firstRunPick: the first run of a fresh save (controls card not yet seen) chooses its character
+   * before the controls card and the opening cutscene. True when the picker took over (it calls `then` once
+   * the choice is saved). v8 never picks.
    */
-  const maybeFirstRunPick = (_then: () => void): boolean => {
-    if (!FEATURES.firstRunPick) return false;
-    return false;
+  const maybeFirstRunPick = (then: () => void): boolean => {
+    if (!FEATURES.firstRunPick || picked || save.controlsSeen) return false;
+    screen = 'picker';
+    audio.stopMusic();
+    ui.hideAll();
+    ui.showPicker(save, (id) => {
+      picked = true;
+      if (save.ownedSkins.includes(id)) persist({ ...save, skin: id });
+      then();
+    });
+    return true;
   };
 
   const startRun = (mode: GameMode, stage: StageDef | null): void => {

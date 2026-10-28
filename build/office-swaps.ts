@@ -8,4 +8,5 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/game/boss-lines.ts': 'src/office/game/boss-lines.ts',
   'src/render/agent.ts': 'src/office/render/agent.ts',
   'src/audio/music.ts': 'src/office/audio/music.ts',
+  'src/audio/sfx.ts': 'src/office/audio/sfx.ts',
 };

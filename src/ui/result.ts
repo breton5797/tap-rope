@@ -141,7 +141,7 @@ function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
       ? button({ label: COPY.resultNext, variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
       : null;
   const retry = button({
-    label: COPY.resultRetry,
+    label: r.cleared ? COPY.resultReplay : COPY.resultRetry,
     variant: next ? 'glass' : 'sun',
     size: next ? 'md' : 'lg',
     icon: icons.retry(),

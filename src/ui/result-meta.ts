@@ -5,6 +5,7 @@ import { bossFor } from '../core/boss';
 import { STAGES } from '../core/content';
 import { ACH_REWARD } from '../core/economy';
 import { starRule } from '../core/goals';
+import { COPY } from '../flavor';
 import type { MoveId, ResultInfo, ResultMeta } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
@@ -72,7 +73,7 @@ export function rewardList(ctx: Ctx, meta: ResultMeta): HTMLElement | null {
       h('span', { cls: 'report__reward-coins mono', text: `+₵${formatNumber(x.coins)}` }),
       h('span', { cls: 'report__reward-label', text: x.label }),
       x.kind === 'first-mission' && toShop
-        ? button({ label: '장비실', variant: 'sun', size: 'sm', icon: icons.bag(), onPress: ctx.tap(() => toShop()) })
+        ? button({ label: COPY.titleShop, variant: 'sun', size: 'sm', icon: icons.bag(), onPress: ctx.tap(() => toShop()) })
         : null,
     ])));
 }
