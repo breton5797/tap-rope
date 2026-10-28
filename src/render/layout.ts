@@ -34,7 +34,7 @@ export const ENTER_TIME = 0.9;
 export const ARM_TIME = 0.6;
 export const CHARGE_TIME = 1.0;
 export const BEAM_LEN = 120;
-export const ESCORT_DX = -68;
+export const ESCORT_DX = -76; // v7.1: room for the ×1.2 crouch-running scientist behind a sliding agent
 /** agent drawing scale (the rig is authored 88px tall, GDD-v6 §3) */
 export const AGENT_SCALE = 1.0;
 

@@ -95,6 +95,7 @@ function control(s: Sim): void {
   const until = beatTime(k) - s.t;
   if (spec.lane !== undefined && spec.lane !== s.p.lane && until <= 0.55 && s.p.laneAge >= LANE_SWITCH_TIME) {
     const to = (s.p.lane + Math.sign(spec.lane - s.p.lane)) as LaneId;
+    fx.impact('lane', { dir: to < s.p.lane ? -1 : 1 });
     s.p = { ...s.p, laneFrom: s.p.lane, lane: to, laneAge: 0 };
   }
   const p = s.p;
@@ -102,12 +103,14 @@ function control(s: Sim): void {
     s.p = { ...p, sliding: true, slideTime: SLIDE_TIME, slideAge: 0 };
     s.acted = k;
     fx.burst('dust');
+    fx.impact('slide', {});
     return;
   }
   const lead = spec.action === 'dive' ? 0.62 : LEAD[spec.level];
   if ((spec.action === 'jump' || spec.action === 'dive') && p.grounded && until <= lead && s.acted !== k) {
     s.p = { ...p, grounded: false, sliding: false, vy: JUMP_V, level: 1, airTime: 0, lastTap: 'jump' };
     s.acted = k;
+    fx.impact('jump', { level: 1 });
     return;
   }
   if (p.grounded || s.acted !== k) return;
@@ -115,6 +118,7 @@ function control(s: Sim): void {
   else if (spec.action === 'jump' && p.level < spec.level && p.vy <= 30) {
     s.p = { ...p, vy: BOOST_V, level: (p.level + 1) as Level, lastTap: 'boost' };
     fx.burst('sparkle');
+    fx.impact('boost', { level: p.level + 1 });
   }
 }
 
@@ -136,6 +140,8 @@ function physics(s: Sim, dt: number): void {
     const slide = p.pendingSlide;
     s.p = { ...IDLE, lane: p.lane, laneFrom: p.laneFrom, laneAge: p.laneAge, landTimer: 0, sliding: slide, slideTime: slide ? SLIDE_TIME : 0 };
     fx.burst('dust');
+    fx.impact('land', { level: Math.max(1, p.level) });
+    if (slide) fx.impact('slide', {});
     return;
   }
   s.p = { ...p, vy, height, airTime: p.airTime + dt };
@@ -148,7 +154,10 @@ function judge(s: Sim): void {
   s.judged = k;
   const laneOk = !spec.items.some((i) => LANE_HAZARD.has(i.kind) && i.lanes?.includes(s.p.lane));
   if (spec.action === 'none') {
-    if (spec.items.some((i) => LANE_HAZARD.has(i.kind)) && laneOk) fx.popup('PERFECT!', 'perfect');
+    if (spec.items.some((i) => LANE_HAZARD.has(i.kind)) && laneOk) {
+      fx.popup('PERFECT!', 'perfect');
+      fx.impact('graze', { zone: 'side', level: 0 });
+    }
     return;
   }
   const ok = laneOk && (spec.action === 'jump' ? !s.p.grounded : s.p.sliding);
@@ -157,6 +166,8 @@ function judge(s: Sim): void {
   const perfect = spec.action !== 'jump' || s.p.height >= 40;
   fx.popup(perfect ? 'PERFECT!' : 'GOOD', perfect ? 'perfect' : 'good');
   if (perfect) fx.burst('sparkle');
+  const zone = spec.items.some((i) => LANE_HAZARD.has(i.kind)) ? 'side' : spec.action === 'jump' ? 'low' : 'high';
+  fx.impact(perfect ? 'graze' : 'pass', { zone, level: spec.action === 'jump' ? spec.level : 0 });
   if (s.combo % 5 === 0) fx.popup(`${s.combo} COMBO!`, 'combo');
   if (spec.items.some((i) => i.kind === 'coin')) fx.burst('coin');
 }
@@ -165,6 +176,7 @@ function hitEvents(s: Sim): void {
   if (!scene.hit || s.t < s.nextHit) return;
   s.nextHit += 2;
   fx.burst('hit');
+  fx.impact('hit', {});
   fx.popup('MISS', 'miss');
   fx.shake(0.8);
   fx.flash('rgba(120,220,255,1)');

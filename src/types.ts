@@ -452,11 +452,25 @@ export interface RenderSnapshot {
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';
 export type PopupStyle = 'perfect' | 'good' | 'miss' | 'combo' | 'info';
 
+/** v7.1 (GDD-v7.1 §3): one-shot agent motion / impact cues — particles, post effects and the rig's reactions */
+export type ImpactKind = 'jump' | 'boost' | 'land' | 'slide' | 'lane' | 'bump' | 'pass' | 'graze' | 'hit' | 'shield';
+
+export interface ImpactOpts {
+  /** boost: jump level 2..3; land: level of the jump that ended 1..3; pass/graze: required level 0..3 */
+  readonly level?: number;
+  /** lane / bump: −1 toward lane 0, +1 toward lane 2 */
+  readonly dir?: -1 | 1;
+  /** pass / graze: where the obstacle was relative to the agent */
+  readonly zone?: 'low' | 'high' | 'side';
+}
+
 export interface EffectsApi {
   burst(kind: BurstKind, x?: number, y?: number): void; // defaults: agent body
   popup(text: string, style: PopupStyle): void;
   shake(intensity: number): void; // 0..1
   flash(color: string): void;
+  /** v7.1: agent-anchored impact (also recorded as a cue the rig reacts to, see render/cues.ts) */
+  impact(kind: ImpactKind, opts?: ImpactOpts): void;
   update(dt: number): void;
 }
 
@@ -575,7 +589,9 @@ export type SfxName =
   // v5: lane change whoosh, "!" sudden-attack alert, security door opening
   | 'lane' | 'alert' | 'door'
   // v7: boss roar/arrival, boss charge-up telegraph, boss phase break, boss destroyed, achievement chime
-  | 'boss-intro' | 'boss-charge' | 'boss-stagger' | 'boss-down' | 'achieve';
+  | 'boss-intro' | 'boss-charge' | 'boss-stagger' | 'boss-down' | 'achieve'
+  // v7.1: shield shatter, laser graze on a close pass, bump against the edge lane
+  | 'shield' | 'graze' | 'bump';
 
 export interface AudioApi {
   unlock(): void; // call inside a user gesture
@@ -584,5 +600,6 @@ export interface AudioApi {
   startMusic(bpm: number, world: WorldId, fromTime: number): void;
   stopMusic(): void;
   setFever(on: boolean): void;
-  sfx(name: SfxName, level?: number): void;
+  /** level: jump level / intensity (default 1); pan: −1 left … +1 right (default 0) */
+  sfx(name: SfxName, level?: number, pan?: number): void;
 }

@@ -3,7 +3,7 @@
 // eyes sit behind NVG, a visor, eye-pro or a shadowed slit; skin shows as a sliver at most. The
 // scientist has a bare head drawn as a real profile (brow, nose, lips, ear, receding grey hair).
 import { J, P, type Pose } from './rig-skeleton';
-import { rimStroke, seg, type Tone } from './rig-parts';
+import { flatColor, keyStroke, outlineStroke, rimStroke, seg, spec, type Tone } from './rig-parts';
 import type { AgentLook } from './skins';
 import type { Ctx } from './util';
 
@@ -94,17 +94,26 @@ function nvgHead(ctx: Ctx, L: AgentLook): void {
   ctx.moveTo(0.2, 1.8);
   ctx.quadraticCurveTo(2.2, 3.6, 4.4, 3.0);
   ctx.stroke();
-  // mount + binocular housing + lens glint
+  // shroud plate + hinged mount arm + binocular housing + lens with a specular glint
+  poly(ctx, '#2E3339', [2.6, -6.6, 4.6, -6.0, 4.4, -4.8, 2.6, -5.2]);
   poly(ctx, '#15171A', [3.6, -5.6, 5.4, -4.6, 5.6, -2.6, 4.0, -2.8]);
+  ctx.fillStyle = '#4A525B';
+  ctx.beginPath();
+  ctx.arc(4.6, -4.4, 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  spec(ctx, 4.3, -4.8, 0.4, 0.4);
   poly(ctx, '#1E2226', [4.0, -2.9, 7.4, -2.6, 7.6, 0.0, 4.2, 0.2]);
   ctx.fillStyle = '#3A4047';
   ctx.fillRect(4.2, -2.8, 3.1, 0.6);
+  spec(ctx, 4.8, -2.8, 1.6, 0.3);
   ctx.fillStyle = '#0A0B0C';
   ctx.fillRect(7.4, -2.4, 1.2, 2.2);
   ctx.fillStyle = L.accent;
   ctx.globalAlpha *= 0.85;
   ctx.fillRect(8.2, -1.9, 0.5, 1.2);
   ctx.globalAlpha /= 0.85;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(8.3, -2.1, 0.35, 0.35);
 }
 
 /** Smooth stealth cowl with a dark visor slit and a faint lens line (Black Cat). */
@@ -241,10 +250,13 @@ function helmetHead(ctx: Ctx, L: AgentLook): void {
   ctx.bezierCurveTo(2.8, -7.0, -2.0, -7.6, -4.8, -6.0);
   ctx.closePath();
   ctx.fill();
-  // side rail, NVG shroud on the brow, counterweight pouch at the back
+  // side rail, NVG shroud + folded mount on the brow, counterweight pouch at the back
   ctx.fillStyle = g.dark;
   ctx.fillRect(-4.2, -3.0, 6.4, 0.9);
+  spec(ctx, -3.6, -3.0, 1.2, 0.3);
   poly(ctx, '#15171A', [3.4, -6.4, 5.2, -5.4, 5.4, -3.6, 3.6, -4.2]);
+  poly(ctx, '#23272C', [4.6, -6.0, 6.6, -5.6, 6.8, -4.2, 5.0, -4.0]);
+  spec(ctx, 5.0, -5.9, 1.0, 0.3);
   poly(ctx, g.dark, [-6.6, -4.6, -5.2, -5.2, -4.8, -2.0, -6.6, -1.8]);
 }
 
@@ -323,11 +335,28 @@ export function drawHead(ctx: Ctx, p: Pose, L: AgentLook, strong: boolean): void
   ctx.save();
   ctx.translate(J[P.Head], J[P.Head + 1]);
   ctx.rotate(p.spine + p.head);
-  HEADS[L.head](ctx, L);
   const r = RIM_R[L.head];
+  const flat = flatColor();
+  if (flat) {
+    ctx.fillStyle = flat;
+    ctx.beginPath();
+    ctx.ellipse(-0.4, -0.6, r, r * 1.05, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+  HEADS[L.head](ctx, L);
+  ctx.beginPath();
+  ctx.ellipse(-0.4, -0.6, r + 0.2, r * 1.05 + 0.2, 0, 0, Math.PI * 2);
+  outlineStroke(ctx);
   ctx.beginPath();
   ctx.ellipse(-0.6, -0.6, r, r * 1.05, 0, Math.PI * 0.66, Math.PI * 1.3);
   rimStroke(ctx);
+  // overhead key light on the crown (in world-up terms, whatever the head tilt)
+  ctx.beginPath();
+  const up = Math.PI * 1.5 - p.spine - p.head - p.rot;
+  ctx.ellipse(-0.4, -0.6, r - 0.4, r - 0.3, 0, up - 0.85, up + 0.95);
+  keyStroke(ctx, 0.8);
   glow(ctx, L, strong);
   ctx.restore();
 }

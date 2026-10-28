@@ -1,7 +1,8 @@
 // Cinematic post pass (GDD-v6 §4), all pre-rendered so it is a handful of blits per frame:
 // light shafts under the ceiling fixtures, drifting dust motes, a vignette, very light film grain
 // (a noise tile jittered every frame) and the red hit edge. Reduced motion turns off grain and keeps the
-// hit edge static (shake / flash are handled by Effects).
+// hit edge static (shake / flash are handled by Effects). v7.1: a short RGB split on a hit (off with
+// reduced motion) - only while active, only over the action region: one half-res copy, two blits.
 import { PLAYER_X, type Variant } from '../types';
 import { CEIL_Y, FLOOR_FRONT } from './layout';
 import type { ShaftRig } from './corridor';
@@ -16,6 +17,14 @@ const MOTES = 26;
 const HIT_EDGE_TIME = 0.6;
 const HIT_EDGE_HOLD = 0.25;
 const HIT_EDGE_PEAK = 0.6;
+/** seconds the hit's RGB split lasts, and its peak red-channel offset in logical px */
+const CHROMA_TIME = 0.25;
+const CHROMA_PX = 7;
+/** the shifted red channel is copied at this fraction of the canvas resolution */
+const CHROMA_RES = 0.5;
+/** the split covers the action region only: from above a jumping agent to the floor front, left part of the screen */
+const CHROMA_TOP = CEIL_Y + 40;
+const CHROMA_RIGHT = PLAYER_X + 230;
 
 const moteX = new Float32Array(MOTES);
 const moteY = new Float32Array(MOTES);
@@ -58,10 +67,12 @@ export class Post {
   private pattern: CanvasPattern | null = null;
   private readonly shaftByTint = new Map<string, HTMLCanvasElement>();
   private frame = 0;
+  private chromaCanvas: HTMLCanvasElement | null = null;
+  private chromaCtx: Ctx | null = null;
 
   bytes(): number {
     let b = 0;
-    for (const c of [this.vignette, this.hitEdgeCanvas, this.grain, ...this.shaftByTint.values()]) if (c) b += c.width * c.height * 4;
+    for (const c of [this.vignette, this.hitEdgeCanvas, this.grain, this.chromaCanvas, ...this.shaftByTint.values()]) if (c) b += c.width * c.height * 4;
     return b;
   }
 
@@ -143,12 +154,57 @@ export class Post {
    */
   hitEdge(ctx: Ctx, v: View, hitAge: number, reduced: boolean): void {
     if (hitAge > HIT_EDGE_TIME || !this.hitEdgeCanvas) return;
+    if (!reduced && hitAge < CHROMA_TIME) this.chroma(ctx, v, 1 - hitAge / CHROMA_TIME);
     // full strength for HIT_EDGE_HOLD, then decay; reduced motion: a static dim edge
     const decay = hitAge < HIT_EDGE_HOLD ? 1 : 1 - (hitAge - HIT_EDGE_HOLD) / (HIT_EDGE_TIME - HIT_EDGE_HOLD);
     // peak kept below full so the hit reads as a warning flash, not a red wash over the scene
     ctx.globalAlpha = reduced ? 0.35 : HIT_EDGE_PEAK * Math.max(0, decay) ** 1.3;
     ctx.drawImage(this.hitEdgeCanvas, v.x0, v.y0, v.w, v.h);
     ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Chromatic aberration around the agent: the region's red channel is copied (half resolution), removed
+   * from the frame (multiply by cyan) and added back shifted sideways, so every edge there gets red /
+   * cyan fringes. Only the action region (left of the screen, ceiling to floor front) to keep it cheap.
+   */
+  private chroma(ctx: Ctx, v: View, f: number): void {
+    const src = ctx.canvas;
+    // logical → device px: (l − x0) · k
+    const x = 0;
+    const y = Math.max(0, Math.floor((CHROMA_TOP - v.y0) * v.k));
+    const w = Math.min(src.width, Math.ceil((CHROMA_RIGHT - v.x0) * v.k));
+    const h = Math.min(src.height, Math.ceil((FLOOR_FRONT + 10 - v.y0) * v.k)) - y;
+    if (w <= 0 || h <= 0) return;
+    const sw = Math.max(1, Math.round(w * CHROMA_RES));
+    const sh = Math.max(1, Math.round(h * CHROMA_RES));
+    if (!this.chromaCanvas || this.chromaCanvas.width !== sw || this.chromaCanvas.height !== sh) {
+      releaseCanvas(this.chromaCanvas);
+      const made = makeCanvas(sw, sh);
+      this.chromaCanvas = made.canvas;
+      this.chromaCtx = made.ctx;
+    }
+    const sc = this.chromaCtx as Ctx;
+    sc.globalCompositeOperation = 'copy';
+    sc.drawImage(src, x, y, w, h, 0, 0, sw, sh);
+    sc.globalCompositeOperation = 'multiply';
+    sc.fillStyle = '#FF0000';
+    sc.fillRect(0, 0, sw, sh);
+    // eases out, with a 2-frame jitter so it reads as a glitch rather than a blur
+    this.frame = (this.frame + 1) % 64;
+    const dx = CHROMA_PX * v.k * f * f * (this.frame % 2 === 0 ? 1 : 0.6);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = '#00FFFF';
+    ctx.fillRect(x, y, w, h);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(this.chromaCanvas, x + dx, y, w, h);
+    ctx.restore();
   }
 
   private ensure(ctx: Ctx, v: View): void {
