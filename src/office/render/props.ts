@@ -1,7 +1,7 @@
 // Office prop hazards (office spec §5): each hazard keeps its v8 position, timing and hit box; only its look
 // changes to the superior's prop (events.attackVariant) or, on a cart event's beat, the cart / robot.
 // The office renderer sets the frame context once per frame (setPropFrame) before anything is drawn.
-import type { BossAttackKind, BossId, VisibleObstacle } from '../../types';
+import type { BossAttackKind, BossId, ObstacleKind, VisibleObstacle } from '../../types';
 import { LANE_HAZARD_KINDS } from '../../types';
 import { BEAM_H, HIGH_H } from '../../render/layout';
 import { attackVariant } from '../core/events';
@@ -71,42 +71,98 @@ export function propImage(o: Pick<VisibleObstacle, 'id' | 'kind'>): HTMLImageEle
   return officeImage(`prop-${propIdFor(o)}`);
 }
 
-/** white outline width in logical px (≈ 2–3 device-independent px at play size) */
-const OUTLINE = 1.6;
+/** the move that beats a hazard (the rhythm-lane chip): jump, slide, change lane, or stay low (drone) */
+export type ActionCue = 'jump' | 'slide' | 'lane' | 'low';
+
+export function actionCue(kind: ObstacleKind): ActionCue {
+  if (LANE_HAZARD_KINDS.includes(kind)) return 'lane';
+  if (kind === 'high' || kind === 'ceiling') return 'slide';
+  if (kind === 'drone') return 'low';
+  return 'jump';
+}
+
+/** cue colours: jump orange, slide blue, lane-change red, drone ("don't jump high") purple */
+export const ACTION_COLORS: Readonly<Record<ActionCue, string>> = {
+  jump: '#FF9F1C', slide: '#3B8BFF', lane: '#E8344B', low: '#9B5CFF',
+};
+
+/**
+ * The hazard's footprint on its lane's floor: a soft tinted ellipse in the cue colour with a crisp rim
+ * (lane hazards also tint a strip of the blocked lane red), so the lane and the move read at a glance.
+ */
+export function drawFootprint(ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1): void {
+  const cue = actionCue(kind);
+  const color = ACTION_COLORS[cue];
+  const rx = width * (cue === 'lane' ? 0.75 : 0.55);
+  const ry = Math.max(2, rx * 0.22);
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  if (cue === 'lane') {
+    ctx.globalAlpha *= 0.22;
+    ctx.fillStyle = color;
+    ctx.fillRect(x - rx * 1.6, floorY - ry, rx * 3.2, ry * 2);
+    ctx.globalAlpha /= 0.22;
+  }
+  ctx.beginPath();
+  ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
+  ctx.globalAlpha *= 0.4;
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.globalAlpha /= 0.4;
+  ctx.globalAlpha *= 0.9;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** outline rings in logical px: white inside, dark comic ink outside (≈ 3 px on screen at play size) */
+const OUTLINE_WHITE = 1.3;
+const OUTLINE_INK = 2.8;
+const INK = '#2E2433';
 const OUTLINE_DIRS: readonly (readonly [number, number])[] = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [0.71, 0.71], [-0.71, 0.71], [0.71, -0.71], [-0.71, -0.71],
 ];
-/** silhouette size: the outline only needs a small white copy */
+/** silhouette size: the outline only needs a small flat copy */
 const SILHOUETTE_PX = 160;
-const silhouettes = new WeakMap<HTMLImageElement, HTMLCanvasElement | null>();
+const silhouettes = new Map<string, WeakMap<HTMLImageElement, HTMLCanvasElement | null>>();
 
-function silhouette(img: HTMLImageElement): HTMLCanvasElement | null {
-  if (silhouettes.has(img)) return silhouettes.get(img) ?? null;
+function silhouette(img: HTMLImageElement, color: string): HTMLCanvasElement | null {
+  let byImg = silhouettes.get(color);
+  if (!byImg) {
+    byImg = new WeakMap();
+    silhouettes.set(color, byImg);
+  }
+  if (byImg.has(img)) return byImg.get(img) ?? null;
   let out: HTMLCanvasElement | null = null;
   try {
     const k = SILHOUETTE_PX / Math.max(img.naturalWidth, img.naturalHeight);
     const { canvas, ctx } = makeCanvas(Math.max(1, Math.round(img.naturalWidth * k)), Math.max(1, Math.round(img.naturalHeight * k)));
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     out = canvas;
   } catch {
     out = null;
   }
-  silhouettes.set(img, out);
+  byImg.set(img, out);
   return out;
 }
 
-/** draw a prop with a white outline, its centre-bottom (ay = 1) or centre (ay = 0.5) at (x, y); `flip` mirrors it */
+function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: number, y: number, w: number, h: number, r: number): void {
+  if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, x + dx * r, y + dy * r, w, h);
+}
+
+/** draw a prop with a dark comic outline around a white one, its centre-bottom (ay = 1) or centre (ay = 0.5) at (x, y); `flip` mirrors it */
 export function drawProp(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1): void {
   const w = (h * img.naturalWidth) / img.naturalHeight;
   ctx.save();
   ctx.globalAlpha *= alpha;
   ctx.translate(x, y);
   if (flip) ctx.scale(-1, 1);
-  const sil = silhouette(img);
-  if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, -w / 2 + dx * OUTLINE, -h * ay + dy * OUTLINE, w, h);
+  ring(ctx, silhouette(img, INK), -w / 2, -h * ay, w, h, OUTLINE_INK);
+  ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h * ay, w, h, OUTLINE_WHITE);
   ctx.drawImage(img, -w / 2, -h * ay, w, h);
   ctx.restore();
 }
