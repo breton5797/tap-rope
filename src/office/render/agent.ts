@@ -24,13 +24,20 @@ const ANCHOR: Readonly<Record<HeroFrameId, readonly [number, number]>> = {
   jump: [0.5, 1], slide: [0.5, 1], hit: [0.5, 1], win: [0.5, 1],
 };
 
+/** scales the v8 contact shadow (peak 0.62) to ~0.25 */
+const SHADOW_ALPHA = 0.4;
+
 export class AgentPainter {
   private readonly v8 = new V8AgentPainter();
   private prevMood: Mood = 'idle';
   private hitStart = Number.NEGATIVE_INFINITY;
 
   shadow(ctx: Ctx, x: number, floorY: number, height: number, sliding: boolean, scale: number): void {
+    // the v8 contact shadow peaks at 0.62 alpha; the comic hero gets ~0.25
+    ctx.save();
+    ctx.globalAlpha *= SHADOW_ALPHA;
     this.v8.shadow(ctx, x, floorY, height, sliding, scale);
+    ctx.restore();
   }
 
   draw(ctx: Ctx, f: AgentFrame): void {

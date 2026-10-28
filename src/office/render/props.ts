@@ -5,6 +5,7 @@ import type { BossAttackKind, BossId, VisibleObstacle } from '../../types';
 import { LANE_HAZARD_KINDS } from '../../types';
 import { BEAM_H, HIGH_H } from '../../render/layout';
 import { attackVariant } from '../core/events';
+import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
 
 interface PropFrame {
@@ -23,16 +24,19 @@ export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<numb
   frame.carts = carts;
 }
 
-/** drawn prop heights in logical px at depth scale 1: each prop fills its hazard's footprint */
-export const PROP_SIZE = { floor: 38, ceiling: 56, drone: 42, guard: 74, drop: 54, chaser: 52, high: 36 } as const;
+/** prop heights in logical px at depth scale 1: each prop fills (and slightly overfills) its hazard's footprint */
+export const PROP_SIZE = { floor: 50, ceiling: 72, drone: 54, guard: 96, drop: 70, chaser: 68, high: 46 } as const;
+/** a beam stack's prop rises this much over its top beam, then is scaled like the others */
+const BEAM_PAD = 16;
+const PROP_SCALE = 1.3;
 
 /**
  * A flying hazard as one prop: a head-height prop around the 'high' beam, or a beam stack as one prop
- * standing on the floor up to just over its top beam (1단 32, 2단 56, 3단 80 px: its height reads as the jump).
+ * standing on the floor and reaching over its top beam (1단 42, 2단 73, 3단 104 px: its height reads as the jump).
  */
 export function flyingSpan(o: Pick<VisibleObstacle, 'kind' | 'level'>): { bottom: number; h: number } {
   if (o.kind === 'high') return { bottom: HIGH_H - PROP_SIZE.high / 2, h: PROP_SIZE.high };
-  return { bottom: 0, h: BEAM_H[Math.min(3, Math.max(1, o.level)) - 1] + 16 };
+  return { bottom: 0, h: Math.round((BEAM_H[Math.min(3, Math.max(1, o.level)) - 1] + BEAM_PAD) * PROP_SCALE) };
 }
 
 /** the attack kind a hazard obstacle is delivered as (boss.ts attackKind, per obstacle) */
@@ -58,13 +62,42 @@ export function propImage(o: Pick<VisibleObstacle, 'id' | 'kind'>): HTMLImageEle
   return officeImage(`prop-${propIdFor(o)}`);
 }
 
-/** draw a prop with its centre-bottom (ay = 1) or centre (ay = 0.5) at (x, y); `flip` mirrors it */
+/** white outline width in logical px (≈ 2–3 device-independent px at play size) */
+const OUTLINE = 1.6;
+const OUTLINE_DIRS: readonly (readonly [number, number])[] = [
+  [1, 0], [-1, 0], [0, 1], [0, -1], [0.71, 0.71], [-0.71, 0.71], [0.71, -0.71], [-0.71, -0.71],
+];
+/** silhouette size: the outline only needs a small white copy */
+const SILHOUETTE_PX = 160;
+const silhouettes = new WeakMap<HTMLImageElement, HTMLCanvasElement | null>();
+
+function silhouette(img: HTMLImageElement): HTMLCanvasElement | null {
+  if (silhouettes.has(img)) return silhouettes.get(img) ?? null;
+  let out: HTMLCanvasElement | null = null;
+  try {
+    const k = SILHOUETTE_PX / Math.max(img.naturalWidth, img.naturalHeight);
+    const { canvas, ctx } = makeCanvas(Math.max(1, Math.round(img.naturalWidth * k)), Math.max(1, Math.round(img.naturalHeight * k)));
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    out = canvas;
+  } catch {
+    out = null;
+  }
+  silhouettes.set(img, out);
+  return out;
+}
+
+/** draw a prop with a white outline, its centre-bottom (ay = 1) or centre (ay = 0.5) at (x, y); `flip` mirrors it */
 export function drawProp(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1): void {
   const w = (h * img.naturalWidth) / img.naturalHeight;
   ctx.save();
   ctx.globalAlpha *= alpha;
   ctx.translate(x, y);
   if (flip) ctx.scale(-1, 1);
+  const sil = silhouette(img);
+  if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, -w / 2 + dx * OUTLINE, -h * ay + dy * OUTLINE, w, h);
   ctx.drawImage(img, -w / 2, -h * ay, w, h);
   ctx.restore();
 }

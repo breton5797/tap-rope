@@ -22,6 +22,9 @@ interface Box { x: number; y: number; w: number; h: number }
 const LANES = [0, 1, 2] as const;
 const NEON = '#7CFFEA';
 
+/** a square prop box centred on x, anchored at y by `ay` (1 = bottom, 0.5 = centre) */
+const square = (x: number, y: number, size: number, ay: number): Box => ({ x: x - size / 2, y: y - size * ay, w: size, h: size });
+
 /** screen boxes of a hazard (same placement as the office props) */
 function boxesOf(o: VisibleObstacle, v: View): Box[] {
   const lanes: readonly number[] = o.lanes ?? LANES;
@@ -29,12 +32,12 @@ function boxesOf(o: VisibleObstacle, v: View): Box[] {
     const s = depthScale(d);
     const tu = o.timeUntil;
     switch (o.kind) {
-      case 'floor': return [{ x: projX(fixedX(tu), d) - 20 * s, y: projY(d, PROP_SIZE.floor), w: 40 * s, h: PROP_SIZE.floor * s }];
-      case 'ceiling': return [{ x: projX(fixedX(tu), d) - 25 * s, y: projY(d, CEIL_LASER_END + PROP_SIZE.ceiling), w: 50 * s, h: PROP_SIZE.ceiling * s }];
-      case 'drone': return [{ x: projX(fixedX(tu), d) - 22 * s, y: projY(d, 160) - 22 * s, w: 44 * s, h: PROP_SIZE.drone * s }];
-      case 'guard': return [{ x: projX(fixedX(tu), d) - 28 * s, y: projY(d, PROP_SIZE.guard), w: 56 * s, h: PROP_SIZE.guard * s }];
-      case 'drop': return [{ x: projX(fixedX(tu), d) - 26 * s, y: projY(d, dropHeight(tu) + PROP_SIZE.drop), w: 52 * s, h: PROP_SIZE.drop * s }];
-      case 'chaser': return [{ x: projX(chaserX(tu, v), d) - 26 * s, y: projY(d, 34) - 26 * s, w: 52 * s, h: PROP_SIZE.chaser * s }];
+      case 'floor': return [square(projX(fixedX(tu), d), projY(d, 0), PROP_SIZE.floor * s, 1)];
+      case 'ceiling': return [square(projX(fixedX(tu), d), projY(d, CEIL_LASER_END), PROP_SIZE.ceiling * s, 1)];
+      case 'drone': return [square(projX(fixedX(tu), d), projY(d, 160), PROP_SIZE.drone * s, 0.5)];
+      case 'guard': return [square(projX(fixedX(tu), d), projY(d, 0), PROP_SIZE.guard * s, 1)];
+      case 'drop': return [square(projX(fixedX(tu), d), projY(d, dropHeight(tu)), PROP_SIZE.drop * s, 1)];
+      case 'chaser': return [square(projX(chaserX(tu, v), d), projY(d, 34), PROP_SIZE.chaser * s, 0.5)];
       case 'beam': case 'high': {
         if (tu > ENTER_TIME) return [];
         const back = o.from === 'back';

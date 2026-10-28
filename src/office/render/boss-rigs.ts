@@ -9,7 +9,7 @@ export * from '../../render/boss-rigs';
 /** opaque-bbox aspect (w / h) of the delivered standing figures */
 export const PERSON_ASPECT = 0.42;
 /** drawn width as a share of the visible width (boss.ts clamps the scale to 0.7..1.7), anchor x share */
-const PERSON_FRAC = 0.21;
+const PERSON_FRAC = 0.25;
 export const PERSON_FX = 0.76;
 const W = 110;
 const H = Math.round(W / PERSON_ASPECT);
@@ -22,8 +22,11 @@ const SRC: Readonly<Record<BossAttackKind, Pt>> = { beam: HAND, floor: at(0.5, 0
 const person: BossRig = {
   ...BOSS_RIGS.warden,
   w: W, h: H, place: 'ground', idle: 'breathe', frac: PERSON_FRAC, fx: PERSON_FX, facesRight: false,
-  eye: at(0.5, 0.2), eyeR: 0, src: SRC, rotors: [], searchlight: false, damage: at(0.5, 0.03),
+  eye: at(0.5, 0.2), eyeR: 0, src: SRC, rotors: [], searchlight: false, damage: at(0.5, 0.03), shadow: 0.25,
 };
+
+/** the pastel figures are drawn as painted (no v8 teal grade) */
+export const BOSS_PHOTO_GRADE: readonly (readonly [number, string])[] | null = null;
 
 const SLOTS: readonly BossId[] = ['warden', 'sewer-eye', 'lab-ai', 'core', 'jailer', 'apc', 'chimera'];
 
