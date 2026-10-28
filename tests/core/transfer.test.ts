@@ -52,11 +52,11 @@ describe('transfer code', () => {
     const st = memStore({ 'laserescape.device.v1': JSON.stringify(id) });
     expect(readIdentity(st)).toEqual(id);
     expect(readIdentity(memStore())).toBeNull();
-    const target = memStore({ 'laserescape.save.v1': '{"version":2}', 'laserescape.device.v1': 'x' });
+    const target = memStore({ 'laserescape.save.v2': '{"version":2}', 'laserescape.device.v1': 'x' });
     const r = decodeTransfer(encodeTransfer(save, id));
     if (!r.ok) throw new Error('decode');
     expect(applyTransfer(r, target)).toBe(true);
-    expect(JSON.parse(target.data['laserescape.save.v1'])).toEqual(save);
+    expect(JSON.parse(target.data['laserescape.save.v2'])).toEqual(save);
     expect(JSON.parse(target.data['laserescape.device.v1'])).toEqual(id);
     expect(applyTransfer(r, { setItem: () => { throw new Error('quota'); } })).toBe(false);
   });

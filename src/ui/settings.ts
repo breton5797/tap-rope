@@ -19,20 +19,31 @@ const TOGGLES: readonly ToggleDef[] = [
   { key: 'reducedMotion', label: '모션 줄이기', desc: '화면 흔들림·그레인·플래시 해제', icon: icons.sparkle, tone: 'violet' },
 ];
 
+/** true when the OS asks for reduced motion: the game applies it whatever the setting says */
+export function osReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 function toggleRow(ctx: Ctx, def: ToggleDef, get: () => Settings, set: (s: Settings) => void): HTMLElement {
-  const on = get()[def.key];
+  // v8: an OS-forced reduced motion shows as ON and locked, with the reason
+  const forced = def.key === 'reducedMotion' && osReducedMotion();
+  const on = forced || get()[def.key];
   // v8: the state is spelled out next to the switch (colour alone was ambiguous)
   const state = h('span', { cls: `switch__state mono${on ? ' is-on' : ''}`, text: on ? 'ON' : 'OFF', attrs: { 'aria-hidden': 'true' } });
   const sw = h('button', {
     cls: `switch${on ? ' is-on' : ''}`,
-    attrs: { type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': def.label },
+    attrs: { type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': def.label, ...(forced ? { 'aria-disabled': 'true' } : {}) },
   }, [h('span', { cls: 'switch__knob' })]);
-  const row = h('div', { cls: 'setting' }, [
+  const row = h('div', { cls: `setting${forced ? ' is-forced' : ''}` }, [
     h('span', { cls: `setting__icon tone--${def.tone}` }, [def.icon()]),
-    h('div', { cls: 'setting__text' }, [h('div', { cls: 'setting__label', text: def.label }), h('div', { cls: 'setting__desc', text: def.desc })]),
+    h('div', { cls: 'setting__text' }, [
+      h('div', { cls: 'setting__label', text: def.label }),
+      h('div', { cls: 'setting__desc', text: forced ? '기기 설정에서 켜짐' : def.desc }),
+    ]),
     state,
     sw,
   ]);
+  if (forced) return row;
   const flip = ctx.tap(() => {
     const next: Settings = { ...get(), [def.key]: !get()[def.key] };
     sw.classList.toggle('is-on', next[def.key]);

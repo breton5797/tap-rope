@@ -31,6 +31,7 @@ describe('run log', () => {
     expect(sum.fevers).toBe(2);
     expect(sum.seconds).toBe(30);
     expect(sum.maxCombo).toBe(12);
+    expect(sum.greats).toBe(0);
     expect(sum.mode).toBe('endless');
   });
 

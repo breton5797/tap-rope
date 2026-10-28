@@ -12,7 +12,8 @@ import { artImage } from './title';
 function archiveCard(ctx: Ctx, c: Cutscene, seen: boolean, i: number): HTMLElement {
   const no = `REC ${String(i + 1).padStart(2, '0')}`;
   const thumb = h('div', { cls: 'arc__thumb' }, [
-    seen && c.shots[0] ? artImage(c.shots[0].image, 'art--cut') : h('div', { cls: 'art art--cut' }),
+    // v8: locked records show a redacted dossier still instead of an empty box
+    seen && c.shots[0] ? artImage(c.shots[0].image, 'art--cut') : artImage('./art/cut/locked.webp', 'art--cut art--locked'),
     h('span', { cls: 'arc__no mono', text: no }),
     h('span', { cls: 'arc__icon' }, [seen ? icons.play() : icons.lock()]),
   ]);

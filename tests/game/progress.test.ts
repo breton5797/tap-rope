@@ -33,7 +33,7 @@ const summary = (over: Partial<RunSummary> = {}): RunSummary => ({
   mode: 'daily', stageId: null, cleared: true, hitsTaken: 0, perfects: 30, goods: 0, misses: 0,
   maxCombo: 60, fevers: 1, seconds: 70, score: 900, date: '2026-10-27', ...over,
 });
-const record: RunRecord = { sim: 'le-v7.1', mode: 'daily', seed: 0, date: '2026-10-27', inputs: [], endTime: 70, clientScore: 900 };
+const record: RunRecord = { sim: 'le-v8', mode: 'daily', seed: 0, date: '2026-10-27', inputs: [], endTime: 70, clientScore: 900 };
 const info = { mode: 'daily', score: 900 } as unknown as ResultInfo;
 const lastResult = (ui: Ui) => vi.mocked(ui.showResult).mock.lastCall?.[0];
 

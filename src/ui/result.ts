@@ -56,10 +56,16 @@ function countUp(el: HTMLElement, target: number, reduced: boolean): void {
   requestAnimationFrame(tick);
 }
 
-/** Share of judged beats that were not misses, as a whole percent. */
-export function accuracy(r: Pick<ResultInfo, 'perfects' | 'goods' | 'misses'>): number {
-  const total = r.perfects + r.goods + r.misses;
-  return total === 0 ? 0 : Math.round(((r.perfects + r.goods) / total) * 100);
+/** le-v8 timing weights for 정확도: PERFECT 1, GREAT 0.75, GOOD 0.5, MISS 0. */
+export const ACCURACY_WEIGHT = { perfect: 1, great: 0.75, good: 0.5 } as const;
+
+/** Timing-weighted share of judged beats, as a whole percent. */
+export function accuracy(r: Pick<ResultInfo, 'perfects' | 'greats' | 'goods' | 'misses'>): number {
+  const greats = r.greats ?? 0;
+  const total = r.perfects + greats + r.goods + r.misses;
+  if (total === 0) return 0;
+  const w = ACCURACY_WEIGHT;
+  return Math.round(((r.perfects * w.perfect + greats * w.great + r.goods * w.good) / total) * 100);
 }
 
 function statRow(label: string, value: string, cls = ''): HTMLElement {
@@ -157,6 +163,7 @@ function stats(r: ResultInfo, tone: Headline['tone']): HTMLElement {
     // teal only on success; a failed run reads neutral (or red when most beats were missed)
     statRow('정확도', `${accuracy(r)}%`, tone === 'win' ? 'report__row--acc' : accuracy(r) < 50 ? 'report__row--miss' : ''),
     statRow('PERFECT', formatNumber(r.perfects)),
+    statRow('GREAT', formatNumber(r.greats ?? 0)),
     statRow('GOOD', formatNumber(r.goods)),
     statRow('MISS', formatNumber(r.misses), 'report__row--miss'),
     statRow('최대 연속', `x${formatNumber(r.maxCombo)}`),

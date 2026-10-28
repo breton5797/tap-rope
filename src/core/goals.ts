@@ -62,8 +62,8 @@ export function achievementProgress(id: AchievementId, save: SaveData): { readon
 }
 
 /** ★3 = no hits and PERFECT ≥ 60% of judged beats (scoring.computeStars) */
-export function starRule(r: Pick<ResultInfo, 'perfects' | 'goods' | 'misses'>): { readonly pct: number; readonly met: boolean } {
-  const total = r.perfects + r.goods + r.misses;
+export function starRule(r: Pick<ResultInfo, 'perfects' | 'greats' | 'goods' | 'misses'>): { readonly pct: number; readonly met: boolean } {
+  const total = r.perfects + (r.greats ?? 0) + r.goods + r.misses;
   const ratio = total > 0 ? r.perfects / total : 1;
   return { pct: Math.round(ratio * 100), met: ratio >= 0.6 };
 }

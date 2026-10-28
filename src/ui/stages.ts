@@ -4,6 +4,7 @@ import { isStageUnlocked } from '../core/storage';
 import type { ChapterMeta, SaveData, StageDef } from '../types';
 import { button, h, header, type Ctx } from './dom';
 import { icons } from './icons';
+import { artImage } from './title';
 import { firstIntroductions, stageNode, trailHeight, trailPath } from './stage-node';
 import { zoneArt, zoneKey } from './zone-art';
 
@@ -121,6 +122,7 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
   requestAnimationFrame(() => centreNextNode(screen, ctx.reducedMotion()));
   const ranking = button({ label: '랭킹', variant: 'glass', size: 'icon', icon: icons.crown(), cls: 'btn--rank', onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard('endless')) });
   screen.append(
+    artImage('./art/map-bg.webp', 'art--map'), // v8 facility blueprint behind the trail
     header(ctx, '작전 지도', onBack, [ranking, total], icons.back()),
     chapterTabs(ctx, save, active, pick),
     h('div', { cls: 'scroll' }, [chapterBody(ctx, save, active)]),

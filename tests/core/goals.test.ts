@@ -59,6 +59,8 @@ describe('starRule / stageLabel', () => {
   it('★3 = no hits and PERFECT ≥ 60%', () => {
     expect(starRule({ perfects: 6, goods: 3, misses: 1 })).toEqual({ pct: 60, met: true });
     expect(starRule({ perfects: 5, goods: 5, misses: 0 })).toEqual({ pct: 50, met: false });
+    expect(starRule({ perfects: 6, greats: 4, goods: 0, misses: 0 })).toEqual({ pct: 60, met: true }); // GREAT counts as judged, not as PERFECT
+    expect(starRule({ perfects: 5, greats: 5, goods: 0, misses: 0 }).met).toBe(false);
     expect(starRule({ perfects: 0, goods: 0, misses: 0 })).toEqual({ pct: 100, met: true }); // scoring: no judged beats = ratio 1
     expect(stageLabel('w10-s3')).toBe('10-3');
   });

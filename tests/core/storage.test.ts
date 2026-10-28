@@ -19,7 +19,8 @@ import {
 } from '../../src/core/storage';
 import { STAGES } from '../../src/core/content';
 
-const KEY = 'laserescape.save.v1';
+const KEY = 'laserescape.save.v2';
+const LEGACY = 'laserescape.save.v1';
 
 function memStore(initial: Record<string, string> = {}) {
   const data = { ...initial };
@@ -37,7 +38,7 @@ describe('defaultSave', () => {
       settings: { sound: true, music: true, vibration: true, reducedMotion: false },
       tutorialDone: false, briefed: [], controlsSeen: false,
       seenCutscenes: [], achievements: {}, dailyStreak: { last: null, count: 0 },
-      cosmetics: { owned: [], tint: {}, trail: null, ring: null, frame: null },
+      cosmetics: { owned: [], tint: {}, trail: null, ring: null, frame: null }, tutorialSteps: [],
     });
   });
 });
@@ -257,15 +258,24 @@ describe('v8 save (version 2)', () => {
     settings: { sound: true, music: false, vibration: true, reducedMotion: false }, tutorialDone: true, briefed: [0],
     controlsSeen: true, seenCutscenes: ['op-start'], achievements: { 'first-clear': 1 }, dailyStreak: { last: '2026-10-27', count: 2 } };
 
-  it('migrates a v1 save to v2 (all progress kept, no cosmetics) and writes it back as v2', () => {
-    const st = memStore({ [KEY]: JSON.stringify(v1) });
+  it('migrates a v1 save from the legacy key to the v2 key (all progress kept) and leaves the old key untouched', () => {
+    const old = JSON.stringify(v1);
+    const st = memStore({ [LEGACY]: old });
     const { save, status } = loadSaveState(st);
     expect(status).toBe('migrated');
-    expect(save).toEqual({ ...v1, version: 2, cosmetics: { owned: [], tint: {}, trail: null, ring: null, frame: null } });
-    writeSave(save, st);
+    expect(save).toEqual({ ...v1, version: 2, cosmetics: { owned: [], tint: {}, trail: null, ring: null, frame: null }, tutorialSteps: [] });
+    writeSave({ ...save, coins: 99 }, st);
     expect(JSON.parse(st.data[KEY]).version).toBe(2);
-    expect(loadSaveState(st).status).toBe('ok');
+    expect(st.data[LEGACY]).toBe(old); // an old build in a stale tab still finds its own save, never ours
+    expect(loadSaveState(st)).toEqual({ save: { ...save, coins: 99 }, status: 'ok' });
     expect(loadSaveState(memStore()).status).toBe('new');
+  });
+
+  it('prefers the v2 key over the legacy key; a v2-shaped save on the legacy key (pre-split dev builds) still migrates', () => {
+    const st = memStore({ [LEGACY]: JSON.stringify({ ...v1, coins: 1 }), [KEY]: JSON.stringify({ ...defaultSave(), coins: 2 }) });
+    expect(loadSave(st).coins).toBe(2);
+    const dev = memStore({ [LEGACY]: JSON.stringify({ ...defaultSave(), coins: 7 }) });
+    expect(loadSaveState(dev)).toMatchObject({ status: 'migrated', save: { coins: 7 } });
   });
 
   it('keeps a save from a newer build: read leniently, never overwritten, player told once', () => {
@@ -330,6 +340,12 @@ describe('v8 save (version 2)', () => {
     stop();
     fire(KEY, JSON.stringify({ ...defaultSave(), coins: 13 }));
     expect(seen).toEqual([12]);
+  });
+
+  it('tutorialSteps: known steps only, unique, in teaching order; missing → []', () => {
+    expect(parseSave({ tutorialSteps: ['lane', 'jump', 'jump', 'fly', 3] }).tutorialSteps).toEqual(['jump', 'lane']);
+    expect(parseSave({ tutorialSteps: 'jump' }).tutorialSteps).toEqual([]);
+    expect(parseSave({}).tutorialSteps).toEqual([]);
   });
 
   it('requestPersistentStorage asks the browser once', () => {

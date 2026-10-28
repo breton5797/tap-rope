@@ -368,6 +368,8 @@ export interface RunSummary {
   readonly cleared: boolean;
   readonly hitsTaken: number;
   readonly perfects: number;
+  /** le-v8 GREAT judgements (absent = 0) */
+  readonly greats?: number;
   readonly goods: number;
   readonly misses: number;
   readonly maxCombo: number;
@@ -556,6 +558,8 @@ export interface ResultInfo {
   readonly best: number;
   readonly newRecord: boolean;
   readonly perfects: number;
+  /** le-v8 GREAT judgements (absent = 0) */
+  readonly greats?: number;
   readonly goods: number;
   readonly misses: number;
   readonly maxCombo: number;

@@ -210,3 +210,16 @@
 .world__lock .ico {
   font-size: 14px;
 }
+
+/* v8: map background (very dark blueprint, kept low so nodes stay legible) */
+.screen--stages > .art--map {
+  background: transparent;
+}
+
+.screen--stages > .art--map .art__img.is-loaded {
+  opacity: 0.55;
+}
+
+.screen--stages > :not(.art) {
+  position: relative;
+}

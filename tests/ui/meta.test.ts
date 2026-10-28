@@ -48,6 +48,9 @@ describe('v8 result card', () => {
     expect(el.querySelector('.report__rule')?.textContent).toContain('피격 1');
     expect(buildResult(ctxWith(), result({ stars: 3, meta: meta() })).querySelector('.report__rule')).toBeNull();
     expect(el.querySelector<HTMLDetailsElement>('.report__more')?.open).toBe(true);
+    const great = buildResult(ctxWith(), result({ greats: 4, meta: meta() }));
+    const row = [...great.querySelectorAll('.report__row')].find((r) => r.textContent?.includes('GREAT'));
+    expect(row?.querySelector('dd')?.textContent).toBe('4');
   });
 
   it('boss win: boss art banner "거점 제압"', () => {
@@ -142,6 +145,19 @@ describe('v8 title / map / settings / shop', () => {
     expect(el.querySelector('.transfer')).not.toBeNull();
   });
 
+  it('settings: an OS-forced reduced motion shows ON, locked, with the reason', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') }));
+    const set = vi.fn();
+    const el = buildSettings(ctxWith({ onSettingsChange: set }), defaultSave(), () => undefined, () => undefined);
+    const row = el.querySelector<HTMLElement>('.setting.is-forced');
+    expect(row?.textContent).toContain('기기 설정에서 켜짐');
+    expect(row?.querySelector('.switch__state')?.textContent).toBe('ON');
+    expect(row?.querySelector('.switch')?.getAttribute('aria-disabled')).toBe('true');
+    row?.click();
+    expect(set).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('shop: buying a cosmetic equips it, reports the new save and redraws in place', () => {
     const onMetaChange = vi.fn();
     const local = vi.fn();
@@ -177,7 +193,7 @@ describe('v8 transfer card', () => {
     expect(el.querySelector('.transfer__status')?.textContent).toContain('별 3개 · ₵77');
     confirm.click();
     expect(reload).toHaveBeenCalled();
-    const stored = localStorage.getItem('laserescape.save.v1');
+    const stored = localStorage.getItem('laserescape.save.v2');
     expect(stored && JSON.parse(stored).coins).toBe(77);
   });
 

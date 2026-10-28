@@ -15,7 +15,10 @@ import { CHAPTERS, SKINS, STAGES } from './content';
 import { CUTSCENES } from './cutscenes';
 import { NO_COSMETICS, cosmeticById } from './economy';
 
-export const SAVE_KEY = 'laserescape.save.v1';
+/** v8: version-2 saves live under their own key, so an older build (stale tab / cached SW) that only
+ * knows the v1 key can never overwrite them; the v1 key is read once to migrate and left untouched. */
+export const SAVE_KEY = 'laserescape.save.v2';
+export const LEGACY_SAVE_KEY = 'laserescape.save.v1';
 const KEY = SAVE_KEY;
 export const SAVE_VERSION = 2;
 const CORRUPT_KEY = 'laserescape.save.corrupt'; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
@@ -37,7 +40,7 @@ export function defaultSave(): SaveData {
   return {
     version: 2, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
     settings: DEFAULT_SETTINGS, tutorialDone: false, briefed: [], controlsSeen: false,
-    seenCutscenes: [], achievements: {}, dailyStreak: NO_STREAK, cosmetics: NO_COSMETICS,
+    seenCutscenes: [], achievements: {}, dailyStreak: NO_STREAK, cosmetics: NO_COSMETICS, tutorialSteps: [],
   };
 }
 
@@ -91,7 +94,16 @@ export function parseSave(raw: unknown, lenient = false): SaveData {
     achievements: parseAchievements(raw.achievements),
     dailyStreak: parseStreak(raw.dailyStreak),
     cosmetics: parseCosmetics(raw.cosmetics, ownedSkins),
+    tutorialSteps: parseSteps(raw.tutorialSteps),
   };
+}
+
+const TUTORIAL_STEPS = ['jump', 'slide', 'lane'] as const;
+
+/** v8: 1-1 tutorial steps already taught — known values only, unique, in teaching order */
+function parseSteps(raw: unknown): NonNullable<SaveData['tutorialSteps']> {
+  const listed = Array.isArray(raw) ? raw : [];
+  return TUTORIAL_STEPS.filter((s) => listed.includes(s));
 }
 
 /** known, owned cosmetic ids; equipped slots only when owned and of the right kind / skin */
@@ -203,13 +215,21 @@ export function resetStorageNotices(): void {
 
 export type SaveStatus = 'new' | 'ok' | 'migrated' | 'newer' | 'corrupt';
 
-/** Reads the save and says what was found (migrated = a v1 save, newer = written by a newer build). */
+/**
+ * Reads the save and says what was found: the v2 key first, else the legacy v1 key (migrated — whatever
+ * version it claims), newer = written by a newer build.
+ */
 export function loadSaveState(
   store: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'setItem'>> | undefined = defaultStore(),
 ): { readonly save: SaveData; readonly status: SaveStatus } {
   let text: string | null | undefined;
+  let legacy = false;
   try {
     text = store?.getItem(KEY);
+    if (!text) {
+      text = store?.getItem(LEGACY_SAVE_KEY);
+      legacy = Boolean(text);
+    }
   } catch {
     return { save: defaultSave(), status: 'new' };
   }
@@ -229,8 +249,8 @@ export function loadSaveState(
     }
     return { save: defaultSave(), status: 'corrupt' };
   }
-  if (v > SAVE_VERSION) return { save: parseSave(raw, true), status: 'newer' };
-  return { save: parseSave(raw), status: v < SAVE_VERSION ? 'migrated' : 'ok' };
+  if (v > SAVE_VERSION) return { save: parseSave(raw, true), status: legacy ? 'migrated' : 'newer' };
+  return { save: parseSave(raw), status: legacy || v < SAVE_VERSION ? 'migrated' : 'ok' };
 }
 
 export function loadSave(

@@ -416,3 +416,9 @@
 .ach.is-done .ach__reward {
   color: var(--ink-faint);
 }
+
+/* v8: locked archive card — redacted dossier still, dimmed */
+.art--locked .art__img.is-loaded {
+  opacity: 0.7;
+  filter: grayscale(0.6);
+}

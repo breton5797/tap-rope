@@ -59,7 +59,7 @@ export function createRunLog(mode: GameMode, seed: number, date: string): RunLog
       const sc = end.score;
       return {
         mode, stageId, cleared: end.status === 'cleared', hitsTaken: end.hitsTaken,
-        perfects: sc.perfects, goods: sc.goods, misses: sc.misses, maxCombo: sc.maxCombo,
+        perfects: sc.perfects, greats: sc.greats, goods: sc.goods, misses: sc.misses, maxCombo: sc.maxCombo,
         fevers, seconds: end.time, score: sc.score, date, hitBy: hitBy(end),
       };
     },

@@ -39,8 +39,9 @@ describe('showLoading', () => {
 });
 
 describe('operation report', () => {
-  it('accuracy = non-miss share of judged beats', () => {
-    expect(accuracy({ perfects: 32, goods: 11, misses: 2 })).toBe(96);
+  it('accuracy = timing-weighted share of judged beats (v8: PERFECT 1 · GREAT 0.75 · GOOD 0.5)', () => {
+    expect(accuracy({ perfects: 32, goods: 11, misses: 2 })).toBe(83);
+    expect(accuracy({ perfects: 4, greats: 4, goods: 0, misses: 0 })).toBe(88);
     expect(accuracy({ perfects: 0, goods: 0, misses: 0 })).toBe(0);
     expect(accuracy({ perfects: 0, goods: 0, misses: 5 })).toBe(0);
   });

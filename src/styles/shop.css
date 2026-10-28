@@ -361,3 +361,12 @@
 .transfer__status.is-err {
   color: var(--red);
 }
+
+/* v8: a setting the OS forces on (reduced motion) */
+.setting.is-forced {
+  cursor: default;
+}
+
+.setting.is-forced .switch {
+  opacity: 0.6;
+}
