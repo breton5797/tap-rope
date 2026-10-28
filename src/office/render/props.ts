@@ -237,3 +237,40 @@ export function setFocusLane(lane: number): void {
 export function laneSizeK(d: number): number {
   return 1 - 0.25 * Math.min(1, Math.abs(d - focusLane));
 }
+
+// ---------- beam stacks as a thrown bundle ----------
+
+export interface StackItem {
+  /** centre height above the floor (a beam height), x nudge and tilt of this item */
+  readonly height: number;
+  readonly dx: number;
+  readonly rot: number;
+}
+
+/** item size (logical px at depth scale 1): small enough to leave gaps between the beam heights */
+export const STACK_ITEM = 28;
+const STACKS: readonly (readonly StackItem[])[] = [1, 2, 3].map((level) =>
+  level === 1 ? [] : BEAM_H.slice(0, level).map((height, i) => ({ height, dx: (i % 2 ? 1 : -1) * 3, rot: (i - 1) * 0.16 + 0.05 })));
+
+/**
+ * A 2단/3단 beam drawn as a column of small items, one per beam height (its physical height stays the jump
+ * the beam asks for), instead of one hero-sized blob; a 1단 beam stays a single prop ([]).
+ */
+export function stackItems(level: number): readonly StackItem[] {
+  return STACKS[Math.min(3, Math.max(1, level)) - 1];
+}
+
+/** draw a stack around the column at x: item centres at their beam heights × `depth` above `floorY`, items × `size` */
+export function drawStack(
+  ctx: CanvasRenderingContext2D, img: HTMLImageElement, items: readonly StackItem[], x: number, floorY: number, depth: number,
+  size: number, flip: boolean, alpha: number, m: Readonly<PropMotion>,
+): void {
+  for (const it of items) {
+    ITEM_MOTION.dx = m.dx + it.dx * depth;
+    ITEM_MOTION.dy = m.dy;
+    ITEM_MOTION.rot = m.rot + it.rot;
+    drawProp(ctx, img, x, floorY - it.height * depth, STACK_ITEM * size, 0.5, flip, alpha, ITEM_MOTION);
+  }
+}
+
+const ITEM_MOTION: PropMotion = { dx: 0, dy: 0, rot: 0 };

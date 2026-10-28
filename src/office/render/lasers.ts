@@ -13,7 +13,8 @@ import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
 import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
 import {
-  PROP_SIZE, beatIdOf, drawFootprint, drawProp, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage, propMotion,
+  PROP_SIZE, beatIdOf, drawFootprint, drawProp, drawStack, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage,
+  propMotion, stackItems, type StackItem,
 } from './props';
 
 export * from '../../render/lasers';
@@ -108,20 +109,37 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
 function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle, d: number, a: number, t: number): void {
   const back = o.from === 'back';
   const { bottom, h } = flyingSpan(o);
-  const size = h * depthScale(d) * laneSizeK(d);
+  const k = depthScale(d) * laneSizeK(d);
+  const size = h * k;
+  const stack = o.kind === 'beam' ? stackItems(o.level) : NO_STACK;
   const join = joinTime(beamSpeed('front', v));
   const step = throwStep(o.kind, o.from, o.timeUntil, join);
   if (step === -1) return;
+  const m = propMotion(propIdFor(o), phase(o, d, t) * (step === null ? 1 : 2));
+  let x: number;
+  let floorY: number;
   if (step !== null) {
-    thrown(ctx, img, o, d, a, step, projX(flyingPropCenter('front', join, v), d), projY(d, bottom), size, 1, false, t);
-    return;
+    // in flight from the hand: the bundle's bottom follows the arc to its join point
+    const landX = projX(flyingPropCenter('front', join, v), d);
+    drawFootprint(ctx, o.kind, landX, projY(d, 0), size, a * step);
+    LAND.x = landX;
+    LAND.y = projY(d, 0);
+    const p = throwArc(throwHand(), LAND, step);
+    x = p.x;
+    floorY = p.y;
+  } else {
+    if (o.timeUntil > ENTER_TIME) return;
+    // F2: centred on the beam head, so the prop covers the hero exactly at judge time
+    x = projX(flyingPropCenter(back ? 'back' : 'front', o.timeUntil, v), d);
+    floorY = projY(d, 0);
+    drawFootprint(ctx, o.kind, x, floorY, size, a);
   }
-  if (o.timeUntil > ENTER_TIME) return;
-  // F2: centred on the beam head, so the prop covers the hero exactly at judge time
-  const x = projX(flyingPropCenter(back ? 'back' : 'front', o.timeUntil, v), d);
-  drawFootprint(ctx, o.kind, x, projY(d, 0), size, a);
-  drawProp(ctx, img, x, projY(d, bottom), size, 1, back, a, propMotion(propIdFor(o), phase(o, d, t)));
+  const depth = depthScale(d);
+  if (stack.length > 0) drawStack(ctx, img, stack, x, floorY, depth, k, back, a, m);
+  else drawProp(ctx, img, x, floorY - bottom * depth, size, 1, back, a, m);
 }
+
+const NO_STACK: readonly StackItem[] = [];
 
 /** reused per call (no per-frame allocation) */
 const FALLBACK: VisibleObstacle[] = [];

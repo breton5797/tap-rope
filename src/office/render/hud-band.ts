@@ -16,9 +16,11 @@ export interface HudBand {
   line: number;
   /** the countdown digit's box (logical) while it shows, else null */
   countdown: Rect | null;
+  /** logical x of the view's left edge */
+  left: number;
 }
 
-const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null };
+const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN };
 let lastRead = Number.NEGATIVE_INFINITY;
 
 function lowest(selector: string, canvasTop: number): number {
@@ -32,6 +34,7 @@ function lowest(selector: string, canvasTop: number): number {
 
 /** the current band (refreshed at most every REFRESH s of `realTime`) */
 export function hudBand(canvas: HTMLCanvasElement, v: View, realTime: number): Readonly<HudBand> {
+  band.left = v.x0;
   if (typeof document === 'undefined' || Math.abs(realTime - lastRead) < REFRESH) return band;
   lastRead = realTime;
   const top = canvas.getBoundingClientRect().top;

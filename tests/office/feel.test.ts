@@ -198,3 +198,26 @@ describe('pickup sprites (F7)', () => {
     expect(collectibleFor(1, undefined)).toBeNull();
   });
 });
+
+describe('stackItems (beam stacks read as a thrown bundle)', () => {
+  it('a 2단/3단 beam is a column of small items at the beam heights, a 1단 beam stays one prop', async () => {
+    const { stackItems, STACK_ITEM } = await import('../../src/office/render/props');
+    const { BEAM_H } = await import('../../src/render/layout');
+    expect(stackItems(1)).toHaveLength(0);
+    for (const level of [2, 3]) {
+      const items = stackItems(level);
+      expect(items.map((i) => i.height)).toEqual(BEAM_H.slice(0, level));
+      expect(new Set(items.map((i) => i.rot)).size).toBe(level);
+    }
+    expect(STACK_ITEM).toBeLessThan(BEAM_H[1] - BEAM_H[0] + 8);
+  });
+});
+
+describe('popupShift (F11)', () => {
+  it('keeps the enlarged judge popups on screen above the hero', async () => {
+    const { popupShift } = await import('../../src/office/render/popups');
+    expect(popupShift(108, 40, 60)).toBe(0);
+    expect(popupShift(108, 100, 60)).toBeGreaterThan(0);
+    expect(108 + popupShift(108, 100, 60) - 60).toBeGreaterThanOrEqual(100 - 1e-9);
+  });
+});
