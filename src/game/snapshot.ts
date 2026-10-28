@@ -1,5 +1,5 @@
 /** Builds the renderer/HUD view-models from a Session. */
-import type { BossView, CosmeticLook, HudState, RenderSnapshot, SkinId } from '../types';
+import type { BossView, CosmeticLook, HudState, MissionView, RenderSnapshot, SkinId } from '../types';
 import { SCROLL_SPEED } from '../types';
 import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
 import { CHAPTERS } from '../core/content';
@@ -28,6 +28,8 @@ export interface SnapshotOpts {
   readonly bossFinish?: number;
   /** v8 (A5): equipped cosmetic colours */
   readonly cosmetics?: CosmeticLook;
+  /** office v2: the running mission (canvas FX); v8 never passes one */
+  readonly mission?: MissionView;
 }
 
 export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSnapshot {
@@ -54,6 +56,7 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     boss: sessionBoss(s),
     bossFinish: o.bossFinish ?? -1,
     cosmetics: o.cosmetics,
+    ...(o.mission ? { mission: o.mission } : {}),
     run: { seed: s.stage.seed, stageIndex: s.stage.chapter, progress: sessionProgress(s), beats: s.beats },
   };
 }

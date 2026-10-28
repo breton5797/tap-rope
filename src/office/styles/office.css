@@ -553,3 +553,293 @@ body {
 .node__kind--boss {
   color: #b23a6a;
 }
+
+/* ---------- v2 missions: HUD chip, card, stamp ---------- */
+.mission {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* bottom-left, level with the canvas clock (bottom-right), above the rhythm lane */
+.mission-chip {
+  position: absolute;
+  left: calc(var(--safe-l) + 14px);
+  bottom: calc(var(--safe-b) + 112px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 200px);
+  padding: 6px 12px 6px 8px;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 15px;
+  background: var(--panel-solid);
+  border: 2.5px solid var(--outline);
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--outline);
+}
+
+/* tablets: the rhythm lane is centred and lower; keep the chip level with the clock, clear of the lane */
+@media (min-width: 700px) {
+  .mission-chip {
+    bottom: calc(var(--safe-b) + 218px);
+  }
+}
+
+.mission-chip.is-complete {
+  background: var(--pastel-mint);
+}
+
+.mission-chip__label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mission-chip__count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mission-chip__pips {
+  display: flex;
+  gap: 3px;
+}
+
+.mission-chip .pip {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.mission-chip .pip.is-now {
+  background: var(--amber);
+}
+
+.mission-chip .pip.is-ok {
+  background: #3fbf8f;
+}
+
+.mission-chip .pip.is-miss {
+  background: #c9bfc6;
+}
+
+/* chase: distance to the superior */
+.mission-chip__meter {
+  position: relative;
+  width: 64px;
+  height: 9px;
+  overflow: hidden;
+  background: var(--pastel-pink);
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+}
+
+.mission-chip__fill {
+  position: absolute;
+  inset: 0;
+  background: #3fbf8f;
+  transform-origin: left center;
+  transition: transform 0.25s ease-out;
+}
+
+/* the mission card: 1.6 s as a section starts, over the corridor, never blocking input */
+.mission-card {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: min(320px, calc(100% - 40px));
+  padding: 12px 16px 14px;
+  text-align: center;
+  background: var(--panel);
+  border: 2.5px solid var(--outline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  transform: translate(-50%, 0);
+  animation: mission-card 1.6s ease-out both;
+}
+
+.mission-card__kicker {
+  color: #b23a6a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.mission-card__title {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.mission-card__goal {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mission-card__line {
+  margin-top: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  background: var(--amber-dim);
+  border-radius: 10px;
+}
+
+@keyframes mission-card {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.92); }
+  12% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  85% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -8px) scale(0.98); }
+}
+
+/* the stamp as a section ends */
+.mission-stamp {
+  position: absolute;
+  left: 50%;
+  /* below the canvas boss-phase banner */
+  top: 42%;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.mission-stamp__ink {
+  padding: 6px 18px 4px;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 4px double currentColor;
+  border-radius: 14px;
+  background: rgba(255, 251, 243, 0.85);
+  transform: rotate(-7deg);
+  animation: stamp-thunk 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.mission-stamp.is-ok .mission-stamp__ink {
+  color: #1d9a6c;
+}
+
+.mission-stamp.is-miss .mission-stamp__ink {
+  color: #8a7f88;
+  font-size: 24px;
+}
+
+.mission-stamp__bonus {
+  padding: 2px 12px;
+  color: var(--ink);
+  font-weight: 800;
+  background: var(--amber);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  animation: pop-in 0.3s ease-out 0.25s both;
+}
+
+#app.reduced-motion .mission-card,
+#app.reduced-motion .mission-stamp__ink,
+#app.reduced-motion .mission-stamp__bonus {
+  animation: none;
+}
+
+/* ---------- v2 result: three stamps and the grade ---------- */
+.report__missions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.report__stamps {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.report__stamp {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  text-align: center;
+  background: #fff;
+  border: 2px solid var(--outline);
+  border-radius: 12px;
+}
+
+.report__stamp-ink {
+  padding: 1px 8px;
+  font-size: 14px;
+  font-weight: 800;
+  border: 2.5px double currentColor;
+  border-radius: 8px;
+  transform: rotate(-6deg);
+}
+
+.report__stamp.is-ok .report__stamp-ink {
+  color: #1d9a6c;
+}
+
+.report__stamp.is-miss .report__stamp-ink,
+.report__stamp.is-none .report__stamp-ink {
+  color: #9a8f98;
+}
+
+.report__stamp-name {
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--ink-soft);
+}
+
+.report__grade {
+  display: grid;
+  place-items: center;
+  min-width: 64px;
+  padding: 4px 8px;
+  background: var(--amber-dim);
+  border: 2.5px solid var(--outline);
+  border-radius: 14px;
+}
+
+.report__grade-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.report__grade b {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.grade--S b { color: #d8344b; }
+.grade--A b { color: #1d9a6c; }
+.grade--B b { color: #2f6fb8; }
+.grade--C b { color: #8a7f88; }
+
+/* ---------- v2 map: each stage's best stamps ---------- */
+.floors__stamps {
+  display: flex;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.stamp-dot {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+  background: #efe6ea;
+}
+
+.stamp-dot.is-ok {
+  background: #3fbf8f;
+}

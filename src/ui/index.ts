@@ -5,6 +5,7 @@ import { buildCutscene } from './cutscene';
 import { buildLeaderboard } from './leaderboard';
 import { buildNickname } from './nickname';
 import { buildPicker } from './picker';
+import { renderMission } from './mission';
 import { h, holdFocus, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
 import { renderBriefing } from './briefing';
@@ -165,6 +166,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
     },
     hideAll() {
       setHud(false);
+      renderMission(layers.hud, undefined, null, true);
       mount(null, 'none');
       renderCountdown(layers.fx, null);
       renderTutorial(layers.tutorial, ctx, null);
@@ -190,6 +192,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       layers.overlay.replaceChildren(card);
     },
     showLoading: (progress) => renderLoading(layers.loading, progress),
+    updateMission: (view, stage) => renderMission(layers.hud, view, stage, ctx.reducedMotion()),
     showPicker: (save, onPick) => mount(buildPicker(ctx, save, onPick), 'picker'),
   };
 }

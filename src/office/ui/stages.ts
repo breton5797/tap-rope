@@ -8,6 +8,7 @@ import type { SaveData } from '../../types';
 import { h, header, type Ctx } from '../../ui/dom';
 import { icons } from '../../ui/icons';
 import { firstIntroductions, stageNode } from '../../ui/stage-node';
+import { stampDots } from '../../ui/mission';
 
 export { chapterSkin } from '../../ui/stages';
 
@@ -33,6 +34,9 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
     el.style.left = `${x}%`;
     el.style.top = `calc(${y}% - ${DISC_CENTER}px)`;
     el.classList.add('floors__node');
+    // v2: the stage's best mission stamps under its name
+    const dots = stampDots(s.id);
+    if (dots) el.appendChild(dots);
     return el;
   });
   const img = h('img', { cls: 'floors__img', attrs: { src: './art/map-bg.webp', alt: '', decoding: 'async', draggable: 'false' } });

@@ -355,7 +355,9 @@ export type AchievementId =
   | 'first-clear' | 'zone-1' | 'zone-3' | 'zone-5' | 'zone-7' | 'zone-10'
   | 'rescue' | 'escape' | 'flawless-boss' | 'perfect-stage' | 'chain-50' | 'chain-100'
   | 'overdrive-3' | 'all-stars-zone' | 'stars-150' | 'endless-60' | 'endless-180'
-  | 'daily-1' | 'daily-7' | 'all-operators' | 'archivist';
+  | 'daily-1' | 'daily-7' | 'all-operators' | 'archivist'
+  // office v2: mission stamps collected over every stage
+  | 'stamps-15';
 
 export interface AchievementMeta {
   readonly id: AchievementId;
@@ -381,6 +383,9 @@ export interface RunSummary {
   readonly date: string; // YYYY-MM-DD (local)
   /** v8: the move that would have dodged the hit that ended a failed run (fail-screen tip), else null */
   readonly hitBy?: MoveId | null;
+  /** office v2: mission stamps (one per section) and the stage grade; absent in v8 */
+  readonly stamps?: readonly boolean[];
+  readonly grade?: 'S' | 'A' | 'B' | 'C';
 }
 
 /** One recorded input, at a deterministic session time (GDD-v7 §3.2). */
@@ -461,6 +466,32 @@ export interface LaneItem {
 
 export type Mood = 'idle' | 'happy' | 'hurt' | 'cheer' | 'worried';
 
+/** office v2: the running mission, for the HUD chip / card / stamp (DOM) and canvas FX; absent in v8 */
+export interface MissionView {
+  readonly index: number; // section 0..2
+  readonly kind: 'dodge' | 'collect' | 'chase' | 'finale';
+  readonly title: string;
+  readonly value: number;
+  readonly target: number;
+  readonly complete: boolean;
+  /** run time when the last stamp fired (at a door, or the stage end), for FX; absent before the first */
+  readonly stampAt?: number;
+  /** that stamp's outcome: true = 미션 완료, false = 다음 기회에 */
+  readonly stampOk?: boolean;
+  /** chase: distance to the superior 0..1 (1 = shaken off) */
+  readonly chase?: number;
+  /** one per section: true / false once stamped, null while still to come */
+  readonly stamps: readonly (boolean | null)[];
+}
+
+/** office v2: a run's missions as the result card and save see them */
+export interface MissionOutcome {
+  readonly stamps: readonly (boolean | null)[];
+  readonly grade: 'S' | 'A' | 'B' | 'C';
+  readonly stars: 1 | 2 | 3;
+  readonly bonus: number; // 칼퇴 포인트 for the stamps
+}
+
 export interface RenderSnapshot {
   readonly time: number; // stage time
   readonly realTime: number; // wall-clock seconds, for idle animation
@@ -492,6 +523,8 @@ export interface RenderSnapshot {
   readonly cosmetics?: CosmeticLook;
   /** the run behind this frame (office build: surprise events, clock, attack looks); v8 draws without it */
   readonly run?: RenderRun;
+  /** office v2: the running mission (canvas FX: stamp confetti, chase); absent in v8 */
+  readonly mission?: MissionView;
 }
 
 export interface RenderRun {
@@ -583,6 +616,8 @@ export interface ResultInfo {
   readonly online?: { readonly state: 'pending' | 'ranked' | 'offline' | 'rejected'; readonly rank?: number; readonly gap?: number };
   /** v8 meta layer: rewards, streak, achievements and goals for the result card */
   readonly meta?: ResultMeta;
+  /** office v2: the run's mission stamps and grade (result card row); absent in v8 */
+  readonly missions?: MissionOutcome;
 }
 
 /** v8: one ₵ reward line on the result card. */
@@ -673,6 +708,8 @@ export interface Ui {
   showBossLine(kicker: string, text: string): void;
   /** first-run character picker (FEATURES.firstRunPick); onPick with the chosen owned skin */
   showPicker(save: SaveData, onPick: (id: SkinId) => void): void;
+  /** office v2: the running mission on the HUD (chip, card, stamps); undefined clears. v8: never shown */
+  updateMission(view: MissionView | undefined, stage: StageDef | null): void;
 }
 
 // ---------- Audio contract ----------
