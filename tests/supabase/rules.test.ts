@@ -22,9 +22,9 @@ describe('server rules', () => {
   });
 
   it('maps client boards to storage keys', () => {
-    expect(resolveBoard('endless', NOW)).toBe('endless');
-    expect(resolveBoard('endless-week', NOW)).toBe('endless-week:2026-W44');
-    expect(resolveBoard('daily:2026-10-27', NOW)).toBe('daily:2026-10-27');
+    expect(resolveBoard('endless', NOW)).toBe('s8:endless'); // v8 season: le-v8 scores never mix with older ones
+    expect(resolveBoard('endless-week', NOW)).toBe('s8:endless-week:2026-W44');
+    expect(resolveBoard('daily:2026-10-27', NOW)).toBe('s8:daily:2026-10-27');
     expect(resolveBoard('daily:2026-13-01', NOW)).toBeNull();
     expect(resolveBoard('endless-week:2026-W01', NOW)).toBeNull();
     expect(resolveBoard(null, NOW)).toBeNull();
@@ -34,9 +34,9 @@ describe('server rules', () => {
     const r = checkRecord(base, NOW);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(boardsFor(r.value, NOW)).toEqual(['endless', 'endless-week:2026-W44']);
+    expect(boardsFor(r.value, NOW)).toEqual(['s8:endless', 's8:endless-week:2026-W44']);
     const daily = checkRecord({ ...base, mode: 'daily', date: '2026-10-26' }, NOW);
-    expect(daily.ok && boardsFor(daily.value, NOW)).toEqual(['daily:2026-10-26']);
+    expect(daily.ok && boardsFor(daily.value, NOW)).toEqual(['s8:daily:2026-10-26']);
   });
 
   it.each([
