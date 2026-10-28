@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { STAGES } from '../../src/core/content';
 import { generateStage } from '../../src/core/levels';
 import { DEFAULT_PHYSICS } from '../../src/core/physics';
-import { beatShape, minGap } from '../../src/core/spacing';
+import { beatShape, laneReach, minGap } from '../../src/core/spacing';
 import { STAGE_MISSIONS } from '../../src/office/core/missions';
-import { HAZARD_KINDS, LANES, type Beat } from '../../src/types';
+import { HAZARD_KINDS, type Beat, type LaneId } from '../../src/types';
 
 const cfg = DEFAULT_PHYSICS;
 const SEEDS = Array.from({ length: 30 }, (_, i) => Math.imul(i + 1, 2654435761) >>> 0);
@@ -63,25 +63,48 @@ describe('office stage composer', () => {
     }
   });
 
-  it('collect sections place ≥ target+2 level-1 pickups on free lanes', () => {
+  it('collect sections place ≥ target+2 level-1 coins, each a single item off the hazard beats', () => {
     for (const r of runs) {
       STAGE_MISSIONS[r.stage.id].forEach((m, k) => {
         if (m.kind !== 'collect') return;
-        const part = r.beats.filter((b) => b.part === k);
-        const coins = part.filter((b) => b.obstacles.some((o) => o.kind === 'coin'));
+        const coins = r.beats.filter((b) => b.part === k && b.obstacles.some((o) => o.kind === 'coin'));
         expect(coins.length, `${r.stage.id}#${r.seed} part ${k}`).toBeGreaterThanOrEqual(m.target + 2);
         for (const b of coins) {
           expect(isHazard(b)).toBe(false);
-          for (const o of b.obstacles) {
-            expect(o.level).toBe(1);
-            expect(o.lanes).toHaveLength(1);
-            // the lane the next hazard leaves open
-            const next = part.find((x) => x.time > b.time && isHazard(x));
-            if (next) expect(next.blockedLanes).not.toContain(o.lanes![0]);
-            expect(LANES).toContain(o.lanes![0]);
-          }
+          expect(b.obstacles).toHaveLength(1);
+          expect(b.obstacles[0].level).toBe(1);
+          expect(b.obstacles[0].lanes).toHaveLength(1);
         }
       });
+    }
+  });
+
+  it('a best-lane player at a human pace reaches ≥ target+2 coins and survives every hazard (5 stages × 200 seeds)', () => {
+    const many = Array.from({ length: 200 }, (_, i) => Math.imul(i + 101, 2246822519) >>> 0);
+    for (const stage of STAGES) {
+      for (const seed of many) {
+        const { beats } = generateStage({ ...stage, seed }, cfg, 2);
+        STAGE_MISSIONS[stage.id].forEach((m, k) => {
+          if (m.kind !== 'collect') return;
+          // the lanes the player can be in, one lane per LANE_STEP; taking a coin commits them to its lane
+          let can: readonly LaneId[] = [0, 1, 2];
+          let at = Number.NEGATIVE_INFINITY;
+          let got = 0;
+          for (const b of beats.filter((x) => x.part === k)) {
+            const coin = b.obstacles.find((o) => o.kind === 'coin');
+            const reach = laneReach(can, b.time - at, isHazard(b) ? b.blockedLanes : []);
+            at = b.time;
+            if (isHazard(b)) {
+              expect(reach.length, `${stage.id}#${seed} part ${k}: trapped at ${b.time.toFixed(2)}`).toBeGreaterThan(0);
+              can = reach;
+            } else if (coin && reach.includes(coin.lanes![0])) {
+              got += 1;
+              can = [coin.lanes![0]];
+            } else can = reach;
+          }
+          expect(got, `${stage.id}#${seed} part ${k}`).toBeGreaterThanOrEqual(m.target + 2);
+        });
+      }
     }
   });
 

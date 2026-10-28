@@ -13,7 +13,7 @@ import { HAZARD_KINDS, LANES } from '../../types';
 import { DOOR_BREAK, generateStage as v8GenerateStage } from '../../core/levels';
 import { mulberry32 } from '../../core/rng';
 import { airtimeForLevel } from '../../core/physics';
-import { beatShape, gapAfter, SAFETY } from '../../core/spacing';
+import { beatShape, gapAfter, laneReach, SAFETY } from '../../core/spacing';
 import { missionPartStage, sceneFor, transitionFor } from './content';
 import { STAGE_MISSIONS, type MissionSpec } from './missions';
 
@@ -45,40 +45,45 @@ function pickLane(rng: Rng, open: readonly LaneId[]): LaneId {
 
 /**
  * collect: the generator's pickups make way for 1단 coins laid in the hazard gaps — the first one gapAfter the
- * hazard, each next one a 1단 jump (airtime + SAFETY) later, the last one that far before the next hazard — on
- * a lane the next hazard leaves open. Spread first (≤ 2 per gap), then fill the gaps, then trail the last
- * hazard, until there are target + COLLECT_SPARE.
+ * hazard, each next one a 1단 jump (airtime + SAFETY) later, the last one that far before the next hazard.
+ * The lanes are chained for a player who takes every coin at a human pace (spacing.laneReach, one lane per
+ * LANE_STEP): a coin's lane is reachable from where the previous hazard or coin left the player, and the next
+ * hazard is still survivable from it; taking the coin commits the player to that lane. Up to 1, then 2, then
+ * any number of coins per gap, then trailing the last hazard, until target + COLLECT_SPARE fit.
  */
 function collectPart(spec: MissionSpec, beats: Beat[], slots: number[], half: number, cfg: PhysicsConfig, rng: Rng): { beats: Beat[]; slots: number[] } {
   const hz = beats.map((b, i) => ({ b, slot: slots[i] })).filter(({ b }) => isHazard(b));
   const need = spec.target + COLLECT_SPARE;
   const room = jumpSlots(half, cfg);
-  const coins = new Map<number, number[]>(); // hazard index → coin slots after it
-  const count = () => [...coins.values()].reduce((n, c) => n + c.length, 0);
-  const place = (cap: number, trail: boolean) => {
+  const lay = (cap: number, trail: boolean): { b: Beat; slot: number }[] => {
+    const out: { b: Beat; slot: number }[] = [];
+    let can: readonly LaneId[] = [1];
+    let at = Number.NEGATIVE_INFINITY;
+    let placed = 0;
     hz.forEach(({ b, slot }, i) => {
-      const next = i + 1 < hz.length ? hz[i + 1].slot : trail ? Number.POSITIVE_INFINITY : null;
+      can = laneReach(can, (slot - at) * half, b.blockedLanes);
+      at = slot;
+      out.push({ b, slot });
+      const nextHz = hz[i + 1];
+      const next = nextHz ? nextHz.slot : trail ? Number.POSITIVE_INFINITY : null;
       if (next === null) return;
-      const mine = coins.get(i) ?? [];
-      coins.set(i, mine);
-      let p = mine.length > 0 ? mine[mine.length - 1] + room : slot + Math.ceil(gapAfter(beatShape(b), cfg) / half - 1e-9);
-      while (count() < need && mine.length < cap && p + room <= next) {
-        mine.push(p);
-        p += room;
+      let p = slot + Math.ceil(gapAfter(beatShape(b), cfg) / half - 1e-9);
+      for (let n = 0; n < cap && placed < need && p + room <= next; n += 1, p += room) {
+        const lanes = laneReach(can, (p - at) * half, []).filter((l) =>
+          !nextHz || laneReach([l], (next - p) * half, nextHz.b.blockedLanes).length > 0);
+        if (lanes.length === 0) continue;
+        const lane = pickLane(rng, lanes);
+        out.push({ b: { id: 0, time: 0, obstacles: [coin(lane)], requiredLevel: 0, needsSlide: false, pulse: false, blockedLanes: [], section: 0 }, slot: p });
+        can = [lane];
+        at = p;
+        placed += 1;
       }
     });
+    return out;
   };
-  place(2, false);
-  place(Number.POSITIVE_INFINITY, false);
-  place(Number.POSITIVE_INFINITY, true);
-  const out: { b: Beat; slot: number }[] = hz.flatMap(({ b, slot }, i) => {
-    const lanes = LANES.filter((l) => !(hz[i + 1]?.b.blockedLanes ?? []).includes(l));
-    const after = (coins.get(i) ?? []).map((p) => ({
-      b: { id: 0, time: 0, obstacles: [coin(pickLane(rng, lanes))], requiredLevel: 0, needsSlide: false, pulse: false, blockedLanes: [], section: 0 } as Beat,
-      slot: p,
-    }));
-    return [{ b, slot }, ...after];
-  });
+  const tries = [lay(1, false), lay(2, false), lay(Number.POSITIVE_INFINITY, false), lay(Number.POSITIVE_INFINITY, true)];
+  const coins = (o: readonly { b: Beat }[]) => o.filter((x) => !isHazard(x.b)).length;
+  const out = tries.find((o) => coins(o) >= need) ?? tries[tries.length - 1];
   return { beats: out.map((x) => x.b), slots: out.map((x) => x.slot) };
 }
 
