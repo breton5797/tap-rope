@@ -1,7 +1,7 @@
 // v8 result-card blocks (GDD-v8 A1/A3/A5): fail tip with the glyph of what hit you, boss-win banner,
 // ★3 rule, ₵ rewards, achievement badges, daily streak and the endless challenge duel.
 import { ACHIEVEMENTS } from '../core/achievements';
-import { bossFor } from '../core/boss';
+import { bossForSection } from '../core/boss';
 import { STAGES } from '../core/content';
 import { ACH_REWARD } from '../core/economy';
 import { starRule } from '../core/goals';
@@ -24,7 +24,8 @@ export function failTip(id: MoveId): HTMLElement {
 /** boss-win banner: the boss art with "거점 제압" (falls back to the gradient when the art is missing) */
 export function bossBanner(r: ResultInfo): HTMLElement | null {
   const stage = STAGES.find((s) => s.id === r.stageId);
-  const boss = stage && r.mode === 'stage' && r.cleared ? bossFor(stage) : null;
+  // the boss of the last section: the one beaten last (v8: the zone boss; office stage 5: 사장님)
+  const boss = stage && r.mode === 'stage' && r.cleared ? bossForSection(stage, stage.sections - 1) : null;
   if (!boss) return null;
   return h('div', { cls: 'report__boss' }, [
     artImage(`./art/boss-${boss.id}.webp`, 'art--boss'),
