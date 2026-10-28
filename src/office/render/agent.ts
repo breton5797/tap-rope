@@ -116,15 +116,15 @@ function heroName(skin: 'kid' | 'cat', frame: string): string {
   return n;
 }
 
-/** landing dust: three soft puffs spreading from the feet */
+/** landing dust: three small light puffs spreading from the feet (grey dots read as dirt) */
 function dust(ctx: Ctx, x: number, floorY: number, s: number, k: number): void {
-  const spread = (1 - k) * 18 * s;
+  const spread = (1 - k) * 14 * s;
   ctx.save();
-  ctx.fillStyle = 'rgba(235,228,220,0.9)';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.globalAlpha = 0.35 * k;
   for (let i = -1; i <= 1; i++) {
-    ctx.globalAlpha = 0.55 * k;
     ctx.beginPath();
-    ctx.ellipse(x + i * (8 * s + spread), floorY - 2 * s, (5 + 4 * (1 - k)) * s, (2.5 + 2 * (1 - k)) * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + i * (7 * s + spread), floorY - 2 * s, (3 + 3 * (1 - k)) * s, (1.6 + 1.4 * (1 - k)) * s, 0, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();

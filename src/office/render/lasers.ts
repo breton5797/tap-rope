@@ -135,7 +135,8 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
     drawFootprint(ctx, o.kind, x, floorY, size, a);
   }
   const depth = depthScale(d);
-  if (stack.length > 0) drawStack(ctx, img, stack, x, floorY, depth, k, back, a, m);
+  // a bundle is drawn opaque in every lane (dimmed copies read as one washed-out smear)
+  if (stack.length > 0) drawStack(ctx, img, stack, x, floorY, depth, k, back, 1, m);
   else drawProp(ctx, img, x, floorY - bottom * depth, size, 1, back, a, m);
 }
 

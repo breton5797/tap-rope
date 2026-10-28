@@ -55,10 +55,13 @@ describe('heroPose (F4 / F11, Ludo art contract)', () => {
     expect(heroPose({ ...air, airTime: 0.22 }, base).frame).toBe('jump');
   });
 
-  it('2단 spins one turn on the apex frame, 3단 glides on the still arms-up frame', () => {
+  it('2단 / 3단 never flip: a stretch and at most ±15° tilt (a full spin read as a fall)', () => {
     const two = { ...air, level: 2 as const };
     expect(heroPose(two, { ...base, boostAge: 0.2, art: full }).frame).toBe('jump4');
-    expect(Math.abs(heroPose(two, { ...base, boostAge: 0.2 }).rot)).toBeGreaterThan(1);
+    for (const age of [0, 0.1, 0.2, 0.3, 0.45]) {
+      expect(Math.abs(heroPose(two, { ...base, boostAge: age }).rot)).toBeLessThanOrEqual((15 * Math.PI) / 180 + 1e-9);
+    }
+    expect(heroPose(two, { ...base, boostAge: 0.2 }).sy).toBeGreaterThan(1);
     expect(heroPose(two, { ...base, boostAge: 1 }).rot).toBe(0);
     expect(heroPose({ ...air, level: 3 }, { ...base, boostAge: 0.1, art: full }).frame).toBe('jump');
     expect(heroPose({ ...air, level: 3 }, { ...base, boostAge: 0.1 }).rot).not.toBe(0);
@@ -232,5 +235,15 @@ describe('boss framing (perf + AD: one scan per boss, same frame for every pose)
     const edge = frameRectFrom({ x: 0, y: 10, w: 300, h: 1000 }, 768, 1024);
     expect(edge.x).toBeGreaterThanOrEqual(0);
     expect(edge.x + edge.w).toBeLessThanOrEqual(768);
+  });
+});
+
+describe('judge popups (art review)', () => {
+  it('fade to about half within 0.15 s so they never hide the hero, then out', async () => {
+    const { popupAlpha } = await import('../../src/office/render/popups');
+    expect(popupAlpha(0, 0.8)).toBe(1);
+    expect(popupAlpha(0.15, 0.8)).toBeCloseTo(0.5, 2);
+    expect(popupAlpha(0.4, 0.8)).toBeLessThanOrEqual(0.5);
+    expect(popupAlpha(0.8, 0.8)).toBe(0);
   });
 });

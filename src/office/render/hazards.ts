@@ -3,7 +3,7 @@
 // landing shadow and target ring. Anything without a loaded prop keeps the v8 drawing.
 import type { LaneId, VisibleObstacle } from '../../types';
 import { WARN_LEAD } from '../../types';
-import { depthScale, fixedX, laneY, project, projX, projY } from '../../render/layout';
+import { WALL_DEPTH, depthScale, fixedX, laneY, project, projX, projY } from '../../render/layout';
 import { CHASE_ENTER, chaserX, dropHeight, drawLaneHazards as v8LaneHazards, targetRing } from '../../render/hazards';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
@@ -14,6 +14,19 @@ export * from '../../render/hazards';
 
 const CHASER_Y = 34;
 
+/** elevator doors read on the back wall (art review): one per attack, the nearest ones only, 64 px, 0.6 alpha */
+const ELEVATOR_H = 64;
+const ELEVATOR_AHEAD = 1.3;
+
+function elevator(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: number): void {
+  const tu = o.timeUntil;
+  drawFootprint(ctx, o.kind, projX(fixedX(tu), lane), laneY(lane), PROP_SIZE.guard * 0.6 * depthScale(lane), 1, band(lane));
+  const first = o.lanes && o.lanes.length > 1 ? Math.min(o.lanes[0], o.lanes[1]) : lane;
+  if (lane !== first || tu > ELEVATOR_AHEAD || tu < -0.2) return;
+  const s = depthScale(WALL_DEPTH);
+  drawProp(ctx, img, projX(fixedX(tu), WALL_DEPTH), laneY(WALL_DEPTH), ELEVATOR_H * s, 1, false, 0.6);
+}
+
 /** the floor width of lane `l` on screen */
 const band = (l: number): number => laneY(l + 0.5) - laneY(l - 0.5);
 
@@ -22,6 +35,10 @@ function propHazard(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
   const s = depthScale(lane);
   // F6 idle motion (a few px; the hazard stays on its hit box)
   const m = propMotion(propIdFor(o), t + beatIdOf(o) * 0.61 + lane * 0.23);
+  if (o.kind === 'guard' && propIdFor(o) === 'elevator') {
+    elevator(ctx, img, o, lane);
+    return;
+  }
   if (o.kind === 'guard') {
     const p = project(fixedX(tu), lane, 0);
     drawFootprint(ctx, o.kind, p.x, p.y, PROP_SIZE.guard * 0.6 * s, 1, band(lane));

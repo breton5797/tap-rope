@@ -55,6 +55,8 @@ const SPIN_TIME = 0.46;
 const SLIDE_IN = 0.08;
 const SLIDE_OUT = 0.08;
 const GLIDE_TILT = -0.12;
+/** ≤ 15° */
+const BOOST_TILT = 0.24;
 /** a 1단 hop's airborne time with the default physics (2 · jumpV / gravity) */
 const HOP_TIME = 0.44;
 /** jump8 (landing) shows this long after touching down */
@@ -114,8 +116,9 @@ function anim(c: PoseCtx, list: readonly string[], i: number, still: string): st
 function airPose(p: PlayerState, c: PoseCtx): HeroPose {
   if (p.pendingSlide) return set(anim(c, SLIDE_NAMES, 0, 'slide')); // ↓ in the air: dive right away (F11)
   if (p.level === 2 && c.boostAge < SPIN_TIME) {
-    // one full turn on the apex frame
-    return set(anim(c, JUMP_NAMES, 3, 'jump'), 1, 1, -2 * Math.PI * (c.boostAge / SPIN_TIME));
+    // the boost: a stretch and a forward tilt on the apex frame (never a flip — it read as a fall)
+    const k = Math.sin(Math.PI * (c.boostAge / SPIN_TIME));
+    return set(anim(c, JUMP_NAMES, 3, 'jump'), 1 - 0.06 * k, 1 + 0.1 * k, -BOOST_TILT * k);
   }
   if (p.level >= 3) return set('jump', 1, 1, GLIDE_TILT); // arms-up still as the glide
   const frame = anim(c, JUMP_NAMES, (p.airTime / HOP_TIME) * 8, 'jump');

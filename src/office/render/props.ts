@@ -69,8 +69,19 @@ export function propIdFor(o: Pick<VisibleObstacle, 'id' | 'kind'>): string {
 
 /** the prop sprite, or null (not loaded / missing: draw the v8 hazard) */
 export function propImage(o: Pick<VisibleObstacle, 'id' | 'kind'>): HTMLImageElement | null {
-  return officeImage(`prop-${propIdFor(o)}`);
+  const id = propIdFor(o);
+  let name = PROP_NAMES.get(id);
+  if (!name) {
+    name = `prop-${id}`;
+    PROP_NAMES.set(id, name);
+  }
+  const img = officeImage(name);
+  if (img && UNOUTLINED.has(id)) NO_OUTLINE.add(img);
+  return img;
 }
+
+/** sprite names per prop id, built once */
+const PROP_NAMES = new Map<string, string>();
 
 /** the move that beats a hazard (the rhythm-lane chip): jump, slide, change lane, or stay low (drone) */
 export type ActionCue = 'jump' | 'slide' | 'lane' | 'low';
@@ -102,18 +113,25 @@ export function drawFootprint(
   ctx.globalAlpha *= alpha;
   if (cue === 'lane') {
     // F8: the blocked lane as a full red strip (its whole floor width when `laneBand` is given)
+    // quiet (art review): a light strip with an outline, not the loudest colour on screen
     const half = laneBand > 0 ? laneBand / 2 : ry;
-    ctx.globalAlpha *= 0.3;
+    ctx.globalAlpha *= 0.14;
     ctx.fillStyle = color;
     ctx.fillRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
-    ctx.globalAlpha /= 0.3;
+    ctx.globalAlpha /= 0.14;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha *= 0.6;
+    ctx.strokeRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
+    ctx.globalAlpha /= 0.6;
   }
   ctx.beginPath();
   ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
-  ctx.globalAlpha *= 0.4;
+  const fill = cue === 'lane' ? 0.12 : 0.4;
+  ctx.globalAlpha *= fill;
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.globalAlpha /= 0.4;
+  ctx.globalAlpha /= fill;
   ctx.globalAlpha *= 0.9;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.4;
@@ -159,6 +177,10 @@ function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: n
   if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, x + dx * r, y + dy * r, w, h);
 }
 
+/** props drawn without the outline rings (thin art the rings would smear, e.g. the laser-pointer dot chain) */
+const NO_OUTLINE = new WeakSet<HTMLImageElement>();
+const UNOUTLINED: ReadonlySet<string> = new Set(['pointer']);
+
 /**
  * Draw a prop with a dark comic outline around a white one, its centre-bottom (ay = 1) or centre (ay = 0.5)
  * at (x, y); `flip` mirrors it; `m` (F6) nudges it and turns it around its own centre.
@@ -174,8 +196,10 @@ export function drawProp(
   ctx.translate(x + (m?.dx ?? 0), y - h * ay + h / 2 + (m?.dy ?? 0));
   if (m && m.rot !== 0) ctx.rotate(m.rot);
   if (flip) ctx.scale(-1, 1);
-  ring(ctx, silhouette(img, INK), -w / 2, -h / 2, w, h, OUTLINE_INK);
-  ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h / 2, w, h, OUTLINE_WHITE);
+  if (!NO_OUTLINE.has(img)) {
+    ring(ctx, silhouette(img, INK), -w / 2, -h / 2, w, h, OUTLINE_INK);
+    ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h / 2, w, h, OUTLINE_WHITE);
+  }
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
 }
@@ -250,7 +274,7 @@ export interface StackItem {
 /** item size (logical px at depth scale 1): small enough to leave gaps between the beam heights */
 export const STACK_ITEM = 28;
 const STACKS: readonly (readonly StackItem[])[] = [1, 2, 3].map((level) =>
-  level === 1 ? [] : BEAM_H.slice(0, level).map((height, i) => ({ height, dx: (i % 2 ? 1 : -1) * 3, rot: (i - 1) * 0.16 + 0.05 })));
+  level === 1 ? [] : BEAM_H.slice(0, level).map((height, i) => ({ height, dx: (i % 2 ? 1 : -1) * 7, rot: (i - 1) * 0.16 + 0.05 })));
 
 /**
  * A 2단/3단 beam drawn as a column of small items, one per beam height (its physical height stays the jump

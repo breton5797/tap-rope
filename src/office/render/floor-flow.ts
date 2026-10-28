@@ -8,7 +8,7 @@ import type { View } from '../../render/view';
 /** world px between apron tile seams, and depth between seam rows */
 const SEAM = 64;
 const ROWS = 3;
-const SEAM_INK = 'rgba(58,46,63,0.16)';
+const SEAM_INK = 'rgba(58,46,63,0.25)';
 const SPEED_LINES = 12;
 
 /** streak count: only in fever, none with reduced motion */
