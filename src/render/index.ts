@@ -42,6 +42,22 @@ function rimColor(v: Variant): string {
   return RIM[v] ?? RIM.base;
 }
 
+/** v8 (A2): faint teal wash over the agent's lane floor (follows the lane switch), edges a touch brighter */
+function laneTint(ctx: Ctx, v: View, lane: number): void {
+  const y0 = laneY(lane - 0.5);
+  const y1 = laneY(lane + 0.5);
+  const op = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = '#3FE0D0';
+  ctx.globalAlpha = 0.07;
+  ctx.fillRect(v.x0, y0, v.w, y1 - y0);
+  ctx.globalAlpha = 0.22;
+  ctx.fillRect(v.x0, y0, v.w, 1);
+  ctx.fillRect(v.x0, y1 - 1, v.w, 1);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = op;
+}
+
 const STOP_ESCORT = 3;
 const STOP_AGENT = 4;
 
@@ -78,8 +94,8 @@ class CanvasRenderer implements Renderer {
     return this.art.load(onProgress).catch(() => undefined);
   }
 
-  resize(cssWidth: number, cssHeight: number, dpr: number): void {
-    this.view = computeView(cssWidth, cssHeight, dpr);
+  resize(cssWidth: number, cssHeight: number, dpr: number, safeBottom = 0): void {
+    this.view = computeView(cssWidth, cssHeight, dpr, safeBottom);
     this.applyView();
   }
 
@@ -100,6 +116,7 @@ class CanvasRenderer implements Renderer {
     const lane = visualLane(p);
     const depth = depthScale(lane);
     fx.reduced = snap.reducedMotion;
+    fx.landRing = snap.cosmetics?.ring ?? null;
     fx.anchorX = PLAYER_X;
     fx.feetY = laneY(lane) - p.height * depth;
     fx.bodyLift = (p.sliding ? 18 : 48) * depth;
@@ -119,7 +136,8 @@ class CanvasRenderer implements Renderer {
     ctx.setTransform(k, 0, 0, k, tx, ty);
     this.post.finish(ctx, v, snap.reducedMotion);
     this.post.hitEdge(ctx, v, fx.hitAge, snap.reducedMotion);
-    drawLane(ctx, snap.lane, snap.realTime, this.sprites);
+    drawLane(ctx, v, snap.lane, snap.realTime, this.sprites, snap.reducedMotion);
+    ctx.setTransform(k, 0, 0, k, tx, ty);
     fx.drawFlash(ctx, v);
   }
 
@@ -150,6 +168,7 @@ class CanvasRenderer implements Renderer {
     this.backFx(ctx, v, snap, variant, tr && tr.door.from.variant !== variant ? e : 1, lift);
     if (snap.boss) drawBoss(ctx, v, snap, t, this.sprites);
     for (const d of doors) drawDoorBack(ctx, d, off, reduced ? 0 : t, this.sprites, reduced);
+    if (snap.running) laneTint(ctx, v, lane);
     this.drawLanes(ctx, v, snap, lane);
     for (const d of doors) drawDoorFront(ctx, d, reduced ? 0 : t, off);
     // one grade over the whole world (corridor, hazards, characters) so nothing sits un-graded on
@@ -253,6 +272,7 @@ class CanvasRenderer implements Renderer {
       running: snap.running, blink: snap.invulnerable, torch, scale: AGENT_SCALE * depth, floorY, depth,
       lean: snap.reducedMotion ? 0 : laneLean(p), rim: rimColor(snap.variant),
       fever: snap.fever, reduced: snap.reducedMotion,
+      tint: snap.cosmetics?.tint ?? null, trail: snap.cosmetics?.trail ?? null,
     });
     if (snap.shield) {
       this.overlays.shield(ctx, x, floorY - p.height * depth - (p.sliding ? 22 : 54) * depth, snap.realTime); // v7.1: ×1.2 figure

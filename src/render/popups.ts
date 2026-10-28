@@ -26,6 +26,8 @@ interface StyleDef {
 
 const STYLES: Readonly<Record<PopupStyle, StyleDef>> = {
   perfect: { size: 26, baseY: 280, color: '#3FE0D0', life: 0.8, group: 0 },
+  // v8: perfect (bright teal) > great (pale teal) > good (white-grey)
+  great: { size: 24, baseY: 280, color: '#A6F0E8', life: 0.75, group: 0 },
   good: { size: 22, baseY: 280, color: '#E8ECEF', life: 0.7, group: 0 },
   miss: { size: 24, baseY: 280, color: '#FF2A3A', life: 0.8, group: 0 },
   combo: { size: 16, baseY: 250, color: '#FFB020', life: 1.0, group: 1 },

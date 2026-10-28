@@ -40,3 +40,9 @@ are refused until players update, and a new client's runs are refused until the 
   hunt for an easy seed and submit only that), and daily layouts are a pure function of the date, so with the
   ±1 day window tomorrow's daily can be practised (or solved offline) before it opens.
 - Runs scoring 0 are stored for audit but never enter a board.
+
+## Leaderboard seasons
+
+`SEASON` in `functions/_shared/rules.ts` prefixes every board key (`s8:endless`, `s8:endless-week:<week>`,
+`s8:daily:<date>`). When judging/scoring changes (a new `SIM_VERSION` that scores differently), bump the season with
+it so new scores never rank against old ones. Older rows stay in `game.runs` / `game.best_scores` under their old keys.

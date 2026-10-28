@@ -7,7 +7,7 @@ import type { RunInput, RunRecord } from '../types';
 import { advanceTo, createSession, lane, slide, swipe, tap, type Session } from './session';
 
 /** bump whenever gameplay, generation or scoring changes — the server rejects other versions */
-export const SIM_VERSION = 'le-v7.1';
+export const SIM_VERSION = 'le-v8';
 
 const MAX_INPUTS = 20000;
 const MAX_TIME = 3600;

@@ -352,3 +352,73 @@
   from { opacity: 0; transform: translate(-50%, 10px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* ---------- v8 achievements: badge art, progress, reward (rows themselves live in v7.css) ---------- */
+/* list-scoped so these win over v7.css, which loads later */
+.ach__list .ach {
+  grid-template-columns: 44px 1fr auto;
+}
+
+.ach__list .ach__icon {
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+}
+
+.ach__badge {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ach:not(.is-done) .ach__badge {
+  filter: grayscale(1) brightness(0.55);
+}
+
+.ach__prog {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.ach__bar {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  background: rgba(196, 214, 224, 0.12);
+}
+
+.ach__bar i {
+  position: absolute;
+  inset: 0;
+  background: var(--teal);
+  transform-origin: left center;
+}
+
+.ach__count {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.ach__side {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.ach__reward {
+  color: var(--amber);
+  font-size: 12px;
+}
+
+.ach.is-done .ach__reward {
+  color: var(--ink-faint);
+}
+
+/* v8: locked archive card — redacted dossier still, dimmed */
+.art--locked .art__img.is-loaded {
+  opacity: 0.7;
+  filter: grayscale(0.6);
+}

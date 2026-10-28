@@ -52,7 +52,12 @@ export function isoWeek(date: string): string {
   return `${year}-W${String(week).padStart(2, '0')}`;
 }
 
-export const weekBoard = (nowMs: number): string => `endless-week:${isoWeek(kstDate(nowMs))}`;
+/** Leaderboard season (GDD-v8): le-v8 judging scores differently, so its boards start fresh under this
+ *  prefix; rows on the older un-prefixed boards stay in the database, unranked. */
+export const SEASON = 's8';
+const seasoned = (key: string): string => `${SEASON}:${key}`;
+
+export const weekBoard = (nowMs: number): string => seasoned(`endless-week:${isoWeek(kstDate(nowMs))}`);
 
 /** |a − b| in whole days for two YYYY-MM-DD dates. */
 export const dayDiff = (a: string, b: string): number =>
@@ -60,14 +65,14 @@ export const dayDiff = (a: string, b: string): number =>
 
 /** Boards a verified run is entered on; the first is its primary board. */
 export function boardsFor(record: CheckedRecord, nowMs: number): readonly string[] {
-  return record.mode === 'daily' ? [`daily:${record.date}`] : ['endless', weekBoard(nowMs)];
+  return record.mode === 'daily' ? [seasoned(`daily:${record.date}`)] : [seasoned('endless'), weekBoard(nowMs)];
 }
 
 /** Client board name → storage key ('endless-week' means the current week). */
 export function resolveBoard(board: string | null, nowMs: number): string | null {
-  if (board === 'endless') return 'endless';
+  if (board === 'endless') return seasoned('endless');
   if (board === 'endless-week') return weekBoard(nowMs);
-  if (board?.startsWith('daily:') && isDate(board.slice(6))) return board;
+  if (board?.startsWith('daily:') && isDate(board.slice(6))) return seasoned(board);
   return null;
 }
 

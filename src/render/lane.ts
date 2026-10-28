@@ -1,6 +1,11 @@
 // Rhythm lane (tactical HUD strip): dark glass panel at the bottom, items flow right→left into the hit ring,
 // which sits right under the agent (PLAYER_X) so the lane lines up with the corridor.
+// v8: drawn in its own transform (view ls / lox / loy, docked to the bottom on zoomed portrait screens);
+// jump / slide icons reach the ring at the ideal input time (lane-timing.ts) and the ring pulses then.
+import { DEFAULT_PHYSICS } from '../core/physics';
 import { LANE_LEAD, LOGICAL_W, PLAYER_X, type LaneItem, type ObstacleKind } from '../types';
+import { displayTimes } from './lane-timing';
+import { LANE_HEIGHT, LANE_TOP, type View } from './view';
 import {
   beamIcon, chaserIcon, drawChip, drawFromArrow, drawLaneMarker, droneIcon, dropIcon, floorIcon, guardIcon, pickupIcon, slideIcon,
 } from './lane-icons';
@@ -8,9 +13,11 @@ import { blit, blitScaled, type SpriteCache } from './sprites';
 import { circle, clamp, roundRect, type Ctx } from './util';
 
 export const LANE_X = 14;
-export const LANE_Y = 542;
+export const LANE_Y = LANE_TOP;
 export const PANEL_W = LOGICAL_W - 28;
-export const LANE_H = 68;
+export const LANE_H = LANE_HEIGHT;
+/** css px kept clear at the screen edges when the panel slides right (zoomed: agent further left) */
+const EDGE = 8;
 export const HIT_X = PLAYER_X;
 const CY = LANE_Y + LANE_H / 2;
 const SPAN = LOGICAL_W - HIT_X - 30;
@@ -57,15 +64,15 @@ function iconSprite(ctx: Ctx, arg: number): void {
   else pickupIcon(ctx, kind - 5);
 }
 
-function itemAlpha(tu: number): number {
-  const fadeIn = clamp((LANE_LEAD - tu) / 0.35, 0, 1);
+/** `arrive` = real time until arrival (fade in at the lead edge), `tu` = drawn time until the ring */
+function itemAlpha(arrive: number, tu: number): number {
+  const fadeIn = clamp((LANE_LEAD - arrive) / 0.35, 0, 1);
   const fadeOut = tu < 0 ? clamp(1 + tu / 0.25, 0, 1) : 1;
   return fadeIn * fadeOut;
 }
 
-function drawItem(ctx: Ctx, it: LaneItem, sprites: SpriteCache, t: number): void {
-  const tu = it.timeUntil;
-  const alpha = itemAlpha(tu);
+function drawItem(ctx: Ctx, it: LaneItem, tu: number, sprites: SpriteCache, t: number): void {
+  const alpha = itemAlpha(it.timeUntil, tu);
   if (alpha <= 0) return;
   const x = HIT_X + (tu / LANE_LEAD) * SPAN;
   const near = tu >= 0 && tu < 0.45 ? 1 - tu / 0.45 : 0;
@@ -95,6 +102,18 @@ function drawItem(ctx: Ctx, it: LaneItem, sprites: SpriteCache, t: number): void
   ctx.globalAlpha = 1;
 }
 
+/** v8: expanding ring for ~0.3 s after an icon crosses the hit marker (the moment to press) */
+function pulseRing(ctx: Ctx, age: number): void {
+  const k = age / 0.3;
+  if (k < 0 || k >= 1) return;
+  ctx.strokeStyle = '#3FE0D0';
+  ctx.globalAlpha = 0.85 * (1 - k);
+  ctx.lineWidth = 2.5 * (1 - k) + 0.5;
+  circle(ctx, HIT_X, CY, 19 + 14 * k);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
 /** Hit marker: thin reticle with corner brackets; brightens as an item crosses it. */
 function hitRing(ctx: Ctx, glow: number): void {
   const r = 19;
@@ -120,10 +139,27 @@ function hitRing(ctx: Ctx, glow: number): void {
 
 const BRACKETS: readonly (readonly [number, number])[] = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
 
-export function drawLane(ctx: Ctx, lane: readonly LaneItem[], t: number, sprites: SpriteCache): void {
-  blit(ctx, sprites.get('lanePanel', PANEL_W + 2, LANE_H + 8, 1, 1, panel), LANE_X, LANE_Y);
+const DRAW_TU = new Float64Array(64);
+
+/** Lane logical x of the panel's left edge: LANE_X, nudged right if the screen edge would clip it. */
+export function panelX(v: View): number {
+  return Math.max(LANE_X, (EDGE - v.lox) / v.ls);
+}
+
+/** Draws the lane in its own transform (view ls / lox / loy); leaves the transform set to it. */
+export function drawLane(ctx: Ctx, v: View, lane: readonly LaneItem[], t: number, sprites: SpriteCache, reduced: boolean): void {
+  const k = v.ls * v.dpr;
+  ctx.setTransform(k, 0, 0, k, v.lox * v.dpr, v.loy * v.dpr);
+  blit(ctx, sprites.get('lanePanel', PANEL_W + 2, LANE_H + 8, 1, 1, panel), panelX(v), LANE_Y);
+  const n = displayTimes(lane, DEFAULT_PHYSICS, DRAW_TU);
   let glow = 0;
-  for (const it of lane) glow = Math.max(glow, 1 - Math.abs(it.timeUntil) / 0.18);
+  let pulse = -1;
+  for (let i = 0; i < n; i++) {
+    const tu = DRAW_TU[i];
+    glow = Math.max(glow, 1 - Math.abs(tu) / 0.18);
+    if (tu <= 0 && (pulse < 0 || -tu < pulse)) pulse = -tu;
+  }
   hitRing(ctx, clamp(glow, 0, 1));
-  for (let i = lane.length - 1; i >= 0; i--) drawItem(ctx, lane[i], sprites, t);
+  if (!reduced && pulse >= 0) pulseRing(ctx, pulse);
+  for (let i = n - 1; i >= 0; i--) drawItem(ctx, lane[i], DRAW_TU[i], sprites, t);
 }

@@ -54,12 +54,12 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     title: h('div', { cls: 'hud__title' }),
     score: h('div', { cls: 'hud__score', text: '0' }),
     coins: h('span', { cls: 'chip__value', text: '0' }),
-    progLabel: h('span', { cls: 'hud__barlabel', text: 'ROUTE' }),
+    progLabel: h('span', { cls: 'hud__barlabel hud__barlabel--prog', text: '진행' }),
     progressWrap: h('div', { cls: 'prog', attrs: { role: 'progressbar', 'aria-label': '진행도', 'aria-valuemin': '0', 'aria-valuemax': '100' } }),
     feverBar: h('div', { cls: 'bar bar--fever' }),
     feverFill: h('div', { cls: 'bar__fill' }),
-    feverLabel: h('span', { cls: 'hud__barlabel hud__barlabel--fever', text: 'OVERDRIVE' }),
-    combo: h('div', { cls: 'combo', attrs: { 'aria-live': 'polite' } }),
+    feverLabel: h('span', { cls: 'hud__barlabel hud__barlabel--fever', text: '오버드라이브' }),
+    combo: h('div', { cls: 'combo' }),
     comboNum: h('span', { cls: 'combo__num' }),
     shield: statusChip('status--shield', icons.shield(), 'SHIELD'),
     slow: statusChip('status--slow', icons.clock(), 'SLOW'),
@@ -82,8 +82,9 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
       h('div', { cls: 'hud__center' }, [refs.title, refs.score]),
       h('div', { cls: 'chip chip--coin chip--sm' }, [icons.coin(), refs.coins]),
     ]),
+    // v8 (A2): the SLIDE chip is gone (the runner's pose shows the slide); armor + power-up chips share one row
     h('div', { cls: 'hud__mid' }, [
-      h('div', { cls: 'hud__left' }, [refs.hearts, refs.slide]),
+      h('div', { cls: 'hud__left' }, [refs.hearts]),
       h('div', { cls: 'hud__status' }, [refs.shield, refs.slow]),
     ]),
     // labels sit beside the bars, never on the fill
@@ -97,7 +98,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
 function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduced: boolean): void {
   if (prev.maxHearts !== max) {
     // armor gauge: one cell per heart
-    refs.hearts.replaceChildren(h('span', { cls: 'hud__armor-label mono', text: 'ARMOR' }), ...Array.from({ length: max }, () => h('i', { cls: 'heart' })));
+    refs.hearts.replaceChildren(h('span', { cls: 'hud__armor-label', text: '방어구' }), ...Array.from({ length: max }, () => h('i', { cls: 'heart' })));
   }
   const nodes = Array.from(refs.hearts.querySelectorAll('.heart'));
   nodes.forEach((node, i) => {
@@ -132,7 +133,7 @@ function renderFever(refs: Refs, s: HudState, prev: Prev): void {
   if (prev.fever !== s.fever) {
     refs.feverBar.classList.toggle('is-fever', s.fever);
     refs.feverLabel.classList.toggle('is-on', s.fever);
-    refs.feverLabel.textContent = s.fever ? 'OVERDRIVE ×2' : 'OVERDRIVE';
+    refs.feverLabel.textContent = s.fever ? '오버드라이브 ×2' : '오버드라이브';
   }
   const wasFull = !prev.fever && (prev.feverGauge ?? 0) >= 1;
   const full = !s.fever && g >= 1;
@@ -160,7 +161,7 @@ function renderProgress(refs: Refs, p: number, section: number, sections: number
     seg.classList.toggle('is-done', n > 1 && i < cur);
     seg.classList.toggle('is-current', n > 1 && i === cur);
   }
-  const label = n > 1 ? `SECTOR ${cur + 1}/${n}` : 'ROUTE';
+  const label = n > 1 ? `구간 ${cur + 1}/${n}` : '진행';
   if (refs.progLabel.textContent !== label) refs.progLabel.textContent = label;
   refs.progLabel.classList.toggle('is-sector', n > 1);
   refs.progressWrap.setAttribute('aria-valuenow', String(Math.round(p * 100)));
@@ -171,6 +172,8 @@ type BossHud = NonNullable<HudState['boss']>;
 
 /** v7 boss bar: codename · name · PHASE n/3, HP split into 3 phase cells (drains right → left), flash on damage. */
 function renderBoss(refs: Refs, b: HudState['boss'], prev: HudState['boss'] | undefined, reduced: boolean): void {
+  // v8 (A2): boss stages drop the sector bar (boss HP already is the progress)
+  refs.boss.parentElement?.classList.toggle('hud--boss', b !== null);
   if (!b) {
     refs.boss.hidden = true;
     return;
@@ -253,6 +256,7 @@ export function createHud(ctx: Ctx): Hud {
       refs.combo.classList.remove('is-visible');
       refs.boss.hidden = true;
       refs.boss.classList.remove('is-hit');
+      el.classList.remove('hud--boss');
     },
   };
 }

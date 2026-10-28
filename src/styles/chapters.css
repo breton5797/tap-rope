@@ -31,6 +31,10 @@
   overflow-x: auto;
   scrollbar-width: none;
   touch-action: pan-x;
+  /* v8: fade both edges so a cut-off tab reads as "scroll for more" */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--gutter), #000 calc(100% - 36px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--gutter), #000 calc(100% - 36px), transparent 100%);
+  scroll-padding: 0 40px;
 }
 
 .chaps::-webkit-scrollbar {
@@ -205,4 +209,17 @@
 
 .world__lock .ico {
   font-size: 14px;
+}
+
+/* v8: map background (very dark blueprint, kept low so nodes stay legible) */
+.screen--stages > .art--map {
+  background: transparent;
+}
+
+.screen--stages > .art--map .art__img.is-loaded {
+  opacity: 0.55;
+}
+
+.screen--stages > :not(.art) {
+  position: relative;
 }

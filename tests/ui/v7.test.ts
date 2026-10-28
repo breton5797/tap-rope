@@ -197,15 +197,24 @@ describe('leaderboard + banners', () => {
     expect(root.querySelector('.lb__pin .lb__row.is-me')?.textContent).toContain('88');
   });
 
-  it('achievement banners stack and leave after 3s', () => {
+  it('achievement banners: one at a time, simultaneous unlocks collapse, held during the countdown (v8)', () => {
     vi.useFakeTimers();
     const root = document.createElement('div');
     const ui = createUi(root, callbacks());
     ui.toastAchievement({ id: 'first-clear', name: '첫 임무', desc: 'd' });
     ui.toastAchievement({ id: 'zone-1', name: '구역 1 돌파', desc: 'd' });
-    expect(root.querySelectorAll('.ach-toast').length).toBe(2);
+    vi.advanceTimersByTime(100);
+    expect(root.querySelectorAll('.ach-toast').length).toBe(1);
+    expect(root.querySelector('.ach-toast__name')?.textContent).toBe('업적 2개 달성');
     vi.advanceTimersByTime(3400);
     expect(root.querySelectorAll('.ach-toast').length).toBe(0);
+    ui.showCountdown(3);
+    ui.toastAchievement({ id: 'zone-3', name: '구역 3 돌파', desc: 'd' });
+    vi.advanceTimersByTime(1000);
+    expect(root.querySelectorAll('.ach-toast').length).toBe(0);
+    ui.showCountdown(null);
+    vi.advanceTimersByTime(100);
+    expect(root.querySelector('.ach-toast__name')?.textContent).toBe('구역 3 돌파');
     vi.useRealTimers();
   });
 });

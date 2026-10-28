@@ -143,7 +143,8 @@ export interface PhysicsConfig {
   readonly slideTime: number; // seconds a slide lasts
 }
 
-export type Grade = 'perfect' | 'good' | 'miss' | 'none'; // none = pickup-only beat
+/** v8: perfect ±50 ms / great ±110 ms of the ideal input / good = the rest of the pass window */
+export type Grade = 'perfect' | 'great' | 'good' | 'miss' | 'none'; // none = pickup-only beat
 
 export interface JudgeResult {
   readonly beatId: number;
@@ -151,6 +152,8 @@ export interface JudgeResult {
   readonly hit: boolean; // a hazard hit the agent
   readonly reason: 'low' | 'level' | 'drone' | 'slide' | 'standing' | 'lane' | null;
   readonly collected: readonly ObstacleKind[]; // pickups collected
+  /** v8: seconds the deciding input was off its ideal moment (+ late, − early) on a graded pass; else absent */
+  readonly offset?: number;
 }
 
 export interface ScoreState {
@@ -158,6 +161,7 @@ export interface ScoreState {
   readonly combo: number;
   readonly maxCombo: number;
   readonly perfects: number;
+  readonly greats: number; // v8
   readonly goods: number;
   readonly misses: number;
   readonly feverGauge: number; // 0..1
@@ -202,6 +206,13 @@ export interface StageDef {
   /** v5: number of sections (1–3) separated by doors; normal 2, boss 3, bonus 1 */
   readonly sections: number;
   readonly pickupRate: number; // 0..1 chance of a pickup beat between hazards
+  /** v8: campaign-only shaping (warm-up section openers, isolated first new move, boss door supply);
+   * absent on daily / endless so their server-simulated layouts never change */
+  readonly campaign?: true;
+  /** v8: the move a campaign intro stage teaches */
+  readonly intro?: MoveId;
+  /** v8 endless variant: lane hazards and pickups mirrored (lane 0 ↔ 2) */
+  readonly mirror?: true;
 }
 
 /** One of the 10 player-facing zones ("구역") of 10 stages each. Part 1 = rescue, part 2 = escape. */
@@ -236,7 +247,8 @@ export interface Settings {
 }
 
 export interface SaveData {
-  readonly version: 1;
+  /** v8: 2 (v1 saves migrate on load; a save from a newer build is never overwritten) */
+  readonly version: 2;
   readonly stars: Readonly<Record<string, number>>; // stageId -> 0..3
   readonly bestScores: Readonly<Record<string, number>>; // stageId | 'endless' | 'daily:YYYY-MM-DD'
   readonly coins: number;
@@ -244,6 +256,8 @@ export interface SaveData {
   readonly skin: SkinId;
   readonly settings: Settings;
   readonly tutorialDone: boolean;
+  /** v8 (A1): moves the first-run tutorial freeze has taught (absent = none) */
+  readonly tutorialSteps?: readonly ('jump' | 'slide' | 'lane')[];
   /** chapters whose briefing card has been shown */
   readonly briefed: readonly number[];
   /** v5: the two-thumb controls card was shown (old saves load as false) */
@@ -254,6 +268,25 @@ export interface SaveData {
   readonly achievements: Readonly<Partial<Record<AchievementId, number>>>;
   /** v7: consecutive daily-operation clears (date of the last one) for streak achievements */
   readonly dailyStreak: { readonly last: string | null; readonly count: number };
+  /** v8: owned cosmetic ids and what is equipped (render-only; see core/economy) */
+  readonly cosmetics: SaveCosmetics;
+}
+
+/** v8 cosmetics: per-skin colour variants, laser-trail / landing-ring colours, result-card frames. */
+export interface SaveCosmetics {
+  readonly owned: readonly string[];
+  /** equipped colour variant id per skin (absent = the skin's default colours) */
+  readonly tint: Readonly<Partial<Record<SkinId, string>>>;
+  readonly trail: string | null;
+  readonly ring: string | null;
+  readonly frame: string | null;
+}
+
+/** v8: resolved render colours of the equipped cosmetics (hex); null = default look. */
+export interface CosmeticLook {
+  readonly tint: string | null;
+  readonly trail: string | null;
+  readonly ring: string | null;
 }
 
 // ---------- v7: bosses (GDD-v7 §1) ----------
@@ -335,6 +368,8 @@ export interface RunSummary {
   readonly cleared: boolean;
   readonly hitsTaken: number;
   readonly perfects: number;
+  /** le-v8 GREAT judgements (absent = 0) */
+  readonly greats?: number;
   readonly goods: number;
   readonly misses: number;
   readonly maxCombo: number;
@@ -342,6 +377,8 @@ export interface RunSummary {
   readonly seconds: number; // stage time survived
   readonly score: number;
   readonly date: string; // YYYY-MM-DD (local)
+  /** v8: the move that would have dodged the hit that ended a failed run (fail-screen tip), else null */
+  readonly hitBy?: MoveId | null;
 }
 
 /** One recorded input, at a deterministic session time (GDD-v7 §3.2). */
@@ -447,10 +484,14 @@ export interface RenderSnapshot {
   readonly doors: readonly DoorView[];
   /** v7: the zone boss on boss stages, else null */
   readonly boss: BossView | null;
+  /** v8 (A3): seconds since the boss finisher landing (the boss blows up), absent / < 0 = none */
+  readonly bossFinish?: number;
+  /** v8 (A5): equipped cosmetic colours (null fields / absent = default look) */
+  readonly cosmetics?: CosmeticLook;
 }
 
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';
-export type PopupStyle = 'perfect' | 'good' | 'miss' | 'combo' | 'info';
+export type PopupStyle = 'perfect' | 'great' | 'good' | 'miss' | 'combo' | 'info';
 
 /** v7.1 (GDD-v7.1 §3): one-shot agent motion / impact cues — particles, post effects and the rig's reactions */
 export type ImpactKind = 'jump' | 'boost' | 'land' | 'slide' | 'lane' | 'bump' | 'pass' | 'graze' | 'hit' | 'shield';
@@ -480,7 +521,8 @@ export interface Renderer {
    * never rejects — a missing image falls back to the procedural look. render() works before and during loading.
    */
   load(onProgress?: (done: number, total: number) => void): Promise<void>;
-  resize(cssWidth: number, cssHeight: number, dpr: number): void;
+  /** v8: safeBottom = css px of the bottom safe-area inset (the rhythm lane docks above it) */
+  resize(cssWidth: number, cssHeight: number, dpr: number, safeBottom?: number): void;
   render(snap: RenderSnapshot): void;
   readonly fx: EffectsApi;
 }
@@ -518,13 +560,42 @@ export interface ResultInfo {
   readonly best: number;
   readonly newRecord: boolean;
   readonly perfects: number;
+  /** le-v8 GREAT judgements (absent = 0) */
+  readonly greats?: number;
   readonly goods: number;
   readonly misses: number;
   readonly maxCombo: number;
   readonly coinsEarned: number;
   readonly hasNext: boolean;
   /** v7: endless/daily leaderboard submission state (absent for campaign stages) */
-  readonly online?: { readonly state: 'pending' | 'ranked' | 'offline' | 'rejected'; readonly rank?: number };
+  /** v7: rank on the board; v8: gap = points to the next rank up (when known) */
+  readonly online?: { readonly state: 'pending' | 'ranked' | 'offline' | 'rejected'; readonly rank?: number; readonly gap?: number };
+  /** v8 meta layer: rewards, streak, achievements and goals for the result card */
+  readonly meta?: ResultMeta;
+}
+
+/** v8: one ₵ reward line on the result card. */
+export interface Reward {
+  readonly kind: 'first-clear' | 'boss-clear' | 'star' | 'achievement' | 'streak' | 'first-mission';
+  readonly label: string;
+  readonly coins: number;
+}
+
+export interface ResultMeta {
+  readonly rewards: readonly Reward[];
+  /** daily: streak after this run (extended = grew today) */
+  readonly streak: { readonly count: number; readonly extended: boolean } | null;
+  readonly unlocked: readonly AchievementId[];
+  readonly hitBy: MoveId | null;
+  /** endless: the seed (challenge link); vs = the challenger's score when this run used their seed */
+  readonly seed: number | null;
+  readonly vs: number | null;
+  /** leaderboard this run belongs to (endless / daily), for the 랭킹 button */
+  readonly board: Board | null;
+  /** hits taken this run (★3 rule line) */
+  readonly hits: number;
+  /** equipped result-card frame accent (hex), null = default card */
+  readonly frame: string | null;
 }
 
 export interface UiCallbacks {
@@ -547,6 +618,13 @@ export interface UiCallbacks {
   onOpenAchievements(): void;
   onOpenLeaderboard(board: Board): void;
   onOpenNickname(): void;
+  /**
+   * v8: apply a menu change (cosmetic bought / equipped) to the app's CURRENT save, persist the result and
+   * return it; null = the update refused (not affordable), nothing persisted.
+   */
+  onMetaUpdate?(update: (current: SaveData) => SaveData | null): SaveData | null;
+  /** v8: result card → 장비실 (first-mission reward) */
+  onOpenShop?(): void;
 }
 
 export interface Ui {
@@ -576,8 +654,12 @@ export interface Ui {
   showAchievements(save: SaveData): void;
   showLeaderboard(board: Board, data: { readonly top: readonly LeaderboardRow[]; readonly mine: LeaderboardRow | null } | 'loading' | 'offline'): void;
   showNickname(current: string | null, onSubmit: (name: string) => Promise<string | null>): void;
-  /** v7: achievement unlocked banner (non-blocking) */
+  /** v7: achievement unlocked banner (non-blocking; v8: queued, one at a time) */
   toastAchievement(a: AchievementMeta): void;
+  /** v8 (A1): first-run tutorial freeze — hand glyph over the half to use; null = hide */
+  showTutorialStop(stop: { readonly step: 'jump' | 'slide' | 'lane'; readonly dir: LaneDir | null } | null): void;
+  /** v8 (A3): boss phase announcement ("PHASE 2" + attack name), fades by itself */
+  showBossLine(kicker: string, text: string): void;
 }
 
 // ---------- Audio contract ----------

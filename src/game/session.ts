@@ -252,7 +252,7 @@ function resolveHit(s: Session, raw: JudgeResult): { s: Session; result: JudgeRe
 
 function judgeNext(s0: Session): Applied {
   const beat = s0.beats[s0.cursor];
-  const raw = judgeBeat(beat, s0.player);
+  const raw = judgeBeat(beat, s0.player, s0.cfg);
   const events: GameEvent[] = [];
   const hitRes = raw.hit ? resolveHit(s0, raw) : { s: s0, result: raw, events: [] };
   let s = hitRes.s;

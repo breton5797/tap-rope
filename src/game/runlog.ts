@@ -3,7 +3,8 @@
  * session time they were applied (always a deterministic boundary), counts overdrives, and builds the
  * RunSummary (achievements) and the RunRecord (server re-simulation, endless/daily only).
  */
-import type { GameMode, LaneDir, RunInput, RunRecord, RunSummary, Swipe } from '../types';
+import type { GameMode, LaneDir, MoveId, RunInput, RunRecord, RunSummary, Swipe } from '../types';
+import { LANE_HAZARD_KINDS } from '../types';
 import { SIM_VERSION } from './replay';
 import type { Session } from './session';
 
@@ -25,6 +26,24 @@ function codeOf(input: LoggedInput): RunInput[1] | null {
   return input === 'down' ? 'D' : null; // other swipes have no effect in the session
 }
 
+/** v8 fail tip: the move that would have dodged the beat that took the last heart (the beat before the cursor). */
+export function hitBy(end: Session): MoveId | null {
+  const beat = end.status === 'failed' ? end.beats[end.cursor - 1] : undefined;
+  if (!beat) return null;
+  const lane = end.player.lane;
+  const laneHit = beat.obstacles.find((o) => o.lanes !== undefined && LANE_HAZARD_KINDS.includes(o.kind) && o.lanes.includes(lane));
+  if (laneHit) return laneHit.kind === 'guard' ? 'lane' : (laneHit.kind as 'drop' | 'chaser');
+  const kinds = new Set(beat.obstacles.map((o) => o.kind));
+  const beam = beat.obstacles.find((o) => o.kind === 'beam');
+  if (kinds.has('high')) return 'high';
+  if (kinds.has('ceiling')) return 'slide';
+  if (beam?.from === 'back') return 'rear';
+  if (beam) return beam.level >= 3 ? 'triple' : beam.level === 2 ? 'double' : 'beam';
+  if (kinds.has('drone')) return kinds.has('floor') ? 'gate' : 'drone';
+  if (kinds.has('floor')) return beat.pulse ? 'pulse' : 'jump';
+  return null;
+}
+
 export function createRunLog(mode: GameMode, seed: number, date: string): RunLog {
   let inputs: RunInput[] = [];
   let fevers = 0;
@@ -40,8 +59,8 @@ export function createRunLog(mode: GameMode, seed: number, date: string): RunLog
       const sc = end.score;
       return {
         mode, stageId, cleared: end.status === 'cleared', hitsTaken: end.hitsTaken,
-        perfects: sc.perfects, goods: sc.goods, misses: sc.misses, maxCombo: sc.maxCombo,
-        fevers, seconds: end.time, score: sc.score, date,
+        perfects: sc.perfects, greats: sc.greats, goods: sc.goods, misses: sc.misses, maxCombo: sc.maxCombo,
+        fevers, seconds: end.time, score: sc.score, date, hitBy: hitBy(end),
       };
     },
     record(end) {

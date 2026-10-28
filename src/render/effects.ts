@@ -30,6 +30,8 @@ export class Effects implements EffectsApi {
   bodyLift = 34;
   /** where a full-width laser at the agent crosses its lane this frame (x < 0 = none) */
   contactX = -1;
+  /** v8 (A5) cosmetics: landing-ring colour, null = default dust */
+  landRing: string | null = null;
   contactY = 0;
   private n = 0;
   private readonly px = new Float32Array(CAP);
@@ -165,7 +167,7 @@ export class Effects implements EffectsApi {
     const x = this.anchorX;
     const y = this.feetY;
     if (p.ring > 0) {
-      const color = kind === 'boost' ? (level >= 3 ? '#BFF4FF' : '#FFB020') : DUST_RING;
+      const color = kind === 'boost' ? (level >= 3 ? '#BFF4FF' : '#FFB020') : kind === 'land' && this.landRing ? this.landRing : DUST_RING;
       this.layer.ring(x, y + 1, p.ring, p.ringWidth, p.ringLife, RingShape.Ground, color);
       if (p.echo > 0) this.layer.ring(x, y + 1, p.ring * 0.62, p.ringWidth * 0.7, p.ringLife, RingShape.Ground, '#FFFFFF', p.echo);
     }

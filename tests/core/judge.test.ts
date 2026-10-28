@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { judgeBeat } from '../../src/core/judge';
-import { initialPlayer } from '../../src/core/physics';
+import { GREAT_WINDOW, judgeBeat, LANE_EARLY, PERFECT_WINDOW, SLIDE_IDEAL } from '../../src/core/judge';
+import { DEFAULT_PHYSICS, initialPlayer } from '../../src/core/physics';
 import type { Beat, JumpLevel, LaneId, Obstacle, PlayerState } from '../../src/types';
 
 function beat(obstacles: Obstacle[], requiredLevel: JumpLevel, needsSlide = false): Beat {
@@ -11,8 +11,9 @@ function beat(obstacles: Obstacle[], requiredLevel: JumpLevel, needsSlide = fals
 
 const inLane = (p: PlayerState, lane: LaneId): PlayerState => ({ ...p, lane, laneFrom: lane });
 
-function air(level: JumpLevel, height: number): PlayerState {
-  return { ...initialPlayer(), height, grounded: false, level, airTime: 0.2, lastTap: 'jump' };
+/** airborne at `height`; `offset` s from the apex of the current segment (+ = still rising = tapped late) */
+function air(level: JumpLevel, height: number, offset = 0): PlayerState {
+  return { ...initialPlayer(), height, vy: offset * DEFAULT_PHYSICS.gravity, grounded: false, level, airTime: 0.2, lastTap: 'jump' };
 }
 
 const ground: PlayerState = { ...initialPlayer(), landTimer: 1 };
@@ -35,10 +36,16 @@ describe('judgeBeat — jump lasers (floor / beam)', () => {
     expect(judgeBeat(beam3, air(2, 120)).reason).toBe('level');
   });
 
-  it('passes good below PERFECT_H and perfect at/above', () => {
-    expect(judgeBeat(floor, air(1, 24)).grade).toBe('good');
-    expect(judgeBeat(floor, air(1, 20)).reason).toBe('low');
-    expect(judgeBeat(beam3, air(3, 40))).toEqual({ beatId: 7, grade: 'perfect', hit: false, reason: null, collected: [] });
+  it('v8: grades by the tap offset from the ideal (apex over the laser): ±50 perfect, ±110 great, else good', () => {
+    expect(judgeBeat(beam3, air(3, 40))).toEqual({ beatId: 7, grade: 'perfect', hit: false, reason: null, collected: [], offset: 0 });
+    for (const sign of [1, -1]) {
+      expect(judgeBeat(floor, air(1, 60, sign * PERFECT_WINDOW)).grade).toBe('perfect');
+      expect(judgeBeat(floor, air(1, 60, sign * 0.06)).grade).toBe('great');
+      expect(judgeBeat(floor, air(1, 50, sign * GREAT_WINDOW)).grade).toBe('great');
+      expect(judgeBeat(floor, air(1, 30, sign * 0.12))).toMatchObject({ grade: 'good', hit: false });
+    }
+    expect(judgeBeat(floor, air(1, 30, 0.15)).offset).toBeCloseTo(0.15, 9); // + = tapped late (still rising)
+    expect(judgeBeat(floor, air(1, 20)).reason).toBe('low'); // pass / fail unchanged
   });
 
   it('treats rear beams exactly like front beams', () => {
@@ -57,11 +64,14 @@ describe('judgeBeat — slide lasers (high / ceiling)', () => {
     expect(judgeBeat(high, air(3, 150)).reason).toBe('standing');
   });
 
-  it('perfect when the slide is 0.05–0.35s old, good otherwise', () => {
-    expect(judgeBeat(ceiling, slide(0.05)).grade).toBe('perfect');
-    expect(judgeBeat(high, slide(0.35)).grade).toBe('perfect');
+  it(`v8: perfect within ±50 ms of a ${SLIDE_IDEAL}s-old slide, great within ±110 ms, good otherwise`, () => {
+    expect(judgeBeat(ceiling, slide(SLIDE_IDEAL)).grade).toBe('perfect');
+    expect(judgeBeat(high, slide(0.25)).grade).toBe('perfect');
+    expect(judgeBeat(ceiling, slide(0.1)).grade).toBe('great');
+    expect(judgeBeat(high, slide(0.3)).grade).toBe('great');
     expect(judgeBeat(ceiling, slide(0.02)).grade).toBe('good');
-    expect(judgeBeat(high, slide(0.5))).toEqual({ beatId: 7, grade: 'good', hit: false, reason: null, collected: [] });
+    expect(judgeBeat(high, slide(0.5))).toMatchObject({ beatId: 7, grade: 'good', hit: false, reason: null, collected: [] });
+    expect(judgeBeat(high, slide(0.5)).offset).toBeCloseTo(-0.3, 9); // − = slid early
   });
 });
 
@@ -83,7 +93,7 @@ describe('judgeBeat — drones and gates', () => {
   it('a gate needs exactly a 1단 jump', () => {
     expect(judgeBeat(gate, ground).reason).toBe('low');
     expect(judgeBeat(gate, air(1, 50)).grade).toBe('perfect');
-    expect(judgeBeat(gate, air(1, 28)).grade).toBe('good');
+    expect(judgeBeat(gate, air(1, 28, -0.2)).grade).toBe('good');
   });
 });
 
@@ -115,10 +125,20 @@ describe('judgeBeat — v5 lane hazards (§4)', () => {
     expect(judgeBeat(chaser, air(1, 60)).reason).toBe('lane');
   });
 
-  it('a lane-only beat passed in a safe lane is perfect (grounded, airborne or sliding)', () => {
-    expect(judgeBeat(guard, inLane(ground, 2))).toEqual({ beatId: 7, grade: 'perfect', hit: false, reason: null, collected: [] });
+  it('a lane-only beat passed in a safe lane without a dodge is perfect (grounded, airborne or sliding)', () => {
+    expect(judgeBeat(guard, inLane(ground, 2))).toEqual({ beatId: 7, grade: 'perfect', hit: false, reason: null, collected: [], offset: 0 });
     expect(judgeBeat(drop, inLane(air(2, 90), 0)).grade).toBe('perfect');
     expect(judgeBeat(chaser, inLane(slide(0.5), 2)).grade).toBe('perfect');
+  });
+
+  it(`v8: a dodge out of a blocked lane grades by how early it came (≥ ${LANE_EARLY}s ahead = perfect)`, () => {
+    const dodged = (age: number): PlayerState => ({ ...ground, lane: 2, laneFrom: 1, laneAge: age });
+    expect(judgeBeat(guard, dodged(0.5)).grade).toBe('perfect');
+    expect(judgeBeat(guard, dodged(LANE_EARLY - PERFECT_WINDOW)).grade).toBe('perfect');
+    expect(judgeBeat(guard, dodged(0.08)).grade).toBe('great');
+    expect(judgeBeat(guard, dodged(0.02))).toMatchObject({ grade: 'good', hit: false });
+    // a lane change that was not needed (the previous lane was safe too) never costs a grade
+    expect(judgeBeat(drop, { ...ground, lane: 1, laneFrom: 0, laneAge: 0.01 }).grade).toBe('perfect');
   });
 
   it('checks the lane before drone, slide and jump lasers (lanejump)', () => {
@@ -126,7 +146,9 @@ describe('judgeBeat — v5 lane hazards (§4)', () => {
     expect(judgeBeat(laneJump, ground).reason).toBe('lane');
     expect(judgeBeat(laneJump, inLane(ground, 0)).reason).toBe('low');
     expect(judgeBeat(laneJump, inLane(air(1, 50), 2)).grade).toBe('perfect');
-    expect(judgeBeat(laneJump, inLane(air(1, 30), 2)).grade).toBe('good');
+    expect(judgeBeat(laneJump, inLane(air(1, 30, 0.2), 2)).grade).toBe('good');
+    // the worse of the jump and the dodge decides
+    expect(judgeBeat(laneJump, { ...air(1, 60), lane: 2, laneFrom: 1, laneAge: 0.02 }).grade).toBe('good');
     const laneSlide = beat([{ kind: 'drop', level: 1, lanes: [0] }, { kind: 'ceiling', level: 1 }], 0, true);
     expect(judgeBeat(laneSlide, inLane(slide(0.2), 0)).reason).toBe('lane');
     expect(judgeBeat(laneSlide, slide(0.2)).grade).toBe('perfect');

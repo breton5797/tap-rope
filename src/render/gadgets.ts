@@ -7,7 +7,7 @@ import { type VisibleObstacle } from '../types';
 import { emissive } from './hazards';
 import { clockIcon, creditChip, heartIcon, shieldIcon } from './icons';
 import { fixedX, laneY, project } from './layout';
-import { blitScaled, type SpriteCache } from './sprites';
+import { blitRimmed, blitScaled, type SpriteCache } from './sprites';
 import { oval, type Ctx } from './util';
 
 const PICK_KEYS = ['pick0', 'pick1', 'pick2'];
@@ -105,7 +105,7 @@ function drone(ctx: Ctx, o: VisibleObstacle, lane: number, t: number, sprites: S
   blitScaled(ctx, sprites.get('droneScan', 36, 124, 18, 2, scanSprite), 0, 0, s, s * 0.85);
   ctx.restore();
   ctx.globalAlpha = 1;
-  blitScaled(ctx, sprites.get('droneBody', 44, 22, 22, 10, droneBody), x, y, s, s);
+  blitRimmed(ctx, sprites, 'droneBody~rim', sprites.get('droneBody', 44, 22, 22, 10, droneBody), x, y, s, s);
   // rotor blur discs
   ctx.fillStyle = '#9AA3AD';
   ctx.globalAlpha = 0.28;

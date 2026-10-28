@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyJudge,
+  comboMult,
   computeStars,
   FEVER_DURATION,
   initialScore,
@@ -19,13 +20,21 @@ function applyMany(s: ScoreState, grades: Grade[]): ScoreState {
 describe('initialScore', () => {
   it('is all zeros', () => {
     expect(initialScore()).toEqual({
-      score: 0, combo: 0, maxCombo: 0, perfects: 0, goods: 0, misses: 0,
+      score: 0, combo: 0, maxCombo: 0, perfects: 0, greats: 0, goods: 0, misses: 0,
       feverGauge: 0, feverTime: 0, coins: 0,
     });
   });
 });
 
 describe('applyJudge', () => {
+  it('v8: great = 75 and counts greats', () => {
+    const g = applyJudge(initialScore(), jr('great')).score;
+    expect(g.score).toBe(75);
+    expect(g.greats).toBe(1);
+    expect(g.combo).toBe(1);
+    expect(g.feverGauge).toBeCloseTo(0.09);
+  });
+
   it('perfect = 100, good = 50 at base multiplier', () => {
     const a = applyJudge(initialScore(), jr('perfect')).score;
     expect(a.score).toBe(100);
@@ -36,17 +45,16 @@ describe('applyJudge', () => {
     expect(b.goods).toBe(1);
   });
 
-  it('applies combo multiplier at multiples of 10', () => {
+  it('v8 combo tiers: ×1 → 10 ×1.5 → 25 ×2 → 50 ×3', () => {
+    expect([0, 9, 10, 24, 25, 49, 50, 500].map(comboMult)).toEqual([1, 1, 1.5, 1.5, 2, 2, 3, 3]);
     const s9 = applyMany(initialScore(), Array(9).fill('good'));
     const r = applyJudge({ ...s9, feverGauge: 0 }, jr('good'));
     expect(r.score.combo).toBe(10);
-    expect(r.score.score - s9.score).toBe(55); // 50 * 1.1
+    expect(r.score.score - s9.score).toBe(75); // 50 × 1.5
     expect(r.comboMilestone).toBe(10);
-  });
-
-  it('caps the combo multiplier at 2.0', () => {
-    const s = { ...initialScore(), combo: 150 };
-    expect(applyJudge(s, jr('perfect')).score.score).toBe(200);
+    expect(applyJudge({ ...initialScore(), combo: 24 }, jr('perfect'))).toMatchObject({ comboMilestone: 25, score: { score: 200 } });
+    expect(applyJudge({ ...initialScore(), combo: 150 }, jr('perfect')).score.score).toBe(300);
+    expect(applyJudge({ ...initialScore(), combo: 11 }, jr('perfect')).comboMilestone).toBeNull();
   });
 
   it('miss resets combo and gauge and keeps maxCombo', () => {
@@ -120,6 +128,7 @@ describe('computeStars', () => {
   });
   it('2 when perfects are low or one hit', () => {
     expect(computeStars({ ...base, perfects: 5, goods: 5 }, 0, true)).toBe(2);
+    expect(computeStars({ ...base, perfects: 5, greats: 5, goods: 0 }, 0, true)).toBe(2); // v8: greats are not perfects
     expect(computeStars(base, 1, true)).toBe(2);
   });
   it('1 when cleared with more hits', () => {

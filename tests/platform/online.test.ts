@@ -76,6 +76,9 @@ describe('online client', () => {
     const online = createOnline({ baseUrl: BASE, apiKey: 'pk', fetch: fn });
     expect(online.ready).toBe(false);
     await online.init();
+    expect(calls).toHaveLength(0); // v8: booting never registers
+    expect(online.ready).toBe(false);
+    expect(await online.setNickname('요원K')).toBeNull(); // the first real need does
     expect(online.ready).toBe(true);
     const saved = JSON.parse(localStorage.getItem(DEVICE_KEY) as string) as { secret: string; playerId: string };
     expect(saved.secret).toMatch(SECRET_RE);
@@ -164,6 +167,24 @@ describe('online client', () => {
     expect(calls[0].path).toBe('register');
   });
 
+  it('queues at once (no 8 s wait) when the browser reports offline', async () => {
+    const { fn, calls } = fakeFetch(server());
+    const online = createOnline({ baseUrl: BASE, fetch: fn, target: new EventTarget(), isOnline: () => false });
+    expect(await online.submitRun(record(3))).toBeNull();
+    expect(calls).toHaveLength(0);
+    expect(JSON.parse(localStorage.getItem(QUEUE_KEY) as string)).toHaveLength(1);
+  });
+
+  it('a run queued earlier registers and flushes at boot', async () => {
+    const { fn, calls } = fakeFetch(server());
+    const first = createOnline({ baseUrl: BASE, fetch: fn, target: new EventTarget(), isOnline: () => false });
+    await first.submitRun(record(3));
+    const next = createOnline({ baseUrl: BASE, fetch: fn, target: new EventTarget() });
+    await next.init();
+    expect(calls.map((c) => c.path)).toEqual(['register', 'submit-run']);
+    expect(JSON.parse(localStorage.getItem(QUEUE_KEY) as string)).toHaveLength(0);
+  });
+
   it('retries queued runs with exponential backoff', async () => {
     let down = true;
     const { fn, calls } = fakeFetch(server({ offline: () => down }));
@@ -229,7 +250,7 @@ describe('online client', () => {
     const anon = await online.leaderboard('endless');
     expect(anon.mine).toBeNull();
     expect((calls[0].init.headers as Record<string, string>)['x-device-secret']).toBeUndefined();
-    await online.init();
+    await online.submitRun(record()); // registers
     const board = await online.leaderboard('daily:2026-10-27');
     expect(calls.at(-1)?.path).toBe('leaderboard?board=daily%3A2026-10-27');
     expect(board.top).toEqual([{ rank: 1, nickname: 'A', score: 9, me: false }]);
@@ -259,10 +280,13 @@ describe('online client', () => {
     expect(await pending).toBeInstanceOf(LeaderboardUnavailableError);
   });
 
-  it('syncs achievements and skips empty sets', async () => {
+  it('syncs achievements once registered and skips empty sets (never registers for them)', async () => {
     const { fn, calls } = fakeFetch(server());
     const online = createOnline({ baseUrl: BASE, fetch: fn });
     await online.init();
+    await online.syncAchievements({ 'zone-1': 1 });
+    expect(calls).toHaveLength(0);
+    await online.setNickname('요원K');
     await online.syncAchievements({});
     expect(calls.filter((c) => c.path === 'achievements')).toHaveLength(0);
     await online.syncAchievements({ 'first-clear': 1_793_000_000_000 });
@@ -289,7 +313,7 @@ describe('online client', () => {
     const { fn } = fakeFetch(server());
     const online = createOnline({ baseUrl: BASE, fetch: fn, storage: broken });
     await online.init();
-    expect(online.ready).toBe(true);
     expect(await online.submitRun(record(4))).toEqual({ score: 4, rank: 1 });
+    expect(online.ready).toBe(true);
   });
 });

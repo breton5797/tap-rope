@@ -347,8 +347,23 @@ export function drawBoss(ctx: Ctx, v: View, snap: RenderSnapshot, t: number, spr
   ctx.globalAlpha = 1;
   if (POSE.alpha > 0.05) overlays(ctx, b, r, fx, body, sprites, t, reduced);
   if (b.state === 'defeated') explosions(ctx, b, r, fx, reduced);
+  finisherBlast(ctx, r, fx, snap.bossFinish ?? -1, reduced);
   ctx.restore();
 }
+
+/** v8 (A3): the big blast the moment the agent lands the finisher (inside the boss transform) */
+function finisherBlast(ctx: Ctx, r: BossRig, fx: Readonly<FxSprites>, age: number, reduced: boolean): void {
+  const k = age / FINISH_BLAST;
+  if (age < 0 || k >= 1) return;
+  const s = POSE.s;
+  const cy = (r.h / 2 - POSE.ay) * s;
+  const e = easeOutCubic(k);
+  glowAt(ctx, fx.fire, 0, cy, (60 + 150 * e) * s, 32, (reduced ? 0.6 : 1) * (1 - k * k));
+  glowAt(ctx, fx.fire, 0, cy, (30 + 60 * e) * s, 32, 1 - k);
+  if (!reduced) sparks(ctx, 0, cy, 12, k, 90 * s, 7);
+}
+
+const FINISH_BLAST = 0.7;
 
 // ---------- attack → hazard link (in front of the lanes) ----------
 

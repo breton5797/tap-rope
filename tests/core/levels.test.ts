@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHAPTERS, DESIGNED_LOOKS, movesForMix, sceneFor, STAGES, transitionFor } from '../../src/core/content';
-import { DOOR_BREAK, dailyStage, endlessStage, generateBeats, generateStage } from '../../src/core/levels';
+import { DOOR_BREAK, dailyStage, ENDLESS_MAX_BPM, endlessStage, endlessVariant, generateBeats, generateStage } from '../../src/core/levels';
 import { airtimeForLevel, DEFAULT_PHYSICS, physicsForWorld } from '../../src/core/physics';
 import { moveForBeat } from '../../src/core/timeline';
 import type { Beat, LaneId, Level, MoveId, ObstacleKind, PhysicsConfig, StageDef } from '../../src/types';
@@ -135,8 +135,9 @@ describe.each(cases.map((s) => [s.id, s] as const))('generateBeats %s', (_id, st
     }
     doors.forEach((door, j) => {
       expect(door.section).toBe(j + 1);
-      const before = beats.filter((b) => b.section === j).pop() as Beat;
-      const after = beats.find((b) => b.section === j + 1) as Beat;
+      // hazards only: v8 boss stages leave a shield pickup inside the break
+      const before = hazards.filter((b) => b.section === j).pop() as Beat;
+      const after = hazards.find((b) => b.section === j + 1) as Beat;
       expect(after.time - before.time).toBeGreaterThanOrEqual(DOOR_BREAK);
       expect(door.time).toBeGreaterThan(before.time + 0.8);
       expect(door.time).toBeLessThan(after.time - 0.8);
@@ -330,10 +331,32 @@ describe('endlessStage', () => {
     const c20 = endlessStage(20, 1);
     expect(c0).toMatchObject({ id: 'endless-0', chapter: 0, kind: 'normal', hazardBeats: 18, sections: 1 });
     expect(c20.bpm).toBeGreaterThan(c0.bpm);
-    expect(c20.bpm).toBeLessThanOrEqual(140);
-    expect(endlessStage(200, 1).bpm).toBe(140);
+    expect(endlessStage(15, 1).bpm).toBe(140);
     expect(c20.moves.length).toBeGreaterThan(c0.moves.length);
     expect(endlessStage(6, 1).moves).toContain('pulse');
+  });
+
+  it('v8: keeps ramping after chunk 15 — +1 bpm per chunk up to 160', () => {
+    const bpms = Array.from({ length: 60 }, (_, c) => endlessStage(c, 1).bpm);
+    for (let c = 1; c < bpms.length; c++) expect(bpms[c], `chunk ${c}`).toBeGreaterThanOrEqual(bpms[c - 1]);
+    expect(bpms[16]).toBe(141);
+    expect(bpms[25]).toBe(150);
+    expect(endlessStage(200, 1).bpm).toBe(ENDLESS_MAX_BPM);
+  });
+
+  it('v8: chunks after 15 vary (plain / mirror / dense), seeded; earlier chunks stay plain', () => {
+    for (let c = 0; c <= 15; c++) expect(endlessVariant(c, 7)).toBe('plain');
+    const late = Array.from({ length: 60 }, (_, k) => endlessVariant(16 + k, 7));
+    expect(new Set(late)).toEqual(new Set(['plain', 'mirror', 'dense']));
+    const dense = late.indexOf('dense') + 16;
+    expect(endlessStage(dense, 7)).toMatchObject({ hazardBeats: 24, pickupRate: 0.15 });
+    const mirror = late.indexOf('mirror') + 16;
+    const m = endlessStage(mirror, 7);
+    expect(m.mirror).toBe(true);
+    const plainBeats = generateBeats({ ...m, mirror: undefined }, DEFAULT_PHYSICS);
+    const mirrored = generateBeats(m, DEFAULT_PHYSICS);
+    expect(mirrored.map((b) => b.time)).toEqual(plainBeats.map((b) => b.time));
+    mirrored.forEach((b, i) => expect(b.blockedLanes).toEqual(plainBeats[i].blockedLanes.map((l) => 2 - l).sort()));
   });
 
   it('is deterministic and seed dependent', () => {

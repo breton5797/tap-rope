@@ -138,11 +138,14 @@ function onPass(d: FeedbackDeps, beatId: number, perfect: boolean): void {
 
 function onJudge(d: FeedbackDeps, e: Extract<GameEvent, { type: 'judge' }>): void {
   const g = e.result.grade;
-  if (g === 'perfect' || (g === 'good' && !e.shielded)) onPass(d, e.result.beatId, g === 'perfect');
+  if (g === 'perfect' || g === 'great' || (g === 'good' && !e.shielded)) onPass(d, e.result.beatId, g === 'perfect');
   if (g === 'perfect') {
     d.fx.popup('PERFECT', 'perfect');
     d.fx.burst('sparkle');
     d.audio.sfx('perfect');
+  } else if (g === 'great') {
+    d.fx.popup('GREAT', 'great');
+    d.audio.sfx('good');
   } else if (g === 'good') {
     d.fx.popup(e.shielded ? 'BLOCKED · 실드' : 'GOOD', e.shielded ? 'info' : 'good');
     d.audio.sfx('good');

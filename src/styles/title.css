@@ -169,6 +169,75 @@
   }
 }
 
+/* ---------- v8: next goal strip + daily streak states ---------- */
+.title__goal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  background: rgba(7, 9, 12, 0.72);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.title__goal-label {
+  flex: none;
+  color: var(--amber);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+
+.title__goal.is-daily {
+  border-left-color: var(--teal);
+}
+
+.title__goal.is-daily .title__goal-label {
+  color: var(--teal);
+}
+
+.btn--daily.is-done .btn__sub {
+  color: var(--teal);
+}
+
+.btn--daily.is-risk .btn__sub {
+  color: var(--amber);
+}
+
+/* phone landscape: logo left, menu right, and the column scrolls instead of clipping */
+@media (orientation: landscape) and (max-height: 540px) {
+  .screen--title {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    gap: 8px 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .title__top {
+    grid-column: 1 / -1;
+  }
+
+  .title__hero {
+    padding-top: 0;
+    align-self: center;
+  }
+
+  .title__menu {
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .title__menu .btn--lg {
+    min-height: 52px;
+  }
+}
+
 /* ---------- boot overlay ---------- */
 .boot {
   position: absolute;

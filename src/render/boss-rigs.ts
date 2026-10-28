@@ -95,6 +95,9 @@ interface PhotoSpec {
   readonly w: number;
   readonly frac?: number;
   readonly fx?: number;
+  /** the photo can stand where the procedural rig hovers (v8 sniper: tripod sentry on the floor) */
+  readonly place?: Place;
+  readonly idle?: Idle;
   readonly eye: N;
   readonly eyeR: number;
   readonly src: Readonly<Record<BossAttackKind, N>>;
@@ -113,6 +116,8 @@ function photoRig(base: BossRig, p: PhotoSpec): BossRig {
     h,
     frac: p.frac ?? base.frac,
     fx: p.fx ?? base.fx,
+    place: p.place ?? base.place,
+    idle: p.idle ?? base.idle,
     eye: at(p.eye),
     eyeR: p.eyeR,
     src: { beam: at(p.src.beam), floor: at(p.src.floor), ceiling: at(p.src.ceiling), drone: at(p.src.drone), lane: at(p.src.lane) },
@@ -135,11 +140,11 @@ export const BOSS_PHOTO_RIGS: Readonly<Partial<Record<BossId, BossRig>>> = {
     src: { beam: [0.11, 0.36], floor: [0.98, 0.67], ceiling: [0.98, 0.67], drone: [0.46, 0.045], lane: [0.11, 0.36] },
     damage: [0.55, 0.3],
   }),
-  // server rack: red core window, LED matrix above, cable loom below
+  // server-core monolith (v8): big red iris in the upper third, cable bundles arcing off both sides
   core: photoRig(BOSS_RIGS.core, {
-    aspect: 0.38, w: 100, frac: 0.26, eye: [0.32, 0.43], eyeR: 12,
-    src: { beam: [0.32, 0.43], floor: [0.5, 0.98], ceiling: [0.5, 0.01], drone: [0.75, 0.25], lane: [0.32, 0.43] },
-    damage: [0.7, 0.35],
+    aspect: 0.464, w: 110, frac: 0.28, eye: [0.5, 0.24], eyeR: 18,
+    src: { beam: [0.5, 0.24], floor: [0.5, 0.98], ceiling: [0.5, 0.01], drone: [0.1, 0.36], lane: [0.5, 0.24] },
+    damage: [0.7, 0.45],
   }),
   // quadruped walker: long gun with a red muzzle at the top-left, red sensor block on the turret
   chimera: photoRig(BOSS_RIGS.chimera, {
@@ -147,10 +152,10 @@ export const BOSS_PHOTO_RIGS: Readonly<Partial<Record<BossId, BossRig>>> = {
     src: { beam: [0.01, 0.05], floor: [0.46, 0.97], ceiling: [0.85, 0.12], drone: [0.85, 0.12], lane: [0.16, 0.95] },
     damage: [0.62, 0.25],
   }),
-  // wheeled APC facing right: long autocannon, headlights at the front-right, turret hatch
+  // 8-wheeled APC, front-3/4 facing right: headlight clusters on the nose, roof autocannon, turret hatch
   apc: photoRig(BOSS_RIGS.apc, {
-    aspect: 1.73, w: 230, frac: 0.44, fx: 0.1, eye: [0.67, 0.49], eyeR: 5,
-    src: { beam: [0.97, 0.03], floor: [0.97, 0.03], ceiling: [0.38, 0.06], drone: [0.38, 0.06], lane: [0.38, 0.06] },
+    aspect: 1.733, w: 230, frac: 0.5, fx: 0.18, eye: [0.965, 0.5], eyeR: 6,
+    src: { beam: [0.71, 0.08], floor: [0.71, 0.08], ceiling: [0.41, 0.09], drone: [0.41, 0.09], lane: [0.41, 0.09] },
     damage: [0.2, 0.3],
   }),
   // overhead gantry with a trolley, hook and a hanging press platform
@@ -171,11 +176,11 @@ export const BOSS_PHOTO_RIGS: Readonly<Partial<Record<BossId, BossRig>>> = {
     src: { beam: [0.3, 0.46], floor: [0.3, 0.46], ceiling: [0.5, 0.09], drone: [0.54, 0.56], lane: [0.54, 0.56] },
     damage: [0.58, 0.38], rotors: [[0.22, 0.09, 0.2], [0.65, 0.04, 0.26], [0.84, 0.09, 0.15]],
   }),
-  // quadcopter facing left: scoped rifle with the muzzle at the far left, red sensor dot on the hull
+  // tripod sniper sentry (v8) facing left: railgun muzzle at the far left, red scope eye on the turret, three feet
   sniper: photoRig(BOSS_RIGS.sniper, {
-    aspect: 3.3, w: 220, eye: [0.465, 0.32], eyeR: 4,
-    src: { beam: [0.15, 0.51], floor: [0.15, 0.51], ceiling: [0.465, 0.32], drone: [0.465, 0.32], lane: [0.15, 0.51] },
-    damage: [0.59, 0.49], rotors: [[0.21, 0.16, 0.2], [0.67, 0.07, 0.22], [0.81, 0.15, 0.19], [0.43, 0.23, 0.09]],
+    aspect: 1.776, w: 210, frac: 0.5, place: 'ground', idle: 'breathe', eye: [0.54, 0.06], eyeR: 5,
+    src: { beam: [0.01, 0.12], floor: [0.6, 0.96], ceiling: [0.79, 0.12], drone: [0.79, 0.12], lane: [0.01, 0.12] },
+    damage: [0.6, 0.3],
   }),
   // a cluster of security cameras around a hub, hung from the ceiling
   'lab-ai': photoRig(BOSS_RIGS['lab-ai'], {
