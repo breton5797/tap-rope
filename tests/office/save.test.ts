@@ -1,10 +1,7 @@
-// Office save rules: storage runs against the office content (as the office build swaps it in), so both
-// free characters are owned on a fresh save and kept when an older save lists only one.
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('../../src/core/content', () => import('../../src/office/core/content'));
-
-const { defaultSave, parseSave } = await import('../../src/core/storage');
+// Office save rules (office module graph: storage sees the office content), so both free characters are
+// owned on a fresh save and kept when an older save lists only one.
+import { describe, expect, it } from 'vitest';
+import { defaultSave, parseSave } from '../../src/core/storage';
 
 describe('office save', () => {
   it('owns both characters on a fresh save', () => {

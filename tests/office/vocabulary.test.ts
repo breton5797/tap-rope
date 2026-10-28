@@ -1,12 +1,9 @@
 // Office vocabulary sweep (office spec §4, P4): no spy-operation words in anything the office build swaps
-// in, and the player-facing data modules (moves, achievements, goals) are swapped. Storage, goals and
-// achievements are checked against the office content, as the office build resolves them.
-import { describe, expect, it, vi } from 'vitest';
+// in, and the player-facing data modules (moves, achievements, goals) are swapped. Runs on the office
+// module graph, so goals and achievements see the office content and cutscenes.
+import { describe, expect, it } from 'vitest';
 import { OFFICE_SWAPS } from '../../build/office-swaps';
 import { defaultSave } from '../../src/core/storage';
-
-vi.mock('../../src/core/content', () => import('../../src/office/core/content'));
-vi.mock('../../src/core/cutscenes', () => import('../../src/office/core/cutscenes'));
 
 const BANNED = /작전|요원|포로|경비|레이저|침투|MISSION|AGENT|본부|OPERATION|임무|기지|탈출|구출|거점|CLASSIFIED|OPERATIVE/;
 /** the game's own title, and the spec §5 laser-pointer gag (최팀장, an homage) */

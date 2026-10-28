@@ -60,9 +60,12 @@ describe('bossFor', () => {
   });
 
   it('is null off boss stages', () => {
-    for (const s of STAGES.filter((x) => x.kind !== 'boss').slice(0, 20)) expect(bossFor(s), s.id).toBeNull();
+    // the office graph has only the five boss stages: off-boss stages are built from stage 1
+    expect(STAGES.every((x) => x.kind === 'boss')).toBe(true);
+    expect(bossFor({ ...stage(1), id: 'w1-s1', kind: 'normal' })).toBeNull();
+    expect(bossFor({ ...stage(1), id: 'w1-s5', kind: 'bonus' })).toBeNull();
     expect(bossFor({ ...stage(1), kind: 'normal' })).toBeNull();
-    expect(bossFor(stage(6))).toBeNull();
+    expect(bossFor({ ...stage(5), id: 'w6-s10', chapter: 5 })).toBeNull();
   });
 
   it('bossForSection picks the stage-5 superior per section', () => {

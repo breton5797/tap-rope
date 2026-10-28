@@ -1,14 +1,10 @@
 // Office clearability (office spec §12, §13.2): every office stage is cleared by the reference bot on 50 run
 // seeds — the office build draws a fresh seed per run, so every layout the generator can make must be fair.
-// Sessions run against the office content, as the office build resolves it.
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('../../src/core/content', () => import('../../src/office/core/content'));
-
-const { STAGES } = await import('../../src/office/core/content');
-const { createSession, lane, step, swipe, tap } = await import('../../src/game/session');
-const { botAction } = await import('../../src/game/bot');
-type Session = ReturnType<typeof createSession>;
+// Office module graph: sessions use the office content, as the office build resolves it.
+import { describe, expect, it } from 'vitest';
+import { STAGES } from '../../src/core/content';
+import { botAction } from '../../src/game/bot';
+import { createSession, lane, step, swipe, tap, type Session } from '../../src/game/session';
 
 const SEEDS = 50;
 const DT = 1 / 60;

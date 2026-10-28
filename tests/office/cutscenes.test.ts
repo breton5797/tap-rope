@@ -62,7 +62,7 @@ describe('cutsceneBefore / cutsceneAfter', () => {
     expect(cutsceneBefore(stage(1), seen('op-start', 'boss-1'))).toBeNull();
     expect([2, 3, 4, 5].map((n) => cutsceneBefore(stage(n), save0)?.id)).toEqual(['boss-2', 'boss-3', 'boss-4', 'boss-5']);
     expect(cutsceneBefore(stage(3), seen('boss-3'))).toBeNull();
-    expect(cutsceneBefore(stageById('w1-s1') as StageDef, save0)).toBeNull();
+    expect(cutsceneBefore({ ...stage(1), id: 'w1-s1', kind: 'normal' }, save0)).toBeNull();
   });
 
   it('plays the ending after the first clear of stage 5 only', () => {

@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { OFFICE_SWAPS } from '../../build/office-swaps';
+import { swapModules } from '../../build/swap-modules';
 
 const load = (path: string): Promise<Record<string, unknown>> => import(/* @vite-ignore */ new URL(`../../${path}`, import.meta.url).href);
 
@@ -22,5 +23,31 @@ describe('office module swaps', () => {
     const [v8, office] = await Promise.all([load(v8Path), load(officePath)]);
     const officeKeys = new Set(Object.keys(office));
     expect(Object.keys(v8).filter((k) => !officeKeys.has(k))).toEqual([]);
+  });
+});
+
+describe('swapModules', () => {
+  const root = '/repo';
+  const plugin = swapModules({ 'src/a.ts': 'src/office/a.ts' });
+  (plugin.configResolved as (c: { root: string }) => void)({ root });
+  const resolveId = plugin.resolveId as (this: unknown, s: string, i: string | undefined, o: object) => Promise<unknown>;
+  const ctx = { resolve: async () => ({ id: `${root}/src/a.ts` }) };
+  const swapOf = async (importer: string): Promise<string> => {
+    const r = (await resolveId.call(ctx, './a', importer, {})) as string | { id: string };
+    return typeof r === 'string' ? r : r.id;
+  };
+
+  it('redirects any other importer to the replacement', async () => {
+    expect(await swapOf(`${root}/src/game/app.ts`)).toBe(`${root}/src/office/a.ts`);
+    expect(await swapOf('/src/game/app.ts')).toBe(`${root}/src/office/a.ts`);
+  });
+
+  it('leaves fetches of already-resolved ids alone (vitest re-fetches them with index.html as importer)', async () => {
+    expect(await resolveId.call(ctx, '/src/a.ts', `${root}/index.html`, {})).toBeNull(); // Vite's own resolution
+  });
+
+  it('lets the replacement import its original, by file path or root-relative id (dev / vitest)', async () => {
+    expect(await swapOf(`${root}/src/office/a.ts`)).toBe(`${root}/src/a.ts`);
+    expect(await swapOf('/src/office/a.ts')).toBe(`${root}/src/a.ts`);
   });
 });
