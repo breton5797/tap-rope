@@ -8,7 +8,7 @@ import { fixedX, laneY, project } from '../../render/layout';
 import { drawGadgets as v8Gadgets } from '../../render/gadgets';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
-import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
+import { heldFade, joinTime, throwArc, throwHand, throwStep } from './boss-throw';
 import { pickupSprite } from './collectibles';
 import { officeImage } from './images';
 import { PROP_SIZE, beatIdOf, drawFootprint, drawProp, laneSizeK, propIdFor, propImage, propMotion } from './props';
@@ -45,7 +45,7 @@ function droneProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: nu
   LAND.x = x;
   LAND.y = y;
   const p = throwArc(throwHand(), LAND, step);
-  drawProp(ctx, img, p.x, p.y, PROP_SIZE.drone * s, 0.5, false, 1, m);
+  drawProp(ctx, img, p.x, p.y, PROP_SIZE.drone * s, 0.5, false, heldFade(o.kind, o.timeUntil), m);
 }
 
 const LAND = { x: 0, y: 0 };

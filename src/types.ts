@@ -489,7 +489,11 @@ export interface MissionOutcome {
   readonly stamps: readonly (boolean | null)[];
   readonly grade: 'S' | 'A' | 'B' | 'C';
   readonly stars: 1 | 2 | 3;
-  readonly bonus: number; // 칼퇴 포인트 for the stamps
+  /** 칼퇴 포인트 paid: stamps (given at each door, kept on a failed run) + bonus items */
+  readonly bonus: number;
+  readonly stampBonus: number;
+  /** bonus collectibles picked up outside collect missions (stage 5's 금일봉) */
+  readonly items: number;
 }
 
 export interface RenderSnapshot {
@@ -709,7 +713,7 @@ export interface Ui {
   /** first-run character picker (FEATURES.firstRunPick); onPick with the chosen owned skin */
   showPicker(save: SaveData, onPick: (id: SkinId) => void): void;
   /** office v2: the running mission on the HUD (chip, card, stamps); undefined clears. v8: never shown */
-  updateMission(view: MissionView | undefined, stage: StageDef | null): void;
+  updateMission(view: MissionView | undefined, stage: StageDef | null, time: number): void;
 }
 
 // ---------- Audio contract ----------

@@ -25,7 +25,7 @@ import {
 } from './surprise-fx';
 import { prepareBosses, setBossPose, type BossPose } from './boss-art';
 import { STEP_HZ, bossExit } from './boss-rigs';
-import { RELEASE, bossThrowFrame, launchFor, setThrowFrame } from './boss-throw';
+import { RELEASE, bossThrowFrame, launchFor, propVisibleFrom, setThrowFrame } from './boss-throw';
 import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
 import { setPickupFrame } from './gadgets';
 
@@ -86,12 +86,14 @@ const isHazard = (o: VisibleObstacle): boolean => HAZARD_KINDS.includes(o.kind);
 
 /** the throw frame for the boss's next attack, when that attack is thrown (not rear / chaser / drop) */
 function throwPose(b: BossView, snap: RenderSnapshot): BossPose | null {
-  const a = b.attack;
-  if (!a || b.state !== 'fight') return null;
-  if (!attackObstacle(snap, isThrown)) return null;
-  const f = bossThrowFrame(a.timeUntil, RELEASE);
+  if (b.state === 'defeated') return null;
+  // driven by the next hazard beat itself (BossView.attack only starts at ATTACK_LEAD): the wind-up begins
+  // as soon as the prop shows in the hand
+  const o = attackObstacle(snap, isThrown);
+  if (!o) return null;
+  const f = bossThrowFrame(o.timeUntil, RELEASE, propVisibleFrom(o.kind));
   if (f > 0) return THROW_FRAMES[f - 1];
-  return a.timeUntil > THROW_POSE_END ? 'throw6' : null; // follow-through while it flies
+  return o.timeUntil > THROW_POSE_END ? 'throw6' : null; // follow-through while it flies
 }
 
 const THROW_FRAMES: readonly BossPose[] = ['throw1', 'throw2', 'throw3', 'throw4', 'throw5', 'throw6'];

@@ -28,6 +28,8 @@ export interface MissionRun {
   readonly stamps: readonly (boolean | null)[];
   readonly section: number;
   readonly hits: number;
+  /** bonus collectibles (a non-collect part with a collectible: stage 5's 금일봉) picked up */
+  readonly items: number;
   readonly stampAt?: number;
   readonly stampOk?: boolean;
 }
@@ -43,6 +45,8 @@ const STAMPS_KEY = `${SAVE_PREFIX}.stamps.v1`;
 const CHASE_START = 0.5;
 const CHASE_DODGE = 0.05;
 const CHASE_HIT = 0.3;
+/** 칼퇴 포인트 per bonus collectible (금일봉) */
+export const ITEM_BONUS = 20;
 
 const isHazard = (b: Beat): boolean => b.obstacles.some((o) => HAZARD_KINDS.includes(o.kind));
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
@@ -60,7 +64,7 @@ export function startMissions(stage: StageDef | null, beats: readonly Beat[]): M
     stageId: stage.id, stageIndex: Math.max(0, STAGES.findIndex((s) => s.id === stage.id)), specs,
     hazardPart: new Map(hazards.map((b) => [b.id, partOf(b)])),
     lastHazard: specs.map((_, k) => hazards.filter((b) => partOf(b) === k).at(-1)?.id ?? -1),
-    stats, chase: specs.map(() => CHASE_START), stamps: specs.map(() => null), section: 0, hits: 0,
+    stats, chase: specs.map(() => CHASE_START), stamps: specs.map(() => null), section: 0, hits: 0, items: 0,
   };
 }
 
@@ -71,7 +75,11 @@ function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, sect
   const coins = result.collected.filter((k) => k === 'coin').length;
   let stats = run.stats;
   let chase = run.chase;
-  if (coins > 0) stats = stats.map((s, k) => (k === section ? { ...s, collected: s.collected + coins } : s));
+  let items = run.items;
+  const spec = run.specs[section];
+  // a collect part's coins are its items; elsewhere a collectible (금일봉) is a bonus item
+  if (coins > 0 && spec.kind === 'collect') stats = stats.map((s, k) => (k === section ? { ...s, collected: s.collected + coins } : s));
+  else if (coins > 0 && spec.collectible) items += coins;
   if (part !== undefined) {
     stats = stats.map((s, k) => (k !== part ? s : {
       ...s,
@@ -81,7 +89,8 @@ function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, sect
     }));
     chase = chase.map((c, k) => (k === part ? clamp01(c + (hit ? -CHASE_HIT : CHASE_DODGE)) : c));
   }
-  return { ...run, stats, chase, hits: run.hits + (hit ? 1 : 0) };
+  if (coins === 0 && part === undefined) return run;
+  return { ...run, stats, chase, items, hits: run.hits + (hit ? 1 : 0) };
 }
 
 /** stamps every unstamped section before `upTo` (exclusive) at `time` */
@@ -108,8 +117,18 @@ export function trackMissions(run: MissionRun | null, s: MissionSession, events:
   return next;
 }
 
+let viewOf: { readonly run: MissionRun; readonly view: MissionView } | null = null;
+
+/** the HUD / renderer view; the same object while the run is unchanged (runs are immutable) */
 export function missionView(run: MissionRun | null, _time: number): MissionView | undefined {
   if (!run) return undefined;
+  if (viewOf?.run === run) return viewOf.view;
+  const view = buildView(run);
+  viewOf = { run, view };
+  return view;
+}
+
+function buildView(run: MissionRun): MissionView {
   const index = Math.min(run.section, run.specs.length - 1);
   const spec = run.specs[index];
   const p = missionProgress(spec, run.stats[index]);
@@ -148,12 +167,15 @@ export function commitMissions(run: MissionRun | null, cleared: boolean, record:
   if (!run) return null;
   const done = run.stamps.map((v) => v === true);
   if (cleared && record) saveBest(run.stageId, done);
-  const stamped = done.filter(Boolean).length;
+  // the bonus is given at each door (spec §3.3): stamps already earned are paid on a failed run too
+  const stampBonus = done.filter(Boolean).length * MISSION_BONUS(run.stageIndex);
   return {
     stamps: run.stamps.map((v, k) => (k < run.section || v !== null ? v ?? false : null)),
     grade: stageGrade(done, run.hits),
     stars: starsFor(done),
-    bonus: cleared ? stamped * MISSION_BONUS(run.stageIndex) : 0,
+    stampBonus,
+    items: run.items,
+    bonus: stampBonus + run.items * ITEM_BONUS,
   };
 }
 

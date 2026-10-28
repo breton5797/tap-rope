@@ -11,10 +11,10 @@ import { drawLaserSeg as v8LaserSeg } from '../../render/lasers';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
-import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
+import { heldFade, joinTime, throwArc, throwHand, throwStep } from './boss-throw';
 import {
   PROP_SIZE, beatIdOf, drawFootprint, drawProp, drawStack, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage,
-  focusLane, propMotion, stackItems, type StackItem,
+  heldLane, propMotion, stackItems, type StackItem,
 } from './props';
 
 export * from '../../render/lasers';
@@ -66,6 +66,7 @@ function thrown(
   ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: number, a: number, step: number, landX: number, landY: number,
   h: number, ay: number, flip: boolean, t: number,
 ): void {
+  a *= heldFade(o.kind, o.timeUntil);
   drawFootprint(ctx, o.kind, landX, projY(d, 0), h, a * step);
   LAND.x = landX;
   LAND.y = landY;
@@ -119,8 +120,9 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
   let x: number;
   let floorY: number;
   // held / in flight: only the hero's lane bundle (three lanes' bundles from one hand read as one tall column)
-  if (step !== null && stack.length > 0 && d !== Math.round(focusLane())) return;
+  if (step !== null && stack.length > 0 && d !== heldLane()) return;
   if (step !== null) {
+    a *= heldFade(o.kind, o.timeUntil);
     // in flight from the hand: the bundle's bottom follows the arc to its join point
     const landX = projX(flyingPropCenter('front', join, v), d);
     drawFootprint(ctx, o.kind, landX, projY(d, 0), size, a * step);

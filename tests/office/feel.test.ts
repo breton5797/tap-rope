@@ -251,10 +251,10 @@ describe('judge popups (art review)', () => {
 describe('review fixes', () => {
   it('a thrown prop is visible (in the hand, then flying) at least as early as its v8 hazard', async () => {
     const { propVisibleFrom } = await import('../../src/office/render/boss-throw');
-    const { CHARGE_TIME, ENTER_TIME } = await import('../../src/render/layout');
+    const { ENTER_TIME, FENCE_FADE_IN } = await import('../../src/render/layout');
     const { VISIBLE_LEAD } = await import('../../src/types');
-    expect(propVisibleFrom('floor')).toBeGreaterThanOrEqual(CHARGE_TIME + 0.9);
-    expect(propVisibleFrom('ceiling')).toBeGreaterThanOrEqual(CHARGE_TIME + 0.9);
+    expect(propVisibleFrom('floor')).toBe(FENCE_FADE_IN);
+    expect(propVisibleFrom('ceiling')).toBe(FENCE_FADE_IN);
     expect(propVisibleFrom('drone')).toBeGreaterThanOrEqual(VISIBLE_LEAD);
     expect(propVisibleFrom('beam')).toBeGreaterThanOrEqual(ENTER_TIME);
   });
@@ -269,5 +269,30 @@ describe('review fixes', () => {
     const shift = popupRise(150, 100);
     expect(100 + 16 + shift - 16 * 1.35).toBeGreaterThanOrEqual(150 + 16 - 1e-9);
     expect(popupRise(0, 100)).toBe(0);
+  });
+});
+
+describe('held prop (review)', () => {
+  it('fades in over 0.3 s like the v8 emitter, and the wind-up starts as soon as it shows', async () => {
+    const { heldFade, propVisibleFrom, bossThrowFrame: frame, RELEASE } = await import('../../src/office/render/boss-throw');
+    const from = propVisibleFrom('floor');
+    expect(heldFade('floor', from)).toBe(0);
+    expect(heldFade('floor', from - 0.15)).toBeCloseTo(0.5, 6);
+    expect(heldFade('floor', from - 0.5)).toBe(1);
+    expect(frame(from, RELEASE, from)).toBe(1);
+    expect(frame(RELEASE, RELEASE, from)).toBe(6);
+  });
+
+  it('a held bundle keeps its lane through a lane change until the hero is clearly in the next one', async () => {
+    const { heldLane, setFocusLane } = await import('../../src/office/render/props');
+    setFocusLane(1);
+    expect(heldLane()).toBe(1);
+    setFocusLane(1.5);
+    expect(heldLane()).toBe(1);
+    setFocusLane(1.7);
+    expect(heldLane()).toBe(2);
+    setFocusLane(1.45);
+    expect(heldLane()).toBe(2);
+    setFocusLane(1);
   });
 });

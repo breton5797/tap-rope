@@ -86,6 +86,43 @@ describe('mission tracker', () => {
     expect(loadStamps()).toEqual({});
   });
 
+  it('pays the stamps earned at doors even when the run fails later (spec §3.3: the bonus is given at the door)', () => {
+    const { beats, run } = setup(1);
+    const p0 = beats.filter((b) => b.part === 0 && isHazard(b));
+    let r = trackMissions(run, at(beats, 0), p0.map((b) => judge(b.id)))!;
+    r = trackMissions(r, at(beats, 2, 30), [])!; // stamp 1 earned, stamp 2 missed
+    r = trackMissions(r, at(beats, 2, 33), [{ type: 'end', cleared: false }])!;
+    const out = commitMissions(r, false, false)!;
+    expect(out.stamps).toEqual([true, false, null]);
+    expect(out.stampBonus).toBe(150);
+    expect(out.bonus).toBe(150);
+  });
+
+  it('counts 금일봉 picked up in the stage-5 finale (+₵20 each), cleared or not', () => {
+    // a run seed whose finale has at least two coins (금일봉)
+    const seed = Array.from({ length: 60 }, (_, i) => i + 1).find((x) =>
+      generateStage({ ...stage(5), seed: x }, DEFAULT_PHYSICS, 2).beats.filter((b) => b.part === 2 && b.obstacles.some((o) => o.kind === 'coin')).length >= 2)!;
+    const { beats, run } = setup(5, seed);
+    const coins = beats.filter((b) => b.part === 2 && b.obstacles.some((o) => o.kind === 'coin')).slice(0, 2);
+    expect(coins.length).toBe(2);
+    let r = trackMissions(run, at(beats, 2, 60), coins.map((b) => judge(b.id, false, ['coin'])))!;
+    r = trackMissions(r, at(beats, 2, 61), [{ type: 'end', cleared: false }])!;
+    const out = commitMissions(r, false, false)!;
+    expect(out.items).toBe(2);
+    expect(out.bonus).toBe(out.stampBonus + 40);
+    // coins elsewhere (not a collect part, no collectible) are plain coins
+    const { beats: b1, run: r1 } = setup(1);
+    const plain = b1.find((b) => b.part === 0 && b.obstacles.some((o) => o.kind === 'coin'));
+    if (plain) expect(commitMissions(trackMissions(r1, at(b1, 0), [judge(plain.id, false, ['coin'])]), false, false)!.items).toBe(0);
+  });
+
+  it('missionView is the same object while nothing changed (one build per change, not per frame)', () => {
+    const { beats, run } = setup(1);
+    expect(missionView(run, 1)).toBe(missionView(run, 2));
+    const r = trackMissions(run, at(beats, 0, 3), [])!;
+    expect(r).toBe(run);
+  });
+
   it('a retry starts from zero (no stats or stamps carried over)', () => {
     const { def, beats, run } = setup(1);
     const p0 = beats.filter((b) => b.part === 0 && isHazard(b));

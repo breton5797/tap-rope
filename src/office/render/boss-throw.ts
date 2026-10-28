@@ -7,7 +7,7 @@
 import type { LaserFrom, ObstacleKind } from '../../types';
 import { PLAYER_X, VISIBLE_LEAD } from '../../types';
 import { ATTACK_LEAD } from '../core/boss';
-import { CHARGE_TIME, FLOOR_BACK } from '../../render/layout';
+import { FENCE_FADE_IN, FLOOR_BACK } from '../../render/layout';
 import type { View } from '../../render/view';
 import { HAND_FRAC, PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
 
@@ -61,13 +61,20 @@ export function joinTime(speed: number): number {
 
 /**
  * Seconds before arrival a thrown prop first shows (held in the boss's hand), never later than its v8 hazard
- * showed: floor / ceiling emitters fade in from CHARGE_TIME + 0.9, drones from VISIBLE_LEAD; flying beams
+ * showed: floor / ceiling emitters fade in from FENCE_FADE_IN, drones from VISIBLE_LEAD; flying beams
  * appeared only at ENTER_TIME, so the telegraph start (ATTACK_LEAD) is already earlier.
  */
 export function propVisibleFrom(kind: ObstacleKind): number {
   if (kind === 'drone') return VISIBLE_LEAD;
-  if (kind === 'floor' || kind === 'ceiling') return CHARGE_TIME + 0.9;
+  if (kind === 'floor' || kind === 'ceiling') return FENCE_FADE_IN;
   return ATTACK_LEAD;
+}
+
+const HELD_FADE = 0.3;
+
+/** opacity of a prop that just appeared in the boss's hand: fades in over 0.3 s like the v8 emitters */
+export function heldFade(kind: ObstacleKind, tu: number): number {
+  return Math.min(1, Math.max(0, (propVisibleFrom(kind) - tu) / HELD_FADE));
 }
 
 /**
@@ -83,11 +90,11 @@ export function throwStep(kind: ObstacleKind, from: LaserFrom | null, tu: number
 
 /**
  * The boss's throw frame (boss-<slot>-throw1..6: wind-up → throw → follow-through) `tu` s before the hazard
- * arrives, when the prop leaves the hand at `release`: 1 at ATTACK_LEAD … 6 at release, 0 outside.
+ * arrives: 1 from `start` (when the prop shows in the hand) … 6 at `release` (it leaves the hand), 0 outside.
  */
-export function bossThrowFrame(tu: number, release: number): number {
-  if (tu > ATTACK_LEAD + 1e-9 || tu < release - 1e-9) return 0;
-  const k = (ATTACK_LEAD - tu) / Math.max(1e-6, ATTACK_LEAD - release);
+export function bossThrowFrame(tu: number, release: number, start: number = ATTACK_LEAD): number {
+  if (tu > start + 1e-9 || tu < release - 1e-9) return 0;
+  const k = (start - tu) / Math.max(1e-6, start - release);
   return 1 + Math.min(5, Math.floor(k * 6));
 }
 

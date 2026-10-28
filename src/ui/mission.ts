@@ -4,8 +4,8 @@
  */
 import type { MissionView, ResultInfo, StageDef } from '../types';
 
-/** HUD: the running mission (undefined = clear) */
-export function renderMission(_layer: HTMLElement, _view: MissionView | undefined, _stage: StageDef | null, _reduced: boolean): void {}
+/** HUD: the running mission at run time `time` (undefined = clear) */
+export function renderMission(_layer: HTMLElement, _view: MissionView | undefined, _stage: StageDef | null, _reduced: boolean, _time: number): void {}
 
 /** result card: the run's stamps and grade */
 export function missionResult(_r: ResultInfo): HTMLElement | null {

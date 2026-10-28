@@ -3,7 +3,7 @@
  * owns the screen flow (menu demo → countdown → play ⇄ pause → result).
  */
 import type {
-  Board, BossView, Cutscene, CutsceneId, GameMode, LaneDir, MoveId, Renderer, ResultInfo, SaveData, Settings, SkinId,
+  Board, BossView, Cutscene, CutsceneId, GameMode, LaneDir, MissionView, MoveId, Renderer, ResultInfo, SaveData, Settings, SkinId,
   StageDef, Swipe, Ui,
 } from '../types';
 import { createRenderer } from '../render/index';
@@ -147,6 +147,8 @@ export function startApp(): void {
   /** office v2 missions of the current run (v8: always null); stampAt of the last stamp fed back */
   let missions: MissionRun | null = null;
   let lastStampAt: number | undefined;
+  /** this frame's mission view (built once, shared by the HUD and the render snapshot) */
+  let missionNow: MissionView | undefined;
   const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
 
@@ -270,6 +272,7 @@ export function startApp(): void {
     runLog = createRunLog(mode, seed, date);
     missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
     lastStampAt = undefined;
+    missionNow = undefined;
     prevBoss = null;
     bossLine = -1;
     finisher = 'off';
@@ -555,7 +558,8 @@ export function startApp(): void {
   /** office v2: the mission HUD, and a stamp's sound + buzz the frame it fires (v8: no missions, nothing shown) */
   const tickMissions = (): void => {
     const view = missionView(missions, session.time);
-    ui.updateMission(view, view ? session.stage : null);
+    missionNow = view;
+    ui.updateMission(view, view ? session.stage : null, session.time);
     if (view?.stampAt === undefined || view.stampAt === lastStampAt) return;
     lastStampAt = view.stampAt;
     audio.sfx(view.stampOk ? 'achieve' : 'bump');
@@ -673,7 +677,7 @@ export function startApp(): void {
       renderer.render(toSnapshot(session, save.skin, {
         realTime: frozenReal >= 0 ? frozenReal : now / 1000, reducedMotion: reducedMotion(), running: screen !== 'paused',
         bossFinish: finisherReal >= 0 ? now / 1000 - finisherReal : -1, cosmetics: look,
-        mission: screen === 'play' || screen === 'countdown' ? missionView(missions, session.time) : undefined,
+        mission: screen === 'play' || screen === 'countdown' ? missionNow : undefined,
       }));
     }
     requestAnimationFrame(frame);

@@ -166,7 +166,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
     },
     hideAll() {
       setHud(false);
-      renderMission(layers.hud, undefined, null, true);
+      renderMission(layers.hud, undefined, null, true, 0);
       mount(null, 'none');
       renderCountdown(layers.fx, null);
       renderTutorial(layers.tutorial, ctx, null);
@@ -192,7 +192,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       layers.overlay.replaceChildren(card);
     },
     showLoading: (progress) => renderLoading(layers.loading, progress),
-    updateMission: (view, stage) => renderMission(layers.hud, view, stage, ctx.reducedMotion()),
+    updateMission: (view, stage, time) => renderMission(layers.hud, view, stage, ctx.reducedMotion(), time),
     showPicker: (save, onPick) => mount(buildPicker(ctx, save, onPick), 'picker'),
   };
 }

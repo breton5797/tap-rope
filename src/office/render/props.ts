@@ -258,6 +258,15 @@ export function setFocusLane(lane: number): void {
 /** the hero's (visual) lane this frame */
 export const focusLane = (): number => heroLane;
 
+/** the lane a held / thrown bundle is drawn in: follows the hero only once it is clearly in another lane */
+let held = 1;
+const HELD_SWITCH = 0.6;
+
+export function heldLane(): number {
+  if (Math.abs(heroLane - held) > HELD_SWITCH) held = Math.round(heroLane);
+  return held;
+}
+
 /**
  * Declutter: a full-width hazard is drawn full size in the hero's lane and smaller in the other lanes, so
  * three hero-sized props never stack on top of each other (the hit box is the lane, not the drawing).
