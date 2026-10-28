@@ -12,15 +12,17 @@ import { officeImage } from './images';
 
 export * from '../../render/agent';
 
-/** drawn hero height in rig px (the v8 figure is 88 rig px tall); frames are 512×640 with the feet at the bottom */
+/** drawn hero height in rig px for the 640 px frame (the v8 figure is 88 rig px tall; subjects fill ~610 px) */
 const HERO_H = 92;
-/** where the feet sit in each frame (fractions of the image) */
+/**
+ * Where the feet sit in each frame (fractions of the image). Art contract: 512×640, transparent, subject
+ * horizontally centred with its lowest pixel on the bottom edge, every frame facing right; all frames share
+ * one pixel scale, so they are drawn at the same size (the jump frame is lifted by the physics height).
+ */
 const ANCHOR: Readonly<Record<HeroFrameId, readonly [number, number]>> = {
-  run1: [0.5, 0.97], run2: [0.5, 0.97], run3: [0.5, 0.97], run4: [0.5, 0.97],
-  jump: [0.5, 0.95], slide: [0.5, 0.97], hit: [0.5, 0.97], win: [0.5, 0.97],
+  run1: [0.5, 1], run2: [0.5, 1], run3: [0.5, 1], run4: [0.5, 1],
+  jump: [0.5, 1], slide: [0.5, 1], hit: [0.5, 1], win: [0.5, 1],
 };
-/** a slide frame is drawn shorter (the hero is low) */
-const SLIDE_H = 0.62;
 
 export class AgentPainter {
   private readonly v8 = new V8AgentPainter();
@@ -43,7 +45,7 @@ export class AgentPainter {
       return;
     }
     const s = f.scale * RIG_SIZE;
-    const h = HERO_H * s * (frame === 'slide' ? SLIDE_H : 1);
+    const h = HERO_H * s;
     const w = (h * img.naturalWidth) / img.naturalHeight;
     const [ax, ay] = ANCHOR[frame];
     ctx.save();
