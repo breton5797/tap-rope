@@ -4,7 +4,7 @@
 import type { View } from '../../render/view';
 import type { Rect } from './surprise';
 
-const HUD_ROWS = '.hud__top, .hud__mid, .hud__bars, .boss:not([hidden]), .tut__card, .brief__card';
+const HUD_ROWS = '.hud__top, .hud__mid, .hud__bars, .boss:not([hidden]), .tut__card, .brief__card, .mission-card';
 const PHASE_LINE = '.bossline';
 const COUNTDOWN = '.countdown__num';
 const REFRESH = 0.25;
@@ -16,9 +16,13 @@ export interface HudBand {
   line: number;
   /** the countdown digit's box (logical) while it shows, else null */
   countdown: Rect | null;
+  /** logical x of the view's left edge */
+  left: number;
+  /** logical y under the attack callout drawn last frame, else −Infinity (popups stay below it) */
+  callout: number;
 }
 
-const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null };
+const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN, callout: Number.NEGATIVE_INFINITY };
 let lastRead = Number.NEGATIVE_INFINITY;
 
 function lowest(selector: string, canvasTop: number): number {
@@ -32,6 +36,7 @@ function lowest(selector: string, canvasTop: number): number {
 
 /** the current band (refreshed at most every REFRESH s of `realTime`) */
 export function hudBand(canvas: HTMLCanvasElement, v: View, realTime: number): Readonly<HudBand> {
+  band.left = v.x0;
   if (typeof document === 'undefined' || Math.abs(realTime - lastRead) < REFRESH) return band;
   lastRead = realTime;
   const top = canvas.getBoundingClientRect().top;
@@ -48,3 +53,8 @@ export function hudBand(canvas: HTMLCanvasElement, v: View, realTime: number): R
 
 /** the band as last read (for modules drawn inside the v8 frame, e.g. popups) */
 export const lastHudBand = (): Readonly<HudBand> => band;
+
+/** the office renderer records the callout's bottom each frame (−Infinity when none is shown) */
+export function setCalloutBottom(y: number): void {
+  band.callout = y;
+}

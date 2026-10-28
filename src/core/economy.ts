@@ -22,7 +22,7 @@ export const ACH_REWARD: Readonly<Record<AchievementId, number>> = {
   'zone-1': 30, 'zone-3': 30, 'zone-5': 40, 'zone-7': 40, 'zone-10': 50,
   rescue: 30, escape: 50, 'flawless-boss': 40, 'perfect-stage': 30,
   'chain-50': 20, 'chain-100': 40, 'overdrive-3': 30, 'all-stars-zone': 50, 'stars-150': 50,
-  'endless-60': 20, 'endless-180': 40, 'daily-1': 20, 'daily-7': 50, 'all-operators': 50, archivist: 30,
+  'endless-60': 20, 'endless-180': 40, 'daily-1': 20, 'daily-7': 50, 'all-operators': 50, archivist: 30, 'stamps-15': 50,
 };
 
 /** ₵ for a daily clear that extends the streak to `count` days. */

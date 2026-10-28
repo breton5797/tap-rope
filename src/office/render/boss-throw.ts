@@ -1,0 +1,102 @@
+// Office feel pack F5 (v2 spec §4): the superior throws what is coming. A front hazard leaves the boss's
+// hand on an arc during the attack telegraph (ATTACK_LEAD) and lands on its normal path at the join time,
+// then moves exactly as before, so judge timing and hit boxes are untouched. Things that come from behind
+// or fall from above (rear beams, chasers, drops) are never thrown; a guard gets a stomp instead.
+// Visibility: a thrown prop is held in the boss's hand from when its v8 hazard would have appeared
+// (propVisibleFrom), so it is never visible later than in v8, and never hidden once shown.
+import type { LaserFrom, ObstacleKind } from '../../types';
+import { PLAYER_X, VISIBLE_LEAD } from '../../types';
+import { ATTACK_LEAD } from '../core/boss';
+import { FENCE_FADE_IN, FLOOR_BACK } from '../../render/layout';
+import type { View } from '../../render/view';
+import { HAND_FRAC, PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
+
+export type Launch = 'throw' | 'stomp';
+
+/** how the boss delivers a hazard obstacle, or null when it doesn't come from the boss */
+export function launchFor(kind: ObstacleKind, from: LaserFrom | null): Launch | null {
+  if (kind === 'beam' || kind === 'high') return from === 'back' ? null : 'throw';
+  if (kind === 'floor' || kind === 'ceiling' || kind === 'drone') return 'throw';
+  return kind === 'guard' ? 'stomp' : null;
+}
+
+/** the prop is held while the boss winds up (throw1..6) this long before it leaves the hand */
+export const WIND_UP = 0.45;
+/** it lands this far in front of the hand (logical px), so it never flies backwards */
+export const THROW_JOIN_GAP = 24;
+const MIN_FLIGHT = 0.35;
+const MIN_JOIN = 0.3;
+/** arc height over the straight hand → landing line */
+const ARC_H = 70;
+
+interface Pt { x: number; y: number }
+const P: Pt = { x: 0, y: 0 };
+
+/** a point on the throw parabola (k 0 = hand, 1 = landing); shared result */
+export function throwArc(hand: Readonly<Pt>, land: Readonly<Pt>, k: number): Readonly<Pt> {
+  P.x = hand.x + (land.x - hand.x) * k;
+  P.y = hand.y + (land.y - hand.y) * k - ARC_H * 4 * k * (1 - k);
+  return P;
+}
+
+/** per-frame state set by the office renderer: is a superior on stage, and where is its hand */
+const frame = { active: false, hand: { x: 0, y: 0 } as Pt };
+
+export function setThrowFrame(active: boolean, v: View): void {
+  frame.active = active;
+  if (!active) return;
+  const w = personWidth(v.w);
+  const h = w / PERSON_ASPECT;
+  frame.hand.x = v.x0 + v.w * PERSON_FX - w / 2 + HAND_FRAC.x * w;
+  frame.hand.y = FLOOR_BACK + 2 - h + HAND_FRAC.y * h;
+}
+
+export const throwHand = (): Readonly<Pt> => frame.hand;
+
+/** seconds before arrival at which a thrown prop (moving at `speed` px/s on the middle lane) lands on its path */
+export function joinTime(speed: number): number {
+  const t = (frame.hand.x - THROW_JOIN_GAP - PLAYER_X) / speed;
+  return Math.min(ATTACK_LEAD - WIND_UP - MIN_FLIGHT, Math.max(MIN_JOIN, t));
+}
+
+/**
+ * Seconds before arrival a thrown prop first shows (held in the boss's hand), never later than its v8 hazard
+ * showed: floor / ceiling emitters fade in from FENCE_FADE_IN, drones from VISIBLE_LEAD; flying beams
+ * appeared only at ENTER_TIME, so the telegraph start (ATTACK_LEAD) is already earlier.
+ */
+export function propVisibleFrom(kind: ObstacleKind): number {
+  if (kind === 'drone') return VISIBLE_LEAD;
+  if (kind === 'floor' || kind === 'ceiling') return FENCE_FADE_IN;
+  return ATTACK_LEAD;
+}
+
+const HELD_FADE = 0.3;
+
+/** opacity of a prop that just appeared in the boss's hand: fades in over 0.3 s like the v8 emitters */
+export function heldFade(kind: ObstacleKind, tu: number): number {
+  return Math.min(1, Math.max(0, (propVisibleFrom(kind) - tu) / HELD_FADE));
+}
+
+/**
+ * The throw step of an obstacle `tu` s before arrival: null = draw it on its normal path, −1 = not shown yet,
+ * 0 = held in the boss's hand (from propVisibleFrom through the wind-up), 0..1 = flying toward its join point.
+ */
+export function throwStep(kind: ObstacleKind, from: LaserFrom | null, tu: number, join: number): number | null {
+  if (!frame.active || launchFor(kind, from) !== 'throw' || tu <= join) return null;
+  if (tu > propVisibleFrom(kind)) return -1;
+  const flyFrom = ATTACK_LEAD - WIND_UP;
+  return tu >= flyFrom ? 0 : (flyFrom - tu) / (flyFrom - join);
+}
+
+/**
+ * The boss's throw frame (boss-<slot>-throw1..6: wind-up → throw → follow-through) `tu` s before the hazard
+ * arrives: 1 from `start` (when the prop shows in the hand) … 6 at `release` (it leaves the hand), 0 outside.
+ */
+export function bossThrowFrame(tu: number, release: number, start: number = ATTACK_LEAD): number {
+  if (tu > start + 1e-9 || tu < release - 1e-9) return 0;
+  const k = (start - tu) / Math.max(1e-6, start - release);
+  return 1 + Math.min(5, Math.floor(k * 6));
+}
+
+/** the moment (s before arrival) a thrown prop leaves the hand */
+export const RELEASE = ATTACK_LEAD - WIND_UP;

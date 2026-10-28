@@ -56,11 +56,15 @@ export function photoFloor(ctx: Ctx, img: Photo, bottom: number, _theme: number)
   // soft shade along the wall only
   ctx.fillStyle = vGrad(ctx, back, back + 18, [[0, 'rgba(60,50,80,0.2)'], [1, 'rgba(60,50,80,0)']]);
   ctx.fillRect(0, back, FLOOR_PW, 18);
-  // white floor tape between the lanes
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  // white floor tape between the lanes, outlined so it reads on light floors (F1: it scrolls with the floor)
   for (const d of [0.5, 1.5]) {
     const y = laneY(d);
-    for (let x = 8; x < FLOOR_PW; x += 56) ctx.fillRect(x, y - 1, 34, 2);
+    for (let x = 8; x < FLOOR_PW; x += 56) {
+      ctx.fillStyle = 'rgba(58,46,63,0.25)';
+      ctx.fillRect(x - 1, y - 2.5, 36, 5);
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillRect(x, y - 1.5, 34, 3);
+    }
   }
   ctx.fillStyle = meanColour(img);
   ctx.fillRect(0, front, FLOOR_PW, bottom - front);

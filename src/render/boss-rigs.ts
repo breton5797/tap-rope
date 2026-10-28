@@ -1,7 +1,8 @@
 // Boss rigs (GDD-v7 §1): where each zone boss stands, how it idles, and the anchor points (in its box
 // coordinates, see boss-shapes.ts) that sensors glow at and that each attack kind leaves from. The photo
 // sprites (`public/art/boss-<id>.webp`) are fitted into the same box, so the anchors serve both.
-import type { BossAttackKind, BossId } from '../types';
+import type { BossAttackKind, BossId, BossView } from '../types';
+import type { View } from './view';
 
 /** ground / rear stand on the back floor edge, air hovers in the upper wall, ceiling hangs from the ceiling */
 export type Place = 'ground' | 'air' | 'ceiling' | 'rear';
@@ -32,6 +33,14 @@ export interface BossRig {
   readonly damage: Pt;
   /** contact-shadow alpha on the floor (absent = 0.4) */
   readonly shadow?: number;
+  /** extra motion after the v8 pose (absent = none): writes x / y offsets (logical px) and a tilt into `out` */
+  readonly motion?: (b: BossView, v: View, t: number, out: BossMotion) => void;
+}
+
+export interface BossMotion {
+  dx: number;
+  dy: number;
+  rot: number;
 }
 
 const NO_ROTORS: readonly (readonly [number, number, number])[] = [];

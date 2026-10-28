@@ -4,14 +4,15 @@
 // lanes are 38px apart on screen and scale 0.9 / 1.0 / 1.1, and x converges on PLAYER_X with
 // depth, so a world-fixed object reaches the agent at the same moment in every lane.
 import { GROUND_Y, LANE_SWITCH_TIME, PLAYER_X, SCROLL_SPEED, type LaserFrom, type PlayerState } from '../types';
+import { LANE_GEOMETRY } from './layout-config';
 import type { View } from './view';
 
 /** screen y of the corridor ceiling */
 export const CEIL_Y = 150;
 /** screen px between neighbouring lane floor lines */
-export const LANE_STEP = 38;
+export const LANE_STEP = LANE_GEOMETRY.laneStep;
 /** depth scale change per lane (0.9 / 1.0 / 1.1) */
-export const DEPTH_STEP = 0.1;
+export const DEPTH_STEP = LANE_GEOMETRY.depthStep;
 /** depth of the back wall's foot and of the floor's front edge (half a lane outside lanes 0 / 2) */
 export const WALL_DEPTH = -0.5;
 export const FRONT_DEPTH = 2.5;
@@ -33,6 +34,8 @@ export const ENTER_TIME = 0.9;
 /** floor/ceiling emitters switch on this long before arrival */
 export const ARM_TIME = 0.6;
 export const CHARGE_TIME = 1.0;
+/** floor / ceiling emitters fade in over 0.3 s from this long before arrival */
+export const FENCE_FADE_IN = CHARGE_TIME + 0.9;
 export const BEAM_LEN = 120;
 export const ESCORT_DX = -76; // v7.1: room for the ×1.2 crouch-running scientist behind a sliding agent
 /** agent drawing scale (the rig is authored 88px tall, GDD-v6 §3) */

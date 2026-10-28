@@ -7,7 +7,7 @@ import {
   CEIL_LASER_END, ENTER_TIME, FLOOR_BACK, depthScale, fixedX, flyingX, projX, projY,
 } from '../../render/layout';
 import { chaserX, dropHeight } from '../../render/hazards';
-import { PROP_SIZE, flyingSpan } from './props';
+import { ACTION_COLORS, PROP_SIZE, flyingSpan, type ActionCue } from './props';
 import { roundRect, type Ctx } from '../../render/util';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
@@ -46,8 +46,9 @@ function boxesOf(o: VisibleObstacle, v: View): Box[] {
         const y = projY(d, bottom + h);
         // not on screen yet: outline it at the edge it will enter from (where its chevrons are)
         if (tu > ENTER_TIME) return [{ x: back ? v.x0 + 2 : v.x0 + v.w - h * s - 2, y, w: h * s, h: h * s }];
+        // centred on the beam head, like the prop (F2)
         const x = projX(flyingX(back ? 'back' : 'front', tu, v), d);
-        return [{ x: back ? x - h * s : x, y, w: h * s, h: h * s }];
+        return [{ x: x - (h * s) / 2, y, w: h * s, h: h * s }];
       }
       default: return [];
     }
@@ -160,3 +161,84 @@ function bubble(ctx: Ctx, x: number, y: number, text: string, fill: string, ink:
   ctx.fillStyle = ink;
   ctx.fillText(text, x, y + 1, w - 12);
 }
+
+const CONFETTI = ['#FF9F1C', '#3B8BFF', '#E8344B', '#2FD27A', '#9B5CFF', '#FFE45C'];
+const CONFETTI_N = 36;
+/** a mission stamp's confetti burst lasts this long (s) */
+export const CONFETTI_TIME = 1.4;
+
+/** confetti burst from the top centre, `age` s after a mission stamp (no allocation) */
+export function drawConfetti(ctx: Ctx, v: View, age: number, top: number): void {
+  if (age < 0 || age > CONFETTI_TIME) return;
+  const fade = Math.min(1, (CONFETTI_TIME - age) / 0.4);
+  ctx.save();
+  for (let i = 0; i < CONFETTI_N; i++) {
+    const dir = ((i * 73) % 100) / 100 - 0.5; // −0.5..0.5
+    const speed = 120 + ((i * 41) % 90);
+    const x = v.x0 + v.w / 2 + dir * speed * 2 * age;
+    const y = top + 10 - speed * 1.2 * age + 380 * age * age;
+    const spin = age * (6 + (i % 5)) + i;
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = CONFETTI[i % CONFETTI.length];
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(spin);
+    ctx.fillRect(-3, -1.5, 6, 3);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** F10 callout copy per prop (the superior shouts its attack) */
+const PROP_NAMES: Readonly<Record<string, string>> = {
+  postit: '포스트잇 폭풍!', papers: '서류 더미!', 'coffee-tray': '커피 쟁반!', 'paper-plane': '종이비행기!',
+  clipboard: '결재판 부메랑!', 'paper-jam': '용지 걸림!', door: '회의실 문 벌컥!', whiteboard: '화이트보드 돌진!',
+  pointer: '레이저 포인터!', golf: '나이스 샷!', 'latte-bubble': '라떼는 말이야!', elevator: '엘리베이터 띵!',
+  'doc-tornado': '서류 회오리!', necktie: '넥타이 채찍!', 'corp-card': '법인카드!', 'ceo-screen': '화상회의!',
+  'revolving-door': '회전문 가속!', envelope: '금일봉 비!', cart: '카트 질주!', robot: '청소 로봇!',
+};
+const ACTION_HINT: Readonly<Record<ActionCue, string>> = { jump: '점프!', slide: '숙여!', lane: '옆으로!', low: '낮게!' };
+
+/** the attack telegraph as a boss-bubble-sized callout: prop icon, attack name, action hint in its colour; returns its bottom y */
+export function drawAttackCallout(
+  ctx: Ctx, v: View, icon: HTMLImageElement | null, propId: string, cue: ActionCue, below: number, avoid: Rect | null,
+): number {
+  const name = PROP_NAMES[propId] ?? '기습!';
+  const hint = ACTION_HINT[cue];
+  const color = ACTION_COLORS[cue];
+  ctx.font = CALLOUT_FONT;
+  const textW = ctx.measureText(name).width;
+  ctx.font = HINT_FONT;
+  const hintW = ctx.measureText(hint).width;
+  const w = Math.min(v.w - 16, 44 + textW + 10 + hintW + 14);
+  const h = 34;
+  const bw = personWidth(v.w);
+  const faceY = FLOOR_BACK - (bw / PERSON_ASPECT) * 0.8;
+  const cx = Math.min(v.x0 + v.w - w / 2 - 6, Math.max(v.x0 + w / 2 + 6, v.x0 + v.w * PERSON_FX - bw * 0.3 - w / 2 + 20));
+  const cy = placeBubble({ x: cx, y: Math.max(faceY, below + 22), w, h }, avoid, below + 4);
+  ctx.save();
+  ctx.fillStyle = '#FFFBF3';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  roundRect(ctx, cx - w / 2, cy - h / 2, w, h, 12);
+  ctx.fill();
+  ctx.stroke();
+  if (icon) {
+    const ih = 26;
+    const iw = (ih * icon.naturalWidth) / icon.naturalHeight;
+    ctx.drawImage(icon, cx - w / 2 + 8, cy - ih / 2, iw, ih);
+  }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#2E2433';
+  ctx.font = CALLOUT_FONT;
+  ctx.fillText(name, cx - w / 2 + 40, cy + 1);
+  ctx.fillStyle = color;
+  ctx.font = HINT_FONT;
+  ctx.fillText(hint, cx - w / 2 + 40 + textW + 10, cy + 1);
+  ctx.restore();
+  return cy + h / 2;
+}
+
+const CALLOUT_FONT = '900 15px ui-rounded, system-ui, sans-serif';
+const HINT_FONT = '900 13px ui-rounded, system-ui, sans-serif';

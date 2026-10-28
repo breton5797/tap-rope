@@ -1,9 +1,10 @@
 // Office prop hazards (office spec §5): each hazard keeps its v8 position, timing and hit box; only its look
 // changes to the superior's prop (events.attackVariant) or, on a cart event's beat, the cart / robot.
 // The office renderer sets the frame context once per frame (setPropFrame) before anything is drawn.
-import type { BossAttackKind, BossId, ObstacleKind, VisibleObstacle } from '../../types';
+import type { BossAttackKind, BossId, LaserFrom, ObstacleKind, VisibleObstacle } from '../../types';
 import { LANE_HAZARD_KINDS } from '../../types';
-import { BEAM_H, HIGH_H } from '../../render/layout';
+import { BEAM_H, HIGH_H, flyingX } from '../../render/layout';
+import type { View } from '../../render/view';
 import { attackVariant } from '../core/events';
 import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
@@ -28,8 +29,8 @@ export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<numb
   frame.carts = carts;
 }
 
-/** prop heights in logical px at depth scale 1: each prop fills (and slightly overfills) its hazard's footprint */
-export const PROP_SIZE = { floor: 50, ceiling: 72, drone: 54, guard: 96, drop: 70, chaser: 68, high: 46 } as const;
+/** prop heights in logical px at depth scale 1: each fills its hazard's footprint, all ≤ 0.8× the hero (110) */
+export const PROP_SIZE = { floor: 50, ceiling: 72, drone: 54, guard: 70, drop: 70, chaser: 68, high: 46 } as const;
 /** a beam stack's prop rises this much over its top beam, then is scaled like the others */
 const BEAM_PAD = 16;
 const PROP_SCALE = 1.3;
@@ -68,8 +69,19 @@ export function propIdFor(o: Pick<VisibleObstacle, 'id' | 'kind'>): string {
 
 /** the prop sprite, or null (not loaded / missing: draw the v8 hazard) */
 export function propImage(o: Pick<VisibleObstacle, 'id' | 'kind'>): HTMLImageElement | null {
-  return officeImage(`prop-${propIdFor(o)}`);
+  const id = propIdFor(o);
+  let name = PROP_NAMES.get(id);
+  if (!name) {
+    name = `prop-${id}`;
+    PROP_NAMES.set(id, name);
+  }
+  const img = officeImage(name);
+  if (img && UNOUTLINED.has(id)) NO_OUTLINE.add(img);
+  return img;
 }
+
+/** sprite names per prop id, built once */
+const PROP_NAMES = new Map<string, string>();
 
 /** the move that beats a hazard (the rhythm-lane chip): jump, slide, change lane, or stay low (drone) */
 export type ActionCue = 'jump' | 'slide' | 'lane' | 'low';
@@ -88,9 +100,11 @@ export const ACTION_COLORS: Readonly<Record<ActionCue, string>> = {
 
 /**
  * The hazard's footprint on its lane's floor: a soft tinted ellipse in the cue colour with a crisp rim
- * (lane hazards also tint a strip of the blocked lane red), so the lane and the move read at a glance.
+ * (lane hazards also paint the blocked lane red across `laneBand` px), so the lane and the move read at a glance.
  */
-export function drawFootprint(ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1): void {
+export function drawFootprint(
+  ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1, laneBand = 0,
+): void {
   const cue = actionCue(kind);
   const color = ACTION_COLORS[cue];
   const rx = width * (cue === 'lane' ? 0.75 : 0.55);
@@ -98,10 +112,20 @@ export function drawFootprint(ctx: CanvasRenderingContext2D, kind: ObstacleKind,
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (cue === 'lane') {
-    ctx.globalAlpha *= 0.22;
+    // F8 the blocked lane, kept quiet (art review): a faint strip and an outlined ellipse, no filled block
+    const half = laneBand > 0 ? laneBand / 2 : ry;
+    ctx.globalAlpha *= 0.08;
     ctx.fillStyle = color;
-    ctx.fillRect(x - rx * 1.6, floorY - ry, rx * 3.2, ry * 2);
-    ctx.globalAlpha /= 0.22;
+    ctx.fillRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
+    ctx.globalAlpha /= 0.08;
+    ctx.beginPath();
+    ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
+    ctx.globalAlpha *= 0.5;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+    return;
   }
   ctx.beginPath();
   ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
@@ -154,15 +178,136 @@ function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: n
   if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, x + dx * r, y + dy * r, w, h);
 }
 
-/** draw a prop with a dark comic outline around a white one, its centre-bottom (ay = 1) or centre (ay = 0.5) at (x, y); `flip` mirrors it */
-export function drawProp(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1): void {
+/** props drawn without the outline rings (thin art the rings would smear, e.g. the laser-pointer dot chain) */
+const NO_OUTLINE = new WeakSet<HTMLImageElement>();
+const UNOUTLINED: ReadonlySet<string> = new Set(['pointer']);
+
+/**
+ * Draw a prop with a dark comic outline around a white one, its centre-bottom (ay = 1) or centre (ay = 0.5)
+ * at (x, y); `flip` mirrors it; `m` (F6) nudges it and turns it around its own centre.
+ */
+export function drawProp(
+  ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1,
+  m?: Readonly<PropMotion>,
+): void {
   const w = (h * img.naturalWidth) / img.naturalHeight;
   ctx.save();
   ctx.globalAlpha *= alpha;
-  ctx.translate(x, y);
+  // pivot at the prop's centre
+  ctx.translate(x + (m?.dx ?? 0), y - h * ay + h / 2 + (m?.dy ?? 0));
+  if (m && m.rot !== 0) ctx.rotate(m.rot);
   if (flip) ctx.scale(-1, 1);
-  ring(ctx, silhouette(img, INK), -w / 2, -h * ay, w, h, OUTLINE_INK);
-  ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h * ay, w, h, OUTLINE_WHITE);
-  ctx.drawImage(img, -w / 2, -h * ay, w, h);
+  if (!NO_OUTLINE.has(img)) {
+    ring(ctx, silhouette(img, INK), -w / 2, -h / 2, w, h, OUTLINE_INK);
+    ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h / 2, w, h, OUTLINE_WHITE);
+  }
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
 }
+
+// ---------- v2 feel pack ----------
+
+/**
+ * F2: middle-lane x of a flying prop's centre — the beam head itself (v8 flyingX), so the prop covers the
+ * hero exactly when the judge decides (it used to trail behind the head by its own width).
+ */
+export function flyingPropCenter(from: LaserFrom, timeUntil: number, v: View): number {
+  return flyingX(from, timeUntil, v);
+}
+
+export interface PropMotion {
+  dx: number;
+  dy: number;
+  rot: number;
+}
+
+/** one shared result (read it before the next call): no allocation per frame */
+const MOTION: PropMotion = { dx: 0, dy: 0, rot: 0 };
+
+const motion = (dx: number, dy: number, rot: number): PropMotion => {
+  MOTION.dx = dx;
+  MOTION.dy = dy;
+  MOTION.rot = rot;
+  return MOTION;
+};
+
+/**
+ * F6 prop life: a small idle motion per prop id at phase `t` (seconds + a per-obstacle offset). Drawing
+ * only — at most a few px, so the prop still sits on its hazard's hit box.
+ */
+export function propMotion(id: string, t: number): PropMotion {
+  switch (id) {
+    case 'paper-plane': return motion(0, Math.sin(t * 7) * 3, Math.sin(t * 7 + 0.6) * 0.18); // sine glide
+    case 'golf': case 'latte-bubble': return motion(0, 0, -t * 10); // rolling
+    case 'clipboard': case 'corp-card': case 'envelope': return motion(0, 0, t * 9); // spinning
+    case 'papers': case 'doc-tornado': case 'postit': case 'paper-jam':
+      return motion(Math.sin(t * 13) * 1.5, Math.sin(t * 9) * 1.5, Math.sin(t * 11) * 0.12); // fluttering
+    case 'cart': case 'robot': case 'whiteboard': return motion(0, -Math.abs(Math.sin(t * 18)) * 2, 0); // wheels bumping
+    case 'door': case 'revolving-door': case 'elevator': return motion(0, 0, Math.sin(t * 4) * 0.06); // swinging
+    default: return motion(0, Math.sin(t * 4) * 1.5, Math.sin(t * 3) * 0.05); // gentle bob
+  }
+}
+
+/** the hero's (visual) lane this frame, set by the office renderer */
+let heroLane = 1;
+
+export function setFocusLane(lane: number): void {
+  heroLane = lane;
+}
+
+/** the hero's (visual) lane this frame */
+export const focusLane = (): number => heroLane;
+
+/** the lane a held / thrown bundle is drawn in: follows the hero only once it is clearly in another lane */
+let held = 1;
+const HELD_SWITCH = 0.6;
+
+export function heldLane(): number {
+  if (Math.abs(heroLane - held) > HELD_SWITCH) held = Math.round(heroLane);
+  return held;
+}
+
+/**
+ * Declutter: a full-width hazard is drawn full size in the hero's lane and smaller in the other lanes, so
+ * three hero-sized props never stack on top of each other (the hit box is the lane, not the drawing).
+ */
+export function laneSizeK(d: number): number {
+  return 1 - 0.25 * Math.min(1, Math.abs(d - heroLane));
+}
+
+// ---------- beam stacks as a thrown bundle ----------
+
+export interface StackItem {
+  /** centre height above the floor (a beam height), x nudge and tilt of this item */
+  readonly height: number;
+  readonly dx: number;
+  readonly rot: number;
+}
+
+/** item size (logical px at depth scale 1): small enough to leave gaps between the beam heights */
+export const STACK_ITEM = 28;
+const STACKS: readonly (readonly StackItem[])[] = [1, 2, 3].map((level) =>
+  level === 1 ? [] : BEAM_H.slice(0, level).map((height, i) => ({ height, dx: (i - (level - 1) / 2) * 12, rot: (i - 1) * 0.16 + 0.05 })));
+
+/**
+ * A 2단/3단 beam drawn as a column of small items, one per beam height (its physical height stays the jump
+ * the beam asks for), instead of one hero-sized blob; a 1단 beam stays a single prop ([]).
+ */
+export function stackItems(level: number): readonly StackItem[] {
+  return STACKS[Math.min(3, Math.max(1, level)) - 1];
+}
+
+/** draw a stack around the column at x: item centres at their beam heights × `depth` above `floorY`, items × `size` */
+export function drawStack(
+  ctx: CanvasRenderingContext2D, img: HTMLImageElement, items: readonly StackItem[], x: number, floorY: number, depth: number,
+  size: number, flip: boolean, alpha: number, m: Readonly<PropMotion>,
+): void {
+  for (const it of items) {
+    ITEM_MOTION.dx = m.dx + it.dx * depth;
+    ITEM_MOTION.dy = m.dy;
+    ITEM_MOTION.rot = m.rot + it.rot;
+    drawProp(ctx, img, x, floorY - it.height * depth, STACK_ITEM * size, 0.5, flip, alpha, ITEM_MOTION);
+  }
+}
+
+const ITEM_MOTION: PropMotion = { dx: 0, dy: 0, rot: 0 };
