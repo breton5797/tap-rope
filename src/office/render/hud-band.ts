@@ -4,7 +4,7 @@
 import type { View } from '../../render/view';
 import type { Rect } from './surprise';
 
-const HUD_ROWS = '.hud__top, .hud__mid, .hud__bars, .boss:not([hidden]), .tut__card, .brief__card';
+const HUD_ROWS = '.hud__top, .hud__mid, .hud__bars, .boss:not([hidden]), .tut__card, .brief__card, .mission-card';
 const PHASE_LINE = '.bossline';
 const COUNTDOWN = '.countdown__num';
 const REFRESH = 0.25;

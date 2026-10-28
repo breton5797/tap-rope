@@ -112,26 +112,27 @@ export function drawFootprint(
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (cue === 'lane') {
-    // F8: the blocked lane as a full red strip (its whole floor width when `laneBand` is given)
-    // quiet (art review): a light strip with an outline, not the loudest colour on screen
+    // F8 the blocked lane, kept quiet (art review): a faint strip and an outlined ellipse, no filled block
     const half = laneBand > 0 ? laneBand / 2 : ry;
-    ctx.globalAlpha *= 0.14;
+    ctx.globalAlpha *= 0.08;
     ctx.fillStyle = color;
     ctx.fillRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
-    ctx.globalAlpha /= 0.14;
+    ctx.globalAlpha /= 0.08;
+    ctx.beginPath();
+    ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
+    ctx.globalAlpha *= 0.5;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.2;
-    ctx.globalAlpha *= 0.6;
-    ctx.strokeRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
-    ctx.globalAlpha /= 0.6;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
+    return;
   }
   ctx.beginPath();
   ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
-  const fill = cue === 'lane' ? 0.12 : 0.4;
-  ctx.globalAlpha *= fill;
+  ctx.globalAlpha *= 0.4;
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.globalAlpha /= fill;
+  ctx.globalAlpha /= 0.4;
   ctx.globalAlpha *= 0.9;
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.4;
@@ -248,18 +249,21 @@ export function propMotion(id: string, t: number): PropMotion {
 }
 
 /** the hero's (visual) lane this frame, set by the office renderer */
-let focusLane = 1;
+let heroLane = 1;
 
 export function setFocusLane(lane: number): void {
-  focusLane = lane;
+  heroLane = lane;
 }
+
+/** the hero's (visual) lane this frame */
+export const focusLane = (): number => heroLane;
 
 /**
  * Declutter: a full-width hazard is drawn full size in the hero's lane and smaller in the other lanes, so
  * three hero-sized props never stack on top of each other (the hit box is the lane, not the drawing).
  */
 export function laneSizeK(d: number): number {
-  return 1 - 0.25 * Math.min(1, Math.abs(d - focusLane));
+  return 1 - 0.25 * Math.min(1, Math.abs(d - heroLane));
 }
 
 // ---------- beam stacks as a thrown bundle ----------
@@ -274,7 +278,7 @@ export interface StackItem {
 /** item size (logical px at depth scale 1): small enough to leave gaps between the beam heights */
 export const STACK_ITEM = 28;
 const STACKS: readonly (readonly StackItem[])[] = [1, 2, 3].map((level) =>
-  level === 1 ? [] : BEAM_H.slice(0, level).map((height, i) => ({ height, dx: (i % 2 ? 1 : -1) * 7, rot: (i - 1) * 0.16 + 0.05 })));
+  level === 1 ? [] : BEAM_H.slice(0, level).map((height, i) => ({ height, dx: (i - (level - 1) / 2) * 12, rot: (i - 1) * 0.16 + 0.05 })));
 
 /**
  * A 2단/3단 beam drawn as a column of small items, one per beam height (its physical height stays the jump

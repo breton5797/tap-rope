@@ -14,7 +14,7 @@ import type { View } from '../../render/view';
 import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
 import {
   PROP_SIZE, beatIdOf, drawFootprint, drawProp, drawStack, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage,
-  propMotion, stackItems, type StackItem,
+  focusLane, propMotion, stackItems, type StackItem,
 } from './props';
 
 export * from '../../render/lasers';
@@ -118,6 +118,8 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
   const m = propMotion(propIdFor(o), phase(o, d, t) * (step === null ? 1 : 2));
   let x: number;
   let floorY: number;
+  // held / in flight: only the hero's lane bundle (three lanes' bundles from one hand read as one tall column)
+  if (step !== null && stack.length > 0 && d !== Math.round(focusLane())) return;
   if (step !== null) {
     // in flight from the hand: the bundle's bottom follows the arc to its join point
     const landX = projX(flyingPropCenter('front', join, v), d);
