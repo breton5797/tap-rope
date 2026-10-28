@@ -21,7 +21,7 @@ import {
 } from './rig-poses';
 import { J, P } from './rig-skeleton';
 import { newSpring, springKick, springStep } from './rig-spring';
-import { lookFor, type AgentLook, type LookId } from './skins';
+import { lookFor, tintLook, type AgentLook, type LookId } from './skins';
 import { clamp, oval, type Ctx } from './util';
 
 const SPIN_2 = 0.46;
@@ -119,7 +119,7 @@ export class AgentPainter {
   private lookOf(id: LookId, tint: string | null): AgentLook {
     if (!tint) return lookFor(id);
     if (!this.tinted || this.tinted.id !== id || this.tinted.tint !== tint) {
-      this.tinted = { id, tint, look: { ...lookFor(id), accent: tint } };
+      this.tinted = { id, tint, look: tintLook(lookFor(id), tint) };
     }
     return this.tinted.look;
   }

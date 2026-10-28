@@ -121,3 +121,12 @@ export const LOOKS: Readonly<Record<LookId, AgentLook>> = {
 export function lookFor(id: LookId): AgentLook {
   return LOOKS[id] ?? LOOKS.kid;
 }
+
+/**
+ * v8 (A5) colour variant: the accent (lens / LED / visor) AND its emissive bloom take the tint — the bloom is
+ * what reads at play size. Only #RRGGBB tints apply (the bloom gradient appends alpha digits).
+ */
+export function tintLook(base: AgentLook, tint: string): AgentLook {
+  if (!/^#[0-9a-fA-F]{6}$/.test(tint)) return base;
+  return { ...base, accent: tint, glow: base.glow ? { ...base.glow, color: tint } : base.glow };
+}
