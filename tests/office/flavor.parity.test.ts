@@ -18,7 +18,7 @@ describe('office copy', () => {
 
   it('uses no spy vocabulary (the game title 칼퇴근 대작전 aside)', () => {
     for (const [k, v] of Object.entries(COPY)) {
-      const text = v.split('칼퇴근 대작전').join('');
+      const text = v.split('칼퇴근 대작전').join('').split('대작전').join(''); // the title, also split over two lines
       for (const w of SPY_WORDS) expect(text, `${k}: ${v}`).not.toContain(w);
     }
   });

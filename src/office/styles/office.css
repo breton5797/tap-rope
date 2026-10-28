@@ -128,9 +128,30 @@ body {
 }
 
 /* ---------- title (key art stays dark at the bottom: keep its text light) ---------- */
+/* the Korean title is the big headline (칼퇴근 / 대작전); CLOCK OUT is the small sub-line */
+.logo__word {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: clamp(56px, 17vw, 96px);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-shadow: 0 4px 0 var(--outline), 0 0 14px rgba(46, 36, 51, 0.7);
+  -webkit-text-stroke: 2px var(--outline);
+  paint-order: stroke fill;
+}
+
+.logo__word2 {
+  color: #ff6f86;
+  text-shadow: 0 4px 0 var(--outline), 0 0 14px rgba(46, 36, 51, 0.7);
+}
+
 .logo__ko {
+  margin-top: 6px;
   color: #fff;
-  letter-spacing: 0.18em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.32em;
   text-shadow: 0 2px 0 var(--outline), 0 0 10px rgba(46, 36, 51, 0.8);
 }
 

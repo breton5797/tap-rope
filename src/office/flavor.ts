@@ -20,9 +20,10 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   // title
   titleLogoAria: '칼퇴근 대작전 CLOCK OUT',
   titleLogoCode: '야근상사 12F · 17:30',
-  titleLogoWord1: 'CLOCK',
-  titleLogoWord2: 'OUT',
-  titleLogoKo: '칼퇴근 대작전',
+  // big Korean headline, CLOCK OUT as the small sub-line
+  titleLogoWord1: '칼퇴근',
+  titleLogoWord2: '대작전',
+  titleLogoKo: 'CLOCK OUT',
   titleGuide: '퇴근 요령',
   titleStart: '퇴근 시작!',
   titleShop: '사원 선택',

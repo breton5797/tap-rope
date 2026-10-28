@@ -6,8 +6,8 @@ import { OFFICE_SWAPS } from '../../build/office-swaps';
 import { defaultSave } from '../../src/core/storage';
 
 const BANNED = /작전|요원|포로|경비|레이저|침투|MISSION|AGENT|본부|OPERATION|임무|기지|탈출|구출|거점|CLASSIFIED|OPERATIVE/;
-/** the game's own title, and the spec §5 laser-pointer gag (최팀장, an homage) */
-const ALLOWED = ['칼퇴근 대작전', '레이저 포인터'];
+/** the game's own title (whole, or its second line on the title screen), and the spec §5 laser-pointer gag */
+const ALLOWED = ['칼퇴근 대작전', '대작전', '레이저 포인터'];
 /** v8 values the office flavour re-exports only for export parity (never shown) */
 const PARITY_ONLY = new Set(['V8_COPY']);
 
