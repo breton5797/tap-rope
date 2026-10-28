@@ -18,7 +18,11 @@ interface PropFrame {
 const NO_CARTS: ReadonlyMap<number, string> = new Map();
 const frame: PropFrame = { slot: 'warden', seed: 1, carts: NO_CARTS };
 
+/** prop id per (beat, kind) for the current slot + seed (attackVariant hashes; draw calls repeat per frame) */
+const chosen = new Map<string, string>();
+
 export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<number, string> = NO_CARTS): void {
+  if (frame.slot !== slot || frame.seed !== seed || frame.carts !== carts) chosen.clear();
   frame.slot = slot;
   frame.seed = seed;
   frame.carts = carts;
@@ -53,8 +57,13 @@ export const beatIdOf = (o: Pick<VisibleObstacle, 'id'>): number => Number.parse
 /** the prop id for this obstacle in the current frame */
 export function propIdFor(o: Pick<VisibleObstacle, 'id' | 'kind'>): string {
   const beat = beatIdOf(o);
+  const key = `${beat}:${o.kind}`;
+  const hit = chosen.get(key);
+  if (hit !== undefined) return hit;
   const cart = LANE_HAZARD_KINDS.includes(o.kind) ? frame.carts.get(beat) : undefined;
-  return cart ?? attackVariant(frame.slot, attackKindOf(o), frame.seed, beat);
+  const id = cart ?? attackVariant(frame.slot, attackKindOf(o), frame.seed, beat);
+  chosen.set(key, id);
+  return id;
 }
 
 /** the prop sprite, or null (not loaded / missing: draw the v8 hazard) */

@@ -1,5 +1,5 @@
 // Office "깜놀" timing (office spec §6, §9): pure curves for the blackout and the boss-attack kick.
-import type { OfficeEvent } from '../core/events';
+import { BLACKOUT_FADE, type OfficeEvent } from '../core/events';
 
 export interface BlackoutAlpha {
   /** darkness over the scene (0..1) */
@@ -10,7 +10,7 @@ export interface BlackoutAlpha {
 
 const DARK = 0.8;
 const OUTLINE = 0.9;
-const FADE_OUT = 0.15;
+const FADE_OUT = BLACKOUT_FADE;
 const OFF: BlackoutAlpha = { scene: 0, outline: 0 };
 
 /** fully dark for the event window (outlines bright), then a short fade back */

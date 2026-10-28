@@ -17,12 +17,15 @@ import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
 import { drawClock } from './clock';
 import { hudBand } from './hud-band';
-import { preloadImages } from './images';
+import { OFFICE_ART, loadImages, preloadImages } from './images';
 import { setPropFrame } from './props';
 import { blackoutAlpha, surpriseKick } from './surprise';
 import { drawBlackout, drawBossBubble, drawBroadcast, drawFireDrill, drawHighFive } from './surprise-fx';
 
 export * from '../../render/index';
+
+/** the office sprites may hold the loading screen this long, then arrive late */
+const ART_TIMEOUT = 4000;
 
 /** how long the exit line stays up after the gauge runs out */
 const EXIT_LINE_TIME = 2.4;
@@ -43,6 +46,9 @@ function planFor(run: RenderRun): Plan {
 const activeAt = (events: readonly OfficeEvent[], kind: OfficeEvent['kind'], t: number): OfficeEvent | null =>
   events.find((e) => e.kind === kind && t >= e.time && t <= e.time + e.duration + 0.2) ?? null;
 
+/** an overlay error is reported once per session */
+let overlayWarned = false;
+
 const superiorOf = (id: BossView['id']) => OFFICE_BOSSES.find((b) => b.slot === id) ?? null;
 
 class OfficeRenderer implements Renderer {
@@ -62,15 +68,16 @@ class OfficeRenderer implements Renderer {
     this.ctx = canvas.getContext('2d');
     this.view = computeView(canvas.clientWidth || LOGICAL_W, canvas.clientHeight || LOGICAL_H, 1);
     this.sprites.setScale(this.view.k);
-    preloadImages(['hero-kid-run1', 'hero-cat-run1', 'hero-kid-jump', 'hero-cat-jump', 'hero-kid-slide', 'hero-cat-slide']);
+    preloadImages(OFFICE_ART);
   }
 
   get fx(): EffectsApi {
     return this.inner.fx;
   }
 
+  /** the v8 corridor art and the office sprites (sprites give up after ART_TIMEOUT; never rejects) */
   load(onProgress?: (done: number, total: number) => void): Promise<void> {
-    return this.inner.load(onProgress);
+    return Promise.all([this.inner.load(onProgress), loadImages(OFFICE_ART, ART_TIMEOUT)]).then(() => undefined, () => undefined);
   }
 
   resize(cssWidth: number, cssHeight: number, dpr: number, safeBottom = 0): void {
@@ -90,8 +97,13 @@ class OfficeRenderer implements Renderer {
     if (!ctx) return;
     try {
       this.overlay(ctx, snap, plan, run);
-    } catch {
-      // presentation only: a failed extra must never stop the game frame
+    } catch (e) {
+      // presentation only: a failed extra must never stop the game frame (dev builds surface it)
+      if (import.meta.env.DEV) throw e;
+      if (!overlayWarned) {
+        overlayWarned = true;
+        console.warn('office overlay failed; extras skipped this frame', e);
+      }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1;
     }

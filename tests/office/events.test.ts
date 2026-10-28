@@ -1,7 +1,7 @@
 // Office surprise events and attack variants (office spec §6): re-dresses of beats the v8 generator already
 // produced — never new beats — chosen once per run from the run seed (P3).
 import { describe, expect, it } from 'vitest';
-import { ATTACK_PROPS, OFFICE_PROPS, attackVariant, cartProp, planEvents, type OfficeEvent } from '../../src/office/core/events';
+import { ATTACK_PROPS, BLACKOUT_FADE, OFFICE_PROPS, attackVariant, cartProp, planEvents, type OfficeEvent } from '../../src/office/core/events';
 import { stageById } from '../../src/core/content';
 import { generateStage } from '../../src/core/levels';
 import { DEFAULT_PHYSICS } from '../../src/core/physics';
@@ -32,7 +32,12 @@ function checkEvent(e: OfficeEvent, beats: readonly Beat[]): void {
   if (e.kind === 'cart' || e.kind === 'fire-drill') expect(b.time - e.time).toBeGreaterThanOrEqual(WARN_LEAD - 1e-9);
   if (e.kind === 'blackout') {
     expect(e.duration).toBeCloseTo(1.5, 9);
-    for (const h of beats.filter(isHazard)) expect(Math.abs(h.time - e.time), `hazard ${h.id}`).toBeGreaterThanOrEqual(WARN_LEAD - 1e-9);
+    const end = e.time + e.duration + BLACKOUT_FADE;
+    for (const h of beats.filter(isHazard)) {
+      expect(Math.abs(h.time - e.time), `hazard ${h.id}`).toBeGreaterThanOrEqual(WARN_LEAD - 1e-9);
+      // the screen is lit again (fade included) before the next hazard's "!" lead starts
+      if (h.time > e.time) expect(h.time - WARN_LEAD - end, `hazard ${h.id} after blackout`).toBeGreaterThanOrEqual(-1e-9);
+    }
   }
 }
 
@@ -82,7 +87,7 @@ describe('planEvents', () => {
     expect(planEvents([], 1, 3)).toEqual([]);
   });
 
-  it('blackout window does not start within WARN_LEAD of a hazard', () => {
+  it('blackout window does not start within WARN_LEAD of a hazard and ends (with its fade) before the next warning', () => {
     let blackouts = 0;
     for (const n of [2, 3, 4, 5]) {
       for (const seed of SEEDS) {

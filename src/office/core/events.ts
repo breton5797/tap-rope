@@ -3,7 +3,8 @@
  * run from the run seed (P3: never from player input). Pure and deterministic in (beats, seed).
  * - Events only RE-DRESS beats the v8 generator + spacing already produced; nothing is inserted or moved:
  *   cart = a lane-hazard beat, fire-drill = a rear (from 'back') beat, highfive = a coin beat,
- *   blackout = a 1.5 s window inside a hazard-free gap (≥ WARN_LEAD from every hazard), broadcast = copy only.
+ *   blackout = a 1.5 s window (+ fade) inside a hazard-free gap, WARN_LEAD clear of the hazards on both sides,
+ *   broadcast = copy only.
  * - Beat-anchored hazard events start their presentation WARN_LEAD before the beat (the "!" lead).
  * - attackVariant: the prop a superior uses for a hazard beat, from that superior's spec §5 attacks that
  *   fit the attack kind (2–3 looks where the table allows), else a generic prop of that kind.
@@ -56,6 +57,8 @@ export function cartProp(seed: number, beatIndex: number): OfficePropId {
 }
 
 const BLACKOUT = 1.5;
+/** the blackout fades back over this long after its window (render/office surprise.ts) */
+export const BLACKOUT_FADE = 0.15;
 const BROADCAST = 3;
 const HIGHFIVE_LEAD = 0.5;
 
@@ -75,12 +78,15 @@ function candidates(kind: OfficeEventKind, beats: readonly Beat[], rng: () => nu
   }
 }
 
-/** a start inside each hazard-free gap that keeps WARN_LEAD from the hazards on both sides */
+/**
+ * A start inside each hazard-free gap so the whole blackout — window and fade — stays WARN_LEAD clear of
+ * the hazards on both sides: the next hazard's "!" lead always plays on a lit screen.
+ */
 function blackoutCandidates(beats: readonly Beat[], rng: () => number): OfficeEvent[] {
   const hz = beats.map((b, i) => ({ b, i })).filter((x) => isHazard(x.b));
   return hz.slice(1).flatMap((next, k) => {
     const prev = hz[k];
-    const room = next.b.time - prev.b.time - 2 * WARN_LEAD;
+    const room = next.b.time - prev.b.time - 2 * WARN_LEAD - BLACKOUT - BLACKOUT_FADE;
     if (room < 0) return [];
     return [{ kind: 'blackout' as const, beatIndex: prev.i, time: prev.b.time + WARN_LEAD + rng() * room, duration: BLACKOUT }];
   });

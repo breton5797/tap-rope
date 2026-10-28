@@ -39,11 +39,13 @@ function boxesOf(o: VisibleObstacle, v: View): Box[] {
       case 'drop': return [square(projX(fixedX(tu), d), projY(d, dropHeight(tu)), PROP_SIZE.drop * s, 1)];
       case 'chaser': return [square(projX(chaserX(tu, v), d), projY(d, 34), PROP_SIZE.chaser * s, 0.5)];
       case 'beam': case 'high': {
-        if (tu > ENTER_TIME) return [];
         const back = o.from === 'back';
-        const x = projX(flyingX(back ? 'back' : 'front', tu, v), d);
         const { bottom, h } = flyingSpan(o);
-        return [{ x: back ? x - h * s : x, y: projY(d, bottom + h), w: h * s, h: h * s }];
+        const y = projY(d, bottom + h);
+        // not on screen yet: outline it at the edge it will enter from (where its chevrons are)
+        if (tu > ENTER_TIME) return [{ x: back ? v.x0 + 2 : v.x0 + v.w - h * s - 2, y, w: h * s, h: h * s }];
+        const x = projX(flyingX(back ? 'back' : 'front', tu, v), d);
+        return [{ x: back ? x - h * s : x, y, w: h * s, h: h * s }];
       }
       default: return [];
     }

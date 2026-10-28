@@ -1,5 +1,8 @@
 // Office build (office spec §10) module swaps: repo-relative v8 module → its office replacement, which keeps
 // the same export surface (tests/office/swap.test.ts). Single source of truth for vite.office.config.ts and tests.
+// Resolution (build/swap-modules.ts): a replacement importing ITS OWN v8 original gets the original (so it can
+// re-export / extend it), but importing any OTHER swapped v8 module gets that module's office version — e.g.
+// src/office/render/index.ts → '../../render/index' is v8, while the v8 index's './lasers' is the office lasers.
 export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/flavor.ts': 'src/office/flavor.ts',
   'src/core/content.ts': 'src/office/core/content.ts',
