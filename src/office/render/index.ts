@@ -23,7 +23,7 @@ import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
 import {
   drawAttackCallout, drawBlackout, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive,
 } from './surprise-fx';
-import { setBossPose, type BossPose } from './boss-art';
+import { prepareBosses, setBossPose, type BossPose } from './boss-art';
 import { STEP_HZ, bossExit } from './boss-rigs';
 import { RELEASE, bossThrowFrame, launchFor, setThrowFrame } from './boss-throw';
 import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
@@ -51,6 +51,7 @@ interface Plan {
 }
 
 function planFor(run: RenderRun): Plan {
+  prepareBosses(OFFICE_BOSSES.filter((b) => b.stage === run.stageIndex + 1).map((b) => b.slot));
   const events = planEvents(run.beats, run.seed, run.stageIndex);
   const carts = new Map(events.filter((e) => e.kind === 'cart').map((e) => [e.beatIndex, cartProp(run.seed, e.beatIndex)]));
   return { beats: run.beats, seed: run.seed, events, carts };

@@ -8,17 +8,20 @@ import { BOSS_RIGS, type BossMotion, type BossRig, type Pt } from '../../render/
 export * from '../../render/boss-rigs';
 
 /** opaque-bbox aspect (w / h) of the delivered standing figures */
-export const PERSON_ASPECT = 0.42;
-/** drawn width as a share of the visible width (boss.ts clamps the scale to 0.7..1.7), anchor x share */
-const PERSON_FRAC = 0.25;
+export const PERSON_ASPECT = 0.56; // boss-art FRAME_ASPECT
+/**
+ * Drawn size: ~1.7× the hero's height on every screen (art review) — the share is tiny so boss.ts's scale clamp
+ * (0.7..1.7) pins it at 0.7 × W; anchor x share of the visible width.
+ */
+const PERSON_FRAC = 0.01;
 export const PERSON_FX = 0.76;
-const W = 110;
+const W = 150;
 const H = Math.round(W / PERSON_ASPECT);
 /** logical width the standing figure is drawn at (boss.ts scaleOf) */
 export const personWidth = (visibleW: number): number => W * Math.min(1.7, Math.max(0.7, (visibleW * PERSON_FRAC) / W));
 const at = (x: number, y: number): Pt => [x * W, y * H];
-/** the throwing hand (the figures face left, toward the hero): fractions of the drawn box */
-export const HAND_FRAC = { x: 0.2, y: 0.55 } as const;
+/** the throwing hand in the throw frames (the figures face left, toward the hero), ~30% down the box */
+export const HAND_FRAC = { x: 0.2, y: 0.3 } as const;
 const HAND = at(HAND_FRAC.x, HAND_FRAC.y);
 const SRC: Readonly<Record<BossAttackKind, Pt>> = { beam: HAND, floor: at(0.5, 0.97), ceiling: HAND, drone: HAND, lane: HAND };
 

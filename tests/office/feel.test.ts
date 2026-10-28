@@ -221,3 +221,16 @@ describe('popupShift (F11)', () => {
     expect(108 + popupShift(108, 100, 60) - 60).toBeGreaterThanOrEqual(100 - 1e-9);
   });
 });
+
+describe('boss framing (perf + AD: one scan per boss, same frame for every pose)', () => {
+  it('frames the idle figure in a fixed-aspect box (room for the throwing arm), bottom on its feet', async () => {
+    const { frameRectFrom, FRAME_ASPECT } = await import('../../src/office/render/boss-art');
+    const r = frameRectFrom({ x: 300, y: 40, w: 200, h: 900 }, 768, 1024);
+    expect(r.w / r.h).toBeCloseTo(FRAME_ASPECT, 2);
+    expect(r.y + r.h).toBeCloseTo(940, 6);
+    expect(r.x + r.w / 2).toBeCloseTo(400, 6);
+    const edge = frameRectFrom({ x: 0, y: 10, w: 300, h: 1000 }, 768, 1024);
+    expect(edge.x).toBeGreaterThanOrEqual(0);
+    expect(edge.x + edge.w).toBeLessThanOrEqual(768);
+  });
+});

@@ -48,8 +48,13 @@ function request(name: string): Entry | null {
   let done: () => void = () => undefined;
   const entry: Entry = { img, state: 'loading', settled: new Promise<void>((r) => (done = r)) };
   img.onload = () => {
-    entry.state = 'ok';
-    done();
+    // perf: decode off the frame path, so the first drawImage of a sprite mid-run doesn't stall
+    const ready = () => {
+      entry.state = 'ok';
+      done();
+    };
+    if (typeof img.decode === 'function') img.decode().then(ready, ready);
+    else ready();
   };
   img.onerror = () => {
     entry.state = 'missing';

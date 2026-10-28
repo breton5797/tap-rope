@@ -91,11 +91,45 @@ function opaqueBox(img: HTMLImageElement): FitRect {
 }
 
 /** the trimmed figure, fitted (contain) into the w×h box, bottom-aligned and centred */
-function bake(img: HTMLImageElement, w: number, h: number, k: number): Baked {
+/** source frame aspect (w / h): the standing figure plus room for a thrown arm */
+export const FRAME_ASPECT = 0.56;
+
+/**
+ * The source rect for every pose of one boss, from its idle figure's opaque box: FRAME_ASPECT wide around the
+ * figure's centre, feet on the bottom edge, a little headroom; clamped to the image. One rect per boss keeps
+ * the figure from jumping between poses (each frame trimmed separately would rescale it).
+ */
+export function frameRectFrom(box: Readonly<FitRect>, imgW: number, imgH: number): FitRect {
+  const h = Math.min(imgH, box.h * 1.04);
+  const bottom = Math.min(imgH, box.y + box.h);
+  const w = Math.min(imgW, h * FRAME_ASPECT);
+  const x = Math.min(imgW - w, Math.max(0, box.x + box.w / 2 - w / 2));
+  return { x, y: Math.max(0, bottom - h), w, h };
+}
+
+/** the frame rect per boss (one opaque scan of its idle figure) */
+const frames = new Map<BossId, FitRect>();
+
+function frameOf(id: BossId): FitRect | null {
+  const cached = frames.get(id);
+  if (cached) return cached;
+  const idle = officeImage(namesOf(id).idle);
+  if (!idle) return null;
+  const r = frameRectFrom(opaqueBox(idle), idle.naturalWidth, idle.naturalHeight);
+  frames.set(id, r);
+  return r;
+}
+
+/** scan the given bosses' idle figures ahead of time (stage start), so no scan happens mid-run */
+export function prepareBosses(ids: readonly BossId[]): void {
+  for (const id of ids) frameOf(id);
+}
+
+function bake(img: HTMLImageElement, w: number, h: number, k: number, rect: FitRect | null): Baked {
   const surf = makeCanvas(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
   const cw = surf.canvas.width;
   const ch = surf.canvas.height;
-  const b = opaqueBox(img);
+  const b = rect ?? opaqueBox(img);
   const s = Math.min(cw / b.w, ch / b.h);
   const dw = b.w * s;
   const dh = b.h * s;
@@ -130,11 +164,28 @@ export function bossPhoto(id: BossId, w: number, h: number, k: number): HTMLCanv
   let b = baked.get(usePose);
   if (!b || b.img !== img || Math.abs(b.k - k) > 0.05 || Math.abs(b.w - w) > 1 || Math.abs(b.h - h) > 1) {
     if (b) releaseCanvas(b.canvas);
-    b = bake(img, w, h, k);
+    b = bake(img, w, h, k, frameOf(id));
     baked.set(usePose, b);
   }
   Object.assign(FIT, b.fit);
+  prewarm(id, names, w, h, k);
   return b.canvas;
+}
+
+/**
+ * Perf: bake at most one not-yet-baked pose per frame ahead of use (one drawImage each; the frame rect is
+ * shared, so no per-pose scan), so a throw's six frames don't all bake in the frames the throw is shown.
+ */
+function prewarm(id: BossId, names: Record<BossPose, string>, w: number, h: number, k: number): void {
+  for (const p of POSES) {
+    const cur = baked.get(p);
+    if (cur && Math.abs(cur.k - k) <= 0.05 && Math.abs(cur.w - w) <= 1 && Math.abs(cur.h - h) <= 1) continue;
+    const img = officeImage(names[p]);
+    if (!img) continue;
+    if (cur) releaseCanvas(cur.canvas);
+    baked.set(p, bake(img, w, h, k, frameOf(id)));
+    return;
+  }
 }
 
 /** v8 contract: the current boss's figure is still loading (not known missing) */
