@@ -3,15 +3,22 @@
  * the controls card was seen — older saves without it load as false (same key and version).
  * v7: seen cutscenes, unlocked achievements (id → unix ms) and the daily streak; older saves load
  * them empty, each field validated on its own.
+ * v8: version 2 adds cosmetics (v1 saves migrate on load). A save written by a NEWER build is read
+ * leniently and never overwritten (writes are skipped while it is stored); a corrupt save is backed up
+ * before starting fresh. Storage problems reach the player once each through setStorageNotice.
  * parseSave validates untrusted JSON field by field and never throws; load/write
  * swallow storage errors (private mode, quota). All updates return new objects.
  */
-import type { AchievementId, CutsceneId, SaveData, Settings, SkinId } from '../types';
+import type { AchievementId, CutsceneId, SaveCosmetics, SaveData, Settings, SkinId } from '../types';
 import { ACHIEVEMENTS } from './achievements';
 import { CHAPTERS, SKINS, STAGES } from './content';
 import { CUTSCENES } from './cutscenes';
+import { NO_COSMETICS, cosmeticById } from './economy';
 
-const KEY = 'laserescape.save.v1'; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
+export const SAVE_KEY = 'laserescape.save.v1';
+const KEY = SAVE_KEY;
+export const SAVE_VERSION = 2;
+const CORRUPT_KEY = 'laserescape.save.corrupt'; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
 const SKIN_IDS: readonly SkinId[] = SKINS.map((s) => s.id);
 const CUTSCENE_IDS: readonly CutsceneId[] = CUTSCENES.map((c) => c.id);
 const ACHIEVEMENT_IDS: readonly AchievementId[] = ACHIEVEMENTS.map((a) => a.id);
@@ -28,9 +35,9 @@ const clampStars = (n: number) => Math.min(3, Math.max(0, Math.floor(n)));
 
 export function defaultSave(): SaveData {
   return {
-    version: 1, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
+    version: 2, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid'], skin: 'kid',
     settings: DEFAULT_SETTINGS, tutorialDone: false, briefed: [], controlsSeen: false,
-    seenCutscenes: [], achievements: {}, dailyStreak: NO_STREAK,
+    seenCutscenes: [], achievements: {}, dailyStreak: NO_STREAK, cosmetics: NO_COSMETICS,
   };
 }
 
@@ -57,11 +64,20 @@ function parseSkins(raw: unknown): SkinId[] {
   return SKIN_IDS.filter((id) => id === 'kid' || listed.includes(id));
 }
 
-export function parseSave(raw: unknown): SaveData {
-  if (!isRecord(raw) || (raw.version !== undefined && raw.version !== 1)) return defaultSave();
+/** Version a raw save claims: undefined/1 → 1, a positive integer as is, anything else → null. */
+function versionOf(raw: Rec): number | null {
+  if (raw.version === undefined) return 1;
+  return Number.isInteger(raw.version) && (raw.version as number) >= 1 ? (raw.version as number) : null;
+}
+
+/** Validates a v1/v2 save (v1 migrates: no cosmetics). `lenient` also reads a newer build's save. */
+export function parseSave(raw: unknown, lenient = false): SaveData {
+  if (!isRecord(raw)) return defaultSave();
+  const v = versionOf(raw);
+  if (v === null || (v > SAVE_VERSION && !lenient)) return defaultSave();
   const ownedSkins = parseSkins(raw.ownedSkins);
   return {
-    version: 1,
+    version: 2,
     stars: numberMap(raw.stars, clampStars),
     bestScores: numberMap(raw.bestScores, (n) => Math.max(0, Math.floor(n))),
     coins: isNum(raw.coins) ? Math.max(0, Math.floor(raw.coins)) : 0,
@@ -74,7 +90,22 @@ export function parseSave(raw: unknown): SaveData {
     seenCutscenes: parseSeen(raw.seenCutscenes),
     achievements: parseAchievements(raw.achievements),
     dailyStreak: parseStreak(raw.dailyStreak),
+    cosmetics: parseCosmetics(raw.cosmetics, ownedSkins),
   };
+}
+
+/** known, owned cosmetic ids; equipped slots only when owned and of the right kind / skin */
+function parseCosmetics(raw: unknown, skins: readonly SkinId[]): SaveCosmetics {
+  if (!isRecord(raw)) return NO_COSMETICS;
+  const listed = Array.isArray(raw.owned) ? raw.owned : [];
+  const owned = [...new Set(listed.filter((id): id is string => typeof id === 'string' && cosmeticById(id) !== undefined))];
+  const slot = (v: unknown, kind: string): string | null =>
+    typeof v === 'string' && owned.includes(v) && cosmeticById(v)?.kind === kind ? v : null;
+  const tintRaw = isRecord(raw.tint) ? raw.tint : {};
+  const tint = Object.fromEntries(skins
+    .map((skin) => [skin, slot(tintRaw[skin], 'tint')] as const)
+    .filter((e): e is readonly [SkinId, string] => e[1] !== null && cosmeticById(e[1])?.skin === e[0]));
+  return { owned, tint, trail: slot(raw.trail, 'trail'), ring: slot(raw.ring, 'ring'), frame: slot(raw.frame, 'frame') };
 }
 
 /** known cutscene ids, unique, in story order */
@@ -134,20 +165,143 @@ function defaultStore(): Storage | undefined {
   }
 }
 
-export function loadSave(store: Pick<Storage, 'getItem'> | undefined = defaultStore()): SaveData {
+// ---------- storage notices (shown once each as a toast; queued until the UI registers) ----------
+
+export const NOTICE = {
+  newer: '새 버전에서 만든 저장 데이터를 보호 중이에요. 앱을 최신으로 업데이트하면 이어서 진행돼요.',
+  corrupt: '저장 데이터가 손상되어 새로 시작해요. 이전 데이터는 따로 보관했어요.',
+  quota: '저장 공간이 부족해 진행 상황이 저장되지 않을 수 있어요.',
+} as const;
+type NoticeId = keyof typeof NOTICE;
+
+let noticeSink: ((msg: string) => void) | null = null;
+let pendingNotices: NoticeId[] = [];
+const noticed = new Set<NoticeId>();
+
+function notify(id: NoticeId): void {
+  if (noticed.has(id)) return;
+  noticed.add(id);
+  if (noticeSink) noticeSink(NOTICE[id]);
+  else pendingNotices = [...pendingNotices, id];
+}
+
+/** Registers the toast for storage notices and delivers the ones raised before the UI existed. */
+export function setStorageNotice(sink: ((msg: string) => void) | null): void {
+  noticeSink = sink;
+  if (!sink) return;
+  const due = pendingNotices;
+  pendingNotices = [];
+  for (const id of due) sink(NOTICE[id]);
+}
+
+/** test hook: forget which notices were shown */
+export function resetStorageNotices(): void {
+  noticed.clear();
+  pendingNotices = [];
+  noticeSink = null;
+}
+
+export type SaveStatus = 'new' | 'ok' | 'migrated' | 'newer' | 'corrupt';
+
+/** Reads the save and says what was found (migrated = a v1 save, newer = written by a newer build). */
+export function loadSaveState(
+  store: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'setItem'>> | undefined = defaultStore(),
+): { readonly save: SaveData; readonly status: SaveStatus } {
+  let text: string | null | undefined;
   try {
-    const text = store?.getItem(KEY);
-    return text ? parseSave(JSON.parse(text)) : defaultSave();
+    text = store?.getItem(KEY);
   } catch {
-    return defaultSave();
+    return { save: defaultSave(), status: 'new' };
+  }
+  if (!text) return { save: defaultSave(), status: 'new' };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    raw = undefined;
+  }
+  const v = isRecord(raw) ? versionOf(raw) : null;
+  if (v === null) {
+    try {
+      store?.setItem?.(CORRUPT_KEY, text); // keep the bytes for a manual rescue; the next write replaces KEY
+    } catch {
+      // nothing more we can do
+    }
+    return { save: defaultSave(), status: 'corrupt' };
+  }
+  if (v > SAVE_VERSION) return { save: parseSave(raw, true), status: 'newer' };
+  return { save: parseSave(raw), status: v < SAVE_VERSION ? 'migrated' : 'ok' };
+}
+
+export function loadSave(
+  store: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'setItem'>> | undefined = defaultStore(),
+): SaveData {
+  const { save, status } = loadSaveState(store);
+  if (status === 'newer' || status === 'corrupt') notify(status);
+  return save;
+}
+
+/** True while the stored save comes from a newer build (it must not be overwritten). */
+function storedIsNewer(store: Partial<Pick<Storage, 'getItem'>>): boolean {
+  try {
+    const text = store.getItem?.(KEY);
+    if (!text) return false;
+    const raw: unknown = JSON.parse(text);
+    const v = isRecord(raw) ? versionOf(raw) : null;
+    return v !== null && v > SAVE_VERSION;
+  } catch {
+    return false;
   }
 }
 
-export function writeSave(data: SaveData, store: Pick<Storage, 'setItem'> | undefined = defaultStore()): void {
+export type WriteResult = 'ok' | 'protected' | 'failed';
+
+export function writeSave(
+  data: SaveData, store: Pick<Storage, 'setItem'> & Partial<Pick<Storage, 'getItem'>> | undefined = defaultStore(),
+): WriteResult {
+  if (!store) return 'failed';
+  if (storedIsNewer(store)) {
+    notify('newer');
+    return 'protected';
+  }
   try {
-    store?.setItem(KEY, JSON.stringify(data));
+    store.setItem(KEY, JSON.stringify(data));
+    return 'ok';
   } catch {
-    // storage unavailable or full: progress simply isn't persisted
+    notify('quota'); // storage full or blocked: progress isn't persisted
+    return 'failed';
+  }
+}
+
+/**
+ * v8 multi-tab: calls `onChange` with the save another tab just wrote (the 'storage' event), so this tab
+ * stops overwriting it with stale progress. Returns an unsubscribe function.
+ */
+export function watchSave(
+  onChange: (save: SaveData) => void,
+  target: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> | undefined = typeof window === 'undefined' ? undefined : window,
+): () => void {
+  const listener = (e: Event): void => {
+    const { key, newValue } = e as StorageEvent;
+    if (key !== KEY || !newValue) return;
+    const { save, status } = loadSaveState({ getItem: () => newValue });
+    if (status === 'ok' || status === 'migrated' || status === 'newer') onChange(save);
+  };
+  target?.addEventListener('storage', listener);
+  return () => target?.removeEventListener('storage', listener);
+}
+
+let persistAsked = false;
+
+/** Asks the browser to keep this site's storage (Safari evicts script storage after 7 idle days). Once per page. */
+export function requestPersistentStorage(nav: { storage?: { persist?: () => Promise<boolean> } } | undefined =
+  typeof navigator === 'undefined' ? undefined : navigator): void {
+  if (persistAsked) return;
+  persistAsked = true;
+  try {
+    void nav?.storage?.persist?.().catch(() => false);
+  } catch {
+    // unsupported
   }
 }
 

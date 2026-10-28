@@ -1,5 +1,6 @@
 // Online client (GDD-v7 §3.3): plain fetch to the Supabase Edge Functions, identified by a random
-// device secret. Failures degrade to "offline" (null) — the only rejections are submitRun when the
+// device secret. v8: the device registers only when it first needs the server (a nickname, a run, a queued
+// run at boot), never just because the app started. Failures degrade to "offline" (null) — the only rejections are submitRun when the
 // server refuses a run (RunRejectedError) and leaderboard when it can't be loaded (LeaderboardUnavailableError).
 import type { AchievementId, Board, LeaderboardRow, OnlineApi, RunRecord } from '../types';
 
@@ -61,6 +62,8 @@ export interface OnlineDeps {
   readonly now?: () => number;
   readonly random?: (bytes: Uint8Array) => Uint8Array;
   readonly target?: Pick<EventTarget, 'addEventListener'>;
+  /** v8: false = the browser knows it is offline (navigator.onLine): queue at once instead of timing out */
+  readonly isOnline?: () => boolean;
 }
 
 const env = (key: string): string | undefined => {
@@ -109,6 +112,7 @@ export function createOnline(deps: OnlineDeps = {}): OnlineApi {
   const random = deps.random ?? ((b: Uint8Array) => crypto.getRandomValues(b));
   const target = deps.target ?? (typeof window === 'undefined' ? undefined : window);
   const enabled = Boolean(baseUrl && doFetch);
+  const isOnline = deps.isOnline ?? (() => typeof navigator === 'undefined' || navigator.onLine !== false);
 
   let identity: Identity | null = null;
   let registering: Promise<boolean> | null = null;
@@ -257,8 +261,8 @@ export function createOnline(deps: OnlineDeps = {}): OnlineApi {
           initialized = true;
           target?.addEventListener('online', () => void flush(true));
         }
-        if (await ensureRegistered()) await flush(true);
-        else scheduleFlush();
+        // v8: no registration at boot — only a queued run (or the leaderboard / a submit) registers
+        if (readQueue().length > 0) await flush(true);
       } catch {
         // offline start is fine
       }
@@ -290,7 +294,7 @@ export function createOnline(deps: OnlineDeps = {}): OnlineApi {
     async submitRun(record) {
       let outcome: SendOutcome;
       try {
-        outcome = await send(record);
+        outcome = enabled && !isOnline() ? 'retry' : await send(record);
       } catch {
         outcome = 'retry';
       }
@@ -320,7 +324,8 @@ export function createOnline(deps: OnlineDeps = {}): OnlineApi {
 
     async syncAchievements(unlocked: Readonly<Partial<Record<AchievementId, number>>>) {
       try {
-        if (Object.keys(unlocked).length === 0) return;
+        // never the reason to register: unregistered devices send the full set once they are known
+        if (Object.keys(unlocked).length === 0 || !loadIdentity().playerId) return;
         await authed('achievements', { method: 'POST', body: { unlocked } });
       } catch {
         // best effort; the full set is re-sent next time

@@ -81,9 +81,10 @@ function difficultyMeter(stage: StageDef): HTMLElement {
   );
 }
 
-/** Rank: three tick marks (v6 replaces stars). */
+/** Rank: three star glyphs (v8: the v6 2 px ticks were unreadable). */
 function starRow(n: number): HTMLElement {
-  return h('div', { cls: 'node__stars', attrs: { 'aria-label': `평가 ${n}/3` } }, [0, 1, 2].map((i) => h('i', { cls: i < n ? 'tick is-on' : 'tick' })));
+  return h('div', { cls: 'node__stars', attrs: { 'aria-label': `평가 ${n}/3` } }, [0, 1, 2].map((i) =>
+    h('i', { cls: i < n ? 'tick is-on' : 'tick', text: '★', attrs: { 'aria-hidden': 'true' } })));
 }
 
 export function trailPath(stages: readonly StageDef[]): SVGElement {

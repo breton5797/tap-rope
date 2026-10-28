@@ -63,6 +63,14 @@ export const icons = {
   sparkle: (): SVGElement => icon([line('M3 12h4M17 12h4M12 3v4M12 17v4'), ['circle', { ...LINE, cx: 12, cy: 12, r: 2.5 }]]),
   /** power bolt (overdrive) */
   fire: (): SVGElement => icon([fill('M13 2L5 14h6l-1 8 8-12h-6z')]),
+  /** v8: field manual (작전 교범) — no longer shares the archive's book icon */
+  help: (): SVGElement => icon([['circle', { ...LINE, cx: 12, cy: 12, r: 9 }], line('M9.5 9.5a2.5 2.5 0 114 2c-1 .7-1.5 1.2-1.5 2.5'), fill('M11 16.5h2v2h-2z')]),
+  /** v8: share (box + arrow up) */
+  share: (): SVGElement => icon([line('M12 3v12M7.5 7.5L12 3l4.5 4.5'), line('M5 11v10h14V11')]),
+  /** v8: challenge link */
+  link: (): SVGElement => icon([line('M10 14l4-4'), line('M8.5 11.5l-3 3a3.5 3.5 0 005 5l3-3'), line('M15.5 12.5l3-3a3.5 3.5 0 00-5-5l-3 3')]),
+  /** v8: device transfer (two arrows) */
+  transfer: (): SVGElement => icon([line('M4 8h14M14 4l4 4-4 4'), line('M20 16H6M10 12l-4 4 4 4')]),
 } as const;
 
 export type IconName = keyof typeof icons;

@@ -256,6 +256,8 @@ export interface SaveData {
   readonly skin: SkinId;
   readonly settings: Settings;
   readonly tutorialDone: boolean;
+  /** v8 (A1): moves the first-run tutorial freeze has taught (absent = none) */
+  readonly tutorialSteps?: readonly ('jump' | 'slide' | 'lane')[];
   /** chapters whose briefing card has been shown */
   readonly briefed: readonly number[];
   /** v5: the two-thumb controls card was shown (old saves load as false) */
@@ -480,6 +482,8 @@ export interface RenderSnapshot {
   readonly doors: readonly DoorView[];
   /** v7: the zone boss on boss stages, else null */
   readonly boss: BossView | null;
+  /** v8 (A3): seconds since the boss finisher landing (the boss blows up), absent / < 0 = none */
+  readonly bossFinish?: number;
 }
 
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';
@@ -641,8 +645,12 @@ export interface Ui {
   showAchievements(save: SaveData): void;
   showLeaderboard(board: Board, data: { readonly top: readonly LeaderboardRow[]; readonly mine: LeaderboardRow | null } | 'loading' | 'offline'): void;
   showNickname(current: string | null, onSubmit: (name: string) => Promise<string | null>): void;
-  /** v7: achievement unlocked banner (non-blocking) */
+  /** v7: achievement unlocked banner (non-blocking; v8: queued, one at a time) */
   toastAchievement(a: AchievementMeta): void;
+  /** v8 (A1): first-run tutorial freeze — hand glyph over the half to use; null = hide */
+  showTutorialStop(stop: { readonly step: 'jump' | 'slide' | 'lane'; readonly dir: LaneDir | null } | null): void;
+  /** v8 (A3): boss phase announcement ("PHASE 2" + attack name), fades by itself */
+  showBossLine(kicker: string, text: string): void;
 }
 
 // ---------- Audio contract ----------

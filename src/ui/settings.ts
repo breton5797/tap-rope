@@ -2,6 +2,7 @@
 import type { SaveData, Settings } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
+import { buildTransfer } from './transfer';
 
 interface ToggleDef {
   readonly key: keyof Settings;
@@ -20,6 +21,8 @@ const TOGGLES: readonly ToggleDef[] = [
 
 function toggleRow(ctx: Ctx, def: ToggleDef, get: () => Settings, set: (s: Settings) => void): HTMLElement {
   const on = get()[def.key];
+  // v8: the state is spelled out next to the switch (colour alone was ambiguous)
+  const state = h('span', { cls: `switch__state mono${on ? ' is-on' : ''}`, text: on ? 'ON' : 'OFF', attrs: { 'aria-hidden': 'true' } });
   const sw = h('button', {
     cls: `switch${on ? ' is-on' : ''}`,
     attrs: { type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': def.label },
@@ -27,12 +30,15 @@ function toggleRow(ctx: Ctx, def: ToggleDef, get: () => Settings, set: (s: Setti
   const row = h('div', { cls: 'setting' }, [
     h('span', { cls: `setting__icon tone--${def.tone}` }, [def.icon()]),
     h('div', { cls: 'setting__text' }, [h('div', { cls: 'setting__label', text: def.label }), h('div', { cls: 'setting__desc', text: def.desc })]),
+    state,
     sw,
   ]);
   const flip = ctx.tap(() => {
     const next: Settings = { ...get(), [def.key]: !get()[def.key] };
     sw.classList.toggle('is-on', next[def.key]);
     sw.setAttribute('aria-checked', String(next[def.key]));
+    state.textContent = next[def.key] ? 'ON' : 'OFF';
+    state.classList.toggle('is-on', next[def.key]);
     set(next);
   });
   row.addEventListener('click', flip);
@@ -50,9 +56,10 @@ export function buildSettings(ctx: Ctx, save: SaveData, onBack: () => void, onLo
     header(ctx, '설정', onBack, [], icons.back()),
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'card settings' }, TOGGLES.map((d) => toggleRow(ctx, d, () => current, set))),
+      buildTransfer(ctx, save),
       h('div', { cls: 'credits' }, [
         h('div', { cls: 'credits__logo mono', text: 'LASER ESCAPE // 레이저 탈출작전' }),
-        h('p', { text: 'v6 · 사운드 전량 절차 합성. 시설 사진은 로컬 생성 이미지.' }),
+        h('p', { text: 'v8 · 사운드 전량 절차 합성. 아트는 생성 이미지 기반.' }),
         h('p', { cls: 'credits__small', text: '통신 종료. 무사 귀환 바람.' }),
       ]),
     ]),

@@ -118,14 +118,15 @@
 }
 
 .tick {
-  width: 12px;
-  height: 3px;
-  background: rgba(196, 214, 224, 0.2);
+  color: rgba(196, 214, 224, 0.28);
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1;
 }
 
 .tick.is-on {
-  background: var(--teal);
-  box-shadow: 0 0 6px rgba(63, 224, 208, 0.6);
+  color: var(--amber);
+  text-shadow: 0 0 6px rgba(255, 176, 32, 0.6);
 }
 
 .node__name {
@@ -262,8 +263,8 @@
   font-family: var(--font-display);
   font-weight: 700;
   font-style: normal;
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   background: var(--amber);
 }
 

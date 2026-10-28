@@ -92,11 +92,11 @@ export function transitionFor(stage: StageLook, section: number): TransitionKind
 
 export const SKINS: readonly SkinMeta[] = [
   { id: 'kid', name: '에이전트 K', price: 0 },
-  { id: 'cat', name: '블랙캣', price: 60 },
-  { id: 'bunny', name: '해커', price: 90 },
-  { id: 'ninja', name: '섀도우', price: 140 },
-  { id: 'robot', name: 'R-7', price: 200 },
-  { id: 'astro', name: '특수부대', price: 300 },
+  { id: 'cat', name: '블랙캣', price: 70 },
+  { id: 'bunny', name: '해커', price: 250 },
+  { id: 'ninja', name: '섀도우', price: 450 },
+  { id: 'robot', name: 'R-7', price: 700 },
+  { id: 'astro', name: '특수부대', price: 1200 },
 ];
 
 export const STAGES: readonly StageDef[] = buildCampaign(CHAPTERS);

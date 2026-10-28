@@ -2,7 +2,7 @@
 import { CHAPTERS, STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
 import type { ChapterMeta, SaveData, StageDef } from '../types';
-import { h, header, type Ctx } from './dom';
+import { button, h, header, type Ctx } from './dom';
 import { icons } from './icons';
 import { firstIntroductions, stageNode, trailHeight, trailPath } from './stage-node';
 import { zoneArt, zoneKey } from './zone-art';
@@ -43,7 +43,11 @@ function chapterTabs(ctx: Ctx, save: SaveData, active: number, onPick: (c: numbe
     const on = c.id === active;
     const tab = h(
       'button',
-      { cls: `chap ${chapterSkin(c)}${on ? ' is-active' : ''}${open ? '' : ' is-locked'}`, attrs: { type: 'button', role: 'tab', 'aria-selected': String(on) } },
+      {
+        cls: `chap ${chapterSkin(c)}${on ? ' is-active' : ''}${open ? '' : ' is-locked'}`,
+        // locked zones stay browsable (briefing card) but are announced as such
+        attrs: { type: 'button', role: 'tab', 'aria-selected': String(on), 'aria-label': `구역 ${c.id + 1} ${c.name}${open ? '' : ' 잠김'}`, ...(open ? {} : { 'aria-disabled': 'true' }) },
+      },
       [h('span', { cls: 'chap__num' }, [open ? String(c.id + 1) : icons.lock()]), h('span', { cls: 'chap__name', text: c.name })],
     );
     tab.addEventListener('click', ctx.tap(() => onPick(c.id)));
@@ -115,8 +119,9 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
     h('span', { cls: 'chip__value', text: `${starsOf(save, STAGES)}/${STAGES.length * 3}` }),
   ]);
   requestAnimationFrame(() => centreNextNode(screen, ctx.reducedMotion()));
+  const ranking = button({ label: '랭킹', variant: 'glass', size: 'icon', icon: icons.crown(), cls: 'btn--rank', onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard('endless')) });
   screen.append(
-    header(ctx, '작전 지도', onBack, [total], icons.back()),
+    header(ctx, '작전 지도', onBack, [ranking, total], icons.back()),
     chapterTabs(ctx, save, active, pick),
     h('div', { cls: 'scroll' }, [chapterBody(ctx, save, active)]),
   );

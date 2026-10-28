@@ -1,6 +1,9 @@
 // v7 기록 보관소 (cutscene archive) and 업적 (achievements) screens (GDD-v7 §2, §3.1).
+// v8: achievement badges, progress (3/10) and ₵ rewards.
 import { ACHIEVEMENTS } from '../core/achievements';
 import { CUTSCENES } from '../core/cutscenes';
+import { ACH_REWARD } from '../core/economy';
+import { achievementProgress } from '../core/goals';
 import type { AchievementMeta, Cutscene, SaveData } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -43,12 +46,33 @@ export function formatDate(ms: number): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function achievementRow(a: AchievementMeta, at: number | undefined): HTMLElement {
+/** badge patch art (./art/ach/<id>.webp); the check / lock icon stays when it is missing */
+function badge(a: AchievementMeta, done: boolean): HTMLElement {
+  const box = h('span', { cls: 'ach__icon' }, [done ? icons.check() : icons.lock()]);
+  const img = h('img', { cls: 'ach__badge', attrs: { src: `./art/ach/${a.id}.webp`, alt: '', decoding: 'async' } });
+  img.addEventListener('load', () => box.replaceChildren(img));
+  return box;
+}
+
+function achievementRow(a: AchievementMeta, at: number | undefined, save: SaveData): HTMLElement {
   const done = at !== undefined;
-  return h('li', { cls: `ach${done ? ' is-done' : ''}`, attrs: { 'aria-label': `${a.name} — ${done ? `달성 ${formatDate(at)}` : '미달성'}` } }, [
-    h('span', { cls: 'ach__icon' }, [done ? icons.check() : icons.lock()]),
-    h('div', { cls: 'ach__body' }, [h('div', { cls: 'ach__name', text: a.name }), h('div', { cls: 'ach__desc', text: a.desc })]),
-    h('span', { cls: 'ach__date mono', text: done ? formatDate(at) : '—' }),
+  // v8: progress toward cumulative goals ("베테랑 94/150") and the ₵ reward
+  const prog = done ? null : achievementProgress(a.id, save);
+  const label = `${a.name} — ${done ? `달성 ${formatDate(at)}` : prog ? `진행 ${prog.cur}/${prog.max}` : '미달성'} · 보상 ₵${ACH_REWARD[a.id]}`;
+  return h('li', { cls: `ach${done ? ' is-done' : ''}`, attrs: { 'aria-label': label } }, [
+    badge(a, done),
+    h('div', { cls: 'ach__body' }, [
+      h('div', { cls: 'ach__name', text: a.name }),
+      h('div', { cls: 'ach__desc', text: a.desc }),
+      prog ? h('div', { cls: 'ach__prog', attrs: { 'aria-hidden': 'true' } }, [
+        h('span', { cls: 'ach__bar' }, [h('i', { style: { transform: `scaleX(${prog.cur / prog.max})` } })]),
+        h('span', { cls: 'ach__count mono', text: `${prog.cur}/${prog.max}` }),
+      ]) : null,
+    ]),
+    h('div', { cls: 'ach__side' }, [
+      h('span', { cls: 'ach__date mono', text: done ? formatDate(at) : '—' }),
+      h('span', { cls: 'ach__reward mono', text: `₵${ACH_REWARD[a.id]}` }),
+    ]),
   ]);
 }
 
@@ -67,7 +91,7 @@ export function buildAchievements(ctx: Ctx, save: SaveData, onBack: () => void):
           h('i', { style: { transform: `scaleX(${pct})` } }),
         ]),
       ]),
-      h('ul', { cls: 'ach__list' }, ordered.map((a) => achievementRow(a, unlocked[a.id]))),
+      h('ul', { cls: 'ach__list' }, ordered.map((a) => achievementRow(a, unlocked[a.id], save))),
     ]),
   ]);
 }
