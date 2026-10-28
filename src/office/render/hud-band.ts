@@ -1,10 +1,12 @@
 // Where the DOM HUD sits over the canvas, in logical px (office spec §9 copy placement): canvas extras go
-// below the HUD rows and the boss bar and clear of the boss phase line. Read from the DOM a few times a
+// below the HUD rows and the boss bar and clear of the boss phase line and the countdown digit. Read from the DOM a few times a
 // second; without a DOM (tests) nothing is reserved.
 import type { View } from '../../render/view';
+import type { Rect } from './surprise';
 
 const HUD_ROWS = '.hud__top, .hud__mid, .hud__bars, .boss:not([hidden]), .tut__card, .brief__card';
 const PHASE_LINE = '.bossline';
+const COUNTDOWN = '.countdown__num';
 const REFRESH = 0.25;
 
 export interface HudBand {
@@ -12,9 +14,11 @@ export interface HudBand {
   top: number;
   /** logical y under the boss phase line while it shows, else −Infinity */
   line: number;
+  /** the countdown digit's box (logical) while it shows, else null */
+  countdown: Rect | null;
 }
 
-const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY };
+const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null };
 let lastRead = Number.NEGATIVE_INFINITY;
 
 function lowest(selector: string, canvasTop: number): number {
@@ -34,6 +38,11 @@ export function hudBand(canvas: HTMLCanvasElement, v: View, realTime: number): R
   const toLogical = (css: number) => (Number.isFinite(css) ? (css - v.oy) / v.s : css);
   band.top = toLogical(lowest(HUD_ROWS, top));
   band.line = toLogical(lowest(PHASE_LINE, top));
+  const cd = document.querySelector<HTMLElement>(COUNTDOWN)?.getBoundingClientRect();
+  const left = canvas.getBoundingClientRect().left;
+  band.countdown = cd && cd.width > 0 && cd.height > 0
+    ? { left: (cd.left - left - v.ox) / v.s, right: (cd.right - left - v.ox) / v.s, top: toLogical(cd.top - top), bottom: toLogical(cd.bottom - top) }
+    : null;
   return band;
 }
 

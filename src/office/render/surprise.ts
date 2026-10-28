@@ -39,3 +39,24 @@ export function surpriseKick(t: number, attackTime: number): Kick {
   const k = age / KICK_TIME;
   return { zoom: 1 + KICK_ZOOM * Math.sin(k * Math.PI), shake: KICK_SHAKE * (1 - k) };
 }
+
+export interface Rect {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+const BUBBLE_GAP = 6;
+
+/**
+ * Centre y for a bubble (centre x, y, size w×h) that must not cover `avoid` (the countdown digit):
+ * its own spot when clear, else just above the digit if that stays under `minY` (the HUD), else just below.
+ */
+export function placeBubble(b: { x: number; y: number; w: number; h: number }, avoid: Rect | null, minY: number): number {
+  if (!avoid) return b.y;
+  const clear = b.x + b.w / 2 <= avoid.left || b.x - b.w / 2 >= avoid.right || b.y + b.h / 2 <= avoid.top || b.y - b.h / 2 >= avoid.bottom;
+  if (clear) return b.y;
+  const above = avoid.top - BUBBLE_GAP - b.h / 2;
+  return above - b.h / 2 >= minY ? above : avoid.bottom + BUBBLE_GAP + b.h / 2;
+}

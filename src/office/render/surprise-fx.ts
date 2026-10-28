@@ -10,11 +10,13 @@ import { chaserX, dropHeight } from '../../render/hazards';
 import { PROP_SIZE, flyingSpan } from './props';
 import { roundRect, type Ctx } from '../../render/util';
 import { clockY, laneTopY } from './clock';
+import { placeBubble, type Rect } from './surprise';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
 import type { View } from '../../render/view';
 
 /** how far below the face a bubble may be pushed by the DOM HUD before it waits */
 const MAX_DROP = 40;
+const BUBBLE_H = 26;
 const BUBBLE_FONT = '700 12px ui-rounded, system-ui, sans-serif';
 
 interface Box { x: number; y: number; w: number; h: number }
@@ -109,14 +111,17 @@ export function drawBroadcast(ctx: Ctx, v: View): void {
 }
 
 /** a superior's speech bubble beside the figure's face, kept under the DOM HUD rows and the phase line */
-export function drawBossBubble(ctx: Ctx, v: View, text: string, below: number): void {
+export function drawBossBubble(ctx: Ctx, v: View, text: string, below: number, avoid: Rect | null): void {
   const w = personWidth(v.w);
   const faceY = FLOOR_BACK - (w / PERSON_ASPECT) * 0.8;
   const x = Math.max(v.x0 + 120, v.x0 + v.w * PERSON_FX - w * 0.35 - 70);
   const y = Math.max(faceY, below + 18);
   // a DOM card (briefing, tutorial) covering the face: wait instead of dropping onto the hero
   if (y > faceY + MAX_DROP) return;
-  bubble(ctx, x, y, text, '#FFFFFF', '#1E2238', 'right');
+  ctx.font = BUBBLE_FONT;
+  const bw = Math.min(230, ctx.measureText(text).width + 22);
+  // never under the countdown digit: just above it (below the HUD) or just below it
+  bubble(ctx, x, placeBubble({ x, y, w: bw, h: BUBBLE_H }, avoid, below + 4), text, '#FFFFFF', '#1E2238', 'right');
 }
 
 function banner(ctx: Ctx, v: View, text: string, color: string, y: number): void {
@@ -138,7 +143,7 @@ function bubble(ctx: Ctx, x: number, y: number, text: string, fill: string, ink:
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const w = Math.min(230, ctx.measureText(text).width + 22);
-  const h = 26;
+  const h = BUBBLE_H;
   ctx.fillStyle = fill;
   ctx.strokeStyle = ink;
   ctx.lineWidth = 2;

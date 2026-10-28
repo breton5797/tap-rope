@@ -40,7 +40,7 @@ describe('office vocabulary', () => {
       for (const [name, value] of Object.entries(mod)) if (!PARITY_ONLY.has(name)) banned(value, `${path}:${name}`, out);
     }
     expect(out).toEqual([]);
-  });
+  }, 30_000); // imports every swapped module: slow on a busy machine
 
   it('goals stay on office stages and never point at daily / endless / shop', async () => {
     const { nextGoal } = await import('../../src/office/core/goals');

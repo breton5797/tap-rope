@@ -19,7 +19,7 @@ import { drawClock } from './clock';
 import { hudBand } from './hud-band';
 import { OFFICE_ART, loadImages, preloadImages } from './images';
 import { setPropFrame } from './props';
-import { blackoutAlpha, surpriseKick } from './surprise';
+import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
 import { drawBlackout, drawBossBubble, drawBroadcast, drawFireDrill, drawHighFive } from './surprise-fx';
 
 export * from '../../render/index';
@@ -132,7 +132,7 @@ class OfficeRenderer implements Renderer {
     if (five) drawHighFive(ctx, v, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time, band.top);
     const broadcast = activeAt(events, 'broadcast', t);
     if (broadcast) drawBroadcast(ctx, v);
-    this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line));
+    this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown);
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
     ctx.globalAlpha = 1;
   }
@@ -156,7 +156,7 @@ class OfficeRenderer implements Renderer {
   }
 
   /** catchphrase while the superior walks in, exit line once its gauge runs out */
-  private bubble(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number): void {
+  private bubble(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number, avoid: Rect | null): void {
     const b = snap.boss;
     if (!b || !snap.running) return;
     const who = superiorOf(b.id);
@@ -171,7 +171,7 @@ class OfficeRenderer implements Renderer {
     else if (b.state === 'intro') text = who.catchphrase;
     else if (broadcast) text = BROADCAST_LINE;
     if (text && broadcast && text !== who.exitLine) text = BROADCAST_LINE;
-    if (text) drawBossBubble(ctx, v, text, below);
+    if (text) drawBossBubble(ctx, v, text, below, avoid);
   }
 }
 
