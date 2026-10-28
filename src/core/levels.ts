@@ -10,7 +10,8 @@
  * v8 campaign-only shaping (stage.campaign; daily / endless never set it): each section opens on a warm-up
  * (sections.warmUp), an intro stage's first chunk with its new move gets ISOLATE seconds of room on both
  * sides, and a boss leaves a shield pickup in each door break (the boss staggers and drops a crate).
- * Also builds the endless chunk (moves unlock and tempo ramps per chunk, designed looks cycle)
+ * Also builds the endless chunk (moves unlock and tempo ramps per chunk, designed looks cycle; v8: after
+ * chunk 15 the tempo keeps rising by 1 bpm per chunk to 160 and each chunk is plain, mirrored or dense)
  * and the daily stage (campaign formula at d ≈ 0.55 with every move, look from the date seed).
  */
 import type { Beat, Door, JumpLevel, LaneId, Level, Obstacle, ObstacleKind, PhysicsConfig, StageDef } from '../types';
@@ -130,6 +131,9 @@ function placeSpecs(specs: readonly Spec[], starts: readonly number[], stage: St
   return { placed, doorSlots };
 }
 
+const mirrorLanes = (o: Obstacle): Obstacle =>
+  (o.lanes ? { ...o, lanes: o.lanes.map((l) => (LANES.length - 1 - l) as LaneId).sort((a, b) => a - b) } : o);
+
 /** The stage's beats and the section doors between them (deterministic from the seed). */
 export function generateStage(stage: StageDef, cfg: PhysicsConfig, startTime = 2.0): { beats: Beat[]; doors: Door[] } {
   const rng = mulberry32(stage.seed);
@@ -137,16 +141,19 @@ export function generateStage(stage: StageDef, cfg: PhysicsConfig, startTime = 2
   const { specs, starts } = splitSections(planSpecs(stage, rng), stage.sections);
   const ordered = stage.campaign ? warmUp(specs, starts) : specs;
   const { placed, doorSlots } = placeSpecs(blockStartLane(ordered), starts, stage, cfg, rng);
-  const beats = placed.map((p, id): Beat => ({
-    id,
-    time: startTime + p.slot * half,
-    obstacles: p.obstacles,
-    requiredLevel: p.required,
-    needsSlide: p.needsSlide,
-    pulse: p.pulse,
-    blockedLanes: blockedOf(p.obstacles),
-    section: p.section,
-  }));
+  const beats = placed.map((p, id): Beat => {
+    const obstacles = stage.mirror ? p.obstacles.map(mirrorLanes) : p.obstacles;
+    return {
+      id,
+      time: startTime + p.slot * half,
+      obstacles,
+      requiredLevel: p.required,
+      needsSlide: p.needsSlide,
+      pulse: p.pulse,
+      blockedLanes: blockedOf(obstacles),
+      section: p.section,
+    };
+  });
   const doors = doorSlots.map((slot, j): Door => ({
     time: startTime + slot * half,
     section: j + 1,
@@ -163,6 +170,30 @@ export function generateBeats(stage: StageDef, cfg: PhysicsConfig, startTime = 2
 
 const ENDLESS_HAZARDS = 18; // fits every move's quota (13 single moves + pulse needs 4)
 const ENDLESS_UNLOCK_PER_CHUNK = 4; // campaign stage numbers unlocked per chunk
+/** v8 late endless: from this chunk the tempo climbs 1 bpm per chunk up to ENDLESS_MAX_BPM */
+export const ENDLESS_LATE = 15;
+export const ENDLESS_MAX_BPM = 160;
+/** v8 dense chunk: a longer run between doors with fewer pickups and more pulse sections */
+const DENSE = { hazards: 24, pickupRate: 0.15, pulse: 0.15 } as const;
+
+export type EndlessVariant = 'plain' | 'mirror' | 'dense';
+
+/** v8: chunks after ENDLESS_LATE vary (seeded); earlier chunks are plain */
+export function endlessVariant(chunk: number, seed: number): EndlessVariant {
+  if (chunk <= ENDLESS_LATE) return 'plain';
+  return (['plain', 'mirror', 'dense'] as const)[hashString(`endless-variant:${seed}:${chunk}`) % 3];
+}
+
+function endlessBpm(chunk: number): number {
+  return chunk <= ENDLESS_LATE ? Math.min(140, 100 + chunk * 3) : Math.min(ENDLESS_MAX_BPM, 140 + chunk - ENDLESS_LATE);
+}
+
+function withVariant(def: StageDef, variant: EndlessVariant): StageDef {
+  if (variant === 'mirror') return { ...def, mirror: true };
+  if (variant !== 'dense') return def;
+  const mix = { ...def.mix, pulse: Math.min(1, def.mix.pulse + DENSE.pulse) };
+  return { ...def, mix, hazardBeats: DENSE.hazards, pickupRate: DENSE.pickupRate };
+}
 
 /** Endless chunk k: moves unlock like the campaign (4 stage numbers per chunk), tempo ramps. */
 export function endlessStage(chunk: number, seed: number): StageDef {
@@ -174,7 +205,8 @@ export function endlessStage(chunk: number, seed: number): StageDef {
     seed: hashString(`endless:${seed}:${chunk}`), unlockedOnly: true,
   });
   // one section: the session puts a door at every chunk boundary instead
-  return { ...def, bpm: Math.min(140, 100 + chunk * 3), hazardBeats: ENDLESS_HAZARDS, pickupRate: 0.25, sections: 1 };
+  const plain = { ...def, bpm: endlessBpm(chunk), hazardBeats: ENDLESS_HAZARDS, pickupRate: 0.25, sections: 1 };
+  return withVariant(plain, endlessVariant(chunk, seed));
 }
 
 const DAILY_D = 0.55;

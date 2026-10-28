@@ -4,19 +4,28 @@
  * - drone: airborne with level ≥ 2 → 'drone' (floor, slide or a 1단 hop are fine)
  * - high / ceiling: not sliding → 'standing'
  * - floor / beam L: sliding → 'slide'; on the floor or below CLEAR_H → 'low'; level < L → 'level'
- * Grades: jump beats perfect at height ≥ PERFECT_H; slide beats perfect when the slide is
- * 0.05–0.35s old; a lone drone or lane-only beat passed is perfect. Pickups need airborne + level ≥ L
- * (+ player.lane ∈ lanes when listed), never on a hit.
+ * v8 grades (GDD-v8 B) by how far the deciding input was from its ideal moment — pass / fail is unchanged:
+ * - jump: the ideal tap puts the apex of the last segment over the laser, so offset = time to that apex
+ *   (vy / gravity: + = rising = tapped late, − = falling = tapped early);
+ * - slide: ideal slide age SLIDE_IDEAL (offset = SLIDE_IDEAL − slideAge, + = started late);
+ * - lane: a dodge out of a blocked lane laneAge s before the beat is late by LANE_EARLY − laneAge
+ *   (0 when it came LANE_EARLY or more ahead, or no dodge was needed); lane + laser takes the worse;
+ * - |offset| ≤ PERFECT_WINDOW perfect, ≤ GREAT_WINDOW great, else good; a lone drone passed is perfect.
+ * Pickups need airborne + level ≥ L (+ player.lane ∈ lanes when listed), never on a hit.
  */
-import type { Beat, JudgeResult, Obstacle, ObstacleKind, PlayerState } from '../types';
+import type { Beat, Grade, JudgeResult, Obstacle, ObstacleKind, PhysicsConfig, PlayerState } from '../types';
 import { LANE_HAZARD_KINDS } from '../types';
-import { CLEAR_H, PERFECT_H } from './physics';
+import { CLEAR_H, DEFAULT_PHYSICS } from './physics';
 
 type MissReason = NonNullable<JudgeResult['reason']>;
 
 const PICKUPS: readonly ObstacleKind[] = ['coin', 'shield', 'slow', 'heart'];
-const SLIDE_PERFECT_MIN = 0.05;
-const SLIDE_PERFECT_MAX = 0.35;
+export const PERFECT_WINDOW = 0.05;
+export const GREAT_WINDOW = 0.11;
+/** slide age (s) at the beat for a perfect slide: the middle of the slide's safe span */
+export const SLIDE_IDEAL = 0.2;
+/** a lane dodge this long (s) or more before the beat counts as on time */
+export const LANE_EARLY = 0.16;
 
 const isJumpLaser = (k: ObstacleKind) => k === 'floor' || k === 'beam';
 const isSlideLaser = (k: ObstacleKind) => k === 'high' || k === 'ceiling';
@@ -40,16 +49,33 @@ function missReason(beat: Beat, p: PlayerState): MissReason | null {
   return null;
 }
 
-export function judgeBeat(beat: Beat, p: PlayerState): JudgeResult {
+export function gradeFor(offset: number): Grade {
+  const off = Math.abs(offset);
+  return off <= PERFECT_WINDOW + 1e-9 ? 'perfect' : off <= GREAT_WINDOW + 1e-9 ? 'great' : 'good';
+}
+
+/** + late / − early, for a beat whose blocked lanes the player already avoids */
+function laneOffset(beat: Beat, p: PlayerState): number {
+  const dodged = beat.blockedLanes.includes(p.laneFrom) && p.lane !== p.laneFrom;
+  return dodged ? Math.max(0, LANE_EARLY - p.laneAge) : 0;
+}
+
+/** the deciding input's offset from its ideal moment, or null for a beat without one (drone / pickups) */
+function inputOffset(beat: Beat, p: PlayerState, cfg: PhysicsConfig): number | null {
+  const kinds = beat.obstacles.map((o) => o.kind);
+  const lane = kinds.some((k) => LANE_HAZARD_KINDS.includes(k)) ? laneOffset(beat, p) : null;
+  const body = kinds.some(isJumpLaser) ? p.vy / cfg.gravity : kinds.some(isSlideLaser) ? SLIDE_IDEAL - p.slideAge : null;
+  if (body === null) return lane;
+  return lane === null || Math.abs(body) >= lane ? body : lane;
+}
+
+export function judgeBeat(beat: Beat, p: PlayerState, cfg: PhysicsConfig = DEFAULT_PHYSICS): JudgeResult {
   const reason = missReason(beat, p);
   if (reason) return { beatId: beat.id, grade: 'miss', hit: true, reason, collected: [] };
   const kinds = beat.obstacles.map((o) => o.kind);
   const collected = collect(beat, p);
-  const pass = (perfect: boolean): JudgeResult => ({
-    beatId: beat.id, grade: perfect ? 'perfect' : 'good', hit: false, reason: null, collected,
-  });
-  if (kinds.some(isJumpLaser)) return pass(p.height >= PERFECT_H);
-  if (kinds.some(isSlideLaser)) return pass(p.slideAge >= SLIDE_PERFECT_MIN && p.slideAge <= SLIDE_PERFECT_MAX);
-  if (kinds.includes('drone') || kinds.some((k) => LANE_HAZARD_KINDS.includes(k))) return pass(true);
-  return { beatId: beat.id, grade: 'none', hit: false, reason: null, collected };
+  const offset = inputOffset(beat, p, cfg);
+  if (offset !== null) return { beatId: beat.id, grade: gradeFor(offset), hit: false, reason: null, collected, offset };
+  const grade: Grade = kinds.includes('drone') ? 'perfect' : 'none';
+  return { beatId: beat.id, grade, hit: false, reason: null, collected };
 }

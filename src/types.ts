@@ -143,7 +143,8 @@ export interface PhysicsConfig {
   readonly slideTime: number; // seconds a slide lasts
 }
 
-export type Grade = 'perfect' | 'good' | 'miss' | 'none'; // none = pickup-only beat
+/** v8: perfect ±50 ms / great ±110 ms of the ideal input / good = the rest of the pass window */
+export type Grade = 'perfect' | 'great' | 'good' | 'miss' | 'none'; // none = pickup-only beat
 
 export interface JudgeResult {
   readonly beatId: number;
@@ -151,6 +152,8 @@ export interface JudgeResult {
   readonly hit: boolean; // a hazard hit the agent
   readonly reason: 'low' | 'level' | 'drone' | 'slide' | 'standing' | 'lane' | null;
   readonly collected: readonly ObstacleKind[]; // pickups collected
+  /** v8: seconds the deciding input was off its ideal moment (+ late, − early) on a graded pass; else absent */
+  readonly offset?: number;
 }
 
 export interface ScoreState {
@@ -158,6 +161,7 @@ export interface ScoreState {
   readonly combo: number;
   readonly maxCombo: number;
   readonly perfects: number;
+  readonly greats: number; // v8
   readonly goods: number;
   readonly misses: number;
   readonly feverGauge: number; // 0..1
@@ -207,6 +211,8 @@ export interface StageDef {
   readonly campaign?: true;
   /** v8: the move a campaign intro stage teaches */
   readonly intro?: MoveId;
+  /** v8 endless variant: lane hazards and pickups mirrored (lane 0 ↔ 2) */
+  readonly mirror?: true;
 }
 
 /** One of the 10 player-facing zones ("구역") of 10 stages each. Part 1 = rescue, part 2 = escape. */
@@ -477,7 +483,7 @@ export interface RenderSnapshot {
 }
 
 export type BurstKind = 'dust' | 'sparkle' | 'hit' | 'coin' | 'confetti' | 'powerup';
-export type PopupStyle = 'perfect' | 'good' | 'miss' | 'combo' | 'info';
+export type PopupStyle = 'perfect' | 'great' | 'good' | 'miss' | 'combo' | 'info';
 
 /** v7.1 (GDD-v7.1 §3): one-shot agent motion / impact cues — particles, post effects and the rig's reactions */
 export type ImpactKind = 'jump' | 'boost' | 'land' | 'slide' | 'lane' | 'bump' | 'pass' | 'graze' | 'hit' | 'shield';
@@ -574,6 +580,12 @@ export interface ResultMeta {
   /** endless: the seed (challenge link); vs = the challenger's score when this run used their seed */
   readonly seed: number | null;
   readonly vs: number | null;
+  /** leaderboard this run belongs to (endless / daily), for the 랭킹 button */
+  readonly board: Board | null;
+  /** hits taken this run (★3 rule line) */
+  readonly hits: number;
+  /** equipped result-card frame accent (hex), null = default card */
+  readonly frame: string | null;
 }
 
 export interface UiCallbacks {
@@ -598,6 +610,8 @@ export interface UiCallbacks {
   onOpenNickname(): void;
   /** v8: the menu changed the save (cosmetic bought / equipped); app persists it */
   onMetaChange?(next: SaveData): void;
+  /** v8: result card → 장비실 (first-mission reward) */
+  onOpenShop?(): void;
 }
 
 export interface Ui {

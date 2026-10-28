@@ -115,7 +115,9 @@ describe('bot clears every stage (all generated content is beatable)', () => {
       }
       expect(end.status).toBe('cleared');
       expect(end.hitsTaken).toBe(0);
-      expect(sessionStars(end)).toBeGreaterThanOrEqual(2);
+      // v8: the autoplay (attract demo, e2e) still plays every beat PERFECT under the tiered judging
+      expect({ greats: end.score.greats, goods: end.score.goods }).toEqual({ greats: 0, goods: 0 });
+      expect(sessionStars(end)).toBe(3);
       expect(sessionProgress(end)).toBe(1);
     });
   }
@@ -150,6 +152,15 @@ describe('bot clears every stage (all generated content is beatable)', () => {
     expect(end.endlessChunk).toBeGreaterThan(3);
     const ids = end.beats.map((b) => b.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('v8 late endless (past chunk 15: up to 160 bpm, mirror / dense chunks) stays beatable, all PERFECT', () => {
+    const end = runBot(createSession('endless', null, { seed: 2024 }), 720);
+    expect(end.status).toBe('playing');
+    expect(end.endlessChunk).toBeGreaterThan(30);
+    expect(end.bpm).toBeGreaterThanOrEqual(155);
+    expect(end.hitsTaken).toBe(0);
+    expect(end.score.greats + end.score.goods + end.score.misses).toBe(0);
   });
 });
 

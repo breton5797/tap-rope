@@ -40,13 +40,13 @@ describe('golden: server-simulated content', () => {
   });
 
   it('endless layouts are unchanged', () => {
-    expect(digest(endlessLayouts())).toBe('69d230b6b0b0e393');
+    expect(digest(endlessLayouts())).toBe('40408b5b355fc645'); // le-v8: chunks > 15 ramp to 160 bpm and vary
   });
 
   it('replay scores are unchanged (rule changes must update this with a SIM_VERSION bump)', () => {
     const runs = [scripted('daily', 0, '2026-10-28'), scripted('endless', 7, '2026-10-28'), scripted('endless', 2024, '2026-10-28')];
     const out = runs.map((r) => simulateRun(r));
     expect(out.every((o) => o.score > 0)).toBe(true); // the scripts must exercise judging, not die at once
-    expect({ sim: SIM_VERSION, digest: digest(out) }).toEqual({ sim: 'le-v7.1', digest: 'c76ef4841af43f0e' });
+    expect({ sim: SIM_VERSION, digest: digest(out) }).toEqual({ sim: 'le-v8', digest: 'd980adb3db083d46' });
   });
 });
