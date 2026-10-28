@@ -1,9 +1,10 @@
 // Office prop hazards (office spec §5): each hazard keeps its v8 position, timing and hit box; only its look
 // changes to the superior's prop (events.attackVariant) or, on a cart event's beat, the cart / robot.
 // The office renderer sets the frame context once per frame (setPropFrame) before anything is drawn.
-import type { BossAttackKind, BossId, ObstacleKind, VisibleObstacle } from '../../types';
+import type { BossAttackKind, BossId, LaserFrom, ObstacleKind, VisibleObstacle } from '../../types';
 import { LANE_HAZARD_KINDS } from '../../types';
-import { BEAM_H, HIGH_H } from '../../render/layout';
+import { BEAM_H, HIGH_H, flyingX } from '../../render/layout';
+import type { View } from '../../render/view';
 import { attackVariant } from '../core/events';
 import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
@@ -154,15 +155,66 @@ function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: n
   if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, x + dx * r, y + dy * r, w, h);
 }
 
-/** draw a prop with a dark comic outline around a white one, its centre-bottom (ay = 1) or centre (ay = 0.5) at (x, y); `flip` mirrors it */
-export function drawProp(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1): void {
+/**
+ * Draw a prop with a dark comic outline around a white one, its centre-bottom (ay = 1) or centre (ay = 0.5)
+ * at (x, y); `flip` mirrors it; `m` (F6) nudges it and turns it around its own centre.
+ */
+export function drawProp(
+  ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1,
+  m?: Readonly<PropMotion>,
+): void {
   const w = (h * img.naturalWidth) / img.naturalHeight;
   ctx.save();
   ctx.globalAlpha *= alpha;
-  ctx.translate(x, y);
+  // pivot at the prop's centre
+  ctx.translate(x + (m?.dx ?? 0), y - h * ay + h / 2 + (m?.dy ?? 0));
+  if (m && m.rot !== 0) ctx.rotate(m.rot);
   if (flip) ctx.scale(-1, 1);
-  ring(ctx, silhouette(img, INK), -w / 2, -h * ay, w, h, OUTLINE_INK);
-  ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h * ay, w, h, OUTLINE_WHITE);
-  ctx.drawImage(img, -w / 2, -h * ay, w, h);
+  ring(ctx, silhouette(img, INK), -w / 2, -h / 2, w, h, OUTLINE_INK);
+  ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h / 2, w, h, OUTLINE_WHITE);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
+}
+
+// ---------- v2 feel pack ----------
+
+/**
+ * F2: middle-lane x of a flying prop's centre — the beam head itself (v8 flyingX), so the prop covers the
+ * hero exactly when the judge decides (it used to trail behind the head by its own width).
+ */
+export function flyingPropCenter(from: LaserFrom, timeUntil: number, v: View): number {
+  return flyingX(from, timeUntil, v);
+}
+
+export interface PropMotion {
+  dx: number;
+  dy: number;
+  rot: number;
+}
+
+/** one shared result (read it before the next call): no allocation per frame */
+const MOTION: PropMotion = { dx: 0, dy: 0, rot: 0 };
+
+const motion = (dx: number, dy: number, rot: number): PropMotion => {
+  MOTION.dx = dx;
+  MOTION.dy = dy;
+  MOTION.rot = rot;
+  return MOTION;
+};
+
+/**
+ * F6 prop life: a small idle motion per prop id at phase `t` (seconds + a per-obstacle offset). Drawing
+ * only — at most a few px, so the prop still sits on its hazard's hit box.
+ */
+export function propMotion(id: string, t: number): PropMotion {
+  switch (id) {
+    case 'paper-plane': return motion(0, Math.sin(t * 7) * 3, Math.sin(t * 7 + 0.6) * 0.18); // sine glide
+    case 'golf': case 'latte-bubble': return motion(0, 0, -t * 10); // rolling
+    case 'clipboard': case 'corp-card': case 'envelope': return motion(0, 0, t * 9); // spinning
+    case 'papers': case 'doc-tornado': case 'postit': case 'paper-jam':
+      return motion(Math.sin(t * 13) * 1.5, Math.sin(t * 9) * 1.5, Math.sin(t * 11) * 0.12); // fluttering
+    case 'cart': case 'robot': case 'whiteboard': return motion(0, -Math.abs(Math.sin(t * 18)) * 2, 0); // wheels bumping
+    case 'door': case 'revolving-door': case 'elevator': return motion(0, 0, Math.sin(t * 4) * 0.06); // swinging
+    default: return motion(0, Math.sin(t * 4) * 1.5, Math.sin(t * 3) * 0.05); // gentle bob
+  }
 }

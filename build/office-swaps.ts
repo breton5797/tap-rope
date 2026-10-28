@@ -21,6 +21,7 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/render/post.ts': 'src/office/render/post.ts',
   'src/render/lane-style.ts': 'src/office/render/lane-style.ts',
   'src/render/view.ts': 'src/office/render/view.ts',
+  'src/render/boss-art.ts': 'src/office/render/boss-art.ts',
   'src/audio/music.ts': 'src/office/audio/music.ts',
   'src/audio/sfx.ts': 'src/office/audio/sfx.ts',
   'src/core/achievements.ts': 'src/office/core/achievements.ts',

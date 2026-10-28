@@ -46,8 +46,9 @@ function boxesOf(o: VisibleObstacle, v: View): Box[] {
         const y = projY(d, bottom + h);
         // not on screen yet: outline it at the edge it will enter from (where its chevrons are)
         if (tu > ENTER_TIME) return [{ x: back ? v.x0 + 2 : v.x0 + v.w - h * s - 2, y, w: h * s, h: h * s }];
+        // centred on the beam head, like the prop (F2)
         const x = projX(flyingX(back ? 'back' : 'front', tu, v), d);
-        return [{ x: back ? x - h * s : x, y, w: h * s, h: h * s }];
+        return [{ x: x - (h * s) / 2, y, w: h * s, h: h * s }];
       }
       default: return [];
     }
@@ -159,4 +160,31 @@ function bubble(ctx: Ctx, x: number, y: number, text: string, fill: string, ink:
   ctx.stroke();
   ctx.fillStyle = ink;
   ctx.fillText(text, x, y + 1, w - 12);
+}
+
+const CONFETTI = ['#FF9F1C', '#3B8BFF', '#E8344B', '#2FD27A', '#9B5CFF', '#FFE45C'];
+const CONFETTI_N = 36;
+/** a mission stamp's confetti burst lasts this long (s) */
+export const CONFETTI_TIME = 1.4;
+
+/** confetti burst from the top centre, `age` s after a mission stamp (no allocation) */
+export function drawConfetti(ctx: Ctx, v: View, age: number, top: number): void {
+  if (age < 0 || age > CONFETTI_TIME) return;
+  const fade = Math.min(1, (CONFETTI_TIME - age) / 0.4);
+  ctx.save();
+  for (let i = 0; i < CONFETTI_N; i++) {
+    const dir = ((i * 73) % 100) / 100 - 0.5; // −0.5..0.5
+    const speed = 120 + ((i * 41) % 90);
+    const x = v.x0 + v.w / 2 + dir * speed * 2 * age;
+    const y = top + 10 - speed * 1.2 * age + 380 * age * age;
+    const spin = age * (6 + (i % 5)) + i;
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = CONFETTI[i % CONFETTI.length];
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(spin);
+    ctx.fillRect(-3, -1.5, 6, 3);
+    ctx.restore();
+  }
+  ctx.restore();
 }

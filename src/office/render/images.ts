@@ -15,6 +15,20 @@ export const OFFICE_ART: readonly string[] = [
   ...OFFICE_BOSSES.map((b) => `boss-${b.slot}`),
 ];
 
+/**
+ * v2 feel pack art, used when present (older art sets lack it): 8-frame run, jump / slide phases, boss
+ * attack / tired frames, office pickup sprites and the stage collectibles.
+ */
+export const OFFICE_EXTRA_ART: readonly string[] = [
+  ...(['kid', 'cat'] as const).flatMap((skin) => [
+    ...['run5', 'run6', 'run7', 'run8', 'jump-launch', 'jump-apex', 'jump-spin', 'jump-glide', 'slide-in', 'slide-hold']
+      .map((f) => `hero-${skin}-${f}`),
+  ]),
+  ...OFFICE_BOSSES.flatMap((b) => [`boss-${b.slot}-attack`, `boss-${b.slot}-tired`]),
+  ...['coin', 'shield', 'slow', 'heart'].map((k) => `pickup-${k}`),
+  ...['coupon', 'docs', 'cookie', 'badge', 'envelope'].map((c) => `collect-${c}`),
+];
+
 interface Entry {
   img: HTMLImageElement;
   state: 'loading' | 'ok' | 'missing';
@@ -53,6 +67,13 @@ function entryFor(name: string, retry: boolean): Entry | null {
 export function officeImage(name: string): HTMLImageElement | null {
   const e = entryFor(name, false);
   return e && e.state === 'ok' && e.img.naturalWidth > 0 ? e.img : null;
+}
+
+/** load state of a sprite: requested on first ask */
+export function imageState(name: string): 'ok' | 'loading' | 'missing' {
+  const e = entryFor(name, false);
+  if (!e) return 'missing';
+  return e.state === 'ok' && e.img.naturalWidth > 0 ? 'ok' : e.state === 'loading' ? 'loading' : 'missing';
 }
 
 /** fetch `names` (retrying earlier failures); resolves when all settled or after `timeoutMs` */

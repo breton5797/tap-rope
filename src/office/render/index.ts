@@ -6,7 +6,7 @@
 import type { BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot } from '../../types';
 import { LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
 import { createRenderer as createV8Renderer } from '../../render/index';
-import { depthScale, laneY, visualLane } from '../../render/layout';
+import { FLOOR_FRONT, depthScale, laneY, visualLane } from '../../render/layout';
 import { drawLaserWarnings } from '../../render/lasers';
 import { SpriteCache } from '../../render/sprites';
 import { computeView, type View } from '../../render/view';
@@ -15,14 +15,21 @@ import { OFFICE_CLOCK } from '../core/content';
 import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
-import { drawClock } from './clock';
+import { drawClock, laneTopY } from './clock';
 import { hudBand } from './hud-band';
-import { OFFICE_ART, loadImages, preloadImages } from './images';
+import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import { setPropFrame } from './props';
 import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
-import { drawBlackout, drawBossBubble, drawBroadcast, drawFireDrill, drawHighFive } from './surprise-fx';
+import { drawBlackout, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive } from './surprise-fx';
+import { setBossPose } from './boss-art';
+import { setThrowFrame } from './boss-throw';
+import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
+import { setPickupFrame } from './gadgets';
 
 export * from '../../render/index';
+
+/** the boss shows its -attack frame until the thrown prop is this close (s) */
+const THROW_POSE_END = 0.5;
 
 /** the office sprites may hold the loading screen this long, then arrive late */
 const ART_TIMEOUT = 4000;
@@ -69,6 +76,7 @@ class OfficeRenderer implements Renderer {
     this.view = computeView(canvas.clientWidth || LOGICAL_W, canvas.clientHeight || LOGICAL_H, 1);
     this.sprites.setScale(this.view.k);
     preloadImages(OFFICE_ART);
+    preloadImages(OFFICE_EXTRA_ART);
   }
 
   get fx(): EffectsApi {
@@ -77,7 +85,7 @@ class OfficeRenderer implements Renderer {
 
   /** the v8 corridor art and the office sprites (sprites give up after ART_TIMEOUT; never rejects) */
   load(onProgress?: (done: number, total: number) => void): Promise<void> {
-    return Promise.all([this.inner.load(onProgress), loadImages(OFFICE_ART, ART_TIMEOUT)]).then(() => undefined, () => undefined);
+    return Promise.all([this.inner.load(onProgress), loadImages([...OFFICE_ART, ...OFFICE_EXTRA_ART], ART_TIMEOUT)]).then(() => undefined, () => undefined);
   }
 
   resize(cssWidth: number, cssHeight: number, dpr: number, safeBottom = 0): void {
@@ -92,6 +100,7 @@ class OfficeRenderer implements Renderer {
     const plan = run ? this.plan : null;
     const fallback = OFFICE_BOSSES.find((b) => b.stage === (run?.stageIndex ?? 0) + 1)?.slot ?? 'warden';
     setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts);
+    this.feelFrame(snap, run);
     this.inner.render(snap);
     const ctx = this.ctx;
     if (!ctx) return;
@@ -109,10 +118,32 @@ class OfficeRenderer implements Renderer {
     }
   }
 
+  /** v2 feel pack context for the swapped draw modules: throws, pickup sprites, boss pose */
+  private feelFrame(snap: RenderSnapshot, run: RenderRun | undefined): void {
+    const b = snap.boss;
+    setThrowFrame(snap.running && b !== null && b.state !== 'defeated', this.view);
+    if (run) setPickupFrame(run.beats, run.stageIndex);
+    // tired once this superior's own gauge is empty (stage 5: per section, so it never carries over)
+    if (!b) setBossPose('idle');
+    else if (b.hp <= 0 || b.state === 'defeated') setBossPose('tired');
+    else setBossPose(b.state === 'fight' && b.attack && b.attack.timeUntil > THROW_POSE_END ? 'attack' : 'idle');
+  }
+
   private overlay(ctx: CanvasRenderingContext2D, snap: RenderSnapshot, plan: Plan | null, run: RenderRun | undefined): void {
     const v = this.view;
     const t = snap.time;
     const band = hudBand(this.canvas, v, snap.realTime);
+    ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
+    // F1: the apron flows with the floor; fever speed lines
+    if (snap.running) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(v.x0, FLOOR_FRONT, v.w, laneTopY(v) - FLOOR_FRONT);
+      ctx.clip();
+      drawApronFlow(ctx, v, snap.scroll, laneTopY(v));
+      ctx.restore();
+      drawSpeedLines(ctx, v, snap.realTime, speedLineCount(snap.fever, snap.reducedMotion));
+    }
     this.kick(ctx, snap);
     ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
     const events = snap.running && plan ? plan.events : [];
@@ -133,6 +164,8 @@ class OfficeRenderer implements Renderer {
     const broadcast = activeAt(events, 'broadcast', t);
     if (broadcast) drawBroadcast(ctx, v);
     this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown);
+    const stampAt = (snap as { readonly mission?: { readonly stampAt?: number } }).mission?.stampAt;
+    if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
     ctx.globalAlpha = 1;
   }
