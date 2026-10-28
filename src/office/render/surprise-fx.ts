@@ -4,13 +4,18 @@
 import type { VisibleObstacle } from '../../types';
 import { HAZARD_KINDS } from '../../types';
 import {
-  BEAM_H, CEIL_LASER_END, CEIL_Y, ENTER_TIME, FLOOR_BACK, HIGH_H, depthScale, fixedX, flyingX, projX, projY,
+  CEIL_LASER_END, ENTER_TIME, FLOOR_BACK, depthScale, fixedX, flyingX, projX, projY,
 } from '../../render/layout';
 import { chaserX, dropHeight } from '../../render/hazards';
+import { PROP_SIZE, flyingSpan } from './props';
 import { roundRect, type Ctx } from '../../render/util';
-import { laneTopY } from './clock';
+import { clockY, laneTopY } from './clock';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
 import type { View } from '../../render/view';
+
+/** how far below the face a bubble may be pushed by the DOM HUD before it waits */
+const MAX_DROP = 40;
+const BUBBLE_FONT = '700 12px ui-rounded, system-ui, sans-serif';
 
 interface Box { x: number; y: number; w: number; h: number }
 
@@ -24,17 +29,18 @@ function boxesOf(o: VisibleObstacle, v: View): Box[] {
     const s = depthScale(d);
     const tu = o.timeUntil;
     switch (o.kind) {
-      case 'floor': return [{ x: projX(fixedX(tu), d) - 18 * s, y: projY(d, 34), w: 36 * s, h: 34 * s }];
-      case 'ceiling': return [{ x: projX(fixedX(tu), d) - 20 * s, y: projY(d, CEIL_LASER_END + 46), w: 40 * s, h: 46 * s }];
-      case 'drone': return [{ x: projX(fixedX(tu), d) - 18 * s, y: projY(d, 160) - 17 * s, w: 36 * s, h: 34 * s }];
-      case 'guard': return [{ x: projX(fixedX(tu), d) - 24 * s, y: projY(d, 70), w: 48 * s, h: 70 * s }];
-      case 'drop': return [{ x: projX(fixedX(tu), d) - 22 * s, y: projY(d, dropHeight(tu) + 46), w: 44 * s, h: 46 * s }];
-      case 'chaser': return [{ x: projX(chaserX(tu, v), d) - 24 * s, y: projY(d, 34) - 22 * s, w: 48 * s, h: 44 * s }];
+      case 'floor': return [{ x: projX(fixedX(tu), d) - 20 * s, y: projY(d, PROP_SIZE.floor), w: 40 * s, h: PROP_SIZE.floor * s }];
+      case 'ceiling': return [{ x: projX(fixedX(tu), d) - 25 * s, y: projY(d, CEIL_LASER_END + PROP_SIZE.ceiling), w: 50 * s, h: PROP_SIZE.ceiling * s }];
+      case 'drone': return [{ x: projX(fixedX(tu), d) - 22 * s, y: projY(d, 160) - 22 * s, w: 44 * s, h: PROP_SIZE.drone * s }];
+      case 'guard': return [{ x: projX(fixedX(tu), d) - 28 * s, y: projY(d, PROP_SIZE.guard), w: 56 * s, h: PROP_SIZE.guard * s }];
+      case 'drop': return [{ x: projX(fixedX(tu), d) - 26 * s, y: projY(d, dropHeight(tu) + PROP_SIZE.drop), w: 52 * s, h: PROP_SIZE.drop * s }];
+      case 'chaser': return [{ x: projX(chaserX(tu, v), d) - 26 * s, y: projY(d, 34) - 26 * s, w: 52 * s, h: PROP_SIZE.chaser * s }];
       case 'beam': case 'high': {
         if (tu > ENTER_TIME) return [];
-        const x = projX(flyingX(o.from === 'back' ? 'back' : 'front', tu, v), d);
-        const hs = o.kind === 'high' ? [HIGH_H] : BEAM_H.slice(0, Math.max(1, o.level));
-        return hs.map((h) => ({ x: x - 4 * s, y: projY(d, h) - 14 * s, w: 36 * s, h: 28 * s }));
+        const back = o.from === 'back';
+        const x = projX(flyingX(back ? 'back' : 'front', tu, v), d);
+        const { bottom, h } = flyingSpan(o);
+        return [{ x: back ? x - h * s : x, y: projY(d, bottom + h), w: h * s, h: h * s }];
       }
       default: return [];
     }
@@ -71,30 +77,41 @@ export function drawFireDrill(ctx: Ctx, v: View, age: number, reduced: boolean):
   g.addColorStop(1, `rgba(255,40,60,${0.35 * pulse})`);
   ctx.fillStyle = g;
   ctx.fillRect(v.x0, v.y0, v.w, v.h);
-  banner(ctx, v, '소방훈련! 뒤에서 와요', '#FF4D6A', CEIL_Y + 18);
+  banner(ctx, v, '소방훈련! 뒤에서 와요', '#FF4D6A', bannerY(v));
 }
 
-/** high five: "같이 퇴근하자!" popup over the hero */
-export function drawHighFive(ctx: Ctx, x: number, y: number, age: number): void {
+/** surprise banners sit in the free band just above the clock (below every DOM HUD row) */
+export function bannerY(v: View): number {
+  return clockY(v) - 34 / v.s;
+}
+
+/** high five: "같이 퇴근하자!" popup over the hero, kept inside the view and under the DOM HUD rows */
+export function drawHighFive(ctx: Ctx, v: View, x: number, y: number, age: number, below: number): void {
+  const text = '하이파이브! 같이 퇴근하자!';
+  ctx.font = BUBBLE_FONT;
+  const half = Math.min(230, ctx.measureText(text).width + 22) / 2;
   const k = Math.min(1, age / 0.15);
   ctx.save();
-  ctx.translate(x, y - 20 * k);
+  ctx.translate(Math.max(v.x0 + half + 6, Math.min(v.x0 + v.w - half - 6, x)), Math.max(below + 22, y - 20 * k));
   ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
-  bubble(ctx, 0, 0, '하이파이브! 같이 퇴근하자!', '#FFE45C', '#3A2A00', 'down');
+  bubble(ctx, 0, 0, text, '#FFE45C', '#3A2A00', 'down');
   ctx.restore();
 }
 
 /** company broadcast: banner across the top */
 export function drawBroadcast(ctx: Ctx, v: View): void {
-  banner(ctx, v, '사내방송: 사장님 깜짝 순시 중', '#5CC8FF', CEIL_Y + 18);
+  banner(ctx, v, '사내방송: 사장님 깜짝 순시 중', '#5CC8FF', bannerY(v));
 }
 
-/** a superior's speech bubble beside the standing figure's face (boss-rigs placement) */
-export function drawBossBubble(ctx: Ctx, v: View, text: string): void {
+/** a superior's speech bubble beside the figure's face, kept under the DOM HUD rows and the phase line */
+export function drawBossBubble(ctx: Ctx, v: View, text: string, below: number): void {
   const w = personWidth(v.w);
   const faceY = FLOOR_BACK - (w / PERSON_ASPECT) * 0.8;
   const x = Math.max(v.x0 + 120, v.x0 + v.w * PERSON_FX - w * 0.35 - 70);
-  bubble(ctx, x, faceY, text, '#FFFFFF', '#1E2238', 'right');
+  const y = Math.max(faceY, below + 18);
+  // a DOM card (briefing, tutorial) covering the face: wait instead of dropping onto the hero
+  if (y > faceY + MAX_DROP) return;
+  bubble(ctx, x, y, text, '#FFFFFF', '#1E2238', 'right');
 }
 
 function banner(ctx: Ctx, v: View, text: string, color: string, y: number): void {
@@ -112,7 +129,7 @@ function banner(ctx: Ctx, v: View, text: string, color: string, y: number): void
 
 /** rounded bubble centred on (x, y) with a tail pointing down or down-right */
 function bubble(ctx: Ctx, x: number, y: number, text: string, fill: string, ink: string, tail: 'down' | 'right'): void {
-  ctx.font = '700 12px ui-rounded, system-ui, sans-serif';
+  ctx.font = BUBBLE_FONT;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const w = Math.min(230, ctx.measureText(text).width + 22);

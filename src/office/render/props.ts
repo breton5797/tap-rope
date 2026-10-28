@@ -3,6 +3,7 @@
 // The office renderer sets the frame context once per frame (setPropFrame) before anything is drawn.
 import type { BossAttackKind, BossId, VisibleObstacle } from '../../types';
 import { LANE_HAZARD_KINDS } from '../../types';
+import { BEAM_H, HIGH_H } from '../../render/layout';
 import { attackVariant } from '../core/events';
 import { officeImage } from './images';
 
@@ -20,6 +21,18 @@ export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<numb
   frame.slot = slot;
   frame.seed = seed;
   frame.carts = carts;
+}
+
+/** drawn prop heights in logical px at depth scale 1: each prop fills its hazard's footprint */
+export const PROP_SIZE = { floor: 38, ceiling: 56, drone: 42, guard: 74, drop: 54, chaser: 52, high: 36 } as const;
+
+/**
+ * A flying hazard as one prop: a head-height prop around the 'high' beam, or a beam stack as one prop
+ * standing on the floor up to just over its top beam (1단 32, 2단 56, 3단 80 px: its height reads as the jump).
+ */
+export function flyingSpan(o: Pick<VisibleObstacle, 'kind' | 'level'>): { bottom: number; h: number } {
+  if (o.kind === 'high') return { bottom: HIGH_H - PROP_SIZE.high / 2, h: PROP_SIZE.high };
+  return { bottom: 0, h: BEAM_H[Math.min(3, Math.max(1, o.level)) - 1] + 16 };
 }
 
 /** the attack kind a hazard obstacle is delivered as (boss.ts attackKind, per obstacle) */

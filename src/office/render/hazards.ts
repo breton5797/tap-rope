@@ -8,13 +8,10 @@ import { CHASE_ENTER, chaserX, dropHeight, drawLaneHazards as v8LaneHazards, tar
 import type { SpriteCache } from '../../render/sprites';
 import { oval, type Ctx } from '../../render/util';
 import type { View } from '../../render/view';
-import { drawProp, propImage } from './props';
+import { PROP_SIZE, drawProp, propImage } from './props';
 
 export * from '../../render/hazards';
 
-const GUARD_H = 70;
-const DROP_H = 46;
-const CHASER_H = 44;
 const CHASER_Y = 34;
 
 function shadow(ctx: Ctx, x: number, y: number, rx: number, a: number): void {
@@ -31,18 +28,18 @@ function propHazard(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
   if (o.kind === 'guard') {
     const p = project(fixedX(tu), lane, 0);
     shadow(ctx, p.x, p.y, 20 * s, 0.35);
-    drawProp(ctx, img, p.x, p.y, GUARD_H * s, 1);
+    drawProp(ctx, img, p.x, p.y, PROP_SIZE.guard * s, 1);
   } else if (o.kind === 'drop') {
     const x = projX(fixedX(tu), lane);
     const k = Math.min(1, Math.max(0, 1 - tu / WARN_LEAD));
     shadow(ctx, x, laneY(lane), (24 - 5 * k) * s, 0.1 + 0.5 * k);
     if (tu <= WARN_LEAD && tu > 0.1) targetRing(ctx, x, laneY(lane) + 1, s, t, reduced, 0.4 + 0.6 * k);
-    drawProp(ctx, img, x, projY(lane, dropHeight(tu)), DROP_H * s, 1);
+    drawProp(ctx, img, x, projY(lane, dropHeight(tu)), PROP_SIZE.drop * s, 1);
   } else if (o.kind === 'chaser' && tu <= CHASE_ENTER) {
     const x = projX(chaserX(tu, v), lane);
     shadow(ctx, x, laneY(lane), 15 * s, 0.3);
     // it comes from behind, facing the way it runs
-    drawProp(ctx, img, x, projY(lane, CHASER_Y), CHASER_H * s, 0.5, true);
+    drawProp(ctx, img, x, projY(lane, CHASER_Y), PROP_SIZE.chaser * s, 0.5, true);
   }
 }
 

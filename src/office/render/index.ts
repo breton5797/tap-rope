@@ -16,6 +16,7 @@ import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
 import { drawClock } from './clock';
+import { hudBand } from './hud-band';
 import { preloadImages } from './images';
 import { setPropFrame } from './props';
 import { blackoutAlpha, surpriseKick } from './surprise';
@@ -99,6 +100,7 @@ class OfficeRenderer implements Renderer {
   private overlay(ctx: CanvasRenderingContext2D, snap: RenderSnapshot, plan: Plan | null, run: RenderRun | undefined): void {
     const v = this.view;
     const t = snap.time;
+    const band = hudBand(this.canvas, v, snap.realTime);
     this.kick(ctx, snap);
     ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
     const events = snap.running && plan ? plan.events : [];
@@ -115,10 +117,10 @@ class OfficeRenderer implements Renderer {
     const drill = activeAt(events, 'fire-drill', t);
     if (drill) drawFireDrill(ctx, v, t - drill.time, snap.reducedMotion);
     const five = activeAt(events, 'highfive', t);
-    if (five) drawHighFive(ctx, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time);
+    if (five) drawHighFive(ctx, v, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time, band.top);
     const broadcast = activeAt(events, 'broadcast', t);
     if (broadcast) drawBroadcast(ctx, v);
-    this.bubble(ctx, v, snap, broadcast !== null);
+    this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line));
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
     ctx.globalAlpha = 1;
   }
@@ -142,7 +144,7 @@ class OfficeRenderer implements Renderer {
   }
 
   /** catchphrase while the superior walks in, exit line once its gauge runs out */
-  private bubble(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean): void {
+  private bubble(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number): void {
     const b = snap.boss;
     if (!b || !snap.running) return;
     const who = superiorOf(b.id);
@@ -157,7 +159,7 @@ class OfficeRenderer implements Renderer {
     else if (b.state === 'intro') text = who.catchphrase;
     else if (broadcast) text = BROADCAST_LINE;
     if (text && broadcast && text !== who.exitLine) text = BROADCAST_LINE;
-    if (text) drawBossBubble(ctx, v, text);
+    if (text) drawBossBubble(ctx, v, text, below);
   }
 }
 

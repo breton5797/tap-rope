@@ -3,21 +3,42 @@
 // the v8 laser. Warnings and contact points are the v8 ones.
 import type { VisibleObstacle } from '../../types';
 import {
-  ARM_TIME, BEAM_H, CEIL_H, CEIL_LASER_END, CHARGE_TIME, ENTER_TIME, HIGH_H, SPAN_D0, SPAN_D1, depthScale, fixedX,
+  ARM_TIME, CEIL_H, CEIL_LASER_END, CHARGE_TIME, ENTER_TIME, SPAN_D0, SPAN_D1, depthScale, fixedX,
   flyingX, projX, projY,
 } from '../../render/layout';
 import { drawLaserSeg as v8LaserSeg } from '../../render/lasers';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
-import { drawProp, propImage } from './props';
+import { PROP_SIZE, drawProp, flyingSpan, propImage } from './props';
 
 export * from '../../render/lasers';
 
+/** the superiors' aim / throw lines (boss.ts imports these): a comic orange, not a red laser */
+export const LASER_RED = '#FF9F1C';
+
+/** a comic "swoosh" throw line (boss.ts launch tracers): dark outline, coloured stroke, white core */
+export function beam(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, color: string, a: number, w = 1): void {
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.globalAlpha = a * 0.6;
+  ctx.strokeStyle = '#1E2238';
+  ctx.lineWidth = 5 * w;
+  ctx.stroke();
+  ctx.globalAlpha = a;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3 * w;
+  ctx.stroke();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 1 * w;
+  ctx.stroke();
+  ctx.restore();
+}
+
 const LANES: readonly number[] = [0, 1, 2];
-const FLOOR_PROP_H = 34;
-const CEIL_PROP_H = 46;
-const FLY_PROP_H = 28;
 /** props in the agent's lane read first; the other lanes are dimmed like the v8 lasers */
 const DIM = 0.4;
 
@@ -34,7 +55,7 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   const x = projX(fixedX(tu), d);
   const s = depthScale(d);
   if (o.kind === 'floor') {
-    drawProp(ctx, img, x, projY(d, 0), FLOOR_PROP_H * s, 1, false, a * presence);
+    drawProp(ctx, img, x, projY(d, 0), PROP_SIZE.floor * s, 1, false, a * presence);
     return;
   }
   // ceiling: the prop hangs on a line from the ceiling, its bottom where the v8 curtain ends
@@ -45,10 +66,10 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   ctx.lineWidth = 1.2 * s;
   ctx.beginPath();
   ctx.moveTo(x, projY(d, CEIL_H));
-  ctx.lineTo(x, yEnd - CEIL_PROP_H * s);
+  ctx.lineTo(x, yEnd - PROP_SIZE.ceiling * s);
   ctx.stroke();
   ctx.globalAlpha = 1;
-  drawProp(ctx, img, x, yEnd, CEIL_PROP_H * s, 1, false, a * presence);
+  drawProp(ctx, img, x, yEnd, PROP_SIZE.ceiling * s, 1, false, a * presence);
 }
 
 function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle, d: number, a: number): void {
@@ -56,10 +77,10 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
   const back = o.from === 'back';
   const x = projX(flyingX(back ? 'back' : 'front', o.timeUntil, v), d);
   const s = depthScale(d);
-  const hs = o.kind === 'high' ? [HIGH_H] : BEAM_H.slice(0, Math.min(3, Math.max(1, o.level)));
+  const { bottom, h } = flyingSpan(o);
   // the prop's leading edge is where the v8 beam head is
-  const dx = (back ? -1 : 1) * FLY_PROP_H * 0.5 * s;
-  for (const h of hs) drawProp(ctx, img, x + dx, projY(d, h), FLY_PROP_H * s, 0.5, back, a);
+  const dx = (back ? -1 : 1) * h * 0.5 * s;
+  drawProp(ctx, img, x + dx, projY(d, bottom), h * s, 1, back, a);
 }
 
 /** v8 drawLaserSeg contract: every full-width hazard in the depth segment [d0, d1) */
