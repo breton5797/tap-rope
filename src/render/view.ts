@@ -48,19 +48,35 @@ export function zoomAmount(cssW: number, cssH: number): number {
   return Math.max(0, Math.min(1, (ZOOM_NONE_AT - a) / (ZOOM_NONE_AT - ZOOM_FULL_AT)));
 }
 
+/** camera framing: zoom over the fit scale on wide (t = 0) and tall portrait (t = 1) screens, and where the
+ * agent / floor sit on the full portrait framing (fractions of the screen) */
+export interface Camera {
+  readonly wideZoom: number;
+  readonly portraitZoom: number;
+  readonly agentFrac: number;
+  readonly floorFrac: number;
+}
+
+/** v8 (GDD-v8 A2) */
+export const V8_CAMERA: Camera = { wideZoom: 1, portraitZoom: PORTRAIT_ZOOM, agentFrac: AGENT_FRAC, floorFrac: FLOOR_FRAC };
+
 export function computeView(cssW: number, cssH: number, dprRaw: number, safeBottom = 0): View {
+  return computeViewWith(V8_CAMERA, cssW, cssH, dprRaw, safeBottom);
+}
+
+export function computeViewWith(cam: Camera, cssW: number, cssH: number, dprRaw: number, safeBottom = 0): View {
   const cw = Math.max(1, cssW);
   const ch = Math.max(1, cssH);
   const dpr = Math.min(MAX_DPR, Math.max(1, Number.isFinite(dprRaw) ? dprRaw : 1));
   const fit = Math.min(cw / LOGICAL_W, ch / LOGICAL_H);
   const t = zoomAmount(cw, ch);
-  const zoom = 1 + (PORTRAIT_ZOOM - 1) * t;
+  const zoom = cam.wideZoom + (cam.portraitZoom - cam.wideZoom) * t;
   const s = fit * zoom;
   // blend the centred fit framing toward the zoomed framing (agent / floor anchored)
   const agentFit = ((cw - LOGICAL_W * fit) / 2 + PLAYER_X * fit) / cw;
   const floorFit = ((ch - LOGICAL_H * fit) / 2 + GROUND_Y * fit) / ch;
-  const ox = (agentFit + (AGENT_FRAC - agentFit) * t) * cw - PLAYER_X * s;
-  const oy = (floorFit + (FLOOR_FRAC - floorFit) * t) * ch - GROUND_Y * s;
+  const ox = (agentFit + (cam.agentFrac - agentFit) * t) * cw - PLAYER_X * s;
+  const oy = (floorFit + (cam.floorFrac - floorFit) * t) * ch - GROUND_Y * s;
   // rhythm lane: fit scale, hit ring under the agent; docked to the bottom safe area when zoomed
   const ls = fit;
   const lox = ox + PLAYER_X * s - PLAYER_X * ls;

@@ -6,38 +6,30 @@ import { WARN_LEAD } from '../../types';
 import { depthScale, fixedX, laneY, project, projX, projY } from '../../render/layout';
 import { CHASE_ENTER, chaserX, dropHeight, drawLaneHazards as v8LaneHazards, targetRing } from '../../render/hazards';
 import type { SpriteCache } from '../../render/sprites';
-import { oval, type Ctx } from '../../render/util';
+import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
-import { PROP_SIZE, drawProp, propImage } from './props';
+import { PROP_SIZE, drawFootprint, drawProp, propImage } from './props';
 
 export * from '../../render/hazards';
 
 const CHASER_Y = 34;
-
-function shadow(ctx: Ctx, x: number, y: number, rx: number, a: number): void {
-  ctx.fillStyle = '#000000';
-  ctx.globalAlpha = a;
-  oval(ctx, x, y + 1, rx, rx * 0.22);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-}
 
 function propHazard(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle, lane: number, t: number, reduced: boolean): void {
   const tu = o.timeUntil;
   const s = depthScale(lane);
   if (o.kind === 'guard') {
     const p = project(fixedX(tu), lane, 0);
-    shadow(ctx, p.x, p.y, 20 * s, 0.35);
+    drawFootprint(ctx, o.kind, p.x, p.y, PROP_SIZE.guard * 0.6 * s);
     drawProp(ctx, img, p.x, p.y, PROP_SIZE.guard * s, 1);
   } else if (o.kind === 'drop') {
     const x = projX(fixedX(tu), lane);
     const k = Math.min(1, Math.max(0, 1 - tu / WARN_LEAD));
-    shadow(ctx, x, laneY(lane), (24 - 5 * k) * s, 0.1 + 0.5 * k);
+    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.drop * 0.7 * s, 0.5 + 0.5 * k);
     if (tu <= WARN_LEAD && tu > 0.1) targetRing(ctx, x, laneY(lane) + 1, s, t, reduced, 0.4 + 0.6 * k);
     drawProp(ctx, img, x, projY(lane, dropHeight(tu)), PROP_SIZE.drop * s, 1);
   } else if (o.kind === 'chaser' && tu <= CHASE_ENTER) {
     const x = projX(chaserX(tu, v), lane);
-    shadow(ctx, x, laneY(lane), 15 * s, 0.3);
+    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.chaser * 0.6 * s);
     // it comes from behind, facing the way it runs
     drawProp(ctx, img, x, projY(lane, CHASER_Y), PROP_SIZE.chaser * s, 0.5, true);
   }

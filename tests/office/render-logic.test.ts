@@ -1,7 +1,8 @@
 // Office rendering helpers (office plan Task 5): sprite frame choice, blackout darkness, boss-attack kick.
 import { describe, expect, it } from 'vitest';
-import { heroFrame, heroLean } from '../../src/office/render/hero-frames';
-import { blackoutAlpha, surpriseKick } from '../../src/office/render/surprise';
+import { frameFallbacks, heroFrame, heroLean } from '../../src/office/render/hero-frames';
+import { blackoutAlpha, placeBubble, surpriseKick } from '../../src/office/render/surprise';
+import { ACTION_COLORS, actionCue } from '../../src/office/render/props';
 import { initialPlayer } from '../../src/core/physics';
 import type { PlayerState } from '../../src/types';
 import type { OfficeEvent } from '../../src/office/core/events';
@@ -67,5 +68,41 @@ describe('surpriseKick', () => {
     expect(peak).toBeCloseTo(1.06, 3);
     expect(surpriseKick(5.02, 5).shake).toBeGreaterThan(0);
     for (let i = 0; i <= 15; i++) expect(surpriseKick(5 + i * 0.01, 5).zoom).toBeLessThanOrEqual(1.06 + 1e-9);
+  });
+});
+
+describe('actionCue', () => {
+  it('colours each hazard by the move that beats it (rhythm-lane chips)', () => {
+    expect(actionCue('floor')).toBe('jump');
+    expect(actionCue('beam')).toBe('jump');
+    expect(actionCue('high')).toBe('slide');
+    expect(actionCue('ceiling')).toBe('slide');
+    expect(actionCue('drone')).toBe('low');
+    for (const k of ['guard', 'drop', 'chaser'] as const) expect(actionCue(k)).toBe('lane');
+    expect(new Set(Object.values(ACTION_COLORS)).size).toBe(4);
+  });
+});
+
+describe('frameFallbacks', () => {
+  it('tries the wanted frame, then the run cycle, then any other frame (never the v8 figure while one is loaded)', () => {
+    expect(frameFallbacks('run3').slice(0, 4)).toEqual(['run3', 'run1', 'run2', 'run4']);
+    expect(frameFallbacks('jump')[0]).toBe('jump');
+    expect(frameFallbacks('jump')[1]).toBe('run1');
+    for (const f of ['run1', 'jump', 'slide', 'hit', 'win'] as const) expect(new Set(frameFallbacks(f)).size).toBe(8);
+  });
+});
+
+describe('placeBubble', () => {
+  const digit = { left: 150, top: 220, right: 210, bottom: 300 };
+  it('keeps its spot when clear of the countdown', () => {
+    expect(placeBubble({ x: 120, y: 180, w: 200, h: 26 }, null, 100)).toBe(180);
+    expect(placeBubble({ x: 120, y: 180, w: 100, h: 26 }, { ...digit, left: 400, right: 450 }, 100)).toBe(180);
+  });
+
+  it('moves above the countdown digit when there is room under the HUD, else below it', () => {
+    const y = placeBubble({ x: 180, y: 260, w: 200, h: 26 }, digit, 100);
+    expect(y + 13).toBeLessThanOrEqual(220);
+    const low = placeBubble({ x: 180, y: 260, w: 200, h: 26 }, digit, 210);
+    expect(low - 13).toBeGreaterThanOrEqual(300);
   });
 });

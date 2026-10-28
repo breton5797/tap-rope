@@ -10,7 +10,7 @@ import { drawLaserSeg as v8LaserSeg } from '../../render/lasers';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
-import { PROP_SIZE, drawProp, flyingSpan, propImage } from './props';
+import { PROP_SIZE, drawFootprint, drawProp, flyingSpan, propImage } from './props';
 
 export * from '../../render/lasers';
 
@@ -39,8 +39,8 @@ export function beam(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, c
 }
 
 const LANES: readonly number[] = [0, 1, 2];
-/** props in the agent's lane read first; the other lanes are dimmed like the v8 lasers */
-const DIM = 0.4;
+/** props in the agent's lane read first; the other lanes dim only a little (distant hazards stay readable) */
+const DIM = 0.75;
 
 const isSheet = (o: VisibleObstacle) => !o.lanes && (o.kind === 'floor' || o.kind === 'ceiling' || o.kind === 'beam' || o.kind === 'high');
 
@@ -54,6 +54,7 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   if (presence <= 0.01) return;
   const x = projX(fixedX(tu), d);
   const s = depthScale(d);
+  drawFootprint(ctx, o.kind, x, projY(d, 0), (o.kind === 'floor' ? PROP_SIZE.floor : PROP_SIZE.ceiling) * s, a * presence);
   if (o.kind === 'floor') {
     drawProp(ctx, img, x, projY(d, 0), PROP_SIZE.floor * s, 1, false, a * presence);
     return;
@@ -80,6 +81,7 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
   const { bottom, h } = flyingSpan(o);
   // the prop's leading edge is where the v8 beam head is
   const dx = (back ? -1 : 1) * h * 0.5 * s;
+  drawFootprint(ctx, o.kind, x + dx, projY(d, 0), h * s, a);
   drawProp(ctx, img, x + dx, projY(d, bottom), h * s, 1, back, a);
 }
 

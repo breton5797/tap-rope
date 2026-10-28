@@ -7,7 +7,7 @@ import { AgentPainter as V8AgentPainter, type AgentFrame } from '../../render/ag
 import { cueAge } from '../../render/cues';
 import { RIG_SIZE } from '../../render/rig';
 import type { Ctx } from '../../render/util';
-import { heroFrame, heroLean, type HeroFrameId } from './hero-frames';
+import { frameFallbacks, heroFrame, heroLean, type HeroFrameId } from './hero-frames';
 import { officeImage } from './images';
 
 export * from '../../render/agent';
@@ -45,8 +45,19 @@ export class AgentPainter {
     this.prevMood = f.mood;
     const skin = f.id === 'cat' ? 'cat' : 'kid';
     const hitAge = Math.min(cueAge('hit'), f.mood === 'hurt' ? f.t - this.hitStart : Infinity);
-    const frame = heroFrame(f.p, f.t, { running: f.running, hitAge, win: f.mood === 'cheer' });
-    const img = f.civilian ? null : officeImage(`hero-${skin}-${frame}`);
+    const wanted = heroFrame(f.p, f.t, { running: f.running, hitAge, win: f.mood === 'cheer' });
+    // a frame still loading (or being replaced) borrows a loaded one: no mid-run switch to the v8 figure
+    let frame = wanted;
+    let img: HTMLImageElement | null = null;
+    if (!f.civilian) {
+      for (const k of frameFallbacks(wanted)) {
+        img = officeImage(`hero-${skin}-${k}`);
+        if (img) {
+          frame = k;
+          break;
+        }
+      }
+    }
     if (!img) {
       this.v8.draw(ctx, f);
       return;

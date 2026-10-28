@@ -29,6 +29,13 @@ export function heroFrame(p: PlayerState, t: number, c: HeroCtx): HeroFrameId {
   return RUN[Math.floor(t * RUN_FPS) % RUN.length];
 }
 
+const ALL: readonly HeroFrameId[] = [...RUN, 'jump', 'slide', 'hit', 'win'];
+
+/** frames to try in order when `frame` is missing or still loading: it, the run cycle, then the rest */
+export function frameFallbacks(frame: HeroFrameId): HeroFrameId[] {
+  return [frame, ...ALL.filter((f) => f !== frame)];
+}
+
 /** radians: leans toward the lane it moves to, peaking at ±8° mid-switch */
 export function heroLean(p: PlayerState): number {
   const k = laneProgress(p);

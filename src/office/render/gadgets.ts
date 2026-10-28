@@ -4,8 +4,8 @@ import type { VisibleObstacle } from '../../types';
 import { fixedX, laneY, project } from '../../render/layout';
 import { drawGadgets as v8Gadgets } from '../../render/gadgets';
 import type { SpriteCache } from '../../render/sprites';
-import { oval, type Ctx } from '../../render/util';
-import { PROP_SIZE, drawProp, propImage } from './props';
+import type { Ctx } from '../../render/util';
+import { PROP_SIZE, drawFootprint, drawProp, propImage } from './props';
 
 export * from '../../render/gadgets';
 
@@ -15,11 +15,7 @@ const DRONE_Y = 160;
 function droneProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: number, t: number): void {
   const p = project(fixedX(o.timeUntil), lane, Math.max(o.height + 10, DRONE_Y));
   const s = p.scale * 0.86;
-  ctx.fillStyle = '#000000';
-  ctx.globalAlpha = 0.25;
-  oval(ctx, p.x, laneY(lane) + 2, 13 * s, 2.6 * s);
-  ctx.fill();
-  ctx.globalAlpha = 1;
+  drawFootprint(ctx, o.kind, p.x, laneY(lane) + 2, PROP_SIZE.drone * 0.8 * s);
   drawProp(ctx, img, p.x, p.y + Math.sin(t * 2.6 + lane) * 2, PROP_SIZE.drone * s, 0.5);
 }
 
