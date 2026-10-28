@@ -37,7 +37,7 @@ function onlineLine(r: ResultInfo): HTMLElement | null {
 /** Rank: three tick marks lit in sequence. */
 function rank(n: number): HTMLElement {
   return h('div', { cls: 'report__rank', attrs: { 'aria-label': `평가 ${n}/3` } }, [
-    h('span', { cls: 'report__rank-label mono', text: 'RANK' }),
+    h('span', { cls: 'report__rank-label mono', text: COPY.resultRank }),
     ...[0, 1, 2].map((i) => h('i', { cls: `rtick${i < n ? ' is-on' : ''}`, style: { 'animation-delay': `${0.25 + i * 0.18}s` } })),
   ]);
 }
@@ -199,11 +199,11 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     onlineLine(r),
     !r.cleared && meta?.hitBy ? failTip(meta.hitBy) : null,
     h('div', { cls: 'report__scorebox' }, [
-      h('div', { cls: 'report__label mono', text: 'SCORE' }),
+      h('div', { cls: 'report__label mono', text: COPY.resultScore }),
       score,
       h('div', { cls: 'report__best' }, [
         h('span', { text: `최고 ${formatNumber(Math.max(r.best, r.score))}` }),
-        r.newRecord ? h('span', { cls: 'report__new mono', text: 'NEW RECORD' }) : null,
+        r.newRecord ? h('span', { cls: 'report__new mono', text: COPY.resultNewRecord }) : null,
         // v8: endless / daily — how far the personal best still is
         !r.newRecord && r.mode !== 'stage' && r.best > r.score
           ? h('span', { cls: 'report__gap mono', text: `최고 기록까지 −${formatNumber(r.best - r.score)}` })
@@ -214,6 +214,10 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     meta ? starRuleLine(r, meta) : null,
     meta ? streakLine(meta) : null,
     meta ? duelLine(r, meta) : null,
+    // a failed run can still catch up on rewards earned by earlier clears: say so (when the copy has a label)
+    meta && !r.cleared && COPY.resultEarlier && (meta.rewards.length > 0 || meta.unlocked.length > 0)
+      ? h('div', { cls: 'report__earlier', text: COPY.resultEarlier })
+      : null,
     meta ? rewardList(ctx, meta) : null,
     meta ? badgeChips(meta) : null,
     stats(r, head.tone),

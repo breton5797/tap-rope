@@ -337,6 +337,70 @@ body {
   border-radius: var(--r);
 }
 
+/* fail: "야근 확정" lands as a big red rubber stamp */
+.report--lose .report__status {
+  display: inline-block;
+  margin: 6px 0 2px 4px;
+  padding: 4px 16px 2px;
+  color: var(--red);
+  font-family: var(--font-body);
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border: 4px double var(--red);
+  border-radius: 12px;
+  transform: rotate(-8deg);
+  opacity: 0.92;
+  mix-blend-mode: multiply;
+  animation: stamp-thunk 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) 0.15s both;
+}
+
+@keyframes stamp-thunk {
+  0% { transform: rotate(-8deg) scale(2.4); opacity: 0; }
+  60% { transform: rotate(-8deg) scale(0.92); opacity: 1; }
+  100% { transform: rotate(-8deg) scale(1); opacity: 0.92; }
+}
+
+#app.reduced-motion .report--lose .report__status {
+  animation: none;
+}
+
+.report__status {
+  font-family: var(--font-body);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.report__label,
+.report__rank-label,
+.report__new {
+  font-family: var(--font-body);
+  letter-spacing: 0.04em;
+}
+
+/* rewards a failed run only caught up on (earned by earlier clears) */
+.report__earlier {
+  margin-top: 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* cutscenes keep their black letterbox: light text there */
+.cut {
+  --ink: #f6efe9;
+  --ink-soft: #ddd2da;
+  --ink-faint: #c3b6c0;
+}
+
+.cut__skip {
+  font-family: var(--font-body);
+  color: #2e2433;
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
 /* ---------- picker + character room ---------- */
 .skin,
 .picker__pick {
@@ -352,6 +416,20 @@ body {
   --frame: var(--teal);
   border-color: var(--teal);
   box-shadow: 0 4px 0 var(--teal);
+}
+
+/* picker cards: solid pastel (no fade-in on the portrait), the current pick clearly marked */
+.picker__pick {
+  background: var(--panel-solid);
+}
+
+.picker__pick .portrait__img {
+  transition: none;
+}
+
+.picker__pick.is-selected {
+  background: var(--teal-dim);
+  border-width: 3px;
 }
 
 /* ---------- floor map (stage select): one stage per floor of the building ---------- */

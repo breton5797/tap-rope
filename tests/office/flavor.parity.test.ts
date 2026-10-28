@@ -25,8 +25,8 @@ describe('office copy', () => {
 
   it('says the comic lines of the spec', () => {
     expect(COPY.titleStart).toBe('퇴근 시작!');
-    expect(COPY.resultWinTitle).toBe('퇴근 성공!');
-    expect(COPY.resultFailTitle).toBe('야근 확정');
+    expect(COPY.resultWinStatus).toBe('퇴근 성공!');
+    expect(COPY.resultFailStatus).toBe('야근 확정');
     expect(COPY.resultRetry).toBe('내일은 꼭…!');
     expect(COPY.titleShop).toBe('사원 선택');
     // stage 5 (w5-s10) clear is the ending, not v8's "phase 2" rescue line

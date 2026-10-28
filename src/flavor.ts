@@ -90,6 +90,12 @@ export const V8_COPY = {
   resultReplay: '재투입',
   resultMap: '작전 지도',
   resultDetails: '작전 기록 상세',
+  resultScore: 'SCORE',
+  resultRank: 'RANK',
+  resultNewRecord: 'NEW RECORD',
+  /** above rewards a failed run only caught up on (earned by earlier clears); '' = no label */
+  resultEarlier: '',
+  cutSkip: 'SKIP ▸▸',
   // loadout room, and the first-run character picker (builds with FEATURES.firstRunPick)
   shopKicker: 'DEPLOYED OPERATOR',
   shopSelect: '배치',

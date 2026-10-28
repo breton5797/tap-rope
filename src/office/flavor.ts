@@ -65,10 +65,11 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   // result
   resultKicker: '퇴근 보고서 · 야근상사',
   resultAria: '퇴근 보고서',
-  resultWinStatus: 'CLOCK OUT!',
-  resultWinTitle: '퇴근 성공!',
-  resultFailStatus: 'OVERTIME',
-  resultFailTitle: '야근 확정',
+  resultWinStatus: '퇴근 성공!',
+  resultWinTitle: '오늘도 칼퇴 각!',
+  // the fail headline is a big red rubber stamp (office.css)
+  resultFailStatus: '야근 확정',
+  resultFailTitle: '상사한테 딱 걸렸다…',
   // shown after stage 5 (w5-s10): the ending
   resultStoryRescue: '칼퇴 성공! 18:00:00 — 타임카드 쾅!',
   resultStoryEnd: '칼퇴 성공! 18:00:00 — 타임카드 쾅!',
@@ -78,6 +79,11 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   resultReplay: '한 번 더!',
   resultMap: '층별 안내도',
   resultDetails: '퇴근 기록 상세',
+  resultScore: '점수',
+  resultRank: '직급 평가',
+  resultNewRecord: '최고 기록!',
+  resultEarlier: '이전 퇴근 기록으로 받은 보상',
+  cutSkip: '건너뛰기 ▸▸',
   // character room + first-run picker
   shopKicker: '오늘의 칼퇴 사원',
   shopSelect: '선택',
