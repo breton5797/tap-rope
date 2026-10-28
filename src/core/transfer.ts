@@ -11,6 +11,8 @@ const PREFIX = 'LE2';
 const FORMAT = 1;
 /** same key as platform/online (DEVICE_KEY); kept here so core never imports platform code */
 const DEVICE_KEY = 'laserescape.device.v1';
+/** the identity an import replaced (its call sign is otherwise orphaned on the server) */
+export const DEVICE_BACKUP_KEY = 'laserescape.device.backup';
 
 export interface TransferIdentity {
   readonly secret: string;
@@ -47,6 +49,14 @@ function toBase64Url(text: string): string {
 function fromBase64Url(b64: string): string {
   const bin = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
   return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+}
+
+function safeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function parseIdentity(raw: unknown): TransferIdentity | null {
@@ -92,10 +102,20 @@ export function readIdentity(store: Pick<Storage, 'getItem'> | undefined): Trans
   }
 }
 
-/** Writes an imported save (and identity, when the code carried one). False when storage refused. */
-export function applyTransfer(result: Extract<TransferResult, { ok: true }>, store: Pick<Storage, 'setItem'> | undefined): boolean {
+/**
+ * Writes an imported save (and identity, when the code carried one). A different identity already on this
+ * device is backed up first (DEVICE_BACKUP_KEY). False when storage refused.
+ */
+export function applyTransfer(
+  result: Extract<TransferResult, { ok: true }>, store: Pick<Storage, 'setItem'> & Partial<Pick<Storage, 'getItem'>> | undefined,
+): boolean {
   if (!store) return false;
   try {
+    if (result.identity) {
+      const current = store.getItem?.(DEVICE_KEY) ?? null;
+      const mine = current ? parseIdentity(safeJson(current)) : null;
+      if (current && mine?.secret !== result.identity.secret) store.setItem(DEVICE_BACKUP_KEY, current);
+    }
     store.setItem(SAVE_KEY, JSON.stringify(result.save));
     if (result.identity) store.setItem(DEVICE_KEY, JSON.stringify(result.identity));
     return true;

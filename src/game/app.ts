@@ -16,7 +16,7 @@ import {
   buySkin, loadSave, markBriefed, markCutsceneSeen, recordResult, setStorageNotice, watchSave, writeSave,
 } from '../core/storage';
 import { cosmeticsOf } from '../core/economy';
-import { parseChallenge } from '../ui/share';
+import { parseChallenge, type ChallengeLink } from '../ui/share';
 import { CUTSCENES, cutsceneAfter, cutsceneBefore } from '../core/cutscenes';
 import { createOnline } from '../platform/online';
 import { stepPlayer } from '../core/physics';
@@ -33,6 +33,7 @@ import { bindInput } from './input';
 import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
 import { TutorialRun, tutorialStops, type TutorialStep } from './tutorial';
 import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
+import { autoplayResult, takeChallenge, withoutChallenge } from './run-policy';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
 type Screen = 'menu' | 'controls' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
@@ -138,6 +139,9 @@ export function startApp(): void {
   let frozenReal = -1;
   /** v8: mode + stage of the last run started (a retry gets the short countdown) */
   let lastRunKey = '';
+  /** v8 (A5): challenge link not yet played, and whether the current run is the challenge run */
+  let challenge: ChallengeLink | null = null;
+  let challengeRun = false;
   const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
 
@@ -184,7 +188,7 @@ export function startApp(): void {
     ui.hideAll();
     ui.showCutscene(c, () => {
       persist(markCutsceneSeen(save, c.id));
-      progress.recheck();
+      if (!AUTOPLAY) progress.recheck(); // bot sessions unlock no achievements
       then();
     });
   };
@@ -229,8 +233,11 @@ export function startApp(): void {
     jumpCardPending = false;
     const date = todayIso();
     run = { mode, stage, date };
-    // v8 (A5): a challenge link replays its endless course (endless is seed-deterministic)
-    const seed = mode === 'endless' && challenge ? challenge.seed : Math.floor(Math.random() * 1e9);
+    // v8 (A5): a challenge link replays its endless course once (endless is seed-deterministic), then is spent
+    const taken = takeChallenge(mode, challenge);
+    challenge = taken.pending;
+    challengeRun = taken.seed !== null;
+    const seed = taken.seed ?? Math.floor(Math.random() * 1e9);
     session = createSession(mode, stage, { date, seed });
     runLog = createRunLog(mode, seed, date);
     prevBoss = null;
@@ -308,7 +315,8 @@ export function startApp(): void {
     const prevBest = save.bestScores[key] ?? 0;
     const score = session.score.score;
     const saveBefore = save; // economy pays first-clear / new-star rewards against the save before this run
-    persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, session.score.coins));
+    // bot runs (?autoplay=1, QA / demo) record nothing: no stars, best, coins, streak or achievements
+    if (!AUTOPLAY) persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, session.score.coins));
     const stageId = run.mode === 'stage' ? session.stage.id : null;
     const next = stageId ? nextStageId(stageId) : null;
     const base: ResultInfo = {
@@ -331,7 +339,12 @@ export function startApp(): void {
     ui.showTutorial(null);
     // bot runs (?autoplay=1, QA/demo) are never submitted to the leaderboard
     const record = AUTOPLAY ? null : runLog.record(session);
-    const info = progress.afterRun(runLog.summary(session, stageId), record, base, saveBefore);
+    const info = AUTOPLAY ? autoplayResult(base, prevBest) : progress.afterRun(runLog.summary(session, stageId), record, base, saveBefore);
+    // the "vs" duel belongs to the challenge run's result only
+    if (challengeRun) {
+      challengeRun = false;
+      progress.setChallenge(null);
+    }
     const after = cutsceneAfter(stageId, cleared, save);
     const showResult = (): void => {
       screen = 'result';
@@ -402,7 +415,11 @@ export function startApp(): void {
     onOpenAchievements: () => ui.showAchievements(save),
     onOpenLeaderboard: (board: Board) => progress.openLeaderboard(board),
     onOpenNickname: () => progress.openNickname(),
-    onMetaChange: (next: SaveData) => persist(next),
+    onMetaUpdate: (update) => {
+      const next = update(save); // against the current save, so another tab's progress is never overwritten
+      if (next) persist(next);
+      return next;
+    },
     onOpenShop: () => toMenu((s) => ui.showShop(s)),
   });
 
@@ -410,8 +427,10 @@ export function startApp(): void {
     ui, audio, online, getSave: () => save, persist, resultShowing: () => screen === 'result',
   });
   setStorageNotice((msg) => ui.toast(msg));
-  const challenge = parseChallenge(window.location.search);
+  challenge = parseChallenge(window.location.search);
   progress.setChallenge(challenge);
+  // the link is spent by its first endless run: a reload must not pin every later run to the friend's seed
+  if (challenge) history.replaceState(history.state, '', `${location.pathname}${withoutChallenge(location.search)}${location.hash}`);
   // v8 (quality P2 #14): another tab saved — adopt it so this tab never overwrites newer progress
   watchSave((s) => {
     save = s;

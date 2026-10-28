@@ -60,4 +60,23 @@ describe('transfer code', () => {
     expect(JSON.parse(target.data['laserescape.device.v1'])).toEqual(id);
     expect(applyTransfer(r, { setItem: () => { throw new Error('quota'); } })).toBe(false);
   });
+
+  it('backs up a different identity before replacing it; the same identity or no identity leaves no backup', () => {
+    const r = decodeTransfer(encodeTransfer(save, id));
+    if (!r.ok) throw new Error('decode');
+    const mine = JSON.stringify({ secret: 'cd'.repeat(32), playerId: 'p-9', nickname: '원래요원' });
+    const target = memStore({ 'laserescape.device.v1': mine });
+    applyTransfer(r, target);
+    expect(target.data['laserescape.device.backup']).toBe(mine);
+    expect(JSON.parse(target.data['laserescape.device.v1'])).toEqual(id);
+    const same = memStore({ 'laserescape.device.v1': JSON.stringify(id) });
+    applyTransfer(r, same);
+    expect(same.data['laserescape.device.backup']).toBeUndefined();
+    const noId = decodeTransfer(encodeTransfer(save, null));
+    if (!noId.ok) throw new Error('decode');
+    const keep = memStore({ 'laserescape.device.v1': mine });
+    applyTransfer(noId, keep);
+    expect(keep.data['laserescape.device.v1']).toBe(mine);
+    expect(keep.data['laserescape.device.backup']).toBeUndefined();
+  });
 });

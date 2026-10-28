@@ -81,7 +81,8 @@ export function buildTransfer(ctx: Ctx, save: SaveData, deps: TransferDeps = {})
       pending = r;
       const stars = Object.values(r.save.stars).reduce((n, s) => n + s, 0);
       const who = r.identity?.nickname ? ` · 호출부호 ${r.identity.nickname}` : '';
-      say(`별 ${stars}개 · ₵${r.save.coins}${who}. 이 기기의 진행은 덮어써져요.`, '');
+      const swap = r.identity ? ' 이 기기의 기존 호출명은 백업 후 교체됩니다.' : '';
+      say(`별 ${stars}개 · ₵${r.save.coins}${who}. 이 기기의 진행은 덮어써져요.${swap}`, '');
       showConfirm(true);
     }),
   });

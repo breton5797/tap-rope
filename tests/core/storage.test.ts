@@ -304,6 +304,31 @@ describe('v8 save (version 2)', () => {
     expect(loadSaveState(memStore({ [KEY]: '[1,2]' })).status).toBe('corrupt');
   });
 
+  it('a corrupt v2 save falls back to the intact v1 save (backed up, player told)', () => {
+    const st = memStore({ [KEY]: '{oops', [LEGACY]: JSON.stringify(v1) });
+    const toasts: string[] = [];
+    setStorageNotice((m) => toasts.push(m));
+    const { save, status } = loadSaveState(st);
+    expect(status).toBe('recovered');
+    expect(save.stars).toEqual({ 'w1-s1': 3 });
+    expect(save.coins).toBe(40);
+    expect(st.data['laserescape.save.corrupt']).toBe('{oops');
+    expect(loadSave(st).coins).toBe(40);
+    expect(toasts).toEqual([NOTICE.recovered]);
+    expect(st.data[LEGACY]).toBe(JSON.stringify(v1)); // still untouched
+  });
+
+  it('keeps the last 3 distinct corrupt copies', () => {
+    const st = memStore();
+    for (const bad of ['{a', '{b', '{b', '{c', '{d']) {
+      st.data[KEY] = bad;
+      loadSaveState(st);
+    }
+    expect([st.data['laserescape.save.corrupt'], st.data['laserescape.save.corrupt.1'], st.data['laserescape.save.corrupt.2']])
+      .toEqual(['{d', '{c', '{b']);
+    expect(st.data['laserescape.save.corrupt.3']).toBeUndefined();
+  });
+
   it('a quota error is reported once', () => {
     const toasts: string[] = [];
     setStorageNotice((m) => toasts.push(m));

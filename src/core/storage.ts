@@ -182,6 +182,7 @@ function defaultStore(): Storage | undefined {
 export const NOTICE = {
   newer: '새 버전에서 만든 저장 데이터를 보호 중이에요. 앱을 최신으로 업데이트하면 이어서 진행돼요.',
   corrupt: '저장 데이터가 손상되어 새로 시작해요. 이전 데이터는 따로 보관했어요.',
+  recovered: '저장 데이터가 손상되어 이전 버전의 저장에서 복구했어요. 손상된 데이터는 따로 보관했어요.',
   quota: '저장 공간이 부족해 진행 상황이 저장되지 않을 수 있어요.',
 } as const;
 type NoticeId = keyof typeof NOTICE;
@@ -213,51 +214,79 @@ export function resetStorageNotices(): void {
   noticeSink = null;
 }
 
-export type SaveStatus = 'new' | 'ok' | 'migrated' | 'newer' | 'corrupt';
+export type SaveStatus = 'new' | 'ok' | 'migrated' | 'newer' | 'corrupt' | 'recovered';
+
+type Store = Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'setItem'>>;
+
+/** the newest corrupt copy lives at CORRUPT_KEY, older ones at `${CORRUPT_KEY}.1` … (3 kept) */
+const CORRUPT_KEEP = 3;
+const corruptKey = (i: number): string => (i === 0 ? CORRUPT_KEY : `${CORRUPT_KEY}.${i}`);
+
+/** Keeps the bytes of a corrupt save for a manual rescue (a ring of 3; the same bytes twice are kept once). */
+function backupCorrupt(store: Store | undefined, text: string): void {
+  try {
+    if (!store?.setItem || store.getItem(CORRUPT_KEY) === text) return;
+    for (let i = CORRUPT_KEEP - 1; i > 0; i--) {
+      const older = store.getItem(corruptKey(i - 1));
+      if (older !== null) store.setItem(corruptKey(i), older);
+    }
+    store.setItem(CORRUPT_KEY, text);
+  } catch {
+    // nothing more we can do
+  }
+}
+
+/** JSON text → its claimed version and parsed value; version null = corrupt */
+function readRaw(text: string): { readonly raw: unknown; readonly v: number | null } {
+  try {
+    const raw: unknown = JSON.parse(text);
+    return { raw, v: isRecord(raw) ? versionOf(raw) : null };
+  } catch {
+    return { raw: undefined, v: null };
+  }
+}
+
+/** the legacy v1-key save, migrated (whatever version it claims), or null when absent / corrupt */
+function readLegacy(store: Store | undefined): SaveData | null {
+  const text = store?.getItem(LEGACY_SAVE_KEY);
+  if (!text) return null;
+  const { raw, v } = readRaw(text);
+  return v === null ? null : parseSave(raw, true);
+}
 
 /**
  * Reads the save and says what was found: the v2 key first, else the legacy v1 key (migrated — whatever
- * version it claims), newer = written by a newer build.
+ * version it claims), newer = written by a newer build. A corrupt v2 save is backed up and the intact v1
+ * save, if any, is migrated instead (recovered).
  */
-export function loadSaveState(
-  store: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'setItem'>> | undefined = defaultStore(),
-): { readonly save: SaveData; readonly status: SaveStatus } {
-  let text: string | null | undefined;
-  let legacy = false;
+export function loadSaveState(store: Store | undefined = defaultStore()): { readonly save: SaveData; readonly status: SaveStatus } {
   try {
-    text = store?.getItem(KEY);
+    const text = store?.getItem(KEY);
     if (!text) {
-      text = store?.getItem(LEGACY_SAVE_KEY);
-      legacy = Boolean(text);
+      const legacy = readLegacy(store);
+      if (legacy) return { save: legacy, status: 'migrated' };
+      const old = store?.getItem(LEGACY_SAVE_KEY);
+      if (old) backupCorrupt(store, old);
+      return old ? { save: defaultSave(), status: 'corrupt' } : { save: defaultSave(), status: 'new' };
     }
+    const { raw, v } = readRaw(text);
+    if (v === null) {
+      backupCorrupt(store, text);
+      const legacy = readLegacy(store);
+      return legacy ? { save: legacy, status: 'recovered' } : { save: defaultSave(), status: 'corrupt' };
+    }
+    if (v > SAVE_VERSION) return { save: parseSave(raw, true), status: 'newer' };
+    return { save: parseSave(raw), status: v < SAVE_VERSION ? 'migrated' : 'ok' };
   } catch {
     return { save: defaultSave(), status: 'new' };
   }
-  if (!text) return { save: defaultSave(), status: 'new' };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch {
-    raw = undefined;
-  }
-  const v = isRecord(raw) ? versionOf(raw) : null;
-  if (v === null) {
-    try {
-      store?.setItem?.(CORRUPT_KEY, text); // keep the bytes for a manual rescue; the next write replaces KEY
-    } catch {
-      // nothing more we can do
-    }
-    return { save: defaultSave(), status: 'corrupt' };
-  }
-  if (v > SAVE_VERSION) return { save: parseSave(raw, true), status: legacy ? 'migrated' : 'newer' };
-  return { save: parseSave(raw), status: legacy || v < SAVE_VERSION ? 'migrated' : 'ok' };
 }
 
 export function loadSave(
   store: Pick<Storage, 'getItem'> & Partial<Pick<Storage, 'setItem'>> | undefined = defaultStore(),
 ): SaveData {
   const { save, status } = loadSaveState(store);
-  if (status === 'newer' || status === 'corrupt') notify(status);
+  if (status === 'newer' || status === 'corrupt' || status === 'recovered') notify(status);
   return save;
 }
 

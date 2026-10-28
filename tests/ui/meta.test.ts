@@ -158,21 +158,33 @@ describe('v8 title / map / settings / shop', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shop: buying a cosmetic equips it, reports the new save and redraws in place', () => {
-    const onMetaChange = vi.fn();
+  it('shop: a purchase runs on the app\'s CURRENT save (another tab\'s progress is kept) and redraws in place', () => {
+    // the app's save moved on since the shop opened (another tab earned stars and coins)
+    let appSave: SaveData = { ...defaultSave(), coins: 900, stars: { 'w1-s1': 3 } };
+    const onMetaUpdate = vi.fn((update: (s: SaveData) => SaveData | null) => {
+      const next = update(appSave);
+      if (next) appSave = next;
+      return next;
+    });
     const local = vi.fn();
-    const el = buildShop(ctxWith({ onMetaChange }), { ...defaultSave(), coins: 500 }, () => undefined, local);
-    const buy = el.querySelector<HTMLButtonElement>('.cos .btn');
-    buy?.click();
-    const next = onMetaChange.mock.calls[0][0] as SaveData;
-    expect(next.coins).toBe(500 - 80);
-    expect(next.cosmetics.tint.kid).toBe('tint:kid:ember');
-    expect(local).toHaveBeenCalledWith(next);
+    const el = buildShop(ctxWith({ onMetaUpdate }), { ...defaultSave(), coins: 500 }, () => undefined, local);
+    document.body.appendChild(el);
+    el.querySelector<HTMLButtonElement>('.cos .btn')?.click();
+    expect(appSave.coins).toBe(900 - 80);
+    expect(appSave.stars).toEqual({ 'w1-s1': 3 });
+    expect(appSave.cosmetics.tint.kid).toBe('tint:kid:ember');
+    expect(local).toHaveBeenCalledWith(appSave);
     expect(el.querySelector('.cos.is-on')?.textContent).toContain('해제');
-    expect(el.querySelector('.chip__value')?.textContent).toBe('420');
-    const poor = buildShop(ctxWith({ onMetaChange }), defaultSave(), () => undefined);
+    expect(el.querySelector('.chip__value')?.textContent).toBe('820');
+    // the other tab writes again while the shop is open: the shop shows it
+    const e = new Event('storage');
+    Object.assign(e, { key: 'laserescape.save.v2', newValue: JSON.stringify({ ...appSave, coins: 1234 }) });
+    window.dispatchEvent(e);
+    expect(el.querySelector('.chip__value')?.textContent).toBe('1,234');
+    el.remove();
+    const poor = buildShop(ctxWith({ onMetaUpdate: (u) => u(defaultSave()) }), { ...defaultSave(), coins: 999 }, () => undefined);
     poor.querySelector<HTMLButtonElement>('.cos .btn')?.click();
-    expect(poor.querySelector('.shop__status')?.textContent).toContain('부족');
+    expect(poor.querySelector('.shop__status')?.textContent).toContain('부족'); // judged on the app save (0 ₵)
   });
 });
 

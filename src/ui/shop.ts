@@ -2,6 +2,7 @@
 // v8: big operator portraits (./art/op-<skin>.webp, vector avatar fallback) and cosmetics — colour variants
 // per operator, laser-trail / landing-ring colours and result-card frames (core/economy).
 import { SKINS } from '../core/content';
+import { watchSave } from '../core/storage';
 import { COSMETICS, buyCosmetic, equipCosmetic, type Cosmetic, type CosmeticKind } from '../core/economy';
 import type { SaveData, SkinMeta } from '../types';
 import { button, formatNumber, h, header, type Ctx } from './dom';
@@ -64,20 +65,23 @@ const SECTIONS: readonly CosmeticSection[] = [
 const equippedId = (save: SaveData, kind: CosmeticKind): string | null =>
   kind === 'tint' ? save.cosmetics.tint[save.skin] ?? null : save.cosmetics[kind];
 
-function cosmeticItem(ctx: Ctx, save: SaveData, c: Cosmetic, apply: (next: SaveData | null) => void): HTMLElement {
+/** a cosmetic change as a function of the CURRENT save (null = not affordable) */
+type Update = (current: SaveData) => SaveData | null;
+
+function cosmeticItem(ctx: Ctx, save: SaveData, c: Cosmetic, apply: (update: Update) => void): HTMLElement {
   const owned = save.cosmetics.owned.includes(c.id);
   const on = equippedId(save, c.kind) === c.id;
   const action = on
-    ? button({ label: '해제', variant: 'glass', size: 'sm', aria: `${c.name} 해제`, onPress: ctx.tap(() => apply(equipCosmetic(save, null, c.kind, c.skin))) })
+    ? button({ label: '해제', variant: 'glass', size: 'sm', aria: `${c.name} 해제`, onPress: ctx.tap(() => apply((cur) => equipCosmetic(cur, null, c.kind, c.skin))) })
     : owned
-      ? button({ label: '장착', variant: 'mint', size: 'sm', aria: `${c.name} 장착`, onPress: ctx.tap(() => apply(equipCosmetic(save, c.id))) })
+      ? button({ label: '장착', variant: 'mint', size: 'sm', aria: `${c.name} 장착`, onPress: ctx.tap(() => apply((cur) => equipCosmetic(cur, c.id))) })
       : button({
         label: formatNumber(c.price), variant: save.coins >= c.price ? 'sun' : 'glass', size: 'sm', icon: icons.coin(),
         cls: save.coins >= c.price ? '' : 'is-poor', aria: `${c.name} 자금 ${c.price}으로 구매`,
-        onPress: ctx.tap(() => {
-          const bought = buyCosmetic(save, c.id);
-          apply(bought ? equipCosmetic(bought, c.id) : null);
-        }),
+        onPress: ctx.tap(() => apply((cur) => {
+          const bought = buyCosmetic(cur, c.id);
+          return bought ? equipCosmetic(bought, c.id) : null;
+        })),
       });
   return h('li', { cls: `cos${on ? ' is-on' : ''}` }, [
     h('span', { cls: `cos__swatch cos__swatch--${c.kind}`, style: { '--swatch': c.color }, attrs: { 'aria-hidden': 'true' } }),
@@ -86,7 +90,7 @@ function cosmeticItem(ctx: Ctx, save: SaveData, c: Cosmetic, apply: (next: SaveD
   ]);
 }
 
-function cosmetics(ctx: Ctx, save: SaveData, apply: (next: SaveData | null) => void): HTMLElement {
+function cosmetics(ctx: Ctx, save: SaveData, apply: (update: Update) => void): HTMLElement {
   return h('div', { cls: 'cosmetics' }, SECTIONS.map((s) => {
     const items = COSMETICS.filter((c) => c.kind === s.kind && (s.kind !== 'tint' || c.skin === save.skin));
     return h('section', { cls: 'cos-group card', attrs: { 'aria-label': s.title } }, [
@@ -104,19 +108,24 @@ export function buildShop(ctx: Ctx, initial: SaveData, onBack: () => void, onLoc
   const chip = h('div', { cls: 'shop__chip' });
   const body = h('div', { cls: 'scroll' });
   const status = h('p', { cls: 'shop__status', attrs: { role: 'status', 'aria-live': 'polite' } });
+  const section = h('section', { cls: 'screen screen--shop', attrs: { 'aria-label': '장비실' } });
+  const adopt = (next: SaveData): void => {
+    onLocalChange?.(next);
+    render(next);
+  };
   const render = (save: SaveData): void => {
     const current = SKINS.find((s) => s.id === save.skin) ?? SKINS[0];
     const owned = SKINS.filter((s) => save.ownedSkins.includes(s.id)).length;
-    // cosmetics change the save here; the app persists it (UiCallbacks.onMetaChange) and we redraw in place
-    const apply = (next: SaveData | null): void => {
+    // the change runs against the app's CURRENT save (UiCallbacks.onMetaUpdate), never this screen's copy,
+    // so progress another tab wrote meanwhile is kept; we redraw in place with the result
+    const apply = (update: Update): void => {
+      const next = ctx.cb.onMetaUpdate ? ctx.cb.onMetaUpdate(update) : update(save);
       if (!next) {
         status.textContent = '자금이 부족해요';
         return;
       }
       status.textContent = '';
-      ctx.cb.onMetaChange?.(next);
-      onLocalChange?.(next);
-      render(next);
+      adopt(next);
     };
     chip.replaceChildren(coinChip(save.coins));
     body.replaceChildren(
@@ -136,8 +145,11 @@ export function buildShop(ctx: Ctx, initial: SaveData, onBack: () => void, onLoc
     );
   };
   render(initial);
-  return h('section', { cls: 'screen screen--shop', attrs: { 'aria-label': '장비실' } }, [
-    header(ctx, '장비실', onBack, [chip], icons.back()),
-    body,
-  ]);
+  // another tab wrote the save: show its coins / roster (stops listening once this screen is gone)
+  const stop = watchSave((s) => {
+    if (section.isConnected) adopt(s);
+    else stop();
+  });
+  section.append(header(ctx, '장비실', onBack, [chip], icons.back()), body);
+  return section;
 }

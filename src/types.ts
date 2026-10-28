@@ -618,8 +618,11 @@ export interface UiCallbacks {
   onOpenAchievements(): void;
   onOpenLeaderboard(board: Board): void;
   onOpenNickname(): void;
-  /** v8: the menu changed the save (cosmetic bought / equipped); app persists it */
-  onMetaChange?(next: SaveData): void;
+  /**
+   * v8: apply a menu change (cosmetic bought / equipped) to the app's CURRENT save, persist the result and
+   * return it; null = the update refused (not affordable), nothing persisted.
+   */
+  onMetaUpdate?(update: (current: SaveData) => SaveData | null): SaveData | null;
   /** v8: result card → 장비실 (first-mission reward) */
   onOpenShop?(): void;
 }
