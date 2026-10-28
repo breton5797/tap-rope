@@ -6,13 +6,14 @@
  */
 import type { SaveData } from '../types';
 import { SAVE_KEY, SAVE_VERSION, parseSave } from './storage';
+import { SAVE_PREFIX } from '../flavor';
 
 const PREFIX = 'LE2';
 const FORMAT = 1;
 /** same key as platform/online (DEVICE_KEY); kept here so core never imports platform code */
-const DEVICE_KEY = 'laserescape.device.v1';
+const DEVICE_KEY = `${SAVE_PREFIX}.device.v1`;
 /** the identity an import replaced (its call sign is otherwise orphaned on the server) */
-export const DEVICE_BACKUP_KEY = 'laserescape.device.backup';
+export const DEVICE_BACKUP_KEY = `${SAVE_PREFIX}.device.backup`;
 
 export interface TransferIdentity {
   readonly secret: string;

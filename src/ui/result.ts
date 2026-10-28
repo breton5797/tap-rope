@@ -2,6 +2,7 @@
 // v8: boss-win banner, fail tip (what hit you), ★3 rule, ₵ rewards, achievement badges, daily streak,
 // next-rank gap, leaderboard / share / challenge buttons; stats fold away on a failed run.
 import { STAGES } from '../core/content';
+import { COPY, FEATURES } from '../flavor';
 import type { Board, ResultInfo } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
@@ -85,16 +86,16 @@ function headline(r: ResultInfo): Headline {
     return { status: r.newRecord ? 'NEW RECORD' : 'DAILY CLEAR', title: days ? `작전 완료 · 연속 ${days}일` : '작전 완료', tone: 'win' };
   }
   if (r.mode !== 'stage') return { status: r.newRecord ? 'NEW RECORD' : 'OPERATION ENDED', title: r.newRecord ? '최고 기록 갱신' : '작전 종료', tone: r.newRecord ? 'win' : 'lose' };
-  return r.cleared ? { status: 'MISSION COMPLETE', title: '임무 완료', tone: 'win' } : { status: 'MISSION FAILED', title: '임무 실패 — 재투입?', tone: 'lose' };
+  return r.cleared ? { status: COPY.resultWinStatus, title: COPY.resultWinTitle, tone: 'win' } : { status: COPY.resultFailStatus, title: COPY.resultFailTitle, tone: 'lose' };
 }
 
 /** Story line after a boss: rescue (zone 5), final escape (zone 10), or the next zone opening. */
 function storyBeat(r: ResultInfo): string | null {
   const stage = STAGES.find((s) => s.id === r.stageId);
   if (r.mode !== 'stage' || !r.cleared || stage?.kind !== 'boss') return null;
-  if (r.stageId === 'w5-s10') return '포로 확보. 2단계 탈출 작전 개시 — ZONE 06';
-  if (r.stageId === 'w10-s10' || !r.hasNext) return '탈출 성공. 전 작전 종료.';
-  return `거점 제압. ZONE ${String(stage.chapter + 2).padStart(2, '0')} 개방`;
+  if (r.stageId === 'w5-s10') return COPY.resultStoryRescue;
+  if (r.stageId === 'w10-s10' || !r.hasNext) return COPY.resultStoryEnd;
+  return COPY.resultStoryNext.replace('{zone}', String(stage.chapter + 2).padStart(2, '0'));
 }
 
 /** Identity of a run's report: a second showResult with the same key only updates the online line. */
@@ -125,7 +126,7 @@ function extras(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement | 
     });
   };
   const items = [
-    board ? button({ label: '랭킹', variant: 'glass', size: 'sm', icon: icons.crown(), onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard(board)) }) : null,
+    board && FEATURES.leaderboard ? button({ label: '랭킹', variant: 'glass', size: 'sm', icon: icons.crown(), onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard(board)) }) : null,
     tone === 'win' || r.mode !== 'stage'
       ? button({ label: '공유', variant: 'glass', size: 'sm', icon: icons.share(), onPress: ctx.tap(() => share(link)) })
       : null,
@@ -137,17 +138,17 @@ function extras(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement | 
 function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
   const next =
     r.mode === 'stage' && r.cleared && r.hasNext
-      ? button({ label: '다음 작전', variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
+      ? button({ label: COPY.resultNext, variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
       : null;
   const retry = button({
-    label: '재투입',
+    label: COPY.resultRetry,
     variant: next ? 'glass' : 'sun',
     size: next ? 'md' : 'lg',
     icon: icons.retry(),
     onPress: ctx.tap(() => ctx.cb.onRetry()),
   });
   const quit = button({
-    label: r.mode !== 'stage' ? '메뉴' : '작전 지도',
+    label: r.mode !== 'stage' ? '메뉴' : COPY.resultMap,
     variant: 'glass',
     icon: icons.grid(),
     onPress: ctx.tap(() => ctx.cb.onQuit()),
@@ -171,7 +172,7 @@ function stats(r: ResultInfo, tone: Headline['tone']): HTMLElement {
     r.coinsEarned > 0 ? statRow('획득 자금', `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds') : statRow('획득 자금', '—', 'report__row--none'),
   ]);
   // a failed run leads with the tip; the numbers fold away (one tap to open)
-  const box = h('details', { cls: 'report__more' }, [h('summary', { cls: 'report__more-sum', text: '작전 기록 상세' }), list]);
+  const box = h('details', { cls: 'report__more' }, [h('summary', { cls: 'report__more-sum', text: COPY.resultDetails }), list]);
   if (tone === 'win' || !r.meta?.hitBy) box.open = true;
   return box;
 }
@@ -189,7 +190,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
   }, [
     bossBanner(r),
     h('div', { cls: 'report__head' }, [
-      h('div', { cls: 'kicker', text: 'OPERATION REPORT // 작전 보고서' }),
+      h('div', { cls: 'kicker', text: COPY.resultKicker }),
       h('div', { cls: 'report__op', text: r.title }),
     ]),
     h('div', { cls: 'report__status mono', text: head.status }),
@@ -218,5 +219,5 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     stats(r, head.tone),
     actions(ctx, r, head.tone),
   ]);
-  return h('section', { cls: `screen screen--modal screen--result is-${head.tone}`, attrs: { 'aria-label': '작전 보고서' } }, [card]);
+  return h('section', { cls: `screen screen--modal screen--result is-${head.tone}`, attrs: { 'aria-label': COPY.resultAria } }, [card]);
 }

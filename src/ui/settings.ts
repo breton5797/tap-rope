@@ -1,4 +1,5 @@
 // Settings: four toggles. Each change emits a fresh Settings object.
+import { FEATURES } from '../flavor';
 import type { SaveData, Settings } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -67,7 +68,7 @@ export function buildSettings(ctx: Ctx, save: SaveData, onBack: () => void, onLo
     header(ctx, '설정', onBack, [], icons.back()),
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'card settings' }, TOGGLES.map((d) => toggleRow(ctx, d, () => current, set))),
-      buildTransfer(ctx, save),
+      FEATURES.transfer ? buildTransfer(ctx, save) : null,
       h('div', { cls: 'credits' }, [
         h('div', { cls: 'credits__logo mono', text: 'LASER ESCAPE // 레이저 탈출작전' }),
         h('p', { text: 'v8 · 사운드 전량 절차 합성. 아트는 생성 이미지 기반.' }),

@@ -1,4 +1,5 @@
 // Pause menu, countdown, tutorial hints and toasts.
+import { COPY } from '../flavor';
 import type { LaneDir, MoveId } from '../types';
 import { LEAVE_MS, type Banner } from './toast-queue';
 import { button, h, svg, swallowInput, type Ctx } from './dom';
@@ -8,12 +9,12 @@ import { MOVES, moveGlyph } from './moves';
 export function buildPause(ctx: Ctx, close: () => void): HTMLElement {
   return h('section', { cls: 'screen screen--modal', attrs: { 'aria-label': '일시정지', role: 'dialog', 'aria-modal': 'true' } }, [
     h('div', { cls: 'modal card pop-in' }, [
-      h('div', { cls: 'kicker', text: 'OPERATION HOLD' }),
-      h('h2', { cls: 'modal__title', text: '작전 일시정지' }),
-      h('p', { cls: 'modal__text', text: '통신 유지 중. 준비되면 재개.' }),
+      h('div', { cls: 'kicker', text: COPY.pauseKicker }),
+      h('h2', { cls: 'modal__title', text: COPY.pauseTitle }),
+      h('p', { cls: 'modal__text', text: COPY.pauseText }),
       h('div', { cls: 'stack' }, [
         button({
-          label: '작전 재개',
+          label: COPY.pauseResume,
           variant: 'sun',
           size: 'lg',
           icon: icons.play(),
@@ -22,8 +23,8 @@ export function buildPause(ctx: Ctx, close: () => void): HTMLElement {
             ctx.cb.onResume();
           }),
         }),
-        button({ label: '재투입', variant: 'glass', icon: icons.retry(), onPress: ctx.tap(() => ctx.cb.onRetry()) }),
-        button({ label: '작전 중단', variant: 'pink', icon: icons.grid(), onPress: ctx.tap(() => ctx.cb.onQuit()) }),
+        button({ label: COPY.resultRetry, variant: 'glass', icon: icons.retry(), onPress: ctx.tap(() => ctx.cb.onRetry()) }),
+        button({ label: COPY.pauseQuit, variant: 'pink', icon: icons.grid(), onPress: ctx.tap(() => ctx.cb.onQuit()) }),
       ]),
     ]),
   ]);
@@ -75,9 +76,9 @@ export function renderTutorial(layer: HTMLElement, ctx: Ctx, move: MoveId | null
 type StopStep = 'jump' | 'slide' | 'lane';
 
 const STOP_COPY: Readonly<Record<StopStep, { readonly kicker: string; readonly hint: string }>> = {
-  jump: { kicker: '바닥 레이저', hint: '오른쪽을 탭해 점프' },
-  slide: { kicker: '천장 레이저', hint: '오른쪽을 아래로 밀어 슬라이딩' },
-  lane: { kicker: '경비 로봇', hint: '왼쪽을 밀어 레인 이동' },
+  jump: { kicker: COPY.tutJumpKicker, hint: COPY.tutJumpHint },
+  slide: { kicker: COPY.tutSlideKicker, hint: COPY.tutSlideHint },
+  lane: { kicker: COPY.tutLaneKicker, hint: COPY.tutLaneHint },
 };
 
 /** Hand glyph: pulsing tap rings, or a finger travelling along the swipe arrow (dir: +1 down, −1 up). */

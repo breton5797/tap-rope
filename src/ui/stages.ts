@@ -1,6 +1,7 @@
 // Stage select: scrollable chapter chips, a themed chapter card and its stage trail.
 import { CHAPTERS, STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
+import { FEATURES } from '../flavor';
 import type { ChapterMeta, SaveData, StageDef } from '../types';
 import { button, h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -120,7 +121,7 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
     h('span', { cls: 'chip__value', text: `${starsOf(save, STAGES)}/${STAGES.length * 3}` }),
   ]);
   requestAnimationFrame(() => centreNextNode(screen, ctx.reducedMotion()));
-  const ranking = button({ label: '랭킹', variant: 'glass', size: 'icon', icon: icons.crown(), cls: 'btn--rank', onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard('endless')) });
+  const ranking = FEATURES.leaderboard && button({ label: '랭킹', variant: 'glass', size: 'icon', icon: icons.crown(), cls: 'btn--rank', onPress: ctx.tap(() => ctx.cb.onOpenLeaderboard('endless')) });
   screen.append(
     artImage('./art/map-bg.webp', 'art--map'), // v8 facility blueprint behind the trail
     header(ctx, '작전 지도', onBack, [ranking, total], icons.back()),

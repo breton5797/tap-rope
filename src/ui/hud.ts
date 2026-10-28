@@ -1,4 +1,5 @@
 // In-game HUD. updateHud runs every frame, so every write is diffed first.
+import { COPY } from '../flavor';
 import type { HudState } from '../types';
 import { animate, formatNumber, h, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
@@ -58,7 +59,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     progressWrap: h('div', { cls: 'prog', attrs: { role: 'progressbar', 'aria-label': '진행도', 'aria-valuemin': '0', 'aria-valuemax': '100' } }),
     feverBar: h('div', { cls: 'bar bar--fever' }),
     feverFill: h('div', { cls: 'bar__fill' }),
-    feverLabel: h('span', { cls: 'hud__barlabel hud__barlabel--fever', text: '오버드라이브' }),
+    feverLabel: h('span', { cls: 'hud__barlabel hud__barlabel--fever', text: COPY.hudFever }),
     combo: h('div', { cls: 'combo' }),
     comboNum: h('span', { cls: 'combo__num' }),
     shield: statusChip('status--shield', icons.shield(), 'SHIELD'),
@@ -98,7 +99,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
 function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduced: boolean): void {
   if (prev.maxHearts !== max) {
     // armor gauge: one cell per heart
-    refs.hearts.replaceChildren(h('span', { cls: 'hud__armor-label', text: '방어구' }), ...Array.from({ length: max }, () => h('i', { cls: 'heart' })));
+    refs.hearts.replaceChildren(h('span', { cls: 'hud__armor-label', text: COPY.hudArmor }), ...Array.from({ length: max }, () => h('i', { cls: 'heart' })));
   }
   const nodes = Array.from(refs.hearts.querySelectorAll('.heart'));
   nodes.forEach((node, i) => {
@@ -133,7 +134,7 @@ function renderFever(refs: Refs, s: HudState, prev: Prev): void {
   if (prev.fever !== s.fever) {
     refs.feverBar.classList.toggle('is-fever', s.fever);
     refs.feverLabel.classList.toggle('is-on', s.fever);
-    refs.feverLabel.textContent = s.fever ? '오버드라이브 ×2' : '오버드라이브';
+    refs.feverLabel.textContent = s.fever ? `${COPY.hudFever} ×2` : COPY.hudFever;
   }
   const wasFull = !prev.fever && (prev.feverGauge ?? 0) >= 1;
   const full = !s.fever && g >= 1;

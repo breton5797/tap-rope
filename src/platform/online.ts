@@ -3,9 +3,10 @@
 // run at boot), never just because the app started. Failures degrade to "offline" (null) — the only rejections are submitRun when the
 // server refuses a run (RunRejectedError) and leaderboard when it can't be loaded (LeaderboardUnavailableError).
 import type { AchievementId, Board, LeaderboardRow, OnlineApi, RunRecord } from '../types';
+import { SAVE_PREFIX } from '../flavor';
 
-export const DEVICE_KEY = 'laserescape.device.v1';
-export const QUEUE_KEY = 'laserescape.queue.v1';
+export const DEVICE_KEY = `${SAVE_PREFIX}.device.v1`;
+export const QUEUE_KEY = `${SAVE_PREFIX}.queue.v1`;
 export const QUEUE_MAX = 20;
 export const TIMEOUT_MS = 8000;
 const BACKOFF_BASE_MS = 5000;

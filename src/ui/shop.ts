@@ -4,6 +4,7 @@
 import { SKINS } from '../core/content';
 import { watchSave } from '../core/storage';
 import { COSMETICS, buyCosmetic, equipCosmetic, type Cosmetic, type CosmeticKind } from '../core/economy';
+import { FEATURES } from '../flavor';
 import type { SaveData, SkinMeta } from '../types';
 import { button, formatNumber, h, header, type Ctx } from './dom';
 import { avatar } from './avatar';
@@ -19,7 +20,7 @@ function portrait(id: SkinMeta['id'], cls: string): HTMLElement {
   return box;
 }
 
-function priceAction(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement {
+function priceAction(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement | null {
   const owned = save.ownedSkins.includes(skin.id);
   if (save.skin === skin.id) {
     return h('div', { cls: 'skin__state', attrs: { 'aria-label': '배치 중' } }, [icons.check(), h('span', { text: '배치 중' })]);
@@ -27,6 +28,7 @@ function priceAction(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement {
   if (owned) {
     return button({ label: '배치', variant: 'mint', size: 'sm', aria: `${skin.name} 배치`, onPress: ctx.tap(() => ctx.cb.onSelectSkin(skin.id)) });
   }
+  if (!FEATURES.shop && skin.price > 0) return null; // builds without purchases only hand out free operators
   const affordable = save.coins >= skin.price;
   return button({
     label: formatNumber(skin.price),
@@ -138,10 +140,12 @@ export function buildShop(ctx: Ctx, initial: SaveData, onBack: () => void, onLoc
         ]),
       ]),
       h('div', { cls: 'shop__grid' }, SKINS.map((s) => skinCard(ctx, save, s))),
-      h('h2', { cls: 'shop__section kicker', text: 'COSMETICS // 외형' }),
-      status,
-      cosmetics(ctx, save, apply),
-      h('p', { cls: 'shop__hint', text: '첫 클리어·새 별·업적·연속 일일 작전으로 자금(₵)을 받는다. 외형은 성능에 영향이 없다.' }),
+      ...(FEATURES.shop ? [
+        h('h2', { cls: 'shop__section kicker', text: 'COSMETICS // 외형' }),
+        status,
+        cosmetics(ctx, save, apply),
+        h('p', { cls: 'shop__hint', text: '첫 클리어·새 별·업적·연속 일일 작전으로 자금(₵)을 받는다. 외형은 성능에 영향이 없다.' }),
+      ] : []),
     );
   };
   render(initial);

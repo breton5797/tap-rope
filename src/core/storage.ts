@@ -14,14 +14,15 @@ import { ACHIEVEMENTS } from './achievements';
 import { CHAPTERS, SKINS, STAGES } from './content';
 import { CUTSCENES } from './cutscenes';
 import { NO_COSMETICS, cosmeticById } from './economy';
+import { SAVE_PREFIX } from '../flavor';
 
 /** v8: version-2 saves live under their own key, so an older build (stale tab / cached SW) that only
  * knows the v1 key can never overwrite them; the v1 key is read once to migrate and left untouched. */
-export const SAVE_KEY = 'laserescape.save.v2';
-export const LEGACY_SAVE_KEY = 'laserescape.save.v1';
+export const SAVE_KEY = `${SAVE_PREFIX}.save.v2`;
+export const LEGACY_SAVE_KEY = `${SAVE_PREFIX}.save.v1`;
 const KEY = SAVE_KEY;
 export const SAVE_VERSION = 2;
-const CORRUPT_KEY = 'laserescape.save.corrupt'; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
+const CORRUPT_KEY = `${SAVE_PREFIX}.save.corrupt`; // v4 LASER ESCAPE is a fresh game: old TAP ROPE saves are ignored
 const SKIN_IDS: readonly SkinId[] = SKINS.map((s) => s.id);
 const CUTSCENE_IDS: readonly CutsceneId[] = CUTSCENES.map((c) => c.id);
 const ACHIEVEMENT_IDS: readonly AchievementId[] = ACHIEVEMENTS.map((a) => a.id);

@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # 칼퇴근 대작전 into dist/office (served at ./office/ next to v8)
+      - run: npm run build:office
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
