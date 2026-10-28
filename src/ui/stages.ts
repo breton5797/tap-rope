@@ -16,7 +16,7 @@ export function chapterSkin(c: Pick<ChapterMeta, 'theme' | 'variant'>): string {
   return `zone--${zoneKey(c.theme, c.variant)}`;
 }
 
-const PART_LABEL: Readonly<Record<1 | 2, string>> = { 1: 'PHASE 1 · 구출', 2: 'PHASE 2 · 탈출' };
+const PART_LABEL: Readonly<Record<1 | 2, string>> = { 1: COPY.briefPart1, 2: COPY.briefPart2 };
 
 function chapterStages(chapter: number): StageDef[] {
   return STAGES.filter((s) => s.chapter === chapter);
@@ -79,7 +79,7 @@ function chapterCard(save: SaveData, c: ChapterMeta, stages: readonly StageDef[]
         icons.star(),
         h('span', { text: `RANK ${starsOf(save, stages)}/${stages.length * 3}` }),
       ]),
-      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: '이전 구역 거점 제압 후 개방' })]),
+      open ? null : h('span', { cls: 'world__lock' }, [icons.lock(), h('span', { text: COPY.stagesLocked })]),
     ]),
   ]);
 }

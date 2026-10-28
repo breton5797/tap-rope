@@ -9,4 +9,7 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/render/agent.ts': 'src/office/render/agent.ts',
   'src/audio/music.ts': 'src/office/audio/music.ts',
   'src/audio/sfx.ts': 'src/office/audio/sfx.ts',
+  'src/core/achievements.ts': 'src/office/core/achievements.ts',
+  'src/core/goals.ts': 'src/office/core/goals.ts',
+  'src/ui/moves.ts': 'src/office/ui/moves.ts',
 };

@@ -85,6 +85,22 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   pickKicker: '입사 3개월 차',
   pickTitle: '오늘 칼퇴할 사원은?',
   pickHint: '나중에 사원 선택에서 언제든 바꿀 수 있어요.',
+  // stage select, guide, archive, settings, share card, result rewards
+  stageAriaPrefix: '단계',
+  stagesLocked: '윗층 상사를 따돌리면 열림',
+  guideKicker: '신입 사원 매뉴얼',
+  guideLead: '왼손: 레인 이동. 오른손: 점프·숙이기. 칼퇴 기술 {n}가지.',
+  guideStagePrefix: '단계',
+  archiveLead: '본 장면만 다시 볼 수 있어요. 나머지는 퇴근길에 하나씩 열려요.',
+  settingsMusicDesc: '퇴근 박자에 맞춘 경쾌한 사무실 펑크',
+  creditsLogo: 'CLOCK OUT // 칼퇴근 대작전',
+  creditsLine: '야근상사는 가상의 회사입니다. 소리는 전부 절차 합성, 그림은 생성 이미지 기반.',
+  creditsSmall: '오늘도 수고하셨습니다. 내일 출근 09:00.',
+  shareName: '칼퇴근 대작전',
+  shareCardKicker: 'CLOCK OUT // 퇴근 보고서',
+  resultBossBanner: '상사 따돌림!',
+  rewardBossClear: '상사 따돌림',
+  rewardFirst: '첫 칼퇴 보너스',
 };
 
 /** a fresh uniform uint32 for every run start (P3: chosen once, kept on the run, never steered by input) */

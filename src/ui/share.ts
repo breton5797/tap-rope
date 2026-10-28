@@ -1,6 +1,7 @@
 // v8 share card + challenge link (GDD-v8 A5): the result drawn on a 1080×1350 canvas, shared as an image
 // with navigator.share (text + link when files are unsupported), else downloaded. Endless results add a
 // challenge link `?endless=<seed>&vs=<score>` that replays the identical course (endless is seed-deterministic).
+import { COPY } from '../flavor';
 import type { ResultInfo } from '../types';
 import { formatNumber } from './dom';
 
@@ -35,7 +36,7 @@ export function challengeUrl(pageUrl: string, seed: number, score: number): stri
 
 export function shareText(r: Pick<ResultInfo, 'mode' | 'score' | 'title'>): string {
   const what = r.mode === 'endless' ? '무한 침투' : r.mode === 'daily' ? '일일 작전' : r.title;
-  return `레이저 탈출작전 · ${what} ${formatNumber(r.score)}점. 이 기록, 넘을 수 있어?`;
+  return `${COPY.shareName} · ${what} ${formatNumber(r.score)}점. 이 기록, 넘을 수 있어?`;
 }
 
 export interface CardOpts {
@@ -66,7 +67,7 @@ export function drawShareCard(r: ResultInfo, o: CardOpts): HTMLCanvasElement | n
   g.textAlign = 'center';
   g.fillStyle = '#7fa8b8';
   g.font = '600 34px ui-monospace, Menlo, monospace';
-  g.fillText('LASER ESCAPE // OPERATION REPORT', W / 2, 150);
+  g.fillText(COPY.shareCardKicker, W / 2, 150);
   g.fillStyle = '#e8f4f8';
   g.font = '800 64px system-ui, sans-serif';
   g.fillText(r.title, W / 2, 260);
@@ -86,7 +87,7 @@ export function drawShareCard(r: ResultInfo, o: CardOpts): HTMLCanvasElement | n
   o.lines.slice(0, 4).forEach((line, i) => g.fillText(line, W / 2, 900 + i * 72));
   g.fillStyle = '#5d7c88';
   g.font = '600 34px system-ui, sans-serif';
-  g.fillText('레이저 탈출작전 — 브라우저에서 바로 플레이', W / 2, H - 100);
+  g.fillText(`${COPY.shareName} — 브라우저에서 바로 플레이`, W / 2, H - 100);
   return c;
 }
 

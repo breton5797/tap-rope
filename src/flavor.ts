@@ -97,6 +97,22 @@ export const V8_COPY = {
   pickKicker: 'OPERATIVE SELECT',
   pickTitle: '요원 선택',
   pickHint: '투입할 요원을 고른다.',
+  // stage select, guide, archive, settings, share card, result rewards
+  stageAriaPrefix: '작전',
+  stagesLocked: '이전 구역 거점 제압 후 개방',
+  guideKicker: 'FIELD MANUAL',
+  guideLead: '왼손: 레인 이동. 오른손: 점프·슬라이딩. 기본 기술 {n}종.',
+  guideStagePrefix: 'OP',
+  archiveLead: '열람한 작전 기록만 재생 가능. 미확인 기록은 작전 진행 시 해제.',
+  settingsMusicDesc: '작전 박자에 맞춘 신스 트랙',
+  creditsLogo: 'LASER ESCAPE // 레이저 탈출작전',
+  creditsLine: 'v8 · 사운드 전량 절차 합성. 아트는 생성 이미지 기반.',
+  creditsSmall: '통신 종료. 무사 귀환 바람.',
+  shareName: '레이저 탈출작전',
+  shareCardKicker: 'LASER ESCAPE // OPERATION REPORT',
+  resultBossBanner: '거점 제압',
+  rewardBossClear: '거점 제압',
+  rewardFirst: '첫 임무 보상 → 장비실',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;

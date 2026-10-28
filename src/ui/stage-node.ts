@@ -3,6 +3,7 @@ import { STAGES } from '../core/content';
 import { isStageUnlocked } from '../core/storage';
 import { stageDifficulty } from '../core/difficulty';
 import { generateBeats } from '../core/levels';
+import { COPY } from '../flavor';
 import { physicsForWorld } from '../core/physics';
 import type { MoveId, SaveData, StageDef } from '../types';
 import { formatNumber, h, svg, type Ctx } from './dom';
@@ -120,7 +121,7 @@ function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean
     'button',
     {
       cls: `node__disc node__disc--${kind}${unlocked ? '' : ' is-locked'}${isNext ? ' is-next' : ''}`,
-      attrs: { type: 'button', 'aria-label': `작전 ${stage.chapter + 1}-${stage.index + 1} ${stage.name}${unlocked ? '' : ' 잠김'}` },
+      attrs: { type: 'button', 'aria-label': `${COPY.stageAriaPrefix} ${stage.chapter + 1}-${stage.index + 1} ${stage.name}${unlocked ? '' : ' 잠김'}` },
     },
     [
       kind === 'boss' ? h('span', { cls: 'node__crown' }, [icons.crown()]) : null,

@@ -4,6 +4,7 @@ import { ACHIEVEMENTS } from '../core/achievements';
 import { CUTSCENES } from '../core/cutscenes';
 import { ACH_REWARD } from '../core/economy';
 import { achievementProgress } from '../core/goals';
+import { COPY } from '../flavor';
 import type { AchievementMeta, Cutscene, SaveData } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
@@ -35,7 +36,7 @@ export function buildArchive(ctx: Ctx, save: SaveData, onBack: () => void): HTML
   return h('section', { cls: 'screen screen--archive', attrs: { 'aria-label': '기록 보관소' } }, [
     header(ctx, '기록 보관소', onBack, [h('div', { cls: 'chip chip--sm mono', text: `${count}/${CUTSCENES.length}` })], icons.back()),
     h('div', { cls: 'scroll' }, [
-      h('p', { cls: 'screen__lead', text: '열람한 작전 기록만 재생 가능. 미확인 기록은 작전 진행 시 해제.' }),
+      h('p', { cls: 'screen__lead', text: COPY.archiveLead }),
       h('div', { cls: 'arc__grid' }, CUTSCENES.map((c, i) => archiveCard(ctx, c, seen.has(c.id), i))),
     ]),
   ]);
