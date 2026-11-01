@@ -10,6 +10,7 @@ import { cueAge } from '../../render/cues';
 import { RIG_SIZE } from '../../render/rig';
 import type { Ctx } from '../../render/util';
 import { HIT_SHOW, frameFallbacks, heroLean, heroPose, showsWin, type HeroFrameId, type PoseCtx } from './hero-frames';
+import { heroSkin, type HeroSkin } from './hero-style';
 import { outlineImage } from './props';
 import { officeImage } from './images';
 
@@ -44,12 +45,12 @@ export class AgentPainter {
     running: true, hitAge: Infinity, win: false, scroll: 0, landAge: Infinity, jumpAge: Infinity, boostAge: Infinity,
     runFrames: 4, art: (frame) => officeImage(heroName(this.skin, frame)) !== null,
   };
-  private skin: 'kid' | 'cat' = 'kid';
+  private skin: HeroSkin = 'kid';
 
   draw(ctx: Ctx, f: AgentFrame): void {
     if (f.mood === 'hurt' && this.prevMood !== 'hurt') this.hitStart = f.t;
     this.prevMood = f.mood;
-    this.skin = f.id === 'cat' ? 'cat' : 'kid';
+    this.skin = heroSkin(f.id);
     const c = this.poseCtx;
     c.running = f.running;
     c.hitAge = Math.min(cueAge('hit'), f.mood === 'hurt' ? f.t - this.hitStart : Infinity);
@@ -115,8 +116,8 @@ function baseFrame(frame: string): HeroFrameId {
 }
 
 /** file names per skin and frame, built once (no string building per frame) */
-const NAMES = { kid: new Map<string, string>(), cat: new Map<string, string>() };
-function heroName(skin: 'kid' | 'cat', frame: string): string {
+const NAMES: Record<HeroSkin, Map<string, string>> = { kid: new Map(), cat: new Map(), bunny: new Map(), robot: new Map() };
+function heroName(skin: HeroSkin, frame: string): string {
   let n = NAMES[skin].get(frame);
   if (!n) {
     n = `hero-${skin}-${frame}`;

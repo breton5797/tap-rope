@@ -108,8 +108,8 @@ export class Juice {
   }));
   private readonly at: Pt = { x: 0, y: 0 };
 
-  /** spawn a burst at (x, y); reduced motion spawns a third */
-  burst(kind: BurstKind, x: number, y: number, reduced: boolean, dir?: number): void {
+  /** spawn a burst at (x, y); reduced motion spawns a third; `tint` (the hero accent) colours every other particle */
+  burst(kind: BurstKind, x: number, y: number, reduced: boolean, dir?: number, tint?: string): void {
     const b = BURSTS[kind];
     const n = reduced ? Math.max(1, Math.round(b.count / 3)) : b.count;
     for (let i = 0; i < n; i++) {
@@ -131,7 +131,7 @@ export class Juice {
       this.grav[k] = b.gravity;
       this.shape[k] = b.shape;
       this.peak[k] = b.alpha;
-      this.color[k] = b.colors[i % b.colors.length];
+      this.color[k] = tint !== undefined && i % 2 === 0 ? tint : b.colors[i % b.colors.length];
     }
   }
 

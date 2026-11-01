@@ -5,6 +5,7 @@
 import { OFFICE_BOSSES } from '../core/boss';
 import { OFFICE_PROPS } from '../core/events';
 import type { HeroFrameId } from './hero-frames';
+import { HERO_SKINS } from './hero-style';
 
 /** name1..nameN */
 function seq(name: string, n: number): string[] {
@@ -13,9 +14,9 @@ function seq(name: string, n: number): string[] {
 
 const HERO_FRAMES: readonly HeroFrameId[] = ['run1', 'run2', 'run3', 'run4', 'jump', 'slide', 'hit', 'win'];
 
-/** every sprite the office renderer draws: both heroes' frames, the props, the superiors */
+/** every sprite the office renderer draws: the four heroes' frames, the props, the superiors */
 export const OFFICE_ART: readonly string[] = [
-  ...(['kid', 'cat'] as const).flatMap((skin) => HERO_FRAMES.map((f) => `hero-${skin}-${f}`)),
+  ...HERO_SKINS.flatMap((skin) => HERO_FRAMES.map((f) => `hero-${skin}-${f}`)),
   ...OFFICE_PROPS.map((p) => `prop-${p}`),
   ...OFFICE_BOSSES.map((b) => `boss-${b.slot}`),
 ];
@@ -25,7 +26,7 @@ export const OFFICE_ART: readonly string[] = [
  * idle2 / throw1..6 / attack / tired, office pickup sprites and the stage collectibles.
  */
 export const OFFICE_EXTRA_ART: readonly string[] = [
-  ...(['kid', 'cat'] as const).flatMap((skin) => [
+  ...HERO_SKINS.flatMap((skin) => [
     ...['run5', 'run6', 'run7', 'run8', ...seq('jump', 8), ...seq('slide', 4), ...seq('hit', 4)].map((f) => `hero-${skin}-${f}`),
   ]),
   ...OFFICE_BOSSES.flatMap((b) => ['idle2', 'attack', 'tired', ...seq('throw', 6)].map((p) => `boss-${b.slot}-${p}`)),
