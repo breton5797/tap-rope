@@ -146,6 +146,7 @@ class OfficeRenderer implements Renderer {
   }
 
   private readonly juice = new JuiceFx();
+  private scan: ReturnType<typeof scanSigns> | null = null;
   private fxApi: EffectsApi | null = null;
 
   /** the v8 corridor art and the office sprites (sprites give up after ART_TIMEOUT; never rejects) */
@@ -166,6 +167,8 @@ class OfficeRenderer implements Renderer {
     const fallback = OFFICE_BOSSES.find((b) => b.stage === (run?.stageIndex ?? 0) + 1)?.slot ?? 'warden';
     setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts);
     this.feelFrame(snap, run);
+    // the sign scan runs before the v8 frame so its "!" pass knows which rear hazards get the arrow instead
+    this.scan = scanSigns(snap.obstacles);
     this.inner.render(snap);
     const ctx = this.ctx;
     if (!ctx) return;
@@ -273,7 +276,7 @@ class OfficeRenderer implements Renderer {
   private signs(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot): void {
     // every hazard ahead within SIGN_LEAD, not just the nearest beat (a rear attack behind a nearer front one
     // is marked as early as v8's "!", which warnings.ts suppresses for exactly these obstacles)
-    const scan = scanSigns(snap.obstacles);
+    const scan = this.scan ?? scanSigns(snap.obstacles);
     const lane = visualLane(snap.player);
     for (const h of scan.rearHeights) rearArrow(ctx, v.x0 + 6, projY(lane, h), snap.realTime, snap.reducedMotion);
     if (scan.drone) {
@@ -309,7 +312,7 @@ class OfficeRenderer implements Renderer {
     else if (broadcast) text = BROADCAST_LINE;
     if (text && broadcast && text !== who.exitLine) text = BROADCAST_LINE;
     if (text) {
-      drawBossBubble(ctx, v, text, below, avoid);
+      setCalloutBottom(drawBossBubble(ctx, v, text, below, avoid));
       return;
     }
     // F10: the attack telegraph as a callout — prop icon, action colour, attack name

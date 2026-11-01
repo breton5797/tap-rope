@@ -237,6 +237,11 @@ export interface SignScan {
 }
 
 const SCAN: SignScan = { rearHeights: [], drone: false, laneBeats: [], droneTu: 0 };
+/** ids of the rear hazards the last scan marked with the arrow (warnings.ts drops their v8 "!") */
+const MARKED = new Set<string>();
+
+/** the rear obstacle ids marked by the latest scanSigns() (this frame: the renderer scans before drawing) */
+export const markedThisFrame = (): ReadonlySet<string> => MARKED;
 
 /** scan every hazard obstacle with 0 < timeUntil ≤ SIGN_LEAD (a shared result: read it before the next call) */
 export function scanSigns(obs: readonly VisibleObstacle[]): Readonly<SignScan> {
@@ -244,9 +249,11 @@ export function scanSigns(obs: readonly VisibleObstacle[]): Readonly<SignScan> {
   SCAN.laneBeats.length = 0;
   SCAN.drone = false;
   SCAN.droneTu = Infinity;
+  MARKED.clear();
   for (const o of obs) {
     if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil <= 0 || o.timeUntil > SIGN_LEAD) continue;
     if (isRear(o)) {
+      MARKED.add(o.id);
       const h = rearHeight(o);
       if (!SCAN.rearHeights.includes(h)) SCAN.rearHeights.push(h);
     }

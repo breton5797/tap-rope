@@ -48,7 +48,7 @@ export const BURSTS: Readonly<Record<BurstKind, BurstPlan>> = {
 /** take-off dust ring per jump level (1단 small … 3단 wide and bright) */
 export function takeoffRing(level: number): { radius: number; width: number; life: number } {
   const l = Math.min(3, Math.max(1, level));
-  return { radius: 14 + l * 8, width: 1.2 + l * 0.6, life: 0.24 + l * 0.04 };
+  return { radius: 6 + l * 10, width: 1 + l * 0.7, life: 0.22 + l * 0.05 };
 }
 
 /** ring colours per jump level (1단 white, 2단 + cyan, 3단 + gold) — one more ring per level */

@@ -102,14 +102,7 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
     return;
   }
   const yEnd = hangY(d, tu);
-  ctx.strokeStyle = 'rgba(40,40,60,0.7)';
-  ctx.globalAlpha = a * presence;
-  ctx.lineWidth = 1.2 * s;
-  ctx.beginPath();
-  ctx.moveTo(x, projY(d, CEIL_H));
-  ctx.lineTo(x, yEnd - size);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  hangLine(ctx, x, projY(d, CEIL_H), yEnd - size, s, a * presence);
   drawProp(ctx, img, x, yEnd, size, 1, false, a * presence, m, 'slide');
 }
 
@@ -175,13 +168,18 @@ function pointerAt(ctx: Ctx, o: VisibleObstacle, x: number, y: number, s: number
 }
 
 function hangLine(ctx: Ctx, x: number, y0: number, y1: number, s: number, a: number): void {
+  // a dark cord with a white core: reads on every wall (lobby glass, peach, lavender)
   ctx.save();
   ctx.globalAlpha *= a;
-  ctx.strokeStyle = 'rgba(40,40,60,0.7)';
-  ctx.lineWidth = 1.2 * s;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(46,36,51,0.9)';
+  ctx.lineWidth = 2.6 * s;
   ctx.beginPath();
   ctx.moveTo(x, y0);
   ctx.lineTo(x, y1);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 1 * s;
   ctx.stroke();
   ctx.restore();
 }

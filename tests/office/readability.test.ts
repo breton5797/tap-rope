@@ -139,3 +139,40 @@ describe('rear / stay-low signs scan every hazard (review BLOCK)', () => {
     expect(scanSigns([ob('floor', 0.5), ob('high', 0.7)]).laneBeats.length).toBe(0);
   });
 });
+
+describe('rear / drone signs across beats (re-review)', () => {
+  const ob = (id: string, kind: VisibleObstacle['kind'], tu: number, o: Partial<VisibleObstacle> = {}): VisibleObstacle =>
+    ({ id, kind, level: 1, from: null, timeUntil: tu, height: 0, lanes: null, sudden: true, ...o });
+
+  it('scenario B: a front drop at 0.4 s + a rear chaser at 1.0 s in a later beat — arrow now, first shown ≥ WARN_LEAD ahead', async () => {
+    const { scanSigns, markedThisFrame } = await import('../../src/office/render/readability');
+    const { WARN_LEAD } = await import('../../src/types');
+    const s = scanSigns([ob('4-0', 'drop', 0.4, { lanes: [0] }), ob('9-0', 'chaser', 1.0, { lanes: [1] })]);
+    expect(s.rearHeights.length).toBe(1);
+    expect(markedThisFrame().has('9-0')).toBe(true);
+    expect(markedThisFrame().has('4-0')).toBe(false);
+    // walk the chaser in from far away: the first frame with the arrow is at least WARN_LEAD before it arrives
+    let first = -1;
+    for (let tu = 2; tu > 0; tu -= 1 / 60) {
+      if (scanSigns([ob('4-0', 'drop', tu - 0.6, { lanes: [0] }), ob('9-0', 'chaser', tu, { lanes: [1] })]).rearHeights.length > 0) {
+        first = tu;
+        break;
+      }
+    }
+    expect(first).toBeGreaterThanOrEqual(WARN_LEAD);
+  });
+
+  it('a drone in a later (non-nearest) beat still gets the stay-low band', async () => {
+    const { scanSigns } = await import('../../src/office/render/readability');
+    expect(scanSigns([ob('3-0', 'floor', 0.3), ob('6-0', 'drone', 0.9)]).drone).toBe(true);
+  });
+
+  it('the "!" is suppressed only for the rear hazards marked this frame', async () => {
+    const { scanSigns, markedThisFrame } = await import('../../src/office/render/readability');
+    scanSigns([ob('1-0', 'beam', 0.8, { from: 'back' })]);
+    expect(markedThisFrame().has('1-0')).toBe(true);
+    scanSigns([ob('2-0', 'beam', 1.5, { from: 'back' })]); // beyond SIGN_LEAD: keeps its "!" path
+    expect(markedThisFrame().has('2-0')).toBe(false);
+    expect(markedThisFrame().has('1-0')).toBe(false);
+  });
+});

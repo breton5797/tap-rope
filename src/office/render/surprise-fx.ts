@@ -130,18 +130,20 @@ export function drawBroadcast(ctx: Ctx, v: View): void {
   banner(ctx, v, '사내방송: 사장님 깜짝 순시 중', '#5CC8FF', bannerY(v));
 }
 
-/** a superior's speech bubble beside the figure's face, kept under the DOM HUD rows and the phase line */
-export function drawBossBubble(ctx: Ctx, v: View, text: string, below: number, avoid: Rect | null): void {
+/** a superior's speech bubble beside the figure's face, kept under the DOM HUD rows and the phase line; returns its bottom (popups stay below it) */
+export function drawBossBubble(ctx: Ctx, v: View, text: string, below: number, avoid: Rect | null): number {
   const w = personWidth(v.w);
   const faceY = FLOOR_BACK - (w / PERSON_ASPECT) * 0.8;
   const x = Math.max(v.x0 + 120, v.x0 + v.w * PERSON_FX - w * 0.35 - 70);
   const y = Math.max(faceY, below + 18);
   // a DOM card (briefing, tutorial) covering the face: wait instead of dropping onto the hero
-  if (y > faceY + MAX_DROP) return;
+  if (y > faceY + MAX_DROP) return Number.NEGATIVE_INFINITY;
   ctx.font = BUBBLE_FONT;
   const bw = Math.min(230, ctx.measureText(text).width + 22);
   // never under the countdown digit: just above it (below the HUD) or just below it
-  bubble(ctx, x, placeBubble({ x, y, w: bw, h: BUBBLE_H }, avoid, below + 4), text, '#FFFFFF', '#1E2238', 'right');
+  const cy = placeBubble({ x, y, w: bw, h: BUBBLE_H }, avoid, below + 4);
+  bubble(ctx, x, cy, text, '#FFFFFF', '#1E2238', 'right');
+  return cy + BUBBLE_H / 2 + 10;
 }
 
 function banner(ctx: Ctx, v: View, text: string, color: string, y: number): void {
