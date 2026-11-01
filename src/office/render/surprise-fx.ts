@@ -83,7 +83,7 @@ export function drawBlackout(ctx: Ctx, v: View, obs: readonly VisibleObstacle[],
   ctx.lineWidth = 2;
   ctx.globalAlpha = outline;
   for (const o of obs) {
-    if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil < -0.3) continue;
+    if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil < -0.4) continue;
     for (const b of boxesOf(o, v)) {
       roundRect(ctx, b.x, b.y, b.w, b.h, 5);
       ctx.stroke();

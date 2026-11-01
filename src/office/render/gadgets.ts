@@ -4,15 +4,15 @@
 // whose sprite has not loaded keeps the v8 drawing.
 import type { Beat, VisibleObstacle } from '../../types';
 import { SCROLL_SPEED } from '../../types';
-import { BEAM_H, fixedX, laneY, projY, project } from '../../render/layout';
+import { fixedX, laneY, project } from '../../render/layout';
 import { drawGadgets as v8Gadgets } from '../../render/gadgets';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import { heldFade, joinTime, throwActive, throwArc, throwHand, throwStep } from './boss-throw';
 import { pickupSprite } from './collectibles';
 import { officeImage } from './images';
-import { PROP_SIZE, beatIdOf, drawFootprint, drawProp, focusLane, laneSizeK, propIdFor, propImage, propMotion } from './props';
-import { glowDisc, pickupSize, pointerBeam, stayLowBand, twinkle } from './readability';
+import { PROP_SIZE, beatIdOf, drawFootprint, drawProp, laneSizeK, propIdFor, propImage, propMotion } from './props';
+import { glowDisc, pickupSize, pointerBeam, twinkle } from './readability';
 
 export * from '../../render/gadgets';
 
@@ -41,12 +41,9 @@ function droneProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: nu
   if (propIdFor(o) === 'pointer') {
     // the laser pointer is a beam from the boss's hand to chest height (stay low), never a thrown sprite
     if (step === null && throwActive()) pointerBeam(ctx, throwHand().x, throwHand().y, x, y, s, 1);
-    if (step === null && lane === Math.round(focusLane())) stayLowBand(ctx, x, projY(lane, BEAM_H[1]), PROP_SIZE.drone * 1.6 * s, s);
     return;
   }
   if (step === null) {
-    // stay low: a dashed purple band at 2단 height (where a jump would hit it) with "↓" under it
-    if (lane === Math.round(focusLane())) stayLowBand(ctx, x, projY(lane, BEAM_H[1]), PROP_SIZE.drone * 1.6 * s, s);
     drawProp(ctx, img, x, y, PROP_SIZE.drone * s, 0.5, false, 1, m, 'low');
     return;
   }

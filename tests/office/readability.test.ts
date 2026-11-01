@@ -63,3 +63,13 @@ describe('blackout outline pass', () => {
     expect(strokes).toBe(1);
   });
 });
+
+describe('rear attacks', () => {
+  it('rear beams and chasers are marked by the 뒤에서 arrow, not the v8 "!" sign', async () => {
+    const { isRearAttack } = await import('../../src/office/render/warnings');
+    expect(isRearAttack({ kind: 'beam', from: 'back' })).toBe(true);
+    expect(isRearAttack({ kind: 'chaser', from: null })).toBe(true);
+    expect(isRearAttack({ kind: 'drop', from: null })).toBe(false);
+    expect(isRearAttack({ kind: 'beam', from: 'front' })).toBe(false);
+  });
+});

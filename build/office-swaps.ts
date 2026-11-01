@@ -24,6 +24,7 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/render/boss-art.ts': 'src/office/render/boss-art.ts',
   'src/render/layout-config.ts': 'src/office/render/layout-config.ts',
   'src/render/impact.ts': 'src/office/render/impact.ts',
+  'src/render/warnings.ts': 'src/office/render/warnings.ts',
   'src/audio/music.ts': 'src/office/audio/music.ts',
   'src/audio/sfx.ts': 'src/office/audio/sfx.ts',
   'src/audio/sample-map.ts': 'src/office/audio/sample-map.ts',

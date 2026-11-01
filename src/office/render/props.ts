@@ -96,15 +96,18 @@ export function actionCue(kind: ObstacleKind): ActionCue {
 
 /** cue colours: jump orange, slide blue, lane-change red, drone ("don't jump high") purple */
 export const ACTION_COLORS: Readonly<Record<ActionCue, string>> = {
-  jump: '#FF9F1C', slide: '#3B8BFF', lane: '#E8344B', low: '#9B5CFF',
+  jump: '#FF9F1C', slide: '#3B8BFF', lane: '#C2103A', low: '#9B5CFF',
 };
 
 /**
  * The hazard's footprint on its lane's floor: a soft tinted ellipse in the cue colour with a crisp rim
  * (lane hazards also paint the blocked lane red across `laneBand` px), so the lane and the move read at a glance.
  */
+const LANE_DASH = [5, 3];
+const NO_DASH: number[] = [];
+
 export function drawFootprint(
-  ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1, laneBand = 0,
+  ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1, _laneBand = 0,
   level = 0,
 ): void {
   const cue = actionCue(kind);
@@ -114,18 +117,15 @@ export function drawFootprint(
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (cue === 'lane') {
-    // F8 the blocked lane, kept quiet (art review): a faint strip and an outlined ellipse, no filled block
-    const half = laneBand > 0 ? laneBand / 2 : ry;
-    ctx.globalAlpha *= 0.08;
-    ctx.fillStyle = color;
-    ctx.fillRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
-    ctx.globalAlpha /= 0.08;
+    // lane change: a crimson OUTLINE only (a filled red read like the amber jump mark on peach floors)
     ctx.beginPath();
     ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
-    ctx.globalAlpha *= 0.5;
+    ctx.globalAlpha *= 0.85;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = 2;
+    ctx.setLineDash(LANE_DASH);
     ctx.stroke();
+    ctx.setLineDash(NO_DASH);
     ctx.restore();
     return;
   }
@@ -140,8 +140,8 @@ export function drawFootprint(
   ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
-  // jumps: 1–3 stacked height ticks = the level to jump
-  if (cue === 'jump' && level > 0) heightTicks(ctx, x + rx - 16, floorY, level, Math.max(0.6, width / 50));
+  // jumps: 1–3 notches on the ring's front edge = the level to jump
+  if (cue === 'jump' && level > 0) heightTicks(ctx, x, floorY + ry, level, Math.max(0.6, width / 50));
 }
 
 /** outline rings in logical px: white inside, the move's colour, dark comic ink outside (≈ 2 px dark at play size) */

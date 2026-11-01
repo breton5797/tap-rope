@@ -4,9 +4,9 @@
 // hazard outlines, fire-drill flash, high five, broadcast), speech bubbles (catchphrase at the intro, exit
 // line when the gauge runs out) and the clock. Missing art or a missing run never throws: it draws less.
 import type { Beat, BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot, VisibleObstacle } from '../../types';
-import { HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
+import { HAZARD_KINDS, LANE_HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
 import { createRenderer as createV8Renderer } from '../../render/index';
-import { FLOOR_FRONT, depthScale, laneY, projX, visualLane } from '../../render/layout';
+import { BEAM_H, FLOOR_FRONT, depthScale, laneY, projX, projY, visualLane } from '../../render/layout';
 import { drawLaserWarnings } from '../../render/lasers';
 import { SpriteCache } from '../../render/sprites';
 import { computeView, type View } from '../../render/view';
@@ -16,7 +16,8 @@ import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
 import { drawClock, laneTopY } from './clock';
-import { calloutHint, rearArrow, safeArrow, safeLanes } from './readability';
+import { calloutHint, rearArrow, safeArrow, safeLanes, stayLowBand } from './readability';
+import { isRearAttack } from './warnings';
 import { hudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import { actionCue, beatIdOf, propIdFor, propImage, setFocusLane, setPropFrame } from './props';
@@ -232,7 +233,8 @@ class OfficeRenderer implements Renderer {
     const broadcast = activeAt(events, 'broadcast', t);
     if (broadcast) drawBroadcast(ctx, v);
     setCalloutBottom(Number.NEGATIVE_INFINITY);
-    this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown);
+    // one callout at a time: the fire-drill banner already says where the attack comes from
+    this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown, drill !== null);
     const stampAt = snap.mission?.stampAt;
     if (snap.running) this.juice.frame(ctx, v, snap, band);
     if (snap.running) this.signs(ctx, v, snap);
@@ -267,10 +269,17 @@ class OfficeRenderer implements Renderer {
     const o = attackObstacle(snap, isHazard);
     if (!o || o.timeUntil > SIGN_LEAD) return;
     const lane = visualLane(snap.player);
-    if (o.from === 'back' || o.kind === 'chaser') {
+    if (isRearAttack(o)) {
       rearArrow(ctx, v.x0 + 6, laneY(lane) - snap.player.height * depthScale(lane) - 40, snap.realTime, snap.reducedMotion);
     }
-    if (!o.lanes || o.kind === 'coin') return;
+    if (o.kind === 'drone') {
+      // stay low: the dashed purple band at 2단 height in the hero's lane, wherever the drone prop is
+      const x = projX(PLAYER_X + Math.max(40, o.timeUntil * 160), lane);
+      stayLowBand(ctx, x, projY(lane, BEAM_H[1]), 70 * depthScale(lane), depthScale(lane));
+      return;
+    }
+    // safe-lane chevrons only for lane-change attacks
+    if (!LANE_HAZARD_KINDS.includes(o.kind)) return;
     const beat = beatIdOf(o);
     BLOCKED.length = 0;
     for (const x of snap.obstacles) if (beatIdOf(x) === beat && x.lanes && HAZARD_KINDS.includes(x.kind)) for (const l of x.lanes) BLOCKED.push(l);
@@ -278,8 +287,11 @@ class OfficeRenderer implements Renderer {
     for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3));
   }
 
+
   /** catchphrase while the superior walks in, exit line once its gauge runs out */
-  private bubble(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number, avoid: Rect | null): void {
+  private bubble(
+    ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number, avoid: Rect | null, noCallout = false,
+  ): void {
     const b = snap.boss;
     if (!b || !snap.running) return;
     const who = superiorOf(b.id);
@@ -296,10 +308,10 @@ class OfficeRenderer implements Renderer {
     }
     // F10: the attack telegraph as a callout — prop icon, action colour, attack name
     const a = b.attack;
-    if (!a || b.state !== 'fight' || a.timeUntil < CALLOUT_END) return;
+    if (noCallout || !a || b.state !== 'fight' || a.timeUntil < CALLOUT_END) return;
     const o = attackObstacle(snap, isHazard);
     if (!o) return;
-    const rear = o.from === 'back' || o.kind === 'chaser';
+    const rear = isRearAttack(o);
     const hint = calloutHint(o.kind, o.level, rear);
     setCalloutBottom(drawAttackCallout(ctx, v, propImage(o), propIdFor(o), actionCue(o.kind), hint, below, avoid));
   }

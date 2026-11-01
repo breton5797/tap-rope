@@ -29,16 +29,22 @@ export function pickupSize(collectible: boolean): number {
   return (collectible ? 0.45 : 0.4) * HERO_PX;
 }
 
-/** 1–3 stacked height ticks on a jump footprint (the jump level to use) */
-export function heightTicks(ctx: Ctx, x: number, floorY: number, level: number, s: number): void {
+/** 1–3 notches on a jump footprint's front edge (the jump level to use), centred on x */
+export function heightTicks(ctx: Ctx, x: number, edgeY: number, level: number, s: number): void {
+  const n = Math.min(3, Math.max(1, level));
   ctx.save();
-  ctx.fillStyle = ACTION_COLORS.jump;
-  ctx.strokeStyle = '#2E2433';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < Math.min(3, Math.max(1, level)); i++) {
-    const y = floorY + 4 * s - i * 5 * s;
-    ctx.fillRect(x + 16 * s, y - 3 * s, 9 * s, 3 * s);
-    ctx.strokeRect(x + 16 * s, y - 3 * s, 9 * s, 3 * s);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = ACTION_COLORS.jump;
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < n; i++) {
+    const nx = x + (i - (n - 1) / 2) * 7 * s;
+    ctx.beginPath();
+    ctx.moveTo(nx - 2.5 * s, edgeY - 3.5 * s);
+    ctx.lineTo(nx + 2.5 * s, edgeY - 3.5 * s);
+    ctx.lineTo(nx, edgeY + 1.5 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
   ctx.restore();
 }
