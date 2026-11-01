@@ -337,6 +337,7 @@ export function startApp(): void {
     if (session.status !== 'playing') return; // run already over: the result card is on its way
     screen = 'paused';
     clearGoTimer();
+    window.clearTimeout(verdictTimer);
     audio.stopMusic();
     ui.showCountdown(null);
     ui.showBriefing(null);
