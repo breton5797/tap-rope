@@ -360,7 +360,7 @@ const SFX = ['jump1', 'jump2', 'jump3', 'land', 'slide', 'lane', 'pick-coin', 'p
 const AUDIO_SPY = () => {
   const abName = new WeakMap();
   const bufName = new WeakMap();
-  const a = (window.__audio = { plays: [], synth: 0, fetches: [], gestureAt: null });
+  const a = (window.__audio = { plays: [], synth: 0, fetches: [], gestureAt: null, durations: {} });
   const gesture = () => { if (a.gestureAt === null) a.gestureAt = performance.now(); };
   addEventListener('pointerdown', gesture, true);
   addEventListener('keydown', gesture, true);
@@ -379,7 +379,7 @@ const AUDIO_SPY = () => {
   const decode = BaseAudioContext.prototype.decodeAudioData;
   BaseAudioContext.prototype.decodeAudioData = function (ab, ...rest) {
     const name = abName.get(ab);
-    return decode.call(this, ab, ...rest).then((buf) => { if (name) bufName.set(buf, name); return buf; });
+    return decode.call(this, ab, ...rest).then((buf) => { if (name) { bufName.set(buf, name); a.durations[name] = buf.duration; } return buf; });
   };
   const startBuf = AudioBufferSourceNode.prototype.start;
   AudioBufferSourceNode.prototype.start = function (...args) {
@@ -439,6 +439,8 @@ if (['all', 'audio'].includes(which)) {
     const count = (a, name) => a.plays.filter((p) => p.name === name).length;
     const names = (a) => [...new Set(a.plays.map((p) => p.name))].sort().join(',');
     console.log('stage 1 samples:', names(s1), '| stage 2 samples:', names(s2), '| synth voices:', s1.synth);
+    console.log('decoded durations (s):', ['jump1', 'jump3', 'pick-item'].map((n) => `${n}=${(s2.durations[n] ?? NaN).toFixed(3)}`).join(' '),
+      '| formats fetched:', [...new Set(s1.fetches.map((f) => f.ext))].join(','));
     check(count(s1, 'jump1') > 0, `jump1 on jumps (${count(s1, 'jump1')})`);
     check(count(s2, 'jump2') > 0, `jump2 on 2단 jumps, stage 2 (${count(s2, 'jump2')})`);
     check(count(s1, 'lane') > 0, `lane on lane changes (${count(s1, 'lane')})`);
