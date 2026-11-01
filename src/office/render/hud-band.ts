@@ -20,9 +20,14 @@ export interface HudBand {
   left: number;
   /** logical y under the attack callout drawn last frame, else −Infinity (popups stay below it) */
   callout: number;
+  /** centres (logical) of the HUD coin counter and the mission chip; NaN when not shown */
+  coin: { x: number; y: number };
+  chip: { x: number; y: number };
 }
 
-const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN, callout: Number.NEGATIVE_INFINITY };
+const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN, callout: Number.NEGATIVE_INFINITY,
+  coin: { x: Number.NaN, y: Number.NaN }, chip: { x: Number.NaN, y: Number.NaN },
+};
 let lastRead = Number.NEGATIVE_INFINITY;
 
 function lowest(selector: string, canvasTop: number): number {
@@ -48,7 +53,26 @@ export function hudBand(canvas: HTMLCanvasElement, v: View, realTime: number): R
   band.countdown = cd && cd.width > 0 && cd.height > 0
     ? { left: (cd.left - left - v.ox) / v.s, right: (cd.right - left - v.ox) / v.s, top: toLogical(cd.top - top), bottom: toLogical(cd.bottom - top) }
     : null;
+  centre(COIN, canvas, v, band.coin);
+  centre(CHIP, canvas, v, band.chip);
   return band;
+}
+
+const COIN = '.hud .chip--coin';
+const CHIP = '.mission-chip';
+
+/** the logical centre of the first visible element matching `selector`, NaN when none */
+function centre(selector: string, canvas: HTMLCanvasElement, v: View, out: { x: number; y: number }): void {
+  const el = document.querySelector<HTMLElement>(selector);
+  const r = el?.getBoundingClientRect();
+  const c = canvas.getBoundingClientRect();
+  if (!r || r.width <= 0 || r.height <= 0) {
+    out.x = Number.NaN;
+    out.y = Number.NaN;
+    return;
+  }
+  out.x = (r.left + r.width / 2 - c.left - v.ox) / v.s;
+  out.y = (r.top + r.height / 2 - c.top - v.oy) / v.s;
 }
 
 /** the band as last read (for modules drawn inside the v8 frame, e.g. popups) */

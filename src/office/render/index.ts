@@ -28,6 +28,7 @@ import { STEP_HZ, bossExit } from './boss-rigs';
 import { RELEASE, bossThrowFrame, launchFor, propVisibleFrom, setThrowFrame } from './boss-throw';
 import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
 import { setPickupFrame } from './gadgets';
+import { JuiceFx } from './juice-fx';
 
 export * from '../../render/index';
 
@@ -128,9 +129,14 @@ class OfficeRenderer implements Renderer {
     preloadImages(OFFICE_EXTRA_ART);
   }
 
+  /** v8 effects + the office pickup / action juice (v2.1) */
   get fx(): EffectsApi {
-    return this.inner.fx;
+    if (!this.fxApi) this.fxApi = this.juice.wrap(this.inner.fx);
+    return this.fxApi;
   }
+
+  private readonly juice = new JuiceFx();
+  private fxApi: EffectsApi | null = null;
 
   /** the v8 corridor art and the office sprites (sprites give up after ART_TIMEOUT; never rejects) */
   load(onProgress?: (done: number, total: number) => void): Promise<void> {
@@ -221,6 +227,7 @@ class OfficeRenderer implements Renderer {
     setCalloutBottom(Number.NEGATIVE_INFINITY);
     this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown);
     const stampAt = snap.mission?.stampAt;
+    if (snap.running) this.juice.frame(ctx, v, snap, band);
     if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
     ctx.globalAlpha = 1;
