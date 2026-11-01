@@ -83,4 +83,12 @@ describe('cutsceneBefore / cutsceneAfter', () => {
     expect(cat.every((s) => s.speaker === '정시원')).toBe(true);
     expect(cutsceneAfter('w5-s10', true, { ...save0, skin: 'cat' })?.shots.some((s) => s.speaker === '정시원')).toBe(true);
   });
+
+  it('v2.2: the two new hires speak their own names too', () => {
+    for (const [skin, name] of [['bunny', '고도약'], ['robot', '유행운']] as const) {
+      const shots = cutsceneBefore(stage(1), { ...save0, skin })?.shots ?? [];
+      expect(shots.some((s) => s.speaker === name)).toBe(true);
+      expect(shots.some((s) => s.speaker === HERO)).toBe(false);
+    }
+  });
 });

@@ -32,9 +32,25 @@ export function comboMult(combo: number): number {
 /** a milestone every 10 combo and on reaching each tier (25) */
 const isMilestone = (combo: number): boolean => combo % 10 === 0 || COMBO_TIERS.some((t) => t.combo === combo && combo > 0);
 
+/** office v2.2: a character's fever gauge gain and coin multiplier (v8: ×1 both) */
+export interface ScoreMods {
+  readonly feverGain: number;
+  readonly coinMul: number;
+}
+
+const NO_MODS: ScoreMods = { feverGain: 1, coinMul: 1 };
+
 function coinsFor(r: JudgeResult, fever: boolean): number {
   const n = r.collected.filter((k) => k === 'coin').length;
   return n * (fever ? 2 : 1);
+}
+
+/** coins after this beat; a multiplier ≠ 1 keeps its fraction in coinFrac (v8 never sets it) */
+function withCoins(s: ScoreState, earned: number, coinMul: number): ScoreState {
+  if (coinMul === 1) return { ...s, coins: s.coins + earned };
+  const raw = (s.coinFrac ?? 0) + earned * coinMul;
+  const whole = Math.floor(raw + 1e-9);
+  return { ...s, coins: s.coins + whole, coinFrac: raw - whole };
 }
 
 interface ApplyResult {
@@ -43,10 +59,10 @@ interface ApplyResult {
   readonly comboMilestone: number | null;
 }
 
-function applyPass(s: ScoreState, grade: PassGrade, fever: boolean): ApplyResult {
+function applyPass(s: ScoreState, grade: PassGrade, fever: boolean, feverGain: number): ApplyResult {
   const combo = s.combo + 1;
   const points = Math.round(POINTS[grade] * comboMult(combo) * (fever ? 2 : 1));
-  const gauge = fever ? s.feverGauge : s.feverGauge + GAUGE_GAIN[grade];
+  const gauge = fever ? s.feverGauge : s.feverGauge + GAUGE_GAIN[grade] * feverGain;
   const feverStarted = !fever && gauge >= 1 - 1e-9;
   const score: ScoreState = {
     ...s,
@@ -62,15 +78,15 @@ function applyPass(s: ScoreState, grade: PassGrade, fever: boolean): ApplyResult
   return { score, feverStarted, comboMilestone: isMilestone(combo) ? combo : null };
 }
 
-export function applyJudge(s: ScoreState, r: JudgeResult): ApplyResult {
+export function applyJudge(s: ScoreState, r: JudgeResult, mods: ScoreMods = NO_MODS): ApplyResult {
   const fever = s.feverTime > 0;
-  const withCoins: ScoreState = { ...s, coins: s.coins + coinsFor(r, fever) };
-  if (r.grade === 'none') return { score: withCoins, feverStarted: false, comboMilestone: null };
+  const coined = withCoins(s, coinsFor(r, fever), mods.coinMul);
+  if (r.grade === 'none') return { score: coined, feverStarted: false, comboMilestone: null };
   if (r.grade === 'miss') {
-    const score = { ...withCoins, combo: 0, feverGauge: 0, misses: s.misses + 1 };
+    const score = { ...coined, combo: 0, feverGauge: 0, misses: s.misses + 1 };
     return { score, feverStarted: false, comboMilestone: null };
   }
-  return applyPass(withCoins, r.grade, fever);
+  return applyPass(coined, r.grade, fever, mods.feverGain);
 }
 
 export function tickScore(s: ScoreState, dt: number): ScoreState {

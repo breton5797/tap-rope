@@ -7,6 +7,7 @@ import type { Board, ResultInfo } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
 import { missionResult } from './mission';
+import { resultHero } from './hero-card';
 import { badgeChips, bossBanner, duelLine, failTip, rewardList, starRuleLine, streakLine } from './result-meta';
 import { challengeUrl, shareResult } from './share';
 
@@ -194,6 +195,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
       h('div', { cls: 'kicker', text: COPY.resultKicker }),
       h('div', { cls: 'report__op', text: r.title }),
     ]),
+    resultHero(r.skin),
     h('div', { cls: 'report__status mono', text: head.status }),
     h('h2', { cls: 'report__title', text: head.title }),
     story ? h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]) : null,

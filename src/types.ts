@@ -143,6 +143,8 @@ export interface PhysicsConfig {
   readonly boostV: number; // velocity SET on each air tap (level up)
   readonly fallV: number; // downward velocity SET by an airborne ↓ (fast fall into a slide)
   readonly slideTime: number; // seconds a slide lasts
+  /** office v2.2: seconds the lane-switch animation takes (absent = LANE_SWITCH_TIME); judging is unaffected */
+  readonly laneSwitchTime?: number;
 }
 
 /** v8: perfect ±50 ms / great ±110 ms of the ideal input / good = the rest of the pass window */
@@ -169,6 +171,8 @@ export interface ScoreState {
   readonly feverGauge: number; // 0..1
   readonly feverTime: number; // seconds of fever remaining, 0 = off
   readonly coins: number; // coins earned this run
+  /** office v2.2: the fractional coin carry of a coin multiplier ≠ 1 (absent in v8) */
+  readonly coinFrac?: number;
 }
 
 /** Player-facing moves, used for tutorials, lane icons and stage badges. */
@@ -622,6 +626,8 @@ export interface ResultInfo {
   readonly meta?: ResultMeta;
   /** office v2: the run's mission stamps and grade (result card row); absent in v8 */
   readonly missions?: MissionOutcome;
+  /** office v2.2: the hire who ran (result card portrait); absent in v8 */
+  readonly skin?: SkinId;
 }
 
 /** v8: one ₵ reward line on the result card. */

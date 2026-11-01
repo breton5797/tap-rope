@@ -255,7 +255,7 @@ export function startApp(): void {
     if (!save.controlsSeen) {
       // first v5 run: teach the split controls before anything moves
       screen = 'controls';
-      session = createSession(mode, stage, { date: todayIso(), seed: 1 });
+      session = createSession(mode, stage, { date: todayIso(), seed: 1, skin: save.skin });
       audio.stopMusic();
       ui.hideAll();
       ui.showControls(() => {
@@ -274,7 +274,8 @@ export function startApp(): void {
     const seed = taken.seed ?? Math.floor(Math.random() * 1e9);
     // the run's own stage copy carries its seed, drawn once here (v8: the stage's designed seed; never
     // changed by input). run.stage keeps the original, so a retry draws again.
-    session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed });
+    // v2.2: the hire's stats (v8 flavour: identical for every operator)
+    session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed, skin: save.skin });
     runLog = createRunLog(mode, seed, date);
     missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
     lastStampAt = undefined;
@@ -380,6 +381,7 @@ export function startApp(): void {
       coinsEarned,
       hasNext: cleared && next !== null,
       ...(outcome ? { missions: outcome } : {}),
+      skin: save.skin,
     };
     ui.showTutorial(null);
     // bot runs (?autoplay=1, QA/demo) are never submitted to the leaderboard

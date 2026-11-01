@@ -91,8 +91,11 @@ describe('designCustomStage', () => {
 });
 
 describe('office characters', () => {
-  it('칼퇴준 and 정시원, both free and owned on a fresh save', () => {
-    expect(SKINS).toEqual([{ id: 'kid', name: '칼퇴준', price: 0 }, { id: 'cat', name: '정시원', price: 0 }]);
+  it('four hires (v2.2), all free and owned on a fresh save', () => {
+    expect(SKINS).toEqual([
+      { id: 'kid', name: '칼퇴준', price: 0 }, { id: 'cat', name: '정시원', price: 0 },
+      { id: 'bunny', name: '고도약', price: 0 }, { id: 'robot', name: '유행운', price: 0 },
+    ]);
   });
 
   it('v8 still owns only the free agent on a fresh save', () => {

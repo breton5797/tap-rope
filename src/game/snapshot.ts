@@ -5,7 +5,7 @@ import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
 import { CHAPTERS } from '../core/content';
 import { COPY, fillCopy, stageVars } from '../flavor';
 import { bossForSection, bossView } from '../core/boss';
-import { MAX_HEARTS, sessionProgress, type Session } from './session';
+import { sessionProgress, type Session } from './session';
 
 /** Part 2 (escape) zones: the rescued prisoner runs behind the agent. */
 export function hasEscort(s: Session): boolean {
@@ -79,7 +79,7 @@ export function runTitle(s: Session): string {
 export function toHud(s: Session): HudState {
   return {
     hearts: s.hearts,
-    maxHearts: MAX_HEARTS,
+    maxHearts: s.maxHearts,
     score: s.score.score,
     combo: s.score.combo,
     progress: sessionProgress(s),
