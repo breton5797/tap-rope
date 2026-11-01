@@ -212,7 +212,14 @@ export class Juice {
     for (let k = 0; k < RINGS; k++) {
       if (this.ra[k] >= this.rl[k] || this.ra[k] < 0) continue;
       const t = this.ra[k] / this.rl[k];
-      ctx.globalAlpha = 0.7 * (1 - t);
+      // a thin dark rim under the coloured ring: reads on grey / white floors too
+      ctx.globalAlpha = 0.35 * (1 - t);
+      ctx.strokeStyle = '#2E2433';
+      ctx.lineWidth = this.rw[k] * (1 - 0.5 * t) + 1.6;
+      ctx.beginPath();
+      ctx.ellipse(this.rx[k], this.ry[k], this.rr[k] * (0.4 + 0.6 * t), this.rr[k] * 0.25 * (0.4 + 0.6 * t), 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 0.95 * (1 - 0.8 * t);
       ctx.strokeStyle = this.rc[k];
       ctx.lineWidth = this.rw[k] * (1 - 0.5 * t);
       ctx.beginPath();
