@@ -9,13 +9,17 @@ import type { View } from '../../render/view';
 import { PLAYER_X } from '../../types';
 import { collectibleFor } from './collectibles';
 import { officeImage } from './images';
-import { Juice, pickupFromPopup, takeoffRing, type PowerUp } from './juice';
+import { JUMP_RING_COLORS, Juice, pickupFromPopup, takeoffRing, type PowerUp } from './juice';
 
 type Cue =
   | { kind: 'coin' } | { kind: 'power'; what: PowerUp } | { kind: 'jump'; level: number } | { kind: 'land' }
   | { kind: 'lane'; dir: number } | { kind: 'slide' };
 
 const QUEUE = 16;
+/** a frame gap longer than this (s of real time) is a pause / menu: start fresh */
+const STALE = 0.5;
+const COLLECT_COLOR = '#2FD2A0';
+const COIN_COLOR = '#FFD54A';
 const SPARKLE_RATE = 30; // per second while a 3단 jump is in the air
 const HEEL_RATE = 18; // per second while sliding
 
@@ -44,6 +48,7 @@ export class JuiceFx {
     return {
       burst: (kind: V8BurstKind, x?: number, y?: number) => {
         if (kind === 'coin') push({ kind: 'coin' });
+        if (kind === 'dust') return; // the grey v8 landing dust read as a hit; the hero painter draws a light one
         inner.burst(kind, x, y);
       },
       popup: (text: string, style: PopupStyle) => {
@@ -66,7 +71,13 @@ export class JuiceFx {
 
   /** advance and draw (logical transform set by the caller) */
   frame(ctx: Ctx, v: View, snap: RenderSnapshot, hud: HudTargets): void {
-    const dt = Number.isFinite(this.lastReal) ? Math.min(0.1, Math.max(0, snap.realTime - this.lastReal)) : 0;
+    const gap = snap.realTime - this.lastReal;
+    const run = snap.run;
+    // a new run (retry / quit) or a long pause: old edges and queued cues belong to another moment
+    if (!Number.isFinite(gap) || gap > STALE || gap < 0 || run?.seed !== this.runSeed || run?.stageIndex !== this.runStage) {
+      this.reset(snap, Number.isFinite(this.lastReal));
+    }
+    const dt = Number.isFinite(gap) && gap <= STALE ? Math.min(0.1, Math.max(0, gap)) : 0;
     this.lastReal = snap.realTime;
     const reduced = snap.reducedMotion;
     const p = snap.player;
@@ -74,7 +85,9 @@ export class JuiceFx {
     this.hero.x = PLAYER_X;
     this.hero.y = laneY(lane) - p.height * depthScale(lane);
     const floorY = laneY(lane);
-    for (const c of this.queue) this.cue(c, floorY, hud, reduced);
+    this.lastHud = hud;
+    const collecting = snap.mission?.kind === 'collect';
+    for (const c of this.queue) this.cue(c, floorY, hud, reduced, collecting);
     this.queue.length = 0;
     this.edges(snap, hud, reduced);
     this.streams(snap, dt, floorY, reduced);
@@ -84,30 +97,77 @@ export class JuiceFx {
     this.drawPlus(ctx, dt);
   }
 
-  private cue(c: Cue, floorY: number, hud: HudTargets, reduced: boolean): void {
+  private runSeed: number | undefined = undefined;
+  private runStage: number | undefined = undefined;
+
+  /** forget edges and live FX (and the queued cues, unless this is the very first frame); the snapshot is the new baseline */
+  private reset(snap: RenderSnapshot, dropQueue: boolean): void {
+    if (dropQueue) this.queue.length = 0;
+    this.juice.clear();
+    this.prevShield = snap.shield;
+    const m = snap.mission;
+    this.prevMission.index = m ? m.index : -1;
+    this.prevMission.value = m ? m.value : 0;
+    this.prevMission.complete = m ? m.complete : false;
+    this.sparkleAcc = 0;
+    this.heelAcc = 0;
+    this.plus.age = 9;
+    this.pulse.age = 9;
+    this.runSeed = snap.run?.seed;
+    this.runStage = snap.run?.stageIndex;
+  }
+
+  private cue(c: Cue, floorY: number, hud: HudTargets, reduced: boolean, collecting: boolean): void {
     const { x, y } = this.hero;
     switch (c.kind) {
       case 'coin':
+        // a bright gold ring + white flash on the coin; in a collect section the mission edge flies the icon
         this.juice.burst('coin', x, y - 40, reduced);
-        if (Number.isFinite(hud.coin.x)) this.juice.fly('pickup-coin', { x, y: y - 40 }, hud.coin, 'coin', null);
+        this.juice.ring(x, y - 40, 20, 3, 0.3, COIN_COLOR);
+        this.flashAt(x, y - 40);
+        if (collecting) this.pulseAt(hud.coin, COIN_COLOR);
+        else if (Number.isFinite(hud.coin.x)) this.juice.fly('pickup-coin', { x, y: y - 40 }, hud.coin, 'coin', this.onCoin);
         return;
       case 'power':
         if (c.what === 'heart') this.juice.burst('heart', x, y - 50, reduced);
         else this.juice.burst(c.what === 'shield' ? 'pop' : 'sparkle', x, y - 45, reduced);
         return;
       case 'jump': {
-        const r = takeoffRing(c.level);
-        this.juice.ring(x, floorY, r.radius, r.width, r.life);
+        const level = Math.min(3, Math.max(1, c.level));
+        const r = takeoffRing(level);
+        for (let i = 0; i < level; i++) this.juice.ring(x, floorY, r.radius * (1 - i * 0.22), r.width, r.life, JUMP_RING_COLORS[i]);
+        if (level >= 3) this.juice.burst('sparkle', x, floorY - 10, reduced);
         return;
       }
       case 'land':
-        return; // the hero painter draws the (small, white) landing dust
+        return; // the hero painter draws the (small, light) landing dust
       case 'lane':
         if (!reduced) this.juice.burst('streak', x - 18, y - 40, reduced, -c.dir);
         return;
       case 'slide':
-        this.juice.burst('heel', x - 8, floorY - 2, reduced);
+        this.juice.burst('heel', x - 14, floorY - 2, reduced);
     }
+  }
+
+  private readonly onCoin = (): void => this.pulseAt(this.lastHud.coin, COIN_COLOR);
+  private readonly onChip = (): void => this.pulseAt(this.lastHud.chip, COLLECT_COLOR);
+  private lastHud: HudTargets = { coin: { x: Number.NaN, y: Number.NaN }, chip: { x: Number.NaN, y: Number.NaN } };
+  private readonly pulse = { x: 0, y: 0, age: 9, color: COIN_COLOR };
+  private readonly flash = { x: 0, y: 0, age: 9 };
+
+  /** the counter the icon reached pulses (a 1.2× ring over it) */
+  private pulseAt(p: { x: number; y: number }, color: string): void {
+    if (!Number.isFinite(p.x)) return;
+    this.pulse.x = p.x;
+    this.pulse.y = p.y;
+    this.pulse.age = 0;
+    this.pulse.color = color;
+  }
+
+  private flashAt(x: number, y: number): void {
+    this.flash.x = x;
+    this.flash.y = y;
+    this.flash.age = 0;
   }
 
   /** snapshot edges: shield on/off (pop), mission collectible counter (+1, star burst on the target) */
@@ -126,10 +186,11 @@ export class JuiceFx {
     }
     if (m.index === pm.index && m.kind === 'collect' && m.value > pm.value) {
       const id = collectibleFor(snap.run?.stageIndex ?? 0, m.index);
-      if (Number.isFinite(hud.chip.x)) this.juice.fly(id ? `collect-${id}` : 'pickup-coin', { x, y: y - 40 }, hud.chip, 'chip', null);
+      this.juice.burst('coin', x, y - 40, reduced);
+      if (Number.isFinite(hud.chip.x)) this.juice.fly(id ? `collect-${id}` : 'pickup-coin', { x, y: y - 40 }, hud.chip, 'chip', this.onChip);
       this.plus.text = '+1';
-      this.plus.x = x + 18;
-      this.plus.y = y - 70;
+      this.plus.x = x + 22;
+      this.plus.y = y - 76;
       this.plus.age = 0;
       if (m.complete && !pm.complete) this.juice.burst('star', x, y - 60, reduced);
     }
@@ -199,18 +260,48 @@ export class JuiceFx {
   }
 
   private drawPlus(ctx: Ctx, dt: number): void {
+    this.drawPulse(ctx, dt);
     const p = this.plus;
     if (p.age > 0.8) return;
     p.age += dt;
     ctx.save();
     ctx.globalAlpha = Math.max(0, 1 - p.age / 0.8);
-    ctx.font = '900 18px ui-rounded, system-ui, sans-serif';
+    ctx.font = '900 29px ui-rounded, system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
     ctx.strokeStyle = '#2E2433';
     ctx.strokeText(p.text, p.x, p.y - p.age * 30);
-    ctx.fillStyle = '#FFE45C';
+    ctx.fillStyle = COLLECT_COLOR;
     ctx.fillText(p.text, p.x, p.y - p.age * 30);
     ctx.restore();
+  }
+
+  /** the counter pulse (0.3 s, up to 1.2× a 16 px ring) and the white flash on a coin (0.12 s) */
+  private drawPulse(ctx: Ctx, dt: number): void {
+    const q = this.pulse;
+    if (q.age < 0.3) {
+      q.age += dt;
+      const k = Math.min(1, q.age / 0.3);
+      ctx.save();
+      ctx.globalAlpha = 1 - k;
+      ctx.strokeStyle = q.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, 16 * (1 + 0.2 * Math.sin(k * Math.PI)) + 6 * k, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    const f = this.flash;
+    if (f.age < 0.12) {
+      f.age += dt;
+      ctx.save();
+      ctx.globalAlpha = 0.85 * (1 - f.age / 0.12);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, 14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }

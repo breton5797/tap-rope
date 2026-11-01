@@ -98,3 +98,50 @@ describe('JuiceFx (wrapped effects)', () => {
     expect(juice.flyers()).toBe(1); // the coin flying to the counter
   });
 });
+
+describe('fx readability (art review + code review)', () => {
+  const setup = async () => {
+    const { JuiceFx } = await import('../../src/office/render/juice-fx');
+    const { initialPlayer } = await import('../../src/core/physics');
+    const { computeView } = await import('../../src/office/render/view');
+    const inner = { burst: () => 0, popup: () => 0, shake: () => 0, flash: () => 0, impact: () => 0, update: () => 0 };
+    const fx = new JuiceFx();
+    const api = fx.wrap(inner as never);
+    const ctx = new Proxy({}, { get: (_t, k) => (k === 'createRadialGradient' ? () => ({ addColorStop: () => undefined }) : () => undefined), set: () => true }) as never;
+    const v = computeView(390, 844, 2);
+    const hud = { coin: { x: 300, y: 20 }, chip: { x: 40, y: 700 } };
+    const juice = (fx as unknown as { juice: { live(): number; flyers(): number; rings(): number } }).juice;
+    const snap = (o: Record<string, unknown>) => ({ realTime: 1, reducedMotion: false, player: initialPlayer(), shield: false, slowMo: false, running: true, ...o }) as never;
+    return { fx, api, ctx, v, hud, juice, snap };
+  };
+
+  it('jump rings: 1단 one, 2단 two, 3단 three', async () => {
+    for (const level of [1, 2, 3]) {
+      const { fx, api, ctx, v, hud, juice, snap } = await setup();
+      api.impact('jump', { level });
+      fx.frame(ctx, v, snap({}), hud);
+      expect(juice.rings()).toBe(level);
+    }
+  });
+
+  it('a coin in a collect section flies to the mission chip only (no coin-counter flyer)', async () => {
+    const { fx, api, ctx, v, hud, juice, snap } = await setup();
+    const mission = (value: number) => ({ index: 1, kind: 'collect', title: '', value, target: 6, complete: false, stamps: [] });
+    fx.frame(ctx, v, snap({ mission: mission(0), run: { seed: 1, stageIndex: 1, progress: 0, beats: [] } }), hud);
+    api.burst('coin');
+    fx.frame(ctx, v, snap({ realTime: 1.02, mission: mission(1), run: { seed: 1, stageIndex: 1, progress: 0, beats: [] } }), hud);
+    expect(juice.flyers()).toBe(1);
+  });
+
+  it('a new run (or a long pause) drops the old edge state: no false shield pop on the first frame', async () => {
+    const { fx, ctx, v, hud, juice, snap } = await setup();
+    const runA = { seed: 1, stageIndex: 0, progress: 0, beats: [] };
+    const runB = { seed: 2, stageIndex: 0, progress: 0, beats: [] };
+    fx.frame(ctx, v, snap({ shield: true, run: runA }), hud);
+    fx.frame(ctx, v, snap({ realTime: 1.02, shield: false, run: runB }), hud);
+    expect(juice.live()).toBe(0);
+    fx.frame(ctx, v, snap({ realTime: 1.04, shield: true, run: runB }), hud);
+    fx.frame(ctx, v, snap({ realTime: 9, shield: false, run: runB }), hud);
+    expect(juice.live()).toBe(0);
+  });
+});

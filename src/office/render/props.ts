@@ -179,6 +179,11 @@ function silhouette(img: HTMLImageElement, color: string): HTMLCanvasElement | n
   return out;
 }
 
+/** a solid `color` outline `r` px around an image drawn at (x, y, w, h) (silhouettes cached per colour) */
+export function outlineImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number, color: string, r: number): void {
+  ring(ctx, silhouette(img, color), x, y, w, h, r);
+}
+
 function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: number, y: number, w: number, h: number, r: number): void {
   if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, x + dx * r, y + dy * r, w, h);
 }
