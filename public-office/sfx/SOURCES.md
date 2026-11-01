@@ -26,3 +26,26 @@ Processing v2 (`retrim.py`, 2026-11-02, from the raw WAVs): onset = first 5 ms R
 | `stamp` | 0.45 | 0.13 |  | -0.76 | a rubber stamp slammed onto paper on a desk, one solid thunk, short game sound effect, comic cartoon style, clean studio recording, no music, no speech, no words |
 | `mission-ok` | 1.50 | 0.10 |  | -1.17 | a cheerful cartoon ta-da fanfare with brass and a cymbal, 1.5 seconds, short game sound effect, comic cartoon style, clean studio recording, no music, no speech, no words |
 | `mission-miss` | 1.00 | 0.30 |  | -0.95 | a soft comic sad trombone wah-wah-wah, 1 second, short game sound effect, comic cartoon style, clean studio recording, no music, no speech, no words |
+
+## Loudness pass (2026-11-02, `loud.py`)
+
+Measured with ffmpeg `ebur128` (peak=true). Clips are 0.25–1.5 s, so 3 s short-term loudness is undefined: the measure is the **max momentary loudness** (400 ms K-weighted window, clip padded with 0.4 s silence). Targets: actions −18, pickups and perfect/stamp −16, mission-ok/miss −15 LUFS; true peak ≤ −1 dBTP. Gain applied to the trimmed masters (`master2` → `master3`); pick-heart (quiet bite) needed +10 dB with a 0.5 ms look-ahead limiter at −1.5 dBFS. Re-measured on the exported files.
+
+| name | target LUFS | before | gain dB | after (wav) | TP wav | TP ogg | TP m4a |
+|---|---|---|---|---|---|---|---|
+| `jump1` | -18 | -11.7 | -6.3 | -18.0 | -7.3 | -7.4 | -7.5 |
+| `jump2` | -18 | -12.6 | -5.4 | -18.0 | -6.4 | -6.3 | -6.4 |
+| `jump3` | -18 | -12.4 | -5.6 | -18.0 | -6.5 | -6.7 | -6.6 |
+| `land` | -18 | -16.9 | -1.1 | -18.0 | -2.1 | -2.3 | -2.1 |
+| `slide` | -18 | -18.0 | 0.0 | -18.0 | -1.0 | -1.6 | -1.0 |
+| `lane` | -18 | -17.2 | -0.8 | -18.0 | -1.8 | -2.1 | -2.1 |
+| `pick-coin` | -16 | -10.9 | -5.1 | -16.0 | -6.1 | -6.3 | -6.2 |
+| `pick-shield` | -16 | -15.8 | -0.2 | -16.0 | -1.2 | -1.5 | -1.5 |
+| `pick-slow` | -16 | -13.9 | -2.1 | -16.0 | -3.1 | -3.0 | -3.1 |
+| `pick-heart` | -16 | -24.2 | +10.0 (limited) | -16.3 | -1.4 | -1.6 | -1.0 |
+| `pick-item` | -16 | -6.5 | -9.5 | -16.0 | -10.5 | -10.5 | -10.4 |
+| `pick-item-done` | -16 | -10.0 | -6.0 | -16.0 | -7.0 | -7.1 | -4.9 |
+| `perfect` | -16 | -10.3 | -5.7 | -16.0 | -6.7 | -6.8 | -6.9 |
+| `stamp` | -16 | -14.6 | -1.4 | -16.0 | -2.4 | -1.9 | -2.0 |
+| `mission-ok` | -15 | -11.7 | -3.3 | -15.0 | -4.3 | -4.3 | -5.0 |
+| `mission-miss` | -15 | -9.5 | -5.5 | -15.0 | -6.5 | -6.4 | -6.5 |
