@@ -400,6 +400,12 @@ if (['all', 'heroes'].includes(which)) {
     if (id === 'robot') {
       await click(page.getByRole('button', { name: /사원 선택/ }));
       await waitScreen(page, 'shop');
+      // past the screen-in fade (a capture during it looks washed out); the room must settle fully opaque
+      const settled = await page.waitForFunction(() => {
+        const el = document.querySelector('.screen--shop');
+        return el && el.getAnimations({ subtree: false }).every((x) => x.playState === 'finished') && getComputedStyle(el).opacity === '1';
+      }, null, { timeout: 5000 }).then(() => true, () => false);
+      check(settled, '사원 선택 room settles fully opaque after its screen-in transition');
       const room = await page.locator('.screen--shop .skin').evaluateAll((els) => els.map((e) => e.querySelectorAll('.hero-stars__row').length));
       check(room.length === 4 && room.every((n) => n === 5), `사원 선택 room shows the same 4 cards with star bars (${room.join(',')})`);
       await shot(page, 'h5-room');
