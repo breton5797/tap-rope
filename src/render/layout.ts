@@ -111,10 +111,16 @@ function easeInOut(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
+/** office v2.2: the hero's lane-switch animation time (agility); v8 never sets it */
+let switchTime = LANE_SWITCH_TIME;
+export function setLaneSwitchTime(t: number = LANE_SWITCH_TIME): void {
+  switchTime = t > 0 ? t : LANE_SWITCH_TIME;
+}
+
 /** Lane-switch progress 0..1 (1 = settled). */
 export function laneProgress(p: PlayerState): number {
   if (p.lane === p.laneFrom) return 1;
-  const k = p.laneAge / LANE_SWITCH_TIME;
+  const k = p.laneAge / switchTime;
   return k >= 1 ? 1 : k <= 0 ? 0 : easeInOut(k);
 }
 

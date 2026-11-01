@@ -6,7 +6,7 @@
 import type { Beat, BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot, VisibleObstacle } from '../../types';
 import { HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
 import { createRenderer as createV8Renderer } from '../../render/index';
-import { BEAM_H, FLOOR_FRONT, depthScale, fixedX, laneY, projX, projY, visualLane } from '../../render/layout';
+import { BEAM_H, FLOOR_FRONT, depthScale, fixedX, laneY, projX, projY, setLaneSwitchTime, visualLane } from '../../render/layout';
 import { drawLaserWarnings } from '../../render/lasers';
 import { SpriteCache } from '../../render/sprites';
 import { computeView, type View } from '../../render/view';
@@ -31,6 +31,7 @@ import { STEP_HZ, bossExit } from './boss-rigs';
 import { RELEASE, bossThrowFrame, launchFor, propVisibleFrom, setThrowFrame } from './boss-throw';
 import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
 import { setHeroStageProgress } from './agent';
+import { laneSwitchFor } from './hero-style';
 import { setPickupFrame } from './gadgets';
 import { JuiceFx } from './juice-fx';
 
@@ -171,6 +172,7 @@ class OfficeRenderer implements Renderer {
     setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts);
     this.feelFrame(snap, run);
     setHeroStageProgress(run?.progress ?? 0);
+    setLaneSwitchTime(laneSwitchFor(snap.skin));
     // the sign scan runs before the v8 frame so its "!" pass knows which rear hazards get the arrow instead
     this.scan = scanSigns(snap.obstacles);
     // during a blackout, record every prop the v8 frame draws (replayed as silhouettes over the darkness)

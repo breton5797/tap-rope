@@ -1,6 +1,7 @@
 // Office v2.2 four heroes (spec 2026-11-02-office-four-heroes-design.md §1–3): which frame set a skin draws,
 // its FX accent colour (jump ring, collect burst, lane streaks) and the take-off ring size from its jump stat.
 // Read from src/office/core/characters.ts (CHARACTERS accent, statsFor jump speed), cached once per hero.
+import { LANE_SWITCH_TIME } from '../../types';
 import { DEFAULT_PHYSICS } from '../../core/physics';
 import { characterFor, statsFor } from '../core/characters';
 
@@ -11,10 +12,12 @@ interface HeroLook {
   readonly accent: string;
   /** jump take-off speed multiplier (spec §2: ×1.00–×1.12) */
   readonly jump: number;
+  /** lane-switch animation seconds (agility) */
+  readonly lane: number;
 }
 
 const LOOKS = Object.fromEntries(
-  HERO_SKINS.map((id) => [id, { accent: characterFor(id).accent, jump: statsFor(id).physics.jumpV / DEFAULT_PHYSICS.jumpV }]),
+  HERO_SKINS.map((id) => [id, { accent: characterFor(id).accent, jump: statsFor(id).physics.jumpV / DEFAULT_PHYSICS.jumpV, lane: statsFor(id).physics.laneSwitchTime ?? LANE_SWITCH_TIME }]),
 ) as Readonly<Record<HeroSkin, HeroLook>>;
 
 /** the frame set a skin draws (old / unknown skin ids fall back to the default hero) */
@@ -29,4 +32,9 @@ export function heroAccent(id: string): string {
 /** the take-off rings grow with the jump stat (the jumper's rings read bigger) */
 export function jumpRingScale(id: string): number {
   return LOOKS[heroSkin(id)].jump;
+}
+
+/** the lane-switch animation time for this hero (정시원 is quicker); drawn lane, lean and streaks follow it */
+export function laneSwitchFor(id: string): number {
+  return LOOKS[heroSkin(id)].lane;
 }

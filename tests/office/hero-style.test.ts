@@ -88,3 +88,24 @@ describe('picker run-cycle preview', () => {
     expect(draws).toBe(0);
   });
 });
+
+describe('lane switch honours the hero agility (laneSwitchTime)', () => {
+  it('정시원 switches lanes faster than the default; the others keep the v8 time', async () => {
+    const { laneSwitchFor } = await import('../../src/office/render/hero-style');
+    const { LANE_SWITCH_TIME } = await import('../../src/types');
+    expect(laneSwitchFor('kid')).toBe(LANE_SWITCH_TIME);
+    expect(laneSwitchFor('bunny')).toBe(LANE_SWITCH_TIME);
+    expect(laneSwitchFor('cat')).toBeCloseTo(LANE_SWITCH_TIME * 0.8);
+  });
+
+  it('the drawn lane, lean and progress follow the set switch time; the default stays v8', async () => {
+    const { laneProgress, setLaneSwitchTime } = await import('../../src/render/layout');
+    const p = { ...initialPlayer(), lane: 2, laneFrom: 1, laneAge: 0.1 } as PlayerState;
+    setLaneSwitchTime();
+    expect(laneProgress(p)).toBeLessThan(1);
+    setLaneSwitchTime(0.096);
+    expect(laneProgress(p)).toBe(1);
+    setLaneSwitchTime();
+    expect(laneProgress(p)).toBeLessThan(1);
+  });
+});
