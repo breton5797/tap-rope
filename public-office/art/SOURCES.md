@@ -266,3 +266,5 @@ Ludo `animateSprite`, model **forge** (input = `hero-<id>-run1.webp`), one share
 | `hero-bunny-hit1..4` / `hero-robot-hit1..4` | 2 s | stumbles backward dizzily while still facing right in side view, wobbles, then catches balance | 1,3,5,7 / 2,5,8,11 (later frames turn) |
 
 Every shipped frame was inspected for facing: all right-facing.
+
+- `op-robot.webp` regenerated (standing pose, clover pin visible; refs: hero-robot-run1 + previous op-robot): nano_banana_flash — $STYLE. Portrait of exactly the character in the first reference image (curly brown bob, mint headband, mint cardigan, gold four-leaf-clover pin, mint pleated skirt, gold lanyard badge), in the same 2:3 framing and soft mint-gold pastel gradient background with sparkle accents as the second reference. STANDING confident pose facing three-quarter toward the viewer, one hand giving a cheerful wave or peace sign, the other hand near her chest so the gold clover pin is clearly visible, big lucky smile. Full body head to toe, centered, feet on the ground. No text.
