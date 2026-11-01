@@ -19,8 +19,12 @@ export interface MissionRun {
   readonly stageId: string;
   readonly stageIndex: number;
   readonly specs: readonly MissionSpec[];
-  /** beat id → its part, for hazard beats; pickups are found by their judged `collected` */
+  /** beat id → its part, for hazard beats */
   readonly hazardPart: ReadonlyMap<number, number>;
+  /** beat id → its part, for every beat (a pickup counts for the part it was in, even on the door's step) */
+  readonly beatPart: ReadonlyMap<number, number>;
+  /** the part of the last pickup, for its sound (pickupCue) */
+  readonly pickupPart: number;
   /** each part's last hazard (the finale's leap) */
   readonly lastHazard: readonly number[];
   readonly stats: readonly MissionStats[];
@@ -63,13 +67,16 @@ export function startMissions(stage: StageDef | null, beats: readonly Beat[]): M
   return {
     stageId: stage.id, stageIndex: Math.max(0, STAGES.findIndex((s) => s.id === stage.id)), specs,
     hazardPart: new Map(hazards.map((b) => [b.id, partOf(b)])),
+    beatPart: new Map(beats.map((b) => [b.id, partOf(b)])),
+    pickupPart: 0,
     lastHazard: specs.map((_, k) => hazards.filter((b) => partOf(b) === k).at(-1)?.id ?? -1),
     stats, chase: specs.map(() => CHASE_START), stamps: specs.map(() => null), section: 0, hits: 0, items: 0,
   };
 }
 
-function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, section: number): MissionRun {
+function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, current: number): MissionRun {
   const { result, shielded } = ev;
+  const section = Math.min(run.beatPart.get(result.beatId) ?? current, run.specs.length - 1);
   const hit = result.hit && !shielded;
   const part = run.hazardPart.get(result.beatId);
   const coins = result.collected.filter((k) => k === 'coin').length;
@@ -90,7 +97,7 @@ function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, sect
     chase = chase.map((c, k) => (k === part ? clamp01(c + (hit ? -CHASE_HIT : CHASE_DODGE)) : c));
   }
   if (coins === 0 && part === undefined) return run;
-  return { ...run, stats, chase, items, hits: run.hits + (hit ? 1 : 0) };
+  return { ...run, stats, chase, items, hits: run.hits + (hit ? 1 : 0), pickupPart: coins > 0 ? section : run.pickupPart };
 }
 
 /** stamps every unstamped section before `upTo` (exclusive) at `time` */
@@ -158,7 +165,7 @@ export function pickupCue(run: MissionRun | null, kind: ObstacleKind): PickupCue
   if (kind === 'slow') return { name: 'pick-slow', level: 1, haptic: PICKUP_BUZZ.slow };
   if (kind === 'heart') return { name: 'pick-heart', level: 1, haptic: PICKUP_BUZZ.heart };
   if (kind !== 'coin') return null;
-  const k = Math.min(run.section, run.specs.length - 1);
+  const k = run.pickupPart;
   const spec = run.specs[k];
   if (spec.kind !== 'collect') return { name: 'coin', level: 1, haptic: PICKUP_BUZZ.coin };
   const n = run.stats[k].collected;

@@ -6,9 +6,10 @@
 
 export type SampleExt = 'ogg' | 'm4a';
 
-/** Ogg Vorbis where the browser plays it, AAC in an .m4a otherwise (Safari) */
+/** AAC in an .m4a (the precached format) wherever it plays; Ogg Vorbis only where it does not */
 export function pickSampleExt(canPlayType: ((type: string) => string) | null): SampleExt {
-  return canPlayType && canPlayType('audio/ogg; codecs="vorbis"') !== '' ? 'ogg' : 'm4a';
+  if (!canPlayType || canPlayType('audio/mp4; codecs="mp4a.40.2"') !== '') return 'm4a';
+  return canPlayType('audio/ogg; codecs="vorbis"') !== '' ? 'ogg' : 'm4a';
 }
 
 /** the browser's answer, or null outside a browser */
@@ -68,6 +69,7 @@ export function createSamplePlayer(ctx: BaseAudioContext, o: SamplePlayerOptions
         src.buffer = buf;
         src.playbackRate.value = rate;
         src.connect(out);
+        src.onended = () => src.disconnect();
         src.start(ctx.currentTime);
         return true;
       } catch {

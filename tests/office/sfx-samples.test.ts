@@ -49,6 +49,17 @@ describe('pickup cues', () => {
     for (const c of cues) expect(c?.haptic).toBeTruthy();
   });
 
+  it('a pickup is cued by the part it was in, even when the section advances in the same step', () => {
+    const def = { ...(stageById('w1-s10') as StageDef), seed: 5 };
+    const { beats } = generateStage(def, DEFAULT_PHYSICS, 2);
+    const coins = beats.filter((b) => b.part === 1 && b.obstacles.some((o) => o.kind === 'coin'));
+    let run = startMissions(def, beats);
+    for (const b of coins.slice(0, 4)) run = trackMissions(run, { beats, section: 1, time: b.time }, [judge(b.id)]);
+    // the 5th (= target) coin and the door into part 2 land in one step
+    run = trackMissions(run, { beats, section: 2, time: coins[4].time }, [judge(coins[4].id)]);
+    expect(pickupCue(run, 'coin')).toMatchObject({ name: 'pick-item-done' });
+  });
+
   it('power-ups get their own sound and buzz; coins outside a collect part are plain coins', () => {
     const def = { ...(stageById('w1-s10') as StageDef), seed: 5 };
     const run = startMissions(def, generateStage(def, DEFAULT_PHYSICS, 2).beats);
@@ -107,9 +118,10 @@ describe('sample player', () => {
     expect(player.play('land', {} as AudioNode, 1)).toBe(true);
   });
 
-  it('picks Ogg where the browser plays it, AAC (.m4a) otherwise (Safari)', () => {
+  it('prefers AAC (.m4a, the precached format) wherever it plays; Ogg only where it does not', () => {
+    expect(pickSampleExt((t) => (t.includes('mp4') ? 'probably' : ''))).toBe('m4a');
+    expect(pickSampleExt((t) => (t.includes('mp4') ? 'maybe' : 'probably'))).toBe('m4a');
     expect(pickSampleExt((t) => (t.includes('ogg') ? 'probably' : ''))).toBe('ogg');
-    expect(pickSampleExt(() => '')).toBe('m4a');
     expect(pickSampleExt(null)).toBe('m4a');
   });
 });

@@ -18,19 +18,27 @@ export interface ServiceWorkerOptions {
 
 const ROOT = new URL('../', import.meta.url);
 
+/** ./-relative files under a public dir with this extension (recursive: v7 cutscene stills live in art/cut) */
+function listPublic(publicDir: string, dir: string, ext: string): string[] {
+  try {
+    const files = readdirSync(new URL(`${publicDir}/${dir}`, ROOT), { recursive: true }) as string[];
+    return files.filter((f) => f.endsWith(ext)).map((f) => `./${dir}/${f.split('\\').join('/')}`).sort();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The public files a build precaches besides its bundle: art and self-hosted fonts (the game must work offline)
+ * and, office v2.1, the sampled sfx in ONE format — .m4a (AAC plays in current Chrome, Safari and Firefox); the
+ * .ogg twins are fetched (and runtime-cached by the worker) only where .m4a will not play. v8's public has no sfx.
+ */
+export function precachedPublicFiles(publicDir: string): string[] {
+  return [...listPublic(publicDir, 'art', '.webp'), ...listPublic(publicDir, 'fonts', '.woff2'), ...listPublic(publicDir, 'sfx', '.m4a')];
+}
+
 export function serviceWorker(o: ServiceWorkerOptions): Plugin {
-  /** v6 photographic art (public/art) and self-hosted fonts (public/fonts) are precached too (the game must work offline) */
-  const listPublic = (dir: string, ext: string): string[] => {
-    try {
-      // recursive: v7 cutscene stills live in public/art/cut
-      const files = readdirSync(new URL(`${o.publicDir}/${dir}`, ROOT), { recursive: true }) as string[];
-      return files.filter((f) => f.endsWith(ext)).map((f) => `./${dir}/${f.split('\\').join('/')}`).sort();
-    } catch {
-      return [];
-    }
-  };
-  // office v2.1: sampled sfx (public-office/sfx) are precached too; v8's public dir has none
-  const artFiles = (): string[] => [...listPublic('art', '.webp'), ...listPublic('fonts', '.woff2'), ...listPublic('sfx', '.ogg'), ...listPublic('sfx', '.m4a')];
+  const artFiles = (): string[] => precachedPublicFiles(o.publicDir);
   return {
     name: 'tap-rope-sw',
     apply: 'build',

@@ -152,6 +152,8 @@ export function startApp(): void {
   let lastStampAt: number | undefined;
   /** this frame's mission view (built once, shared by the HUD and the render snapshot) */
   let missionNow: MissionView | undefined;
+  /** the pending mission-verdict sound after a stamp (cleared on a new run and on quitting) */
+  let verdictTimer = 0;
   const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
 
@@ -177,6 +179,7 @@ export function startApp(): void {
 
   const toMenu = (show: (s: SaveData) => void): void => {
     screen = 'menu';
+    window.clearTimeout(verdictTimer);
     lastRunKey = '';
     tutorial.reset([]); // quitting inside a tutorial freeze must not freeze the menu demo
     frozenReal = -1;
@@ -276,6 +279,7 @@ export function startApp(): void {
     missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
     lastStampAt = undefined;
     missionNow = undefined;
+    window.clearTimeout(verdictTimer);
     prevBoss = null;
     bossLine = -1;
     finisher = 'off';
@@ -568,7 +572,8 @@ export function startApp(): void {
     // the stamp lands, then its verdict (v8 has no missions, so none of this ever plays there)
     audio.sfx('stamp');
     const verdict = view.stampOk ? 'mission-ok' : 'mission-miss';
-    window.setTimeout(() => audio.sfx(verdict), STAMP_VERDICT_MS);
+    window.clearTimeout(verdictTimer);
+    verdictTimer = window.setTimeout(() => audio.sfx(verdict), STAMP_VERDICT_MS);
     haptics.vibrate(view.stampOk ? [18, 40, 28] : 12);
   };
 
