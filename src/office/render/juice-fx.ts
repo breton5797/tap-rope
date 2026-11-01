@@ -233,12 +233,18 @@ export class JuiceFx {
     const t = snap.realTime;
     if (snap.shield) {
       const pulse = snap.reducedMotion ? 0 : Math.sin(t * 5) * 2;
+      // on top of the hero, clear in the middle: only the rim is tinted (the hero is never washed out)
       ctx.save();
-      ctx.globalAlpha = 0.18;
-      ctx.fillStyle = '#9BE7FF';
+      ctx.translate(x, y - 46);
+      ctx.scale(34 + pulse, 50 + pulse);
+      ctx.fillStyle = this.bubbleFill(ctx);
+      ctx.beginPath();
+      ctx.arc(0, 0, 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
       ctx.beginPath();
       ctx.ellipse(x, y - 46, 34 + pulse, 50 + pulse, 0, 0, Math.PI * 2);
-      ctx.fill();
       ctx.globalAlpha = 0.8;
       ctx.strokeStyle = '#7FDBFF';
       ctx.lineWidth = 2;
@@ -260,6 +266,19 @@ export class JuiceFx {
 
   /** the slow-mo ice vignette, built once per view */
   private ice: { key: string; g: CanvasGradient } | null = null;
+  private bubble: { ctx: Ctx; g: CanvasGradient } | null = null;
+
+  /** unit-circle bubble fill: transparent inside, a cyan band at the rim (built once per context) */
+  private bubbleFill(ctx: Ctx): CanvasGradient {
+    if (this.bubble?.ctx !== ctx) {
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      g.addColorStop(0, 'rgba(155,231,255,0)');
+      g.addColorStop(0.72, 'rgba(155,231,255,0)');
+      g.addColorStop(1, 'rgba(155,231,255,0.32)');
+      this.bubble = { ctx, g };
+    }
+    return this.bubble.g;
+  }
 
   private iceTint(ctx: Ctx, v: View): CanvasGradient {
     if (!this.ice || this.ice.key !== v.key) {

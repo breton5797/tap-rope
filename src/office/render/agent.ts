@@ -10,6 +10,7 @@ import { cueAge } from '../../render/cues';
 import { RIG_SIZE } from '../../render/rig';
 import type { Ctx } from '../../render/util';
 import { HIT_SHOW, frameFallbacks, heroLean, heroPose, showsWin, type HeroFrameId, type PoseCtx } from './hero-frames';
+import { blinkAlpha, heroSetScale } from './hero-scale';
 import { heroSkin, type HeroSkin } from './hero-style';
 import { outlineImage } from './props';
 import { officeImage } from './images';
@@ -25,6 +26,12 @@ const SHADOW_ALPHA = 0.4;
 let stageProgress = 0;
 export function setHeroStageProgress(progress: number): void {
   stageProgress = progress;
+}
+
+/** shield up this frame (set by the office renderer): the hurt blink keeps the hero readable */
+let shielded = false;
+export function setHeroShield(on: boolean): void {
+  shielded = on;
 }
 
 export class AgentPainter {
@@ -67,7 +74,8 @@ export class AgentPainter {
       return;
     }
     const s = f.scale * RIG_SIZE;
-    const h = HERO_H * s;
+    // a frame set shrunk to fit its canvas (고도약's jumps) is drawn back at the hero's run1 size
+    const h = HERO_H * s * heroSetScale(this.skin, pose.frame);
     const w = (h * img.naturalWidth) / img.naturalHeight;
     const reduced = f.reduced === true;
     const feetY = f.floorY - f.p.height * f.depth;
@@ -84,7 +92,7 @@ export class AgentPainter {
       ctx.rotate(pose.rot);
       ctx.translate(0, h / 2);
     }
-    if (f.blink) ctx.globalAlpha *= 0.55 + 0.45 * Math.abs(Math.sin(f.t * Math.PI * 10));
+    if (f.blink) ctx.globalAlpha *= blinkAlpha(f.t, shielded);
     // a hit is unmistakable: a red outline for the hit window (PERFECT never uses red)
     if (c.hitAge >= 0 && c.hitAge < HIT_SHOW) outlineImage(ctx, img, -w / 2, -h, w, h, '#FF3B4E', 2.6);
     ctx.drawImage(img, -w / 2, -h, w, h);
