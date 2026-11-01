@@ -405,6 +405,8 @@ export interface RunRecord {
   readonly inputs: readonly RunInput[];
   readonly endTime: number; // session time when the run ended
   readonly clientScore: number;
+  /** office v2.2: the hire, only when its stats change the simulation (absent = default physics; v8 never sets it) */
+  readonly skin?: SkinId;
 }
 
 export type Board = 'endless' | 'endless-week' | `daily:${string}`;

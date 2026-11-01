@@ -276,7 +276,7 @@ export function startApp(): void {
     // changed by input). run.stage keeps the original, so a retry draws again.
     // v2.2: the hire's stats (v8 flavour: identical for every operator)
     session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed, skin: save.skin });
-    runLog = createRunLog(mode, seed, date);
+    runLog = createRunLog(mode, seed, date, save.skin);
     missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
     lastStampAt = undefined;
     missionNow = undefined;

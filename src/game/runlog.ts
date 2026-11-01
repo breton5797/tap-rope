@@ -3,7 +3,8 @@
  * session time they were applied (always a deterministic boundary), counts overdrives, and builds the
  * RunSummary (achievements) and the RunRecord (server re-simulation, endless/daily only).
  */
-import type { GameMode, LaneDir, MoveId, RunInput, RunRecord, RunSummary, Swipe } from '../types';
+import type { GameMode, LaneDir, MoveId, RunInput, RunRecord, RunSummary, SkinId, Swipe } from '../types';
+import { runStats } from '../flavor';
 import { LANE_HAZARD_KINDS } from '../types';
 import { SIM_VERSION } from './replay';
 import type { Session } from './session';
@@ -44,7 +45,11 @@ export function hitBy(end: Session): MoveId | null {
   return null;
 }
 
-export function createRunLog(mode: GameMode, seed: number, date: string): RunLog {
+/** the skin changes the simulation when its run stats differ from the default hire's (v8: never) */
+const changesSim = (skin: SkinId): boolean => JSON.stringify(runStats(0, skin)) !== JSON.stringify(runStats(0, 'kid'));
+
+export function createRunLog(mode: GameMode, seed: number, date: string, skin: SkinId = 'kid'): RunLog {
+  const skinField = changesSim(skin) ? { skin } : {};
   let inputs: RunInput[] = [];
   let fevers = 0;
   return {
@@ -65,7 +70,7 @@ export function createRunLog(mode: GameMode, seed: number, date: string): RunLog
     },
     record(end) {
       if (mode === 'stage') return null;
-      return { sim: SIM_VERSION, mode, seed, date, inputs, endTime: end.time, clientScore: end.score.score };
+      return { sim: SIM_VERSION, mode, seed, date, inputs, endTime: end.time, clientScore: end.score.score, ...skinField };
     },
   };
 }

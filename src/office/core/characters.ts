@@ -59,7 +59,7 @@ export const CHARACTERS: readonly Character[] = [
   },
   {
     id: 'cat', name: '정시원', gender: 'f', role: '민첩형 · 눈치 백단', accent: '#f0628f',
-    blurb: '레인 이동이 빠르고 숙이기가 길어요. 대신 체력이 적어요.', catchphrase: '6시 땡이면 저는 없는 사람입니다!',
+    blurb: '숙이기가 길고 레인 이동이 가벼워요. 대신 체력이 적어요.', catchphrase: '6시 땡이면 저는 없는 사람입니다!',
     stars: { jump: 3, agility: 5, hearts: 2, focus: 3, luck: 3 },
   },
   {

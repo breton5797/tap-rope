@@ -37,3 +37,12 @@ describe('office run stats', () => {
     expect(times('bunny')).not.toEqual(times('kid'));
   });
 });
+
+describe('office run log', () => {
+  it('records the hire so a replay would use the right physics', async () => {
+    const { createRunLog } = await import('../../src/game/runlog');
+    const s = createSession('endless', null, { seed: 3, skin: 'bunny' });
+    expect(createRunLog('endless', 3, 'd', 'bunny').record(s)?.skin).toBe('bunny');
+    expect(createRunLog('endless', 3, 'd', 'kid').record(s)).not.toHaveProperty('skin');
+  });
+});

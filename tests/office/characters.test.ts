@@ -63,6 +63,12 @@ describe('characters', () => {
     }
   });
 
+  it('describe agility honestly: lane judging is immediate, only the move animation is lighter', () => {
+    const cat = CHARACTERS[1];
+    expect(cat.blurb).toContain('숙이기가 길고');
+    expect(cat.blurb).not.toMatch(/레인 이동이 빠르/);
+  });
+
   it('fall back to the balanced hire for an unknown skin', () => {
     expect(characterFor('ninja').id).toBe('kid');
     expect(statsFor('astro')).toEqual(statsFor('kid'));
