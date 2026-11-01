@@ -109,3 +109,33 @@ describe('popups stay on screen', () => {
     expect(popupShift(200, 40, 400, 30)).toBe(0);
   });
 });
+
+describe('rear / stay-low signs scan every hazard (review BLOCK)', () => {
+  const ob = (kind: VisibleObstacle['kind'], tu: number, o: Partial<VisibleObstacle> = {}): VisibleObstacle =>
+    ({ id: `${Math.round(tu * 10)}-0`, kind, level: 1, from: null, timeUntil: tu, height: 0, lanes: null, sudden: false, ...o });
+
+  it('A: a front lane hazard + a rear head-height beam in one beat still gets the rear mark', async () => {
+    const { scanSigns } = await import('../../src/office/render/readability');
+    const s = scanSigns([ob('guard', 1.0, { lanes: [0] }), ob('high', 1.0, { from: 'back' })]);
+    expect(s.rearHeights.length).toBe(1);
+    expect(s.laneBeats.length).toBe(1);
+  });
+
+  it('B: a rear chaser behind a nearer front drop is marked from WARN_LEAD on (not after the drop passes)', async () => {
+    const { scanSigns, rearMarked } = await import('../../src/office/render/readability');
+    const { WARN_LEAD } = await import('../../src/types');
+    const chaser = ob('chaser', WARN_LEAD, { lanes: [1] });
+    const s = scanSigns([ob('drop', 0.4, { lanes: [0] }), chaser]);
+    expect(s.rearHeights.length).toBe(1);
+    expect(rearMarked(chaser)).toBe(true);
+    expect(rearMarked(ob('chaser', 1.5, { lanes: [1] }))).toBe(false);
+  });
+
+  it('rear jump vs rear slide marks sit at different heights; a drone anywhere ahead shows the band', async () => {
+    const { scanSigns } = await import('../../src/office/render/readability');
+    const s = scanSigns([ob('beam', 0.8, { from: 'back' }), ob('high', 0.9, { from: 'back' }), ob('drone', 1.1)]);
+    expect(new Set(s.rearHeights).size).toBe(2);
+    expect(s.drone).toBe(true);
+    expect(scanSigns([ob('floor', 0.5), ob('high', 0.7)]).laneBeats.length).toBe(0);
+  });
+});

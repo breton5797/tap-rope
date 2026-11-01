@@ -74,8 +74,10 @@ export class JuiceFx {
     const gap = snap.realTime - this.lastReal;
     const run = snap.run;
     // a new run (retry / quit) or a long pause: old edges and queued cues belong to another moment
-    if (!Number.isFinite(gap) || gap > STALE || gap < 0 || run?.seed !== this.runSeed || run?.stageIndex !== this.runStage) {
-      this.reset(snap, Number.isFinite(this.lastReal));
+    const newRun = run?.seed !== this.runSeed || run?.stageIndex !== this.runStage;
+    if (!Number.isFinite(gap) || gap > STALE || gap < 0 || newRun) {
+      // a hitch / pause keeps the queued cues (a coin picked just before it still sparkles); a new run drops them
+      this.reset(snap, newRun && Number.isFinite(this.lastReal));
     }
     const dt = Number.isFinite(gap) && gap <= STALE ? Math.min(0.1, Math.max(0, gap)) : 0;
     this.lastReal = snap.realTime;

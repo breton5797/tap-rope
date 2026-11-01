@@ -4,7 +4,7 @@
 // hazard outlines, fire-drill flash, high five, broadcast), speech bubbles (catchphrase at the intro, exit
 // line when the gauge runs out) and the clock. Missing art or a missing run never throws: it draws less.
 import type { Beat, BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot, VisibleObstacle } from '../../types';
-import { HAZARD_KINDS, LANE_HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
+import { HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
 import { createRenderer as createV8Renderer } from '../../render/index';
 import { BEAM_H, FLOOR_FRONT, depthScale, laneY, projX, projY, visualLane } from '../../render/layout';
 import { drawLaserWarnings } from '../../render/lasers';
@@ -16,8 +16,7 @@ import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
 import { drawClock, laneTopY } from './clock';
-import { beatHint, rearArrow, safeArrow, safeLanes, stayLowBand } from './readability';
-import { isRearAttack } from './warnings';
+import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeLanes, scanSigns, stayLowBand } from './readability';
 import { hudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import { actionCue, beatIdOf, propIdFor, propImage, setFocusLane, setPropFrame } from './props';
@@ -35,8 +34,6 @@ import { JuiceFx } from './juice-fx';
 export * from '../../render/index';
 
 const NO_BEATS: readonly Beat[] = [];
-/** signs show from this long before the attack arrives */
-const SIGN_LEAD = 1.2;
 const BLOCKED: number[] = [];
 const BEAT: VisibleObstacle[] = [];
 
@@ -274,34 +271,26 @@ class OfficeRenderer implements Renderer {
    * behind, and green chevrons on the lanes a lane attack leaves open.
    */
   private signs(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot): void {
-    const o = attackObstacle(snap, isHazard);
-    if (!o || o.timeUntil > SIGN_LEAD) return;
-    // a combo beat is signed for every hazard in it (the judge needs all its moves)
-    const beat = beatOf(snap, beatIdOf(o));
+    // every hazard ahead within SIGN_LEAD, not just the nearest beat (a rear attack behind a nearer front one
+    // is marked as early as v8's "!", which warnings.ts suppresses for exactly these obstacles)
+    const scan = scanSigns(snap.obstacles);
     const lane = visualLane(snap.player);
-    let rear = false;
-    let drone = false;
-    let laneAttack: VisibleObstacle | null = null;
-    BLOCKED.length = 0;
-    for (const x of beat) {
-      if (isRearAttack(x)) rear = true;
-      if (x.kind === 'drone') drone = true;
-      if (LANE_HAZARD_KINDS.includes(x.kind) && x.lanes) {
-        laneAttack = laneAttack ?? x;
-        for (const l of x.lanes) BLOCKED.push(l);
-      }
-    }
-    if (rear) rearArrow(ctx, v.x0 + 6, laneY(lane) - snap.player.height * depthScale(lane) - 40, snap.realTime, snap.reducedMotion);
-    if (drone) {
+    for (const h of scan.rearHeights) rearArrow(ctx, v.x0 + 6, projY(lane, h), snap.realTime, snap.reducedMotion);
+    if (scan.drone) {
       // stay low: the dashed purple band at 2단 height in the hero's lane, wherever the drone prop is
-      const x = projX(PLAYER_X + Math.max(40, o.timeUntil * 160), lane);
+      const x = projX(PLAYER_X + Math.max(40, scan.droneTu * 160), lane);
       stayLowBand(ctx, x, projY(lane, BEAM_H[1]), 70 * depthScale(lane), depthScale(lane));
     }
-    // safe-lane chevrons only for lane-change attacks
-    if (!laneAttack) return;
-    const x = laneAttack.kind === 'chaser' ? PLAYER_X + 40 : PLAYER_X + Math.max(30, o.timeUntil * 120);
-    for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3));
+    // safe-lane chevrons for each lane-change beat ahead
+    for (const o of scan.laneBeats) {
+      const beat = beatIdOf(o);
+      BLOCKED.length = 0;
+      for (const x of snap.obstacles) if (beatIdOf(x) === beat && x.lanes && HAZARD_KINDS.includes(x.kind)) for (const l of x.lanes) BLOCKED.push(l);
+      const x = o.kind === 'chaser' ? PLAYER_X + 40 : PLAYER_X + Math.max(30, o.timeUntil * 120);
+      for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3));
+    }
   }
+
 
 
 

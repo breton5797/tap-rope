@@ -4,6 +4,7 @@
 import type { LaneId, ObstacleKind, VisibleObstacle } from '../../types';
 import { HAZARD_KINDS } from '../../types';
 import type { Ctx } from '../../render/util';
+import { BEAM_H, HIGH_H } from '../../render/layout';
 import { ACTION_COLORS, actionCue } from './props';
 
 /** the hero's drawn height in logical px (agent.ts HERO_H 92 × RIG_SIZE 1.2) */
@@ -205,4 +206,58 @@ export function pointerBeam(ctx: Ctx, hx: number, hy: number, x: number, y: numb
   ctx.fill();
   ctx.stroke();
   ctx.restore();
+}
+
+// ---------- per-frame sign scan (every hazard ahead, not just the nearest beat) ----------
+
+/** signs (rear arrow, stay-low band, safe-lane chevrons) show this long before an attack arrives (≥ WARN_LEAD) */
+export const SIGN_LEAD = 1.2;
+const REAR_CHASER_H = 34;
+
+/** a rear attack the office marks with its arrow this frame (its v8 "!" is then suppressed) */
+export function rearMarked(o: Pick<VisibleObstacle, 'kind' | 'from' | 'timeUntil'>): boolean {
+  return HAZARD_KINDS.includes(o.kind) && isRear(o) && o.timeUntil > 0 && o.timeUntil <= SIGN_LEAD;
+}
+
+/** the attack height a rear mark points at (jump beam vs slide vs chaser), logical px above the floor */
+function rearHeight(o: Pick<VisibleObstacle, 'kind' | 'level'>): number {
+  if (o.kind === 'high') return HIGH_H;
+  if (o.kind === 'beam') return BEAM_H[Math.min(3, Math.max(1, o.level)) - 1];
+  return REAR_CHASER_H;
+}
+
+export interface SignScan {
+  /** distinct heights of the rear attacks ahead */
+  rearHeights: number[];
+  drone: boolean;
+  /** one lane-attack obstacle per beat ahead (its beat's blocked lanes are gathered by the caller) */
+  laneBeats: VisibleObstacle[];
+  /** time until the nearest drone (for the band's position) */
+  droneTu: number;
+}
+
+const SCAN: SignScan = { rearHeights: [], drone: false, laneBeats: [], droneTu: 0 };
+
+/** scan every hazard obstacle with 0 < timeUntil ≤ SIGN_LEAD (a shared result: read it before the next call) */
+export function scanSigns(obs: readonly VisibleObstacle[]): Readonly<SignScan> {
+  SCAN.rearHeights.length = 0;
+  SCAN.laneBeats.length = 0;
+  SCAN.drone = false;
+  SCAN.droneTu = Infinity;
+  for (const o of obs) {
+    if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil <= 0 || o.timeUntil > SIGN_LEAD) continue;
+    if (isRear(o)) {
+      const h = rearHeight(o);
+      if (!SCAN.rearHeights.includes(h)) SCAN.rearHeights.push(h);
+    }
+    if (o.kind === 'drone') {
+      SCAN.drone = true;
+      SCAN.droneTu = Math.min(SCAN.droneTu, o.timeUntil);
+    }
+    if (o.lanes && actionCue(o.kind) === 'lane') {
+      const beat = Number.parseInt(o.id, 10);
+      if (!SCAN.laneBeats.some((x) => Number.parseInt(x.id, 10) === beat)) SCAN.laneBeats.push(o);
+    }
+  }
+  return SCAN;
 }

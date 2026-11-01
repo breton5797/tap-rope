@@ -72,8 +72,8 @@ function thrown(
   LAND.x = landX;
   LAND.y = landY;
   const p = throwArc(throwHand(), LAND, step);
-  // a ceiling prop catches its hang-line as it comes down onto its path
-  if (o.kind === 'ceiling' && step > 0.5) hangLine(ctx, p.x, projY(d, CEIL_H), p.y - h, depthScale(d), a * (step - 0.5) * 2);
+  // every ceiling prop hangs on its line, held and in flight too (it reads as a slide, not a jump)
+  if (o.kind === 'ceiling') hangLine(ctx, p.x, projY(d, CEIL_H), p.y - h, depthScale(d), a);
   drawProp(ctx, img, p.x, p.y, h, ay, flip, a, propMotion(propIdFor(o), phase(o, d, t) * 2), actionCue(o.kind));
 }
 
@@ -146,10 +146,10 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
     const target = o.kind === 'high' ? HIGH_H : BEAM_H[Math.min(3, Math.max(1, o.level)) - 1];
     if (pointerAt(ctx, o, x, projY(d, target), depthScale(d), a)) return;
   }
-  // head-height props hang from the ceiling (a slide, not a jump) — from mid-flight on
-  if (o.kind === 'high' && (step === null || step > 0.5)) {
+  // head-height props hang from the ceiling (a slide, not a jump), held and in flight too
+  if (o.kind === 'high') {
     const top = floorY - (bottom + h) * depthScale(d);
-    hangLine(ctx, x, projY(d, CEIL_H), top, depthScale(d), a * (step === null ? 1 : (step - 0.5) * 2));
+    hangLine(ctx, x, projY(d, CEIL_H), top, depthScale(d), a);
   }
   if (step !== null && propIdFor(o) === 'pointer') return; // the pointer is a beam, never thrown
   const depth = depthScale(d);

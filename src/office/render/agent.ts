@@ -79,7 +79,7 @@ export class AgentPainter {
     }
     if (f.blink) ctx.globalAlpha *= 0.55 + 0.45 * Math.abs(Math.sin(f.t * Math.PI * 10));
     // a hit is unmistakable: a red outline for the hit window (PERFECT never uses red)
-    if (c.hitAge < HIT_SHOW) outlineImage(ctx, img, -w / 2, -h, w, h, '#FF3B4E', 2.6);
+    if (c.hitAge >= 0 && c.hitAge < HIT_SHOW) outlineImage(ctx, img, -w / 2, -h, w, h, '#FF3B4E', 2.6);
     ctx.drawImage(img, -w / 2, -h, w, h);
     ctx.restore();
   }
