@@ -15,7 +15,7 @@
 // Sheets are drawn per depth segment [d0, d1) so the renderer can interleave them with the agent.
 import { PLAYER_X, WARN_LEAD, type LaserFrom, type VisibleObstacle } from '../types';
 import {
-  ARM_TIME, BEAM_H, CEIL_H, CEIL_LASER_END, CHARGE_TIME, ENTER_TIME, FLOOR_LASER_H, HIGH_H, SPAN_D0, SPAN_D1,
+  ARM_TIME, BEAM_H, CEIL_H, CEIL_LASER_END, CHARGE_TIME, FENCE_FADE_IN, ENTER_TIME, FLOOR_LASER_H, HIGH_H, SPAN_D0, SPAN_D1,
   depthScale, fixedX, flyingX, projX, projY,
 } from './layout';
 import { blitScaled, type Sprite, type SpriteCache } from './sprites';
@@ -357,7 +357,7 @@ function fence(ctx: Ctx, o: VisibleObstacle, s: Readonly<Seg>, t: number, sprite
   // the floor stencil fades before the agent reaches it (it would paint over a sliding agent)
   const stencil = clamp((CHARGE_TIME + 0.4 - tu) / 0.4, 0, 1) * clamp((tu - 0.06) / 0.2, 0, 1);
   // floor posts: fade in ahead of arming, gone once the wire has passed
-  const presence = clamp((CHARGE_TIME + 0.9 - tu) / 0.3, 0, 1) * clamp(1 + tu / 0.25, 0, 1);
+  const presence = clamp((FENCE_FADE_IN - tu) / 0.3, 0, 1) * clamp(1 + tu / 0.25, 0, 1);
   const flare = sprites.get('lzFlare', 14, 14, 7, 7, flareSprite);
   for (const d of LANE_CENTRES) {
     if (d < s.a || d >= s.b) continue;

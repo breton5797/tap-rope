@@ -66,6 +66,7 @@ const CHECKS: Readonly<Record<AchievementId, Check>> = {
   'daily-7': (save) => save.dailyStreak.count >= 7,
   'all-operators': (save) => SKINS.every((s) => save.ownedSkins.includes(s.id)),
   archivist: (save) => CUTSCENES.every((c) => save.seenCutscenes.includes(c.id)),
+  'stamps-15': () => false, // office v2 only (mission stamps); not in the v8 list
 };
 
 /** ids newly unlocked by this save (+ the run just finished, if any), in ACHIEVEMENTS order */

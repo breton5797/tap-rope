@@ -3,7 +3,7 @@
  * owns the screen flow (menu demo → countdown → play ⇄ pause → result).
  */
 import type {
-  Board, BossView, Cutscene, CutsceneId, GameMode, LaneDir, MoveId, Renderer, ResultInfo, SaveData, Settings, SkinId,
+  Board, BossView, Cutscene, CutsceneId, GameMode, LaneDir, MissionView, MoveId, Renderer, ResultInfo, SaveData, Settings, SkinId,
   StageDef, Swipe, Ui,
 } from '../types';
 import { createRenderer } from '../render/index';
@@ -35,6 +35,7 @@ import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
 import { TutorialRun, tutorialStops, type TutorialStep } from './tutorial';
 import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
 import { autoplayResult, takeChallenge, withoutChallenge } from './run-policy';
+import { commitMissions, missionView, startMissions, trackMissions, type MissionRun } from './missions';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
 type Screen = 'menu' | 'controls' | 'picker' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
@@ -143,6 +144,11 @@ export function startApp(): void {
   /** v8 (A5): challenge link not yet played, and whether the current run is the challenge run */
   let challenge: ChallengeLink | null = null;
   let challengeRun = false;
+  /** office v2 missions of the current run (v8: always null); stampAt of the last stamp fed back */
+  let missions: MissionRun | null = null;
+  let lastStampAt: number | undefined;
+  /** this frame's mission view (built once, shared by the HUD and the render snapshot) */
+  let missionNow: MissionView | undefined;
   const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
 
@@ -264,6 +270,9 @@ export function startApp(): void {
     // changed by input). run.stage keeps the original, so a retry draws again.
     session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed });
     runLog = createRunLog(mode, seed, date);
+    missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
+    lastStampAt = undefined;
+    missionNow = undefined;
     prevBoss = null;
     bossLine = -1;
     finisher = 'off';
@@ -334,13 +343,16 @@ export function startApp(): void {
     audio.setFever(false);
     const cleared = session.status === 'cleared';
     if (cleared && run.mode === 'stage' && STORY_BOSSES.has(session.stage.id)) audio.sfx('rescue');
-    const stars = sessionStars(session);
+    // office v2: a cleared stage's stars are its mission stamps (v8: none, the judged stars)
+    const outcome = run.mode === 'stage' ? commitMissions(missions, cleared, !AUTOPLAY) : null;
+    const stars = outcome && cleared ? outcome.stars : sessionStars(session);
+    const coinsEarned = session.score.coins + (outcome?.bonus ?? 0);
     const key = run.mode === 'stage' ? session.stage.id : run.mode === 'endless' ? 'endless' : `daily:${run.date}`;
     const prevBest = save.bestScores[key] ?? 0;
     const score = session.score.score;
     const saveBefore = save; // economy pays first-clear / new-star rewards against the save before this run
     // bot runs (?autoplay=1, QA / demo) record nothing: no stars, best, coins, streak or achievements
-    if (!AUTOPLAY) persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, session.score.coins));
+    if (!AUTOPLAY) persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, coinsEarned));
     const stageId = run.mode === 'stage' ? session.stage.id : null;
     const next = stageId ? nextStageId(stageId) : null;
     const base: ResultInfo = {
@@ -357,13 +369,15 @@ export function startApp(): void {
       goods: session.score.goods,
       misses: session.score.misses,
       maxCombo: session.score.maxCombo,
-      coinsEarned: session.score.coins,
+      coinsEarned,
       hasNext: cleared && next !== null,
+      ...(outcome ? { missions: outcome } : {}),
     };
     ui.showTutorial(null);
     // bot runs (?autoplay=1, QA/demo) are never submitted to the leaderboard
     const record = AUTOPLAY ? null : runLog.record(session);
-    const info = AUTOPLAY ? autoplayResult(base, prevBest) : progress.afterRun(runLog.summary(session, stageId), record, base, saveBefore);
+    const summary = outcome ? { ...runLog.summary(session, stageId), stamps: outcome.stamps.map((v) => v === true), grade: outcome.grade } : runLog.summary(session, stageId);
+    const info = AUTOPLAY ? autoplayResult(base, prevBest) : progress.afterRun(summary, record, base, saveBefore);
     // the "vs" duel belongs to the challenge run's result only
     if (challengeRun) {
       challengeRun = false;
@@ -513,6 +527,7 @@ export function startApp(): void {
       runLog.input(session, input);
       const out = applyInput(session, input);
       session = out.session;
+      missions = trackMissions(missions, session, out.events);
       playFeedback(deps, out.events);
     }
     if (tutorial.frozen) {
@@ -521,6 +536,8 @@ export function startApp(): void {
     }
     const out = step(session, tutorial.clampDt(session.time, dt));
     session = out.session;
+    missions = trackMissions(missions, session, out.events);
+    tickMissions();
     playFeedback(deps, out.events);
     for (const e of out.events) if (e.type === 'fever') runLog.fever();
     tutorial.afterStep(session.time, session.player);
@@ -536,6 +553,17 @@ export function startApp(): void {
       endTimer = endTimer < 0 ? RESULT_DELAY : endTimer - dt;
       if (endTimer <= 0) finishRun();
     }
+  };
+
+  /** office v2: the mission HUD, and a stamp's sound + buzz the frame it fires (v8: no missions, nothing shown) */
+  const tickMissions = (): void => {
+    const view = missionView(missions, session.time);
+    missionNow = view;
+    ui.updateMission(view, view ? session.stage : null, session.time);
+    if (view?.stampAt === undefined || view.stampAt === lastStampAt) return;
+    lastStampAt = view.stampAt;
+    audio.sfx(view.stampOk ? 'achieve' : 'bump');
+    haptics.vibrate(view.stampOk ? [18, 40, 28] : 12);
   };
 
   /** v8 (A3): phase lines, and the finisher (slow motion on the last hazard, the blast as the agent lands) */
@@ -649,6 +677,7 @@ export function startApp(): void {
       renderer.render(toSnapshot(session, save.skin, {
         realTime: frozenReal >= 0 ? frozenReal : now / 1000, reducedMotion: reducedMotion(), running: screen !== 'paused',
         bossFinish: finisherReal >= 0 ? now / 1000 - finisherReal : -1, cosmetics: look,
+        mission: screen === 'play' || screen === 'countdown' ? missionNow : undefined,
       }));
     }
     requestAnimationFrame(frame);

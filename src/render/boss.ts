@@ -10,7 +10,7 @@ import {
 } from '../types';
 import { bossPhoto, bossPhotoFit, bossPhotoPending } from './boss-art';
 import { fxSprites, glowAt, puffAt, SCATTER, sparks, type FxSprites } from './boss-fx';
-import { BOSS_PHOTO_RIGS, BOSS_RIGS, type BossRig, type Pt } from './boss-rigs';
+import { BOSS_PHOTO_RIGS, BOSS_RIGS, type BossMotion, type BossRig, type Pt } from './boss-rigs';
 import { BOSS_SHAPES } from './boss-shapes';
 import {
   ARM_TIME, BEAM_H, CEIL_H, CEIL_Y, ENTER_TIME, FLOOR_BACK, HIGH_H, beamSpeed, fixedX, flyingX, laneY, projX, projY, visualLane,
@@ -196,7 +196,19 @@ function pose(b: BossView, r: BossRig, v: View, t: number, reduced: boolean): vo
     }
     if (!reduced && age < 1.4) POSE.x += Math.sin(age * 60) * 1.5;
   }
+  if (r.motion && !reduced) {
+    MOTION.dx = 0;
+    MOTION.dy = 0;
+    MOTION.rot = 0;
+    r.motion(b, v, t, MOTION);
+    POSE.x += MOTION.dx;
+    POSE.y += MOTION.dy;
+    POSE.rot += MOTION.rot;
+  }
 }
+
+/** reused output of a rig's extra motion */
+const MOTION: BossMotion = { dx: 0, dy: 0, rot: 0 };
 
 function drawRotors(ctx: Ctx, r: BossRig, s: number, t: number, reduced: boolean): void {
   ctx.fillStyle = '#9AA3AD';

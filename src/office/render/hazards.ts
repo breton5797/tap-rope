@@ -3,48 +3,73 @@
 // landing shadow and target ring. Anything without a loaded prop keeps the v8 drawing.
 import type { LaneId, VisibleObstacle } from '../../types';
 import { WARN_LEAD } from '../../types';
-import { depthScale, fixedX, laneY, project, projX, projY } from '../../render/layout';
+import { WALL_DEPTH, depthScale, fixedX, laneY, project, projX, projY } from '../../render/layout';
 import { CHASE_ENTER, chaserX, dropHeight, drawLaneHazards as v8LaneHazards, targetRing } from '../../render/hazards';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
-import { PROP_SIZE, drawFootprint, drawProp, propImage } from './props';
+import { PROP_SIZE, beatIdOf, drawFootprint, drawProp, propIdFor, propImage, propMotion } from './props';
 
 export * from '../../render/hazards';
 
 const CHASER_Y = 34;
 
+/** elevator doors read on the back wall (art review): one per attack, the nearest ones only, 64 px, 0.6 alpha */
+const ELEVATOR_H = 64;
+const ELEVATOR_AHEAD = 1.3;
+
+function elevator(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: number): void {
+  const tu = o.timeUntil;
+  drawFootprint(ctx, o.kind, projX(fixedX(tu), lane), laneY(lane), PROP_SIZE.guard * 0.6 * depthScale(lane), 1, band(lane));
+  const first = o.lanes && o.lanes.length > 1 ? Math.min(o.lanes[0], o.lanes[1]) : lane;
+  if (lane !== first || tu > ELEVATOR_AHEAD || tu < -0.2) return;
+  const s = depthScale(WALL_DEPTH);
+  drawProp(ctx, img, projX(fixedX(tu), WALL_DEPTH), laneY(WALL_DEPTH), ELEVATOR_H * s, 1, false, 0.6);
+}
+
+/** the floor width of lane `l` on screen */
+const band = (l: number): number => laneY(l + 0.5) - laneY(l - 0.5);
+
 function propHazard(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle, lane: number, t: number, reduced: boolean): void {
   const tu = o.timeUntil;
   const s = depthScale(lane);
+  // F6 idle motion (a few px; the hazard stays on its hit box)
+  const m = propMotion(propIdFor(o), t + beatIdOf(o) * 0.61 + lane * 0.23);
+  if (o.kind === 'guard' && propIdFor(o) === 'elevator') {
+    elevator(ctx, img, o, lane);
+    return;
+  }
   if (o.kind === 'guard') {
     const p = project(fixedX(tu), lane, 0);
-    drawFootprint(ctx, o.kind, p.x, p.y, PROP_SIZE.guard * 0.6 * s);
-    drawProp(ctx, img, p.x, p.y, PROP_SIZE.guard * s, 1);
+    drawFootprint(ctx, o.kind, p.x, p.y, PROP_SIZE.guard * 0.6 * s, 1, band(lane));
+    drawProp(ctx, img, p.x, p.y, PROP_SIZE.guard * s, 1, false, 1, m);
   } else if (o.kind === 'drop') {
     const x = projX(fixedX(tu), lane);
     const k = Math.min(1, Math.max(0, 1 - tu / WARN_LEAD));
-    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.drop * 0.7 * s, 0.5 + 0.5 * k);
+    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.drop * 0.7 * s, 0.5 + 0.5 * k, band(lane));
     if (tu <= WARN_LEAD && tu > 0.1) targetRing(ctx, x, laneY(lane) + 1, s, t, reduced, 0.4 + 0.6 * k);
-    drawProp(ctx, img, x, projY(lane, dropHeight(tu)), PROP_SIZE.drop * s, 1);
+    drawProp(ctx, img, x, projY(lane, dropHeight(tu)), PROP_SIZE.drop * s, 1, false, 1, m);
   } else if (o.kind === 'chaser' && tu <= CHASE_ENTER) {
     const x = projX(chaserX(tu, v), lane);
-    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.chaser * 0.6 * s);
+    drawFootprint(ctx, o.kind, x, laneY(lane), PROP_SIZE.chaser * 0.6 * s, 1, band(lane));
     // it comes from behind, facing the way it runs
-    drawProp(ctx, img, x, projY(lane, CHASER_Y), PROP_SIZE.chaser * s, 0.5, true);
+    drawProp(ctx, img, x, projY(lane, CHASER_Y), PROP_SIZE.chaser * s, 0.5, true, 1, m);
   }
 }
+
+/** reused per call (no per-frame allocation) */
+const FALLBACK: VisibleObstacle[] = [];
 
 /** v8 contract: lane hazards occupying lane `lane` (once per lane in painter order, far → near) */
 export function drawLaneHazards(
   ctx: Ctx, v: View, obs: readonly VisibleObstacle[], lane: number, t: number, sprites: SpriteCache, reduced: boolean,
 ): void {
-  const fallback: VisibleObstacle[] = [];
+  FALLBACK.length = 0;
   for (const o of obs) {
     if (!o.lanes || !o.lanes.includes(lane as LaneId)) continue;
     const img = propImage(o);
     if (img) propHazard(ctx, v, img, o, lane, t, reduced);
-    else fallback.push(o);
+    else FALLBACK.push(o);
   }
-  if (fallback.length > 0) v8LaneHazards(ctx, v, fallback, lane, t, sprites, reduced);
+  if (FALLBACK.length > 0) v8LaneHazards(ctx, v, FALLBACK, lane, t, sprites, reduced);
 }

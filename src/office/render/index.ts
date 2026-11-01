@@ -3,10 +3,10 @@
 // the 0.15 s zoom/shake kick when a superior telegraphs an attack, the surprise events (blackout with
 // hazard outlines, fire-drill flash, high five, broadcast), speech bubbles (catchphrase at the intro, exit
 // line when the gauge runs out) and the clock. Missing art or a missing run never throws: it draws less.
-import type { BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot } from '../../types';
-import { LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
+import type { Beat, BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot, VisibleObstacle } from '../../types';
+import { HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
 import { createRenderer as createV8Renderer } from '../../render/index';
-import { depthScale, laneY, visualLane } from '../../render/layout';
+import { FLOOR_FRONT, depthScale, laneY, visualLane } from '../../render/layout';
 import { drawLaserWarnings } from '../../render/lasers';
 import { SpriteCache } from '../../render/sprites';
 import { computeView, type View } from '../../render/view';
@@ -15,14 +15,29 @@ import { OFFICE_CLOCK } from '../core/content';
 import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
-import { drawClock } from './clock';
-import { hudBand } from './hud-band';
-import { OFFICE_ART, loadImages, preloadImages } from './images';
-import { setPropFrame } from './props';
+import { drawClock, laneTopY } from './clock';
+import { hudBand, setCalloutBottom } from './hud-band';
+import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
+import { actionCue, beatIdOf, propIdFor, propImage, setFocusLane, setPropFrame } from './props';
 import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
-import { drawBlackout, drawBossBubble, drawBroadcast, drawFireDrill, drawHighFive } from './surprise-fx';
+import {
+  drawAttackCallout, drawBlackout, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive,
+} from './surprise-fx';
+import { prepareBosses, setBossPose, type BossPose } from './boss-art';
+import { STEP_HZ, bossExit } from './boss-rigs';
+import { RELEASE, bossThrowFrame, launchFor, propVisibleFrom, setThrowFrame } from './boss-throw';
+import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
+import { setPickupFrame } from './gadgets';
 
 export * from '../../render/index';
+
+const NO_BEATS: readonly Beat[] = [];
+
+/** the attack callout hides this close to arrival (the "!" and the prop take over) */
+const CALLOUT_END = 0.35;
+
+/** the boss shows its -attack frame until the thrown prop is this close (s) */
+const THROW_POSE_END = 0.5;
 
 /** the office sprites may hold the loading screen this long, then arrive late */
 const ART_TIMEOUT = 4000;
@@ -38,6 +53,7 @@ interface Plan {
 }
 
 function planFor(run: RenderRun): Plan {
+  prepareBosses(OFFICE_BOSSES.filter((b) => b.stage === run.stageIndex + 1).map((b) => b.slot));
   const events = planEvents(run.beats, run.seed, run.stageIndex);
   const carts = new Map(events.filter((e) => e.kind === 'cart').map((e) => [e.beatIndex, cartProp(run.seed, e.beatIndex)]));
   return { beats: run.beats, seed: run.seed, events, carts };
@@ -48,6 +64,46 @@ const activeAt = (events: readonly OfficeEvent[], kind: OfficeEvent['kind'], t: 
 
 /** an overlay error is reported once per session */
 let overlayWarned = false;
+
+/**
+ * An obstacle of the boss's next attack (the hazard beat nearest ahead, matched by beat id) that passes
+ * `test`, or undefined.
+ */
+function attackObstacle(snap: RenderSnapshot, test: (o: VisibleObstacle) => boolean): VisibleObstacle | undefined {
+  let beat = -1;
+  let best = Number.POSITIVE_INFINITY;
+  for (const o of snap.obstacles) {
+    if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil < -1e-6 || o.timeUntil >= best) continue;
+    best = o.timeUntil;
+    beat = beatIdOf(o);
+  }
+  if (beat < 0) return undefined;
+  return snap.obstacles.find((o) => beatIdOf(o) === beat && test(o));
+}
+
+const isThrown = (o: VisibleObstacle): boolean => launchFor(o.kind, o.from) !== null;
+const isHazard = (o: VisibleObstacle): boolean => HAZARD_KINDS.includes(o.kind);
+
+/** the throw frame for the boss's next attack, when that attack is thrown (not rear / chaser / drop) */
+function throwPose(b: BossView, snap: RenderSnapshot): BossPose | null {
+  if (b.state === 'defeated') return null;
+  // driven by the next hazard beat itself (BossView.attack only starts at ATTACK_LEAD): the wind-up begins
+  // as soon as the prop shows in the hand
+  const o = attackObstacle(snap, isThrown);
+  if (!o) return null;
+  const f = bossThrowFrame(o.timeUntil, RELEASE, propVisibleFrom(o.kind));
+  if (f > 0) return THROW_FRAMES[f - 1];
+  return o.timeUntil > THROW_POSE_END ? 'throw6' : null; // follow-through while it flies
+}
+
+const THROW_FRAMES: readonly BossPose[] = ['throw1', 'throw2', 'throw3', 'throw4', 'throw5', 'throw6'];
+
+/** tired once this superior's own gauge is empty (stage 5: per section, so it never carries over) */
+function bossPoseFor(b: BossView | null, snap: RenderSnapshot): BossPose {
+  if (!b) return 'idle';
+  if (b.hp <= 0 || b.state === 'defeated') return 'tired';
+  return throwPose(b, snap) ?? (Math.sin(snap.realTime * Math.PI * STEP_HZ) < 0 ? 'idle2' : 'idle');
+}
 
 const superiorOf = (id: BossView['id']) => OFFICE_BOSSES.find((b) => b.slot === id) ?? null;
 
@@ -69,6 +125,7 @@ class OfficeRenderer implements Renderer {
     this.view = computeView(canvas.clientWidth || LOGICAL_W, canvas.clientHeight || LOGICAL_H, 1);
     this.sprites.setScale(this.view.k);
     preloadImages(OFFICE_ART);
+    preloadImages(OFFICE_EXTRA_ART);
   }
 
   get fx(): EffectsApi {
@@ -77,7 +134,7 @@ class OfficeRenderer implements Renderer {
 
   /** the v8 corridor art and the office sprites (sprites give up after ART_TIMEOUT; never rejects) */
   load(onProgress?: (done: number, total: number) => void): Promise<void> {
-    return Promise.all([this.inner.load(onProgress), loadImages(OFFICE_ART, ART_TIMEOUT)]).then(() => undefined, () => undefined);
+    return Promise.all([this.inner.load(onProgress), loadImages([...OFFICE_ART, ...OFFICE_EXTRA_ART], ART_TIMEOUT)]).then(() => undefined, () => undefined);
   }
 
   resize(cssWidth: number, cssHeight: number, dpr: number, safeBottom = 0): void {
@@ -92,6 +149,7 @@ class OfficeRenderer implements Renderer {
     const plan = run ? this.plan : null;
     const fallback = OFFICE_BOSSES.find((b) => b.stage === (run?.stageIndex ?? 0) + 1)?.slot ?? 'warden';
     setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts);
+    this.feelFrame(snap, run);
     this.inner.render(snap);
     const ctx = this.ctx;
     if (!ctx) return;
@@ -109,10 +167,38 @@ class OfficeRenderer implements Renderer {
     }
   }
 
+  /** v2 feel pack context for the swapped draw modules: throws, pickup sprites, boss pose */
+  private feelFrame(snap: RenderSnapshot, run: RenderRun | undefined): void {
+    const b = snap.boss;
+    setThrowFrame(snap.running && b !== null && b.state !== 'defeated', this.view);
+    setFocusLane(visualLane(snap.player));
+    // menus / demo without a run: no stale beats for the pickup sprites
+    setPickupFrame(run ? run.beats : NO_BEATS, run ? run.stageIndex : 0);
+    // F9: the gauge ran out → the superior is overtaken (slides out left, tired); a refilled gauge resets it
+    if (b && b.hp <= 0 && this.exitId !== b.id) {
+      this.exitId = b.id;
+      this.exitAt = snap.realTime;
+    }
+    if (!b || b.hp > 0) this.exitId = null;
+    bossExit.at = b && this.exitId === b.id ? this.exitAt : Number.NEGATIVE_INFINITY;
+    setBossPose(bossPoseFor(b, snap));
+  }
+
   private overlay(ctx: CanvasRenderingContext2D, snap: RenderSnapshot, plan: Plan | null, run: RenderRun | undefined): void {
     const v = this.view;
     const t = snap.time;
     const band = hudBand(this.canvas, v, snap.realTime);
+    ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
+    // F1: the apron flows with the floor; fever speed lines
+    if (snap.running) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(v.x0, FLOOR_FRONT, v.w, laneTopY(v) - FLOOR_FRONT);
+      ctx.clip();
+      drawApronFlow(ctx, v, snap.scroll, laneTopY(v));
+      ctx.restore();
+      drawSpeedLines(ctx, v, snap.realTime, speedLineCount(snap.fever, snap.reducedMotion));
+    }
     this.kick(ctx, snap);
     ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
     const events = snap.running && plan ? plan.events : [];
@@ -132,7 +218,10 @@ class OfficeRenderer implements Renderer {
     if (five) drawHighFive(ctx, v, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time, band.top);
     const broadcast = activeAt(events, 'broadcast', t);
     if (broadcast) drawBroadcast(ctx, v);
+    setCalloutBottom(Number.NEGATIVE_INFINITY);
     this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown);
+    const stampAt = snap.mission?.stampAt;
+    if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
     ctx.globalAlpha = 1;
   }
@@ -161,17 +250,21 @@ class OfficeRenderer implements Renderer {
     if (!b || !snap.running) return;
     const who = superiorOf(b.id);
     if (!who) return;
-    if (b.hp <= 0 && this.exitId !== b.id) {
-      this.exitId = b.id;
-      this.exitAt = snap.realTime;
-    }
-    if (b.hp > 0 && this.exitId === b.id) this.exitId = null; // a retry refills the gauge
+    // (exitId / exitAt are tracked in feelFrame)
     let text: string | null = null;
     if (this.exitId === b.id && snap.realTime - this.exitAt < EXIT_LINE_TIME) text = who.exitLine;
     else if (b.state === 'intro') text = who.catchphrase;
     else if (broadcast) text = BROADCAST_LINE;
     if (text && broadcast && text !== who.exitLine) text = BROADCAST_LINE;
-    if (text) drawBossBubble(ctx, v, text, below, avoid);
+    if (text) {
+      drawBossBubble(ctx, v, text, below, avoid);
+      return;
+    }
+    // F10: the attack telegraph as a callout — prop icon, action colour, attack name
+    const a = b.attack;
+    if (!a || b.state !== 'fight' || a.timeUntil < CALLOUT_END) return;
+    const o = attackObstacle(snap, isHazard);
+    if (o) setCalloutBottom(drawAttackCallout(ctx, v, propImage(o), propIdFor(o), actionCue(o.kind), below, avoid));
   }
 }
 

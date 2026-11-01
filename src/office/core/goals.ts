@@ -4,7 +4,7 @@
  * Streak, ★3 rule and date helpers are the v8 ones.
  */
 import type { AchievementId, SaveData } from '../../types';
-import { ACHIEVEMENTS } from './achievements';
+import { ACHIEVEMENTS, STAMPS_ALL, stampTotal } from './achievements';
 import { CUTSCENES } from '../../core/cutscenes';
 import { STAGES } from '../../core/content';
 import { ACH_REWARD, FIRST_MISSION_COINS } from '../../core/economy';
@@ -24,6 +24,7 @@ export function achievementProgress(id: AchievementId, save: SaveData): { readon
   }
   if (id === 'all-stars-zone') return { cur: STAGES.filter((s) => (save.stars[s.id] ?? 0) >= 3).length, max: STAGES.length };
   if (id === 'archivist') return { cur: save.seenCutscenes.length, max: CUTSCENES.length };
+  if (id === 'stamps-15') return { cur: Math.min(STAMPS_ALL, stampTotal()), max: STAMPS_ALL };
   return null;
 }
 

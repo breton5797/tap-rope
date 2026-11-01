@@ -6,6 +6,7 @@
 import type { AchievementId, AchievementMeta, RunSummary, SaveData } from '../../types';
 import { STAGES } from '../../core/content';
 import { CUTSCENES } from '../../core/cutscenes';
+import { loadStamps } from '../../game/missions';
 
 export { updateDailyStreak } from '../../core/achievements';
 
@@ -21,9 +22,14 @@ export const ACHIEVEMENTS: readonly AchievementMeta[] = [
   { id: 'overdrive-3', name: '칼퇴 모드 3연발', desc: '한 판에 칼퇴 모드를 3회 발동한다.' },
   { id: 'all-stars-zone', name: '우수 사원', desc: '모든 단계에서 별 3개를 받는다.' },
   { id: 'archivist', name: '사내 소식통', desc: '컷신을 모두 본다.' },
+  { id: 'stamps-15', name: '도장 수집가', desc: '미션 도장 15개를 모두 모은다.' },
 ];
 
 type Check = (save: SaveData, run: RunSummary | null) => boolean;
+
+/** v2: every mission stamp of the five stages (the map keeps each stage's best) */
+export const STAMPS_ALL = 15;
+export const stampTotal = (): number => Object.values(loadStamps()).reduce((n, s) => n + s.filter(Boolean).length, 0);
 
 const stageWin = (run: RunSummary | null): run is RunSummary => run?.mode === 'stage' && run.cleared;
 const clearedStage = (save: SaveData, run: RunSummary | null, id: string) =>
@@ -41,6 +47,7 @@ const CHECKS: Partial<Record<AchievementId, Check>> = {
   'overdrive-3': (_save, run) => (run?.fevers ?? 0) >= 3,
   'all-stars-zone': (save) => STAGES.every((s) => (save.stars[s.id] ?? 0) >= 3),
   archivist: (save) => CUTSCENES.every((c) => save.seenCutscenes.includes(c.id)),
+  'stamps-15': () => stampTotal() >= STAMPS_ALL,
 };
 
 /** ids newly unlocked by this save (+ the run just finished, if any), in ACHIEVEMENTS order */

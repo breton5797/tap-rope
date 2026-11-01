@@ -7,6 +7,7 @@
  */
 import type { ChapterMeta, MoveId, Scene, SkinMeta, StageDef, TransitionKind, Variant, WorldId, WorldMeta } from '../../types';
 import { designCustomStage } from '../../core/campaign';
+import type { MissionSpec } from './missions';
 import { hashString } from '../../core/rng';
 
 export { movesForMix } from '../../core/moves';
@@ -103,6 +104,23 @@ export const STAGES: readonly StageDef[] = CHAPTERS.map((c, i) => {
     NEW_MOVES[i],
   );
 });
+
+/**
+ * v2: the StageDef one mission part is generated from — the stage's look and tempo (one bpm per stage), the
+ * mission's moves and focus, its hazards and pickup rate, one section, and a seed derived from the run seed.
+ */
+export function missionPartStage(stage: StageDef, k: number, spec: MissionSpec): StageDef {
+  const i = Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
+  const def = designCustomStage(
+    {
+      id: `${stage.id}#${k}`, name: stage.name, n: (i + 1) * 10, chapter: stage.chapter, index: stage.index, kind: 'boss',
+      world: stage.world, variant: stage.variant, d: D[i], seed: hashString(`${stage.seed}:part${k}`), campaign: true,
+    },
+    spec.moves,
+    spec.focus ?? [],
+  );
+  return { ...def, bpm: stage.bpm, hazardBeats: spec.hazards, pickupRate: spec.pickupRate, sections: 1 };
+}
 
 const BY_ID: ReadonlyMap<string, number> = new Map(STAGES.map((s, i) => [s.id, i]));
 
