@@ -668,6 +668,8 @@ export interface UiCallbacks {
   onSettingsChange(s: Settings): void;
   onTutorialDone(): void;
   onUiClick(): void; // play click sfx
+  /** office v2.2: a named UI sound inside a user gesture (picker select / hire) */
+  onUiSfx?(name: SfxName): void;
   // v7
   onOpenArchive(): void;
   onPlayCutscene(id: CutsceneId): void;

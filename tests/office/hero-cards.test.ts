@@ -53,6 +53,17 @@ describe('office picker', () => {
     expect(onPick).toHaveBeenCalledWith('robot');
   });
 
+  it('plays the select and hire sounds through the audio layer', () => {
+    const played: string[] = [];
+    const base = ctx();
+    const c: Ctx = { ...base, cb: { ...base.cb, onUiSfx: (n: string) => played.push(n) } as UiCallbacks };
+    const el = buildPicker(c, defaultSave(), vi.fn());
+    el.querySelectorAll<HTMLButtonElement>('.picker__pick')[2].click();
+    expect(played).toEqual(['perfect']);
+    el.querySelector<HTMLButtonElement>('.picker__confirm')?.click();
+    expect(played).toEqual(['perfect', 'mission-ok']);
+  });
+
   it('starts on the saved hire and works without key art', () => {
     const el = buildPicker(ctx(), { ...defaultSave(), skin: 'bunny' }, vi.fn());
     expect(el.querySelector('.picker__pick.is-selected')?.textContent).toContain('고도약');

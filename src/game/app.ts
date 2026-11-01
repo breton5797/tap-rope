@@ -455,6 +455,10 @@ export function startApp(): void {
       audio.unlock();
       audio.sfx('click');
     },
+    onUiSfx: (name) => {
+      audio.unlock();
+      audio.sfx(name);
+    },
     onOpenArchive: () => ui.showArchive(save),
     onPlayCutscene: (id: CutsceneId) => {
       const c = CUTSCENES.find((x) => x.id === id);

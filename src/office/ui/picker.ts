@@ -1,6 +1,7 @@
 // Office character picker (v2.2 spec §3), swapped in for src/ui/picker.ts: four hire cards (key art, name, type
 // tag, blurb, five star bars, catchphrase). A tap selects (the card grows and its catchphrase pops as a speech
-// bubble); the confirm button hires the selected one. Starts on the saved hire.
+// bubble, the `perfect` sound plays); the confirm button hires the selected one (`mission-ok`). Starts on the
+// saved hire.
 import { SKINS } from '../../core/content';
 import { COPY } from '../../flavor';
 import type { SaveData, SkinId } from '../../types';
@@ -14,7 +15,10 @@ const confirmLabel = (id: SkinId): string => `${characterFor(id).name}(으)로 �
 export function buildPicker(ctx: Ctx, save: SaveData, onPick: (id: SkinId) => void): HTMLElement {
   const hires = SKINS.filter((s) => save.ownedSkins.includes(s.id));
   let chosen: SkinId = hires.some((s) => s.id === save.skin) ? save.skin : hires[0]?.id ?? 'kid';
-  const confirm = button({ label: confirmLabel(chosen), variant: 'sun', size: 'lg', cls: 'picker__confirm', onPress: ctx.tap(() => onPick(chosen)) });
+  const confirm = button({ label: confirmLabel(chosen), variant: 'sun', size: 'lg', cls: 'picker__confirm', onPress: ctx.tap(() => {
+    ctx.cb.onUiSfx?.('mission-ok');
+    onPick(chosen);
+  }) });
   const confirmText = confirm.querySelector('.btn__label');
   const cards = hires.map((s) => {
     const el = h('button', {
@@ -25,7 +29,10 @@ export function buildPicker(ctx: Ctx, save: SaveData, onPick: (id: SkinId) => vo
       h('div', { cls: 'skin__art' }, [portrait(s.id, 'portrait--card')]),
       h('div', { cls: 'hero-card__body' }, [h('div', { cls: 'skin__name', text: s.name }), heroDetails(s.id)]),
     ]);
-    el.addEventListener('click', ctx.tap(() => select(s.id)));
+    el.addEventListener('click', ctx.tap(() => {
+      ctx.cb.onUiSfx?.('perfect');
+      select(s.id);
+    }));
     return el;
   });
   const select = (id: SkinId): void => {
