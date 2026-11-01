@@ -296,3 +296,23 @@ describe('held prop (review)', () => {
     setFocusLane(1);
   });
 });
+
+describe('hero never shows the win pose mid-run (playtest: "turns around")', () => {
+  it('win only when the stage is cleared, never for the fever cheer', async () => {
+    const { showsWin } = await import('../../src/office/render/hero-frames');
+    expect(showsWin('cheer', 0.4)).toBe(false); // 칼퇴 모드: ambient cheer while running
+    expect(showsWin('cheer', 1)).toBe(true); // cleared
+    expect(showsWin('hurt', 1)).toBe(false);
+    expect(showsWin('idle', 1)).toBe(false);
+  });
+
+  it('while running, every pose is from a right-facing set', () => {
+    const RIGHT = /^(run[1-8]|jump[1-8]?|slide[1-4]?|hit[1-4]?)$/;
+    const air: PlayerState = { ...p0, grounded: false, height: 40, level: 2, airTime: 0.2, vy: 0 };
+    for (const p of [p0, air, { ...air, level: 3 as const }, { ...p0, sliding: true, slideAge: 0.2, slideTime: 0.3 }]) {
+      for (const hitAge of [Infinity, 0.1, 0.3]) {
+        expect(heroPose(p, { ...base, hitAge, win: false }).frame).toMatch(RIGHT);
+      }
+    }
+  });
+});

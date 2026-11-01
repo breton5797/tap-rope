@@ -30,6 +30,7 @@ import { prepareBosses, setBossPose, type BossPose } from './boss-art';
 import { STEP_HZ, bossExit } from './boss-rigs';
 import { RELEASE, bossThrowFrame, launchFor, propVisibleFrom, setThrowFrame } from './boss-throw';
 import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
+import { setHeroStageProgress } from './agent';
 import { setPickupFrame } from './gadgets';
 import { JuiceFx } from './juice-fx';
 
@@ -169,6 +170,7 @@ class OfficeRenderer implements Renderer {
     const fallback = OFFICE_BOSSES.find((b) => b.stage === (run?.stageIndex ?? 0) + 1)?.slot ?? 'warden';
     setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts);
     this.feelFrame(snap, run);
+    setHeroStageProgress(run?.progress ?? 0);
     // the sign scan runs before the v8 frame so its "!" pass knows which rear hazards get the arrow instead
     this.scan = scanSigns(snap.obstacles);
     // during a blackout, record every prop the v8 frame draws (replayed as silhouettes over the darkness)

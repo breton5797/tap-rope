@@ -9,7 +9,7 @@ import { AgentPainter as V8AgentPainter, type AgentFrame } from '../../render/ag
 import { cueAge } from '../../render/cues';
 import { RIG_SIZE } from '../../render/rig';
 import type { Ctx } from '../../render/util';
-import { HIT_SHOW, frameFallbacks, heroLean, heroPose, type HeroFrameId, type PoseCtx } from './hero-frames';
+import { HIT_SHOW, frameFallbacks, heroLean, heroPose, showsWin, type HeroFrameId, type PoseCtx } from './hero-frames';
 import { outlineImage } from './props';
 import { officeImage } from './images';
 
@@ -19,6 +19,12 @@ export * from '../../render/agent';
 const HERO_H = 92;
 /** scales the v8 contact shadow (peak 0.62) to ~0.25 */
 const SHADOW_ALPHA = 0.4;
+
+/** stage progress of the current frame (set by the office renderer before the v8 frame; 0 off-stage) */
+let stageProgress = 0;
+export function setHeroStageProgress(progress: number): void {
+  stageProgress = progress;
+}
 
 export class AgentPainter {
   private readonly v8 = new V8AgentPainter();
@@ -47,7 +53,7 @@ export class AgentPainter {
     const c = this.poseCtx;
     c.running = f.running;
     c.hitAge = Math.min(cueAge('hit'), f.mood === 'hurt' ? f.t - this.hitStart : Infinity);
-    c.win = f.mood === 'cheer';
+    c.win = showsWin(f.mood, stageProgress);
     c.scroll = f.scroll;
     c.landAge = cueAge('land');
     c.jumpAge = cueAge('jump');

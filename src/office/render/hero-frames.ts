@@ -1,7 +1,7 @@
 // Office hero sprites (office spec §8, v2 §4 F3/F4): which drawn frame shows for the player state, and the
 // squash / stretch / spin around it. Pure. Frames: hero-<kid|cat>-{run1..run4 (or run1..run8), jump, slide,
 // hit, win}.webp, plus optional jump-{launch,apex,spin,glide} and slide-{in,hold}; the lane change is a lean.
-import type { PlayerState } from '../../types';
+import type { Mood, PlayerState } from '../../types';
 import { laneProgress } from '../../render/layout';
 
 export type HeroFrameId = 'run1' | 'run2' | 'run3' | 'run4' | 'jump' | 'slide' | 'hit' | 'win';
@@ -11,7 +11,7 @@ export interface HeroCtx {
   readonly running: boolean;
   /** seconds since the last hit (Infinity = none) */
   readonly hitAge: number;
-  /** cheering (stage clear) */
+  /** the stage is cleared (showsWin) — the front-facing win frame never shows mid-run */
   readonly win: boolean;
 }
 
@@ -20,6 +20,15 @@ const RUN_FPS = 10;
 /** the hit frame shows this long after a hit */
 export const HIT_SHOW = 0.45;
 const MAX_LEAN = (8 * Math.PI) / 180;
+
+/**
+ * The win pose (front-facing, arms up) only once the stage is actually cleared. The session mood is also
+ * 'cheer' for the whole 칼퇴 모드 (fever) while the hero is still running — that keeps the run cycle.
+ * `progress` is the stage progress (RenderRun.progress; 1 = every hazard done, endless stays 0).
+ */
+export function showsWin(mood: Mood, progress: number): boolean {
+  return mood === 'cheer' && progress >= 1;
+}
 
 export function heroFrame(p: PlayerState, t: number, c: HeroCtx): HeroFrameId {
   if (c.hitAge >= 0 && c.hitAge < HIT_SHOW) return 'hit';
