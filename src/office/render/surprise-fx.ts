@@ -8,7 +8,7 @@ import {
 } from '../../render/layout';
 import { chaserX, dropHeight } from '../../render/hazards';
 import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
-import { ACTION_COLORS, PROP_SIZE, flyingSpan, type ActionCue } from './props';
+import { ACTION_COLORS, PROP_SIZE, flyingSpan, heldLane, type ActionCue } from './props';
 import { roundRect, type Ctx } from '../../render/util';
 import { PLAYER_X, SCROLL_SPEED } from '../../types';
 import { officeImage } from './images';
@@ -41,10 +41,13 @@ function boxesOf(o: VisibleObstacle, v: View): Box[] {
   const step = throwStep(o.kind, o.from, o.timeUntil, join);
   if (step === -1) return [];
   if (step !== null) {
-    HAND_LAND.x = projX(flying ? flyingX('front', join, v) : fixedX(join), 1);
-    HAND_LAND.y = projY(1, 0);
+    // where the office lasers / gadgets draw it: the hero's lane, at its prop size
+    const d = heldLane();
+    const size = (flying ? flyingSpan(o).h : o.kind === 'floor' ? PROP_SIZE.floor : o.kind === 'ceiling' ? PROP_SIZE.ceiling : PROP_SIZE.drone) * depthScale(d);
+    HAND_LAND.x = projX(flying ? flyingX('front', join, v) : fixedX(join), d);
+    HAND_LAND.y = projY(d, 0);
     const p = throwArc(throwHand(), HAND_LAND, step);
-    return [square(p.x, p.y, 40, 0.5)];
+    return [square(p.x, p.y, size, flying ? 1 : 0.5)];
   }
   return lanes.flatMap((d): Box[] => {
     const s = depthScale(d);
@@ -257,13 +260,18 @@ export function drawAttackCallout(
 const CALLOUT_FONT = '900 15px ui-rounded, system-ui, sans-serif';
 const HINT_FONT = '900 13px ui-rounded, system-ui, sans-serif';
 
+/** the colleague runs in one lane-step away from the hero (nearer when there is room, else farther) */
+export function colleagueLane(lane: number): number {
+  return lane <= 1.4 ? lane + 0.6 : lane - 0.6;
+}
+
 /** high five: the colleague (prop-colleague) runs in beside the hero for ~1 s; nothing when the art is missing */
 export function drawColleague(ctx: Ctx, lane: number, age: number): void {
   const img = officeImage('prop-colleague');
   if (!img || age > 1.1) return;
   const inK = Math.min(1, age / 0.2);
   const out = age > 0.9 ? (age - 0.9) / 0.2 : 0;
-  const d = Math.min(2, lane + 0.6);
+  const d = colleagueLane(lane);
   const s = depthScale(d);
   const h = 96 * s;
   const w = (h * img.naturalWidth) / img.naturalHeight;

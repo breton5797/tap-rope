@@ -12,7 +12,7 @@ const FLYERS = 8;
 const FLY_TIME = 0.42;
 const FLY_PX = 32;
 
-export type BurstKind = 'coin' | 'heart' | 'star' | 'pop' | 'sparkle' | 'heel' | 'streak';
+export type BurstKind = 'coin' | 'heart' | 'star' | 'pop' | 'sparkle' | 'frost' | 'heel' | 'streak';
 
 /** shapes drawn per particle */
 const enum Shape { Spark = 0, Heart = 1, Star = 2, Streak = 3, Dot = 4 }
@@ -40,6 +40,7 @@ export const BURSTS: Readonly<Record<BurstKind, BurstPlan>> = {
   star: { count: 14, life: 0.7, speed: 170, spread: Math.PI * 2, dir: UP, gravity: 120, size: 6, shape: Shape.Star, colors: ['#FFE45C', '#FFFFFF', '#7CF0D8'], alpha: 1 },
   pop: { count: 12, life: 0.4, speed: 190, spread: Math.PI * 2, dir: UP, gravity: 0, size: 3, shape: Shape.Spark, colors: ['#9BE7FF', '#FFFFFF'], alpha: 1 },
   sparkle: { count: 2, life: 0.45, speed: 30, spread: Math.PI * 2, dir: UP, gravity: 20, size: 3.5, shape: Shape.Star, colors: ['#FFF6B0', '#FFFFFF'], alpha: 1 },
+  frost: { count: 10, life: 0.6, speed: 90, spread: Math.PI * 2, dir: UP, gravity: -20, size: 4, shape: Shape.Star, colors: ['#BFEFFF', '#E8FBFF', '#8FD8FF'], alpha: 1 },
   heel: { count: 3, life: 0.2, speed: 140, spread: 0.5, dir: Math.PI + 0.3, gravity: 300, size: 1.8, shape: Shape.Spark, colors: ['#FFFFFF', '#FFE6A8'], alpha: 0.9 },
   streak: { count: 4, life: 0.15, speed: 0, spread: 0, dir: 0, gravity: 0, size: 1.5, shape: Shape.Streak, colors: ['#BFF4FF'], alpha: 0.35 },
 };
@@ -135,7 +136,7 @@ export class Juice {
   }
 
   /** a ground ring (take-off dust, shield pop) */
-  ring(x: number, y: number, radius: number, width: number, life: number, color = '#FFFFFF'): void {
+  ring(x: number, y: number, radius: number, width: number, life: number, color = '#FFFFFF', delay = 0): void {
     const k = this.nextRing;
     this.rc[k] = color;
     this.nextRing = (this.nextRing + 1) % RINGS;
@@ -143,7 +144,7 @@ export class Juice {
     this.ry[k] = y;
     this.rr[k] = radius;
     this.rw[k] = width;
-    this.ra[k] = 0;
+    this.ra[k] = -delay;
     this.rl[k] = life;
   }
 
@@ -209,7 +210,7 @@ export class Juice {
   draw(ctx: Ctx, image: (name: string) => HTMLImageElement | null): void {
     ctx.save();
     for (let k = 0; k < RINGS; k++) {
-      if (this.ra[k] >= this.rl[k]) continue;
+      if (this.ra[k] >= this.rl[k] || this.ra[k] < 0) continue;
       const t = this.ra[k] / this.rl[k];
       ctx.globalAlpha = 0.7 * (1 - t);
       ctx.strokeStyle = this.rc[k];

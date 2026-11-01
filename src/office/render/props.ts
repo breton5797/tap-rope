@@ -184,6 +184,40 @@ export function outlineImage(ctx: CanvasRenderingContext2D, img: HTMLImageElemen
   ring(ctx, silhouette(img, color), x, y, w, h, r);
 }
 
+/**
+ * Perf (review): the ink + move-colour + white rings baked once per (image, cue) into one canvas, so a prop
+ * costs two drawImage calls instead of 24. Ring widths are fractions of the drawn height (tuned at 50 px).
+ */
+const BAKE_H = 128;
+const RING_REF_H = 50;
+const baked = new WeakMap<HTMLImageElement, Map<string, { canvas: HTMLCanvasElement; pad: number } | null>>();
+
+function bakedRings(img: HTMLImageElement, cue: ActionCue | null): { canvas: HTMLCanvasElement; pad: number } | null {
+  let byCue = baked.get(img);
+  if (!byCue) {
+    byCue = new Map();
+    baked.set(img, byCue);
+  }
+  const key = cue ?? '-';
+  if (byCue.has(key)) return byCue.get(key) ?? null;
+  let out: { canvas: HTMLCanvasElement; pad: number } | null = null;
+  try {
+    const k = BAKE_H / RING_REF_H;
+    const pad = Math.ceil(OUTLINE_INK * k) + 1;
+    const h = BAKE_H;
+    const w = Math.max(1, Math.round((h * img.naturalWidth) / img.naturalHeight));
+    const { canvas, ctx } = makeCanvas(w + 2 * pad, h + 2 * pad);
+    ring(ctx, silhouette(img, INK), pad, pad, w, h, OUTLINE_INK * k);
+    if (cue) ring(ctx, silhouette(img, ACTION_COLORS[cue]), pad, pad, w, h, OUTLINE_CUE * k);
+    ring(ctx, silhouette(img, '#FFFFFF'), pad, pad, w, h, OUTLINE_WHITE * k);
+    out = { canvas, pad };
+  } catch {
+    out = null;
+  }
+  byCue.set(key, out);
+  return out;
+}
+
 function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: number, y: number, w: number, h: number, r: number): void {
   if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, x + dx * r, y + dy * r, w, h);
 }
@@ -209,9 +243,11 @@ export function drawProp(
   if (flip) ctx.scale(-1, 1);
   if (!NO_OUTLINE.has(img)) {
     // dark ink outermost (reads on every floor, stage 5's lavender too), the move's colour, then white
-    ring(ctx, silhouette(img, INK), -w / 2, -h / 2, w, h, OUTLINE_INK);
-    if (cue) ring(ctx, silhouette(img, ACTION_COLORS[cue]), -w / 2, -h / 2, w, h, OUTLINE_CUE);
-    ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h / 2, w, h, OUTLINE_WHITE);
+    const r = bakedRings(img, cue);
+    if (r) {
+      const k = h / BAKE_H;
+      ctx.drawImage(r.canvas, -w / 2 - r.pad * k, -h / 2 - r.pad * k, w + 2 * r.pad * k, h + 2 * r.pad * k);
+    }
   }
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();

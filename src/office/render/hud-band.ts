@@ -16,8 +16,9 @@ export interface HudBand {
   line: number;
   /** the countdown digit's box (logical) while it shows, else null */
   countdown: Rect | null;
-  /** logical x of the view's left edge */
+  /** logical x of the view's left / right edges */
   left: number;
+  right: number;
   /** logical y under the attack callout drawn last frame, else −Infinity (popups stay below it) */
   callout: number;
   /** centres (logical) of the HUD coin counter and the mission chip; NaN when not shown */
@@ -25,7 +26,7 @@ export interface HudBand {
   chip: { x: number; y: number };
 }
 
-const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN, callout: Number.NEGATIVE_INFINITY,
+const band: HudBand = { top: Number.NEGATIVE_INFINITY, line: Number.NEGATIVE_INFINITY, countdown: null, left: Number.NaN, right: Number.NaN, callout: Number.NEGATIVE_INFINITY,
   coin: { x: Number.NaN, y: Number.NaN }, chip: { x: Number.NaN, y: Number.NaN },
 };
 let lastRead = Number.NEGATIVE_INFINITY;
@@ -42,6 +43,7 @@ function lowest(selector: string, canvasTop: number): number {
 /** the current band (refreshed at most every REFRESH s of `realTime`) */
 export function hudBand(canvas: HTMLCanvasElement, v: View, realTime: number): Readonly<HudBand> {
   band.left = v.x0;
+  band.right = v.x0 + v.w;
   if (typeof document === 'undefined' || Math.abs(realTime - lastRead) < REFRESH) return band;
   lastRead = realTime;
   const top = canvas.getBoundingClientRect().top;

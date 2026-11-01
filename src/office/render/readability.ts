@@ -1,7 +1,8 @@
 // Office hazard readability (v2.1 ambiguity audit): one colour and one sign per move, whatever the prop —
 // jump amber, slide blue, lane red, stay-low purple — and pickups that read as "good" (glow disc, no
 // footprint). Pure helpers plus the small signs (height ticks, stay-low band, safe-lane arrow, rear arrow).
-import type { LaneId, ObstacleKind } from '../../types';
+import type { LaneId, ObstacleKind, VisibleObstacle } from '../../types';
+import { HAZARD_KINDS } from '../../types';
 import type { Ctx } from '../../render/util';
 import { ACTION_COLORS, actionCue } from './props';
 
@@ -18,10 +19,43 @@ export function calloutHint(kind: ObstacleKind, level: number, rear: boolean): s
 }
 
 const LANES: readonly LaneId[] = [0, 1, 2];
+const OPEN: LaneId[] = [];
 
-/** the lanes a lane attack leaves open */
-export function safeLanes(blocked: readonly number[]): LaneId[] {
-  return LANES.filter((l) => !blocked.includes(l));
+/** the lanes a lane attack leaves open (a shared array: read it before the next call) */
+export function safeLanes(blocked: readonly number[]): readonly LaneId[] {
+  OPEN.length = 0;
+  for (const l of LANES) if (!blocked.includes(l)) OPEN.push(l);
+  return OPEN;
+}
+
+/** an attack from behind: a rear beam / head-height beam or a chaser */
+export const isRear = (o: Pick<VisibleObstacle, 'from' | 'kind'>): boolean => o.from === 'back' || o.kind === 'chaser';
+
+/**
+ * The callout hint for a whole beat (combo beats need two moves): 「뒤에서!」 when anything comes from behind,
+ * then the moves joined with " + " in the order lane, slide, jump (max level), stay low.
+ */
+export function beatHint(obs: readonly Pick<VisibleObstacle, 'kind' | 'level' | 'from'>[]): string {
+  let rear = false;
+  let lane = false;
+  let slide = false;
+  let low = false;
+  let jump = 0;
+  for (const o of obs) {
+    if (!HAZARD_KINDS.includes(o.kind)) continue;
+    if (isRear(o)) rear = true;
+    const cue = actionCue(o.kind);
+    if (cue === 'lane') lane = true;
+    else if (cue === 'slide') slide = true;
+    else if (cue === 'low') low = true;
+    else jump = Math.max(jump, o.kind === 'beam' ? o.level : 1);
+  }
+  const moves: string[] = [];
+  if (lane) moves.push('옆으로!');
+  if (slide) moves.push('숙여!');
+  if (jump > 0) moves.push(jump >= 2 ? `점프 ${Math.min(3, jump)}단!` : '점프!');
+  if (low) moves.push('낮게!');
+  return `${rear ? '뒤에서! ' : ''}${moves.join(' + ')}`;
 }
 
 /** drawn pickup height: collectibles ~0.45×, power-ups / coins ~0.4× the hero */

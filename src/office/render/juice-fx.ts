@@ -7,7 +7,7 @@ import { depthScale, laneY, visualLane } from '../../render/layout';
 import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
 import { PLAYER_X } from '../../types';
-import { collectibleFor } from './collectibles';
+import { collectibleFor, stageCollectible } from './collectibles';
 import { officeImage } from './images';
 import { JUMP_RING_COLORS, Juice, pickupFromPopup, takeoffRing, type PowerUp } from './juice';
 
@@ -130,12 +130,14 @@ export class JuiceFx {
         return;
       case 'power':
         if (c.what === 'heart') this.juice.burst('heart', x, y - 50, reduced);
-        else this.juice.burst(c.what === 'shield' ? 'pop' : 'sparkle', x, y - 45, reduced);
+        // slow (iced coffee) is frost, never hearts (hearts are the heal only)
+        else this.juice.burst(c.what === 'shield' ? 'pop' : 'frost', x, y - 45, reduced);
         return;
       case 'jump': {
         const level = Math.min(3, Math.max(1, c.level));
         const r = takeoffRing(level);
-        for (let i = 0; i < level; i++) this.juice.ring(x, floorY, r.radius * (1 - i * 0.22), r.width, r.life, JUMP_RING_COLORS[i]);
+        // one ring per level, each a beat later and wider: white, cyan, gold
+        for (let i = 0; i < level; i++) this.juice.ring(x, floorY, r.radius * (1 + i * 0.35), r.width + 0.6, r.life, JUMP_RING_COLORS[i], i * 0.07);
         if (level >= 3) this.juice.burst('sparkle', x, floorY - 10, reduced);
         return;
       }
@@ -185,7 +187,8 @@ export class JuiceFx {
       return;
     }
     if (m.index === pm.index && m.kind === 'collect' && m.value > pm.value) {
-      const id = collectibleFor(snap.run?.stageIndex ?? 0, m.index);
+      // a collect mission always flies its collectible (never the clock coin)
+      const id = collectibleFor(snap.run?.stageIndex ?? 0, m.index) ?? stageCollectible(snap.run?.stageIndex ?? 0);
       this.juice.burst('coin', x, y - 40, reduced);
       if (Number.isFinite(hud.chip.x)) this.juice.fly(id ? `collect-${id}` : 'pickup-coin', { x, y: y - 40 }, hud.chip, 'chip', this.onChip);
       this.plus.text = '+1';

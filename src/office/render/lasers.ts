@@ -85,6 +85,8 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   const join = joinTime(SCROLL_SPEED);
   const step = throwStep(o.kind, o.from, tu, join);
   if (step === -1) return;
+  // the laser pointer is a beam from the hand, never a held / thrown sprite
+  if (step !== null && propIdFor(o) === 'pointer') return;
   if (step !== null) {
     thrown(ctx, img, o, d, a, step, projX(fixedX(join), d), floor ? projY(d, 0) : hangY(d, join), size, 1, false, t);
     return;
@@ -162,7 +164,11 @@ const NO_STACK: readonly StackItem[] = [];
 /** the laser pointer drawn as a beam from the boss's hand to `y` (head / knee / ankle); false for other props */
 function pointerAt(ctx: Ctx, o: VisibleObstacle, x: number, y: number, s: number, a: number): boolean {
   if (propIdFor(o) !== 'pointer') return false;
-  if (!throwActive()) return true;
+  // from behind: the boss's hand is on the other side — just the dot
+  if (!throwActive() || o.from === 'back') {
+    pointerBeam(ctx, x, y, x, y, s, a);
+    return true;
+  }
   const hand = throwHand();
   pointerBeam(ctx, hand.x, hand.y, x, y, s, a);
   return true;

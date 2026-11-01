@@ -219,9 +219,9 @@ describe('stackItems (beam stacks read as a thrown bundle)', () => {
 describe('popupShift (F11)', () => {
   it('keeps the enlarged judge popups on screen above the hero', async () => {
     const { popupShift } = await import('../../src/office/render/popups');
-    expect(popupShift(108, 40, 60)).toBe(0);
-    expect(popupShift(108, 100, 60)).toBeGreaterThan(0);
-    expect(108 + popupShift(108, 100, 60) - 60).toBeGreaterThanOrEqual(100 - 1e-9);
+    expect(popupShift(108, 40, 1000, 60)).toBe(0);
+    expect(popupShift(108, 100, 1000, 60)).toBeGreaterThan(0);
+    expect(108 + popupShift(108, 100, 1000, 60) - 60).toBeGreaterThanOrEqual(100 - 1e-9);
   });
 });
 
