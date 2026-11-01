@@ -30,6 +30,7 @@ export const OFFICE_EXTRA_ART: readonly string[] = [
   ]),
   ...OFFICE_BOSSES.flatMap((b) => ['idle2', 'attack', 'tired', ...seq('throw', 6)].map((p) => `boss-${b.slot}-${p}`)),
   ...['coin', 'shield', 'slow', 'heart'].map((k) => `pickup-${k}`),
+  'prop-colleague',
   // the collectibles the stage missions use (collect-cookie exists but no stage uses it)
   ...['coupon', 'docs', 'badge', 'envelope'].map((c) => `collect-${c}`),
 ];

@@ -99,7 +99,31 @@ export function drawDoorFront(ctx: Ctx, d: DoorView, t: number, off: DoorOffset)
   ctx.fillStyle = open || Math.floor(t * 3) % 2 === 0 ? EXIT_GREEN : '#1C7A48';
   roundRect(ctx, b.x - 9, b.top + 3, 18, 8, 2);
   ctx.fill();
+  exitArch(ctx, b, left, right);
   ctx.restore();
+}
+
+/** a green exit arch with a ✓ over the doorway: the door is a way through, not an attack (ambiguity audit) */
+function exitArch(ctx: Ctx, b: Box, left: number, right: number): void {
+  const cx = (left + right + POST_W) / 2;
+  const r = (right + POST_W - left) / 2 + 6;
+  ctx.strokeStyle = EXIT_GREEN;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(cx, b.top + 2, r, Math.PI, 0);
+  ctx.stroke();
+  ctx.fillStyle = EXIT_GREEN;
+  ctx.beginPath();
+  ctx.arc(cx, b.top - r + 2, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - 4, b.top - r + 2);
+  ctx.lineTo(cx - 1, b.top - r + 5);
+  ctx.lineTo(cx + 4.5, b.top - r - 2);
+  ctx.stroke();
 }
 
 /** v8 contract — the sign sliding in at the right edge before a door: a white office door sign */

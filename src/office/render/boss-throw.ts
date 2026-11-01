@@ -53,6 +53,9 @@ export function setThrowFrame(active: boolean, v: View): void {
 
 export const throwHand = (): Readonly<Pt> => frame.hand;
 
+/** a superior is on stage this frame (its hand is the throw origin) */
+export const throwActive = (): boolean => frame.active;
+
 /** seconds before arrival at which a thrown prop (moving at `speed` px/s on the middle lane) lands on its path */
 export function joinTime(speed: number): number {
   const t = (frame.hand.x - THROW_JOIN_GAP - PLAYER_X) / speed;

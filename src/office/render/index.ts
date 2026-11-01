@@ -6,7 +6,7 @@
 import type { Beat, BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot, VisibleObstacle } from '../../types';
 import { HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
 import { createRenderer as createV8Renderer } from '../../render/index';
-import { FLOOR_FRONT, depthScale, laneY, visualLane } from '../../render/layout';
+import { FLOOR_FRONT, depthScale, laneY, projX, visualLane } from '../../render/layout';
 import { drawLaserWarnings } from '../../render/lasers';
 import { SpriteCache } from '../../render/sprites';
 import { computeView, type View } from '../../render/view';
@@ -16,12 +16,13 @@ import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
 import { drawClock, laneTopY } from './clock';
+import { calloutHint, rearArrow, safeArrow, safeLanes } from './readability';
 import { hudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import { actionCue, beatIdOf, propIdFor, propImage, setFocusLane, setPropFrame } from './props';
 import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
 import {
-  drawAttackCallout, drawBlackout, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive,
+  drawAttackCallout, drawBlackout, drawColleague, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive,
 } from './surprise-fx';
 import { prepareBosses, setBossPose, type BossPose } from './boss-art';
 import { STEP_HZ, bossExit } from './boss-rigs';
@@ -33,6 +34,9 @@ import { JuiceFx } from './juice-fx';
 export * from '../../render/index';
 
 const NO_BEATS: readonly Beat[] = [];
+/** signs show from this long before the attack arrives */
+const SIGN_LEAD = 1.2;
+const BLOCKED: number[] = [];
 
 /** the attack callout hides this close to arrival (the "!" and the prop take over) */
 const CALLOUT_END = 0.35;
@@ -221,13 +225,17 @@ class OfficeRenderer implements Renderer {
     const drill = activeAt(events, 'fire-drill', t);
     if (drill) drawFireDrill(ctx, v, t - drill.time, snap.reducedMotion);
     const five = activeAt(events, 'highfive', t);
-    if (five) drawHighFive(ctx, v, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time, band.top);
+    if (five) {
+      drawColleague(ctx, lane, t - five.time);
+      drawHighFive(ctx, v, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time, band.top);
+    }
     const broadcast = activeAt(events, 'broadcast', t);
     if (broadcast) drawBroadcast(ctx, v);
     setCalloutBottom(Number.NEGATIVE_INFINITY);
     this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown);
     const stampAt = snap.mission?.stampAt;
     if (snap.running) this.juice.frame(ctx, v, snap, band);
+    if (snap.running) this.signs(ctx, v, snap);
     if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
     ctx.globalAlpha = 1;
@@ -251,6 +259,25 @@ class OfficeRenderer implements Renderer {
     ctx.drawImage(c, (c.width - w) / 2 + sx, (c.height - h) / 2 + sy, w, h);
   }
 
+  /**
+   * One sign per attack (ambiguity audit): a pulsing red arrow at the left edge when the next attack comes from
+   * behind, and green chevrons on the lanes a lane attack leaves open.
+   */
+  private signs(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot): void {
+    const o = attackObstacle(snap, isHazard);
+    if (!o || o.timeUntil > SIGN_LEAD) return;
+    const lane = visualLane(snap.player);
+    if (o.from === 'back' || o.kind === 'chaser') {
+      rearArrow(ctx, v.x0 + 6, laneY(lane) - snap.player.height * depthScale(lane) - 40, snap.realTime, snap.reducedMotion);
+    }
+    if (!o.lanes || o.kind === 'coin') return;
+    const beat = beatIdOf(o);
+    BLOCKED.length = 0;
+    for (const x of snap.obstacles) if (beatIdOf(x) === beat && x.lanes && HAZARD_KINDS.includes(x.kind)) for (const l of x.lanes) BLOCKED.push(l);
+    const x = o.kind === 'chaser' ? PLAYER_X + 40 : PLAYER_X + Math.max(30, o.timeUntil * 120);
+    for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3));
+  }
+
   /** catchphrase while the superior walks in, exit line once its gauge runs out */
   private bubble(ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number, avoid: Rect | null): void {
     const b = snap.boss;
@@ -271,7 +298,10 @@ class OfficeRenderer implements Renderer {
     const a = b.attack;
     if (!a || b.state !== 'fight' || a.timeUntil < CALLOUT_END) return;
     const o = attackObstacle(snap, isHazard);
-    if (o) setCalloutBottom(drawAttackCallout(ctx, v, propImage(o), propIdFor(o), actionCue(o.kind), below, avoid));
+    if (!o) return;
+    const rear = o.from === 'back' || o.kind === 'chaser';
+    const hint = calloutHint(o.kind, o.level, rear);
+    setCalloutBottom(drawAttackCallout(ctx, v, propImage(o), propIdFor(o), actionCue(o.kind), hint, below, avoid));
   }
 }
 

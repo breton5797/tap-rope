@@ -8,6 +8,7 @@ import type { View } from '../../render/view';
 import { attackVariant } from '../core/events';
 import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
+import { heightTicks } from './readability';
 
 interface PropFrame {
   slot: BossId;
@@ -104,6 +105,7 @@ export const ACTION_COLORS: Readonly<Record<ActionCue, string>> = {
  */
 export function drawFootprint(
   ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1, laneBand = 0,
+  level = 0,
 ): void {
   const cue = actionCue(kind);
   const color = ACTION_COLORS[cue];
@@ -138,11 +140,14 @@ export function drawFootprint(
   ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
+  // jumps: 1–3 stacked height ticks = the level to jump
+  if (cue === 'jump' && level > 0) heightTicks(ctx, x + rx - 16, floorY, level, Math.max(0.6, width / 50));
 }
 
-/** outline rings in logical px: white inside, dark comic ink outside (≈ 3 px on screen at play size) */
-const OUTLINE_WHITE = 1.3;
-const OUTLINE_INK = 2.8;
+/** outline rings in logical px: white inside, the move's colour, dark comic ink outside (≈ 2 px dark at play size) */
+const OUTLINE_WHITE = 1.1;
+const OUTLINE_CUE = 2.3;
+const OUTLINE_INK = 3.4;
 const INK = '#2E2433';
 const OUTLINE_DIRS: readonly (readonly [number, number])[] = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [0.71, 0.71], [-0.71, 0.71], [0.71, -0.71], [-0.71, -0.71],
@@ -188,7 +193,7 @@ const UNOUTLINED: ReadonlySet<string> = new Set(['pointer']);
  */
 export function drawProp(
   ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1,
-  m?: Readonly<PropMotion>,
+  m?: Readonly<PropMotion>, cue: ActionCue | null = null,
 ): void {
   const w = (h * img.naturalWidth) / img.naturalHeight;
   ctx.save();
@@ -198,7 +203,9 @@ export function drawProp(
   if (m && m.rot !== 0) ctx.rotate(m.rot);
   if (flip) ctx.scale(-1, 1);
   if (!NO_OUTLINE.has(img)) {
+    // dark ink outermost (reads on every floor, stage 5's lavender too), the move's colour, then white
     ring(ctx, silhouette(img, INK), -w / 2, -h / 2, w, h, OUTLINE_INK);
+    if (cue) ring(ctx, silhouette(img, ACTION_COLORS[cue]), -w / 2, -h / 2, w, h, OUTLINE_CUE);
     ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h / 2, w, h, OUTLINE_WHITE);
   }
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
@@ -300,13 +307,13 @@ export function stackItems(level: number): readonly StackItem[] {
 /** draw a stack around the column at x: item centres at their beam heights × `depth` above `floorY`, items × `size` */
 export function drawStack(
   ctx: CanvasRenderingContext2D, img: HTMLImageElement, items: readonly StackItem[], x: number, floorY: number, depth: number,
-  size: number, flip: boolean, alpha: number, m: Readonly<PropMotion>,
+  size: number, flip: boolean, alpha: number, m: Readonly<PropMotion>, cue: ActionCue | null = null,
 ): void {
   for (const it of items) {
     ITEM_MOTION.dx = m.dx + it.dx * depth;
     ITEM_MOTION.dy = m.dy;
     ITEM_MOTION.rot = m.rot + it.rot;
-    drawProp(ctx, img, x, floorY - it.height * depth, STACK_ITEM * size, 0.5, flip, alpha, ITEM_MOTION);
+    drawProp(ctx, img, x, floorY - it.height * depth, STACK_ITEM * size, 0.5, flip, alpha, ITEM_MOTION, cue);
   }
 }
 

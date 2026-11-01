@@ -4,11 +4,14 @@
 import type { VisibleObstacle } from '../../types';
 import { HAZARD_KINDS } from '../../types';
 import {
-  CEIL_LASER_END, ENTER_TIME, FLOOR_BACK, depthScale, fixedX, flyingX, projX, projY,
+  CEIL_LASER_END, ENTER_TIME, FLOOR_BACK, beamSpeed, depthScale, laneY, fixedX, flyingX, projX, projY,
 } from '../../render/layout';
 import { chaserX, dropHeight } from '../../render/hazards';
+import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
 import { ACTION_COLORS, PROP_SIZE, flyingSpan, type ActionCue } from './props';
 import { roundRect, type Ctx } from '../../render/util';
+import { PLAYER_X, SCROLL_SPEED } from '../../types';
+import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
@@ -28,8 +31,21 @@ const NEON = '#7CFFEA';
 const square = (x: number, y: number, size: number, ay: number): Box => ({ x: x - size / 2, y: y - size * ay, w: size, h: size });
 
 /** screen boxes of a hazard (same placement as the office props) */
+const HAND_LAND = { x: 0, y: 0 };
+
 function boxesOf(o: VisibleObstacle, v: View): Box[] {
   const lanes: readonly number[] = o.lanes ?? LANES;
+  // held in / thrown from the boss's hand (boss-throw): outline it where it is drawn, once
+  const flying = o.kind === 'beam' || o.kind === 'high';
+  const join = joinTime(flying ? beamSpeed('front', v) : SCROLL_SPEED);
+  const step = throwStep(o.kind, o.from, o.timeUntil, join);
+  if (step === -1) return [];
+  if (step !== null) {
+    HAND_LAND.x = projX(flying ? flyingX('front', join, v) : fixedX(join), 1);
+    HAND_LAND.y = projY(1, 0);
+    const p = throwArc(throwHand(), HAND_LAND, step);
+    return [square(p.x, p.y, 40, 0.5)];
+  }
   return lanes.flatMap((d): Box[] => {
     const s = depthScale(d);
     const tu = o.timeUntil;
@@ -197,14 +213,12 @@ const PROP_NAMES: Readonly<Record<string, string>> = {
   'doc-tornado': '서류 회오리!', necktie: '넥타이 채찍!', 'corp-card': '법인카드!', 'ceo-screen': '화상회의!',
   'revolving-door': '회전문 가속!', envelope: '금일봉 비!', cart: '카트 질주!', robot: '청소 로봇!',
 };
-const ACTION_HINT: Readonly<Record<ActionCue, string>> = { jump: '점프!', slide: '숙여!', lane: '옆으로!', low: '낮게!' };
 
 /** the attack telegraph as a boss-bubble-sized callout: prop icon, attack name, action hint in its colour; returns its bottom y */
 export function drawAttackCallout(
-  ctx: Ctx, v: View, icon: HTMLImageElement | null, propId: string, cue: ActionCue, below: number, avoid: Rect | null,
+  ctx: Ctx, v: View, icon: HTMLImageElement | null, propId: string, cue: ActionCue, hint: string, below: number, avoid: Rect | null,
 ): number {
   const name = PROP_NAMES[propId] ?? '기습!';
-  const hint = ACTION_HINT[cue];
   const color = ACTION_COLORS[cue];
   ctx.font = CALLOUT_FONT;
   const textW = ctx.measureText(name).width;
@@ -242,3 +256,19 @@ export function drawAttackCallout(
 
 const CALLOUT_FONT = '900 15px ui-rounded, system-ui, sans-serif';
 const HINT_FONT = '900 13px ui-rounded, system-ui, sans-serif';
+
+/** high five: the colleague (prop-colleague) runs in beside the hero for ~1 s; nothing when the art is missing */
+export function drawColleague(ctx: Ctx, lane: number, age: number): void {
+  const img = officeImage('prop-colleague');
+  if (!img || age > 1.1) return;
+  const inK = Math.min(1, age / 0.2);
+  const out = age > 0.9 ? (age - 0.9) / 0.2 : 0;
+  const d = Math.min(2, lane + 0.6);
+  const s = depthScale(d);
+  const h = 96 * s;
+  const w = (h * img.naturalWidth) / img.naturalHeight;
+  ctx.save();
+  ctx.globalAlpha *= inK * (1 - out);
+  ctx.drawImage(img, projX(PLAYER_X + 34 - 40 * (1 - inK), d) - w / 2, laneY(d) - h, w, h);
+  ctx.restore();
+}
