@@ -5,7 +5,7 @@
  * stamps per stage for the map (office-only localStorage key; the v8 save schema is untouched). Immutable:
  * every update returns a new run, so a retry (startMissions again) carries nothing over.
  */
-import type { Beat, MissionOutcome, MissionView, StageDef } from '../../types';
+import type { Beat, MissionOutcome, MissionView, ObstacleKind, PickupCue, StageDef } from '../../types';
 import { HAZARD_KINDS } from '../../types';
 import type { GameEvent } from '../../game/session';
 import { SAVE_PREFIX } from '../../flavor';
@@ -138,6 +138,33 @@ function buildView(run: MissionRun): MissionView {
     ...(spec.kind === 'chase' ? { chase: run.chase[index] } : {}),
     stamps: run.stamps,
   };
+}
+
+/** item pitch: playback rate 1.0 on the first item, 1.25 at the target (and on the spares after it) */
+const ITEM_RATE_SPAN = 0.25;
+/** a short buzz per pickup kind (web Vibration API; ignored where it is missing) */
+const PICKUP_BUZZ: Readonly<Record<'coin' | 'item' | 'item-done' | 'shield' | 'slow' | 'heart', number | readonly number[]>> = {
+  coin: 6, item: 10, 'item-done': [15, 40, 30], shield: [12, 30, 12], slow: 30, heart: [10, 20, 10, 20, 10],
+};
+
+/**
+ * v2.1 pickup sound + buzz: a power-up by its kind; a coin in a collect part is a mission item whose pitch rises
+ * with the count (the run already includes this pickup) and that says "done" on the one that reaches the target;
+ * any other coin is a plain coin. Null without missions (endless / the menu demo).
+ */
+export function pickupCue(run: MissionRun | null, kind: ObstacleKind): PickupCue | null {
+  if (!run) return null;
+  if (kind === 'shield') return { name: 'pick-shield', level: 1, haptic: PICKUP_BUZZ.shield };
+  if (kind === 'slow') return { name: 'pick-slow', level: 1, haptic: PICKUP_BUZZ.slow };
+  if (kind === 'heart') return { name: 'pick-heart', level: 1, haptic: PICKUP_BUZZ.heart };
+  if (kind !== 'coin') return null;
+  const k = Math.min(run.section, run.specs.length - 1);
+  const spec = run.specs[k];
+  if (spec.kind !== 'collect') return { name: 'coin', level: 1, haptic: PICKUP_BUZZ.coin };
+  const n = run.stats[k].collected;
+  if (n === spec.target) return { name: 'pick-item-done', level: 1, haptic: PICKUP_BUZZ['item-done'] };
+  const rate = 1 + ITEM_RATE_SPAN * Math.min(1, Math.max(0, (n - 1) / Math.max(1, spec.target - 1)));
+  return { name: 'pick-item', level: rate, haptic: PICKUP_BUZZ.item };
 }
 
 /** best stamps per stage (map dots), office-only storage */

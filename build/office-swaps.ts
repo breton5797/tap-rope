@@ -26,6 +26,7 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/render/impact.ts': 'src/office/render/impact.ts',
   'src/audio/music.ts': 'src/office/audio/music.ts',
   'src/audio/sfx.ts': 'src/office/audio/sfx.ts',
+  'src/audio/sample-map.ts': 'src/office/audio/sample-map.ts',
   'src/core/achievements.ts': 'src/office/core/achievements.ts',
   'src/core/goals.ts': 'src/office/core/goals.ts',
   'src/core/levels.ts': 'src/office/core/levels.ts',

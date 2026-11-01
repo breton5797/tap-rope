@@ -2,7 +2,7 @@
  * Mission seam (office v2). v8 has no missions: every call is a no-op and the app, HUD, renderer and result
  * card see `null` / `undefined`. The office build swaps in src/office/game/missions.ts (same exports).
  */
-import type { Beat, MissionOutcome, MissionView, StageDef } from '../types';
+import type { Beat, MissionOutcome, MissionView, ObstacleKind, PickupCue, StageDef } from '../types';
 import type { GameEvent } from './session';
 
 /** opaque per-run mission state (v8: never created) */
@@ -37,6 +37,11 @@ export function missionView(_run: MissionRun | null, _time: number): MissionView
 }
 
 export function commitMissions(_run: MissionRun | null, _cleared: boolean, _record: boolean): MissionOutcome | null {
+  return null;
+}
+
+/** how a pickup sounds / buzzes; v8: null (feedback keeps its own coin / power-up sound) */
+export function pickupCue(_run: MissionRun | null, _kind: ObstacleKind): PickupCue | null {
   return null;
 }
 

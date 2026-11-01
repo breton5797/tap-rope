@@ -29,7 +29,8 @@ export function serviceWorker(o: ServiceWorkerOptions): Plugin {
       return [];
     }
   };
-  const artFiles = (): string[] => [...listPublic('art', '.webp'), ...listPublic('fonts', '.woff2')];
+  // office v2.1: sampled sfx (public-office/sfx) are precached too; v8's public dir has none
+  const artFiles = (): string[] => [...listPublic('art', '.webp'), ...listPublic('fonts', '.woff2'), ...listPublic('sfx', '.ogg'), ...listPublic('sfx', '.m4a')];
   return {
     name: 'tap-rope-sw',
     apply: 'build',

@@ -27,7 +27,14 @@ const crackle = (ctx: BaseAudioContext, out: AudioNode, t: number, offsets: read
   offsets.forEach((dt, i) => noise(ctx, out, { start: t + dt, dur: 0.018 + (i % 3) * 0.008, gain, type: 'bandpass', freq: freq * (1 + (i % 4) * 0.18), q: 3 }));
 };
 
-const RECIPES: Readonly<Record<SfxName, Recipe>> = {
+/** office v2.1 names: v8 never plays them; if asked, they sound like their v8 kin */
+type OfficeName = 'pick-shield' | 'pick-slow' | 'pick-heart' | 'pick-item' | 'pick-item-done' | 'stamp' | 'mission-ok' | 'mission-miss';
+const KIN: Readonly<Record<OfficeName, Exclude<SfxName, OfficeName>>> = {
+  'pick-shield': 'powerup', 'pick-slow': 'powerup', 'pick-heart': 'powerup', 'pick-item': 'coin', 'pick-item-done': 'achieve',
+  stamp: 'bump', 'mission-ok': 'achieve', 'mission-miss': 'bump',
+};
+
+const RECIPES: Readonly<Record<Exclude<SfxName, OfficeName>, Recipe>> = {
   // push-off: boot tick + air whoosh + sub kick + gear rattle; higher jump levels push a little harder
   jump: (ctx, out, t, level) => {
     const k = 1 + 0.15 * (lvl(level, 1, 3) - 1);
@@ -222,5 +229,6 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
 };
 
 export function playSfx(ctx: BaseAudioContext, out: AudioNode, name: SfxName, level: number): void {
-  RECIPES[name](ctx, out, ctx.currentTime + 0.005, level);
+  const recipe = name in KIN ? RECIPES[KIN[name as OfficeName]] : RECIPES[name as Exclude<SfxName, OfficeName>];
+  recipe(ctx, out, ctx.currentTime + 0.005, level);
 }

@@ -4,6 +4,8 @@ import type { AudioApi, SfxName, WorldId } from '../types';
 import { createMusic, type Music } from './music';
 import { createDedupe, createLimiter, createMaster, panBus } from './mixer';
 import { playSfx } from './sfx';
+import { SAMPLE_NAMES, sampleFor } from './sample-map';
+import { browserCanPlay, createSamplePlayer, pickSampleExt, type SamplePlayer } from './samples';
 
 interface Graph {
   readonly ctx: AudioContext;
@@ -56,6 +58,8 @@ export function createAudio(): AudioApi & BossAudio {
   let musicOn = true;
   let fever = false;
   let boss = false;
+  /** office v2.1: decoded sfx files (v8 lists none, so it stays null and every sound is synthesized) */
+  let samples: SamplePlayer | null = null;
   const fresh = createDedupe();
 
   const applyGains = (): void => {
@@ -80,6 +84,11 @@ export function createAudio(): AudioApi & BossAudio {
           graph = buildGraph();
           applyGains();
           if (graph) primeOutput(graph.ctx);
+          // samples load after this first gesture (iOS will not play them before it); misses stay synthesized
+          if (graph && SAMPLE_NAMES.length > 0) {
+            samples = createSamplePlayer(graph.ctx, { base: './sfx/', names: SAMPLE_NAMES, ext: pickSampleExt(browserCanPlay()) });
+            samples.load();
+          }
         }
         if (graph && graph.ctx.state !== 'running') void graph.ctx.resume().catch(() => undefined);
       } catch {
@@ -111,7 +120,12 @@ export function createAudio(): AudioApi & BossAudio {
     },
     sfx(name: SfxName, level = 1, pan = 0) {
       if (!soundOn || !graph || !fresh(name, nowMs())) return;
-      safe((g) => playSfx(g.ctx, panBus(g.ctx, g.sfx, pan), name, level));
+      safe((g) => {
+        const out = panBus(g.ctx, g.sfx, pan);
+        const sample = sampleFor(name, level);
+        if (sample && samples?.play(sample.id, out, sample.rate)) return;
+        playSfx(g.ctx, out, name, level);
+      });
     },
   };
 }
