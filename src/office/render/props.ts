@@ -363,22 +363,36 @@ const ITEM_MOTION: PropMotion = { dx: 0, dy: 0, rot: 0 };
 
 // ---------- blackout: every prop drawn this frame, replayed as a glowing silhouette over the darkness ----------
 
+/** props recorded per frame: ≥ 3 lanes × 3-high bundles × 8 beats + 12 doors / elevators, with headroom */
+export const PROP_RECORD_CAPACITY = 192;
+
 interface PropRec {
   img: HTMLImageElement | null;
-  m: DOMMatrix | null;
+  /** the prop's full canvas transform (a, b, c, d, e, f) and its own opacity */
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+  f: number;
+  alpha: number;
   w: number;
   h: number;
 }
 
-const RECS: PropRec[] = Array.from({ length: 48 }, () => ({ img: null, m: null, w: 0, h: 0 }));
+const RECS: PropRec[] = Array.from({ length: PROP_RECORD_CAPACITY }, () => ({
+  img: null, a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, alpha: 1, w: 0, h: 0,
+}));
 let recCount = 0;
 let recording = false;
+let overflowed = false;
 const SIL_COLOR = '#7CFFEA';
 
 /** start recording the props drawn from now on (the office renderer: around the v8 frame during a blackout) */
 export function startPropRecord(): void {
   recording = true;
   recCount = 0;
+  overflowed = false;
 }
 
 export function stopPropRecord(): void {
@@ -387,25 +401,38 @@ export function stopPropRecord(): void {
 
 export const recordedProps = (): number => recCount;
 
+/** more props were drawn than recorded: the renderer skips the darkness that frame (never hide a hazard) */
+export const recordOverflowed = (): boolean => overflowed;
+
 function record(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number): void {
-  if (recCount >= RECS.length) return;
+  if (recCount >= RECS.length) {
+    overflowed = true;
+    return;
+  }
   const r = RECS[recCount++];
+  const m = ctx.getTransform(); // read once, kept as six numbers (no matrix object retained)
   r.img = img;
-  r.m = ctx.getTransform(); // the prop's full transform (position, flip, spin): blackout-only, ≤ 1.5 s
+  r.a = m.a;
+  r.b = m.b;
+  r.c = m.c;
+  r.d = m.d;
+  r.e = m.e;
+  r.f = m.f;
+  r.alpha = ctx.globalAlpha;
   r.w = w;
   r.h = h;
 }
 
-/** each recorded prop as a cyan silhouette at its own position and size (held, thrown or on its path) */
+/** each recorded prop as a cyan silhouette at its own position, size and opacity (held, thrown or on its path) */
 export function drawRecordedSilhouettes(ctx: CanvasRenderingContext2D, alpha: number): void {
   ctx.save();
-  ctx.globalAlpha = alpha;
   for (let i = 0; i < recCount; i++) {
     const r = RECS[i];
-    if (!r.img || !r.m) continue;
+    if (!r.img) continue;
     // the tinted silhouette; without one (no canvas to tint on) the prop itself — never an empty box
     const sil = silhouette(r.img, SIL_COLOR);
-    ctx.setTransform(r.m);
+    ctx.setTransform(r.a, r.b, r.c, r.d, r.e, r.f);
+    ctx.globalAlpha = alpha * r.alpha;
     ctx.drawImage(sil ?? r.img, -r.w / 2, -r.h / 2, r.w, r.h);
   }
   ctx.restore();

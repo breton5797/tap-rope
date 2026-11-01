@@ -20,7 +20,7 @@ import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeLanes, scanSigns, stayLo
 import { hudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import {
-  actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord,
+  actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, recordOverflowed, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord,
 } from './props';
 import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
 import {
@@ -237,7 +237,8 @@ class OfficeRenderer implements Renderer {
     const blackout = activeAt(events, 'blackout', t);
     if (blackout) {
       const a = blackoutAlpha(t, blackout);
-      if (a.scene > 0) {
+      // the record overflowed: skip the darkness this frame rather than hide a hazard
+      if (a.scene > 0 && !recordOverflowed()) {
         drawBlackout(ctx, v, a.scene);
         // every hazard on screen comes back as a glowing silhouette of its own prop (held, thrown or on path)
         drawRecordedSilhouettes(ctx, a.outline);

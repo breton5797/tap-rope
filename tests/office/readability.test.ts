@@ -59,6 +59,38 @@ describe('blackout silhouettes (art review: the prop itself, never an empty box)
     expect(log.length).toBe(3);
   });
 
+  it('holds a full frame (3 lanes × 3-high bundles × 8 beats + 12 doors) and flags an overflow instead of hiding props', async () => {
+    const { PROP_RECORD_CAPACITY, drawProp, startPropRecord, stopPropRecord, recordOverflowed } = await import('../../src/office/render/props');
+    expect(PROP_RECORD_CAPACITY).toBeGreaterThanOrEqual(3 * 3 * 8 + 12);
+    const ctx = fakeCtx([]);
+    startPropRecord();
+    for (let i = 0; i <= PROP_RECORD_CAPACITY; i++) drawProp(ctx, img, i, 0, 20, 1);
+    stopPropRecord();
+    expect(recordOverflowed()).toBe(true);
+    startPropRecord();
+    drawProp(ctx, img, 0, 0, 20, 1);
+    stopPropRecord();
+    expect(recordOverflowed()).toBe(false);
+  });
+
+  it('replays each silhouette at the prop\'s own alpha (a fading-in prop stays faint)', async () => {
+    const { drawProp, startPropRecord, stopPropRecord, drawRecordedSilhouettes } = await import('../../src/office/render/props');
+    const alphas: number[] = [];
+    let alpha = 1;
+    const ctx = new Proxy({}, {
+      get: (_t, k) => (k === 'getTransform' ? () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
+        : k === 'drawImage' ? () => { alphas.push(alpha); } : k === 'globalAlpha' ? alpha : () => undefined),
+      set: (_t, k, val) => { if (k === 'globalAlpha') alpha = val as number; return true; },
+    }) as unknown as CanvasRenderingContext2D;
+    startPropRecord();
+    drawProp(ctx, img, 0, 0, 20, 1, false, 0.3);
+    stopPropRecord();
+    alphas.length = 0;
+    alpha = 1;
+    drawRecordedSilhouettes(ctx, 0.9);
+    expect(alphas[0]).toBeCloseTo(0.27, 6);
+  });
+
   it('the blackout pass only darkens: no boxes', () => {
     let strokes = 0;
     const ctx = new Proxy({}, { get: (_t, k) => (k === 'stroke' ? () => { strokes++; } : () => undefined), set: () => true }) as unknown as CanvasRenderingContext2D;
