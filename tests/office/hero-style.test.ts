@@ -109,3 +109,12 @@ describe('lane switch honours the hero agility (laneSwitchTime)', () => {
     expect(laneProgress(p)).toBeLessThan(1);
   });
 });
+
+describe('lane switch time outside a run', () => {
+  it('menus and previews use the default; only a running stage uses the hero value', async () => {
+    const { frameLaneSwitch } = await import('../../src/office/render/hero-style');
+    const { LANE_SWITCH_TIME } = await import('../../src/types');
+    expect(frameLaneSwitch('cat', true)).toBeCloseTo(LANE_SWITCH_TIME * 0.8);
+    expect(frameLaneSwitch('cat', false)).toBe(LANE_SWITCH_TIME);
+  });
+});

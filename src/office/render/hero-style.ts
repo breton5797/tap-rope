@@ -38,3 +38,8 @@ export function jumpRingScale(id: string): number {
 export function laneSwitchFor(id: string): number {
   return LOOKS[heroSkin(id)].lane;
 }
+
+/** the switch time for this frame: the hero's while a stage runs, the default on menus / previews (no stale value) */
+export function frameLaneSwitch(id: string, running: boolean): number {
+  return running ? laneSwitchFor(id) : LANE_SWITCH_TIME;
+}
