@@ -14,6 +14,8 @@ const MAX_RING = 26;
 export function planImpact(kind: ImpactKind, opts: ImpactOpts = {}): ImpactPlan {
   const p = v8PlanImpact(kind, opts);
   if (kind === 'slide') return { ...p, sparks: 0, dust: 0 };
+  // landing / lane change: the office juice draws light dust and pale streaks; no grey v8 grit
+  if (kind === 'land' || kind === 'lane') return { ...p, dust: 0, sparks: 0, streaks: 0 };
   if (kind === 'pass' || kind === 'graze') return { ...p, glint: Math.min(p.glint, MAX_GLINT), ring: Math.min(p.ring, MAX_RING) };
   return p;
 }

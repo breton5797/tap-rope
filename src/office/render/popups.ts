@@ -25,9 +25,11 @@ const EDGE = 8;
 /** popups dim to half within this long, so they never hide the hero (art review) */
 const DIM_TIME = 0.15;
 
-/** x shift that keeps popups centred on the hero (`heroX`) inside the view's left edge, given their half width */
-export function popupShift(heroX: number, viewLeft: number, halfWidth: number): number {
-  return Math.max(0, viewLeft + EDGE + halfWidth - heroX);
+/** x shift that keeps popups centred on the hero (`heroX`) inside the view's edges, given their half width */
+export function popupShift(heroX: number, viewLeft: number, viewRight: number, halfWidth: number): number {
+  const right = viewRight - EDGE - halfWidth - heroX;
+  const left = viewLeft + EDGE + halfWidth - heroX;
+  return left > 0 ? left : Math.min(0, right);
 }
 
 /** opacity at `age` of a popup living `life` s: full → half within DIM_TIME, then fade out over the last 20% */
@@ -49,7 +51,8 @@ function halfWidest(ctx: Ctx, pool: PopupPool): number {
     ctx.font = fontOf(STYLE[p.style]?.size ?? 16);
     w = Math.max(w, ctx.measureText(p.text).width);
   }
-  return (w * POPUP_SCALE) / 2;
+  // the settle-in pop (×1.12) and the stroke both widen the drawn text
+  return (w * POPUP_SCALE * 1.12) / 2 + 3;
 }
 
 /** never two popups with the same text at once: the newest one stays (art review: no stacked PERFECTs) */
@@ -102,7 +105,7 @@ export function drawPopups(ctx: Ctx, pool: PopupPool): void {
   if (!Number.isFinite(highest)) return;
   // below the HUD rows and below the attack callout while it shows
   const shift = popupRise(Math.max(band.top, band.callout), highest);
-  const dx = Number.isFinite(band.left) ? popupShift(PLAYER_X, band.left, halfWidest(ctx, pool)) : 0;
+  const dx = Number.isFinite(band.left) ? popupShift(PLAYER_X, band.left, band.right, halfWidest(ctx, pool)) : 0;
   const anchor = highest + DRIFT;
   ctx.save();
   ctx.translate(PLAYER_X + dx, anchor + shift);

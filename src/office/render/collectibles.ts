@@ -11,6 +11,13 @@ export function collectibleFor(stageIndex: number, part: number | undefined): st
   return STAGE_MISSIONS[STAGE_IDS[stageIndex] ?? `w${stageIndex + 1}-s10`]?.[part]?.collectible ?? null;
 }
 
+/** the stage's mission collectible (any part), for a collect mission whose part has none on record */
+export function stageCollectible(stageIndex: number): string | null {
+  const parts = STAGE_MISSIONS[STAGE_IDS[stageIndex] ?? `w${stageIndex + 1}-s10`] ?? [];
+  for (const p of parts) if (p.collectible) return p.collectible;
+  return null;
+}
+
 /** the mission part a beat belongs to (Beat.part from the office stage composer; absent = none) */
 export const partOf = (beat: Beat | undefined): number | undefined => beat?.part;
 

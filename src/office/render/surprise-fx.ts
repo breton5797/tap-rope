@@ -1,14 +1,11 @@
-// Office surprise visuals (office spec §6, §9): blackout with glowing hazard outlines, fire-drill red flash,
-// high-five popup, broadcast banner and the superiors' speech bubbles. Drawn over the finished v8 frame in
-// logical coordinates; the hit boxes and the "!" warnings are the v8 ones (warnings are redrawn on top).
-import type { VisibleObstacle } from '../../types';
-import { HAZARD_KINDS } from '../../types';
-import {
-  CEIL_LASER_END, ENTER_TIME, FLOOR_BACK, depthScale, fixedX, flyingX, projX, projY,
-} from '../../render/layout';
-import { chaserX, dropHeight } from '../../render/hazards';
-import { ACTION_COLORS, PROP_SIZE, flyingSpan, type ActionCue } from './props';
+// Office surprise visuals (office spec §6, §9): blackout darkness (the props come back as silhouettes, see
+// props.ts), fire-drill red flash, high-five popup, broadcast banner and the superiors' speech bubbles. Drawn
+// over the finished v8 frame in logical coordinates; hit boxes and "!" warnings are the v8 ones.
+import { FLOOR_BACK, depthScale, laneY, projX } from '../../render/layout';
+import { ACTION_COLORS, type ActionCue } from './props';
 import { roundRect, type Ctx } from '../../render/util';
+import { PLAYER_X } from '../../types';
+import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
@@ -19,62 +16,10 @@ const MAX_DROP = 40;
 const BUBBLE_H = 26;
 const BUBBLE_FONT = '700 12px ui-rounded, system-ui, sans-serif';
 
-interface Box { x: number; y: number; w: number; h: number }
-
-const LANES = [0, 1, 2] as const;
-const NEON = '#7CFFEA';
-
-/** a square prop box centred on x, anchored at y by `ay` (1 = bottom, 0.5 = centre) */
-const square = (x: number, y: number, size: number, ay: number): Box => ({ x: x - size / 2, y: y - size * ay, w: size, h: size });
-
-/** screen boxes of a hazard (same placement as the office props) */
-function boxesOf(o: VisibleObstacle, v: View): Box[] {
-  const lanes: readonly number[] = o.lanes ?? LANES;
-  return lanes.flatMap((d): Box[] => {
-    const s = depthScale(d);
-    const tu = o.timeUntil;
-    switch (o.kind) {
-      case 'floor': return [square(projX(fixedX(tu), d), projY(d, 0), PROP_SIZE.floor * s, 1)];
-      case 'ceiling': return [square(projX(fixedX(tu), d), projY(d, CEIL_LASER_END), PROP_SIZE.ceiling * s, 1)];
-      case 'drone': return [square(projX(fixedX(tu), d), projY(d, 160), PROP_SIZE.drone * s, 0.5)];
-      case 'guard': return [square(projX(fixedX(tu), d), projY(d, 0), PROP_SIZE.guard * s, 1)];
-      case 'drop': return [square(projX(fixedX(tu), d), projY(d, dropHeight(tu)), PROP_SIZE.drop * s, 1)];
-      case 'chaser': return [square(projX(chaserX(tu, v), d), projY(d, 34), PROP_SIZE.chaser * s, 0.5)];
-      case 'beam': case 'high': {
-        const back = o.from === 'back';
-        const { bottom, h } = flyingSpan(o);
-        const y = projY(d, bottom + h);
-        // not on screen yet: outline it at the edge it will enter from (where its chevrons are)
-        if (tu > ENTER_TIME) return [{ x: back ? v.x0 + 2 : v.x0 + v.w - h * s - 2, y, w: h * s, h: h * s }];
-        // centred on the beam head, like the prop (F2)
-        const x = projX(flyingX(back ? 'back' : 'front', tu, v), d);
-        return [{ x: x - (h * s) / 2, y, w: h * s, h: h * s }];
-      }
-      default: return [];
-    }
-  });
-}
-
-/** darkness over the scene, then every hazard as a glowing outline (alpha ≥ 0.8 in the window) */
-export function drawBlackout(ctx: Ctx, v: View, obs: readonly VisibleObstacle[], scene: number, outline: number): void {
-  // the world only: the rhythm lane stays lit
+/** the blackout darkness over the world (the rhythm lane stays lit); the props come back as silhouettes */
+export function drawBlackout(ctx: Ctx, v: View, scene: number): void {
   ctx.fillStyle = `rgba(6,8,22,${scene})`;
   ctx.fillRect(v.x0, v.y0, v.w, laneTopY(v) - v.y0);
-  if (outline <= 0) return;
-  ctx.strokeStyle = NEON;
-  ctx.shadowColor = NEON;
-  ctx.shadowBlur = 8;
-  ctx.lineWidth = 2;
-  ctx.globalAlpha = outline;
-  for (const o of obs) {
-    if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil < -0.3) continue;
-    for (const b of boxesOf(o, v)) {
-      roundRect(ctx, b.x, b.y, b.w, b.h, 5);
-      ctx.stroke();
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
 }
 
 /** fire drill: pulsing red edge wash + "소방훈련!" banner (the rear hazard keeps its v8 "!") */
@@ -111,18 +56,20 @@ export function drawBroadcast(ctx: Ctx, v: View): void {
   banner(ctx, v, '사내방송: 사장님 깜짝 순시 중', '#5CC8FF', bannerY(v));
 }
 
-/** a superior's speech bubble beside the figure's face, kept under the DOM HUD rows and the phase line */
-export function drawBossBubble(ctx: Ctx, v: View, text: string, below: number, avoid: Rect | null): void {
+/** a superior's speech bubble beside the figure's face, kept under the DOM HUD rows and the phase line; returns its bottom (popups stay below it) */
+export function drawBossBubble(ctx: Ctx, v: View, text: string, below: number, avoid: Rect | null): number {
   const w = personWidth(v.w);
   const faceY = FLOOR_BACK - (w / PERSON_ASPECT) * 0.8;
   const x = Math.max(v.x0 + 120, v.x0 + v.w * PERSON_FX - w * 0.35 - 70);
   const y = Math.max(faceY, below + 18);
   // a DOM card (briefing, tutorial) covering the face: wait instead of dropping onto the hero
-  if (y > faceY + MAX_DROP) return;
+  if (y > faceY + MAX_DROP) return Number.NEGATIVE_INFINITY;
   ctx.font = BUBBLE_FONT;
   const bw = Math.min(230, ctx.measureText(text).width + 22);
   // never under the countdown digit: just above it (below the HUD) or just below it
-  bubble(ctx, x, placeBubble({ x, y, w: bw, h: BUBBLE_H }, avoid, below + 4), text, '#FFFFFF', '#1E2238', 'right');
+  const cy = placeBubble({ x, y, w: bw, h: BUBBLE_H }, avoid, below + 4);
+  bubble(ctx, x, cy, text, '#FFFFFF', '#1E2238', 'right');
+  return cy + BUBBLE_H / 2 + 10;
 }
 
 function banner(ctx: Ctx, v: View, text: string, color: string, y: number): void {
@@ -197,14 +144,12 @@ const PROP_NAMES: Readonly<Record<string, string>> = {
   'doc-tornado': '서류 회오리!', necktie: '넥타이 채찍!', 'corp-card': '법인카드!', 'ceo-screen': '화상회의!',
   'revolving-door': '회전문 가속!', envelope: '금일봉 비!', cart: '카트 질주!', robot: '청소 로봇!',
 };
-const ACTION_HINT: Readonly<Record<ActionCue, string>> = { jump: '점프!', slide: '숙여!', lane: '옆으로!', low: '낮게!' };
 
 /** the attack telegraph as a boss-bubble-sized callout: prop icon, attack name, action hint in its colour; returns its bottom y */
 export function drawAttackCallout(
-  ctx: Ctx, v: View, icon: HTMLImageElement | null, propId: string, cue: ActionCue, below: number, avoid: Rect | null,
+  ctx: Ctx, v: View, icon: HTMLImageElement | null, propId: string, cue: ActionCue, hint: string, below: number, avoid: Rect | null,
 ): number {
   const name = PROP_NAMES[propId] ?? '기습!';
-  const hint = ACTION_HINT[cue];
   const color = ACTION_COLORS[cue];
   ctx.font = CALLOUT_FONT;
   const textW = ctx.measureText(name).width;
@@ -242,3 +187,24 @@ export function drawAttackCallout(
 
 const CALLOUT_FONT = '900 15px ui-rounded, system-ui, sans-serif';
 const HINT_FONT = '900 13px ui-rounded, system-ui, sans-serif';
+
+/** the colleague runs in one lane-step away from the hero (nearer when there is room, else farther) */
+export function colleagueLane(lane: number): number {
+  return lane <= 1.4 ? lane + 0.6 : lane - 0.6;
+}
+
+/** high five: the colleague (prop-colleague) runs in beside the hero for ~1 s; nothing when the art is missing */
+export function drawColleague(ctx: Ctx, lane: number, age: number): void {
+  const img = officeImage('prop-colleague');
+  if (!img || age > 1.1) return;
+  const inK = Math.min(1, age / 0.2);
+  const out = age > 0.9 ? (age - 0.9) / 0.2 : 0;
+  const d = colleagueLane(lane);
+  const s = depthScale(d);
+  const h = 96 * s;
+  const w = (h * img.naturalWidth) / img.naturalHeight;
+  ctx.save();
+  ctx.globalAlpha *= inK * (1 - out);
+  ctx.drawImage(img, projX(PLAYER_X + 34 - 40 * (1 - inK), d) - w / 2, laneY(d) - h, w, h);
+  ctx.restore();
+}

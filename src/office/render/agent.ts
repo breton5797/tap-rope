@@ -9,7 +9,8 @@ import { AgentPainter as V8AgentPainter, type AgentFrame } from '../../render/ag
 import { cueAge } from '../../render/cues';
 import { RIG_SIZE } from '../../render/rig';
 import type { Ctx } from '../../render/util';
-import { frameFallbacks, heroLean, heroPose, type HeroFrameId, type PoseCtx } from './hero-frames';
+import { HIT_SHOW, frameFallbacks, heroLean, heroPose, type HeroFrameId, type PoseCtx } from './hero-frames';
+import { outlineImage } from './props';
 import { officeImage } from './images';
 
 export * from '../../render/agent';
@@ -77,6 +78,8 @@ export class AgentPainter {
       ctx.translate(0, h / 2);
     }
     if (f.blink) ctx.globalAlpha *= 0.55 + 0.45 * Math.abs(Math.sin(f.t * Math.PI * 10));
+    // a hit is unmistakable: a red outline for the hit window (PERFECT never uses red)
+    if (c.hitAge >= 0 && c.hitAge < HIT_SHOW) outlineImage(ctx, img, -w / 2, -h, w, h, '#FF3B4E', 2.6);
     ctx.drawImage(img, -w / 2, -h, w, h);
     ctx.restore();
   }
@@ -120,7 +123,7 @@ function heroName(skin: 'kid' | 'cat', frame: string): string {
 function dust(ctx: Ctx, x: number, floorY: number, s: number, k: number): void {
   const spread = (1 - k) * 14 * s;
   ctx.save();
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = '#FFF4E2'; // light beige: dust, never grey grit
   ctx.globalAlpha = 0.35 * k;
   for (let i = -1; i <= 1; i++) {
     ctx.beginPath();

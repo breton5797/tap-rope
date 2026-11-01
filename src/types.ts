@@ -727,7 +727,18 @@ export type SfxName =
   // v7: boss roar/arrival, boss charge-up telegraph, boss phase break, boss destroyed, achievement chime
   | 'boss-intro' | 'boss-charge' | 'boss-stagger' | 'boss-down' | 'achieve'
   // v7.1: shield shatter, laser graze on a close pass, bump against the edge lane
-  | 'shield' | 'graze' | 'bump';
+  | 'shield' | 'graze' | 'bump'
+  // office v2.1 (sampled in the office build; v8 never plays them and voices them like their v8 kin):
+  // power-up pickups by kind, collect-mission items, the mission stamp and its outcome
+  | 'pick-shield' | 'pick-slow' | 'pick-heart' | 'pick-item' | 'pick-item-done' | 'stamp' | 'mission-ok' | 'mission-miss';
+
+/** office v2.1: how a pickup sounds and buzzes (feedback asks the mission seam; v8: null = its own sound) */
+export interface PickupCue {
+  readonly name: SfxName;
+  /** recipe level, or the playback rate for 'pick-item' */
+  readonly level: number;
+  readonly haptic?: number | readonly number[];
+}
 
 export interface AudioApi {
   unlock(): void; // call inside a user gesture

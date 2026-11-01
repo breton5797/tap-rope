@@ -5,15 +5,16 @@
 import type { VisibleObstacle } from '../../types';
 import { SCROLL_SPEED } from '../../types';
 import {
-  ARM_TIME, CEIL_H, CEIL_LASER_END, CHARGE_TIME, ENTER_TIME, SPAN_D0, SPAN_D1, beamSpeed, depthScale, fixedX, projX, projY,
+  ARM_TIME, BEAM_H, CEIL_H, CEIL_LASER_END, CHARGE_TIME, ENTER_TIME, HIGH_H, SPAN_D0, SPAN_D1, beamSpeed, depthScale, fixedX, projX, projY,
 } from '../../render/layout';
 import { drawLaserSeg as v8LaserSeg } from '../../render/lasers';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
-import { heldFade, joinTime, throwArc, throwHand, throwStep } from './boss-throw';
+import { heldFade, joinTime, throwActive, throwArc, throwHand, throwStep } from './boss-throw';
+import { pointerBeam } from './readability';
 import {
-  PROP_SIZE, beatIdOf, drawFootprint, drawProp, drawStack, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage,
+  PROP_SIZE, actionCue, beatIdOf, drawFootprint, drawProp, drawStack, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage,
   heldLane, propMotion, stackItems, type StackItem,
 } from './props';
 
@@ -71,7 +72,9 @@ function thrown(
   LAND.x = landX;
   LAND.y = landY;
   const p = throwArc(throwHand(), LAND, step);
-  drawProp(ctx, img, p.x, p.y, h, ay, flip, a, propMotion(propIdFor(o), phase(o, d, t) * 2));
+  // every ceiling prop hangs on its line, held and in flight too (it reads as a slide, not a jump)
+  if (o.kind === 'ceiling') hangLine(ctx, p.x, projY(d, CEIL_H), p.y - h, depthScale(d), a);
+  drawProp(ctx, img, p.x, p.y, h, ay, flip, a, propMotion(propIdFor(o), phase(o, d, t) * 2), actionCue(o.kind));
 }
 
 function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: number, a: number, t: number): void {
@@ -82,6 +85,8 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   const join = joinTime(SCROLL_SPEED);
   const step = throwStep(o.kind, o.from, tu, join);
   if (step === -1) return;
+  // the laser pointer is a beam from the hand, never a held / thrown sprite
+  if (step !== null && propIdFor(o) === 'pointer') return;
   if (step !== null) {
     thrown(ctx, img, o, d, a, step, projX(fixedX(join), d), floor ? projY(d, 0) : hangY(d, join), size, 1, false, t);
     return;
@@ -90,21 +95,15 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   if (presence <= 0.01) return;
   const x = projX(fixedX(tu), d);
   const m = propMotion(propIdFor(o), phase(o, d, t));
-  drawFootprint(ctx, o.kind, x, projY(d, 0), size, a * presence);
+  drawFootprint(ctx, o.kind, x, projY(d, 0), size, a * presence, 0, floor ? 1 : 0);
+  if (pointerAt(ctx, o, x, projY(d, floor ? BEAM_H[0] : HIGH_H), s, a * presence)) return;
   if (floor) {
-    drawProp(ctx, img, x, projY(d, 0), size, 1, false, a * presence, m);
+    drawProp(ctx, img, x, projY(d, 0), size, 1, false, a * presence, m, 'jump');
     return;
   }
   const yEnd = hangY(d, tu);
-  ctx.strokeStyle = 'rgba(40,40,60,0.7)';
-  ctx.globalAlpha = a * presence;
-  ctx.lineWidth = 1.2 * s;
-  ctx.beginPath();
-  ctx.moveTo(x, projY(d, CEIL_H));
-  ctx.lineTo(x, yEnd - size);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  drawProp(ctx, img, x, yEnd, size, 1, false, a * presence, m);
+  hangLine(ctx, x, projY(d, CEIL_H), yEnd - size, s, a * presence);
+  drawProp(ctx, img, x, yEnd, size, 1, false, a * presence, m, 'slide');
 }
 
 function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle, d: number, a: number, t: number): void {
@@ -136,15 +135,54 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
     // F2: centred on the beam head, so the prop covers the hero exactly at judge time
     x = projX(flyingPropCenter(back ? 'back' : 'front', o.timeUntil, v), d);
     floorY = projY(d, 0);
-    drawFootprint(ctx, o.kind, x, floorY, size, a);
+    drawFootprint(ctx, o.kind, x, floorY, size, a, 0, o.kind === 'beam' ? o.level : 0);
+    const target = o.kind === 'high' ? HIGH_H : BEAM_H[Math.min(3, Math.max(1, o.level)) - 1];
+    if (pointerAt(ctx, o, x, projY(d, target), depthScale(d), a)) return;
   }
+  // head-height props hang from the ceiling (a slide, not a jump), held and in flight too
+  if (o.kind === 'high') {
+    const top = floorY - (bottom + h) * depthScale(d);
+    hangLine(ctx, x, projY(d, CEIL_H), top, depthScale(d), a);
+  }
+  if (step !== null && propIdFor(o) === 'pointer') return; // the pointer is a beam, never thrown
   const depth = depthScale(d);
   // a bundle is drawn opaque in every lane (dimmed copies read as one washed-out smear)
-  if (stack.length > 0) drawStack(ctx, img, stack, x, floorY, depth, k, back, 1, m);
-  else drawProp(ctx, img, x, floorY - bottom * depth, size, 1, back, a, m);
+  const cue = actionCue(o.kind);
+  if (stack.length > 0) drawStack(ctx, img, stack, x, floorY, depth, k, back, 1, m, cue);
+  else drawProp(ctx, img, x, floorY - bottom * depth, size, 1, back, a, m, cue);
 }
 
 const NO_STACK: readonly StackItem[] = [];
+
+/** the laser pointer drawn as a beam from the boss's hand to `y` (head / knee / ankle); false for other props */
+function pointerAt(ctx: Ctx, o: VisibleObstacle, x: number, y: number, s: number, a: number): boolean {
+  if (propIdFor(o) !== 'pointer') return false;
+  // from behind: the boss's hand is on the other side — just the dot
+  if (!throwActive() || o.from === 'back') {
+    pointerBeam(ctx, x, y, x, y, s, a);
+    return true;
+  }
+  const hand = throwHand();
+  pointerBeam(ctx, hand.x, hand.y, x, y, s, a);
+  return true;
+}
+
+function hangLine(ctx: Ctx, x: number, y0: number, y1: number, s: number, a: number): void {
+  // a dark cord with a white core: reads on every wall (lobby glass, peach, lavender)
+  ctx.save();
+  ctx.globalAlpha *= a;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(46,36,51,0.9)';
+  ctx.lineWidth = 2.6 * s;
+  ctx.beginPath();
+  ctx.moveTo(x, y0);
+  ctx.lineTo(x, y1);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 1 * s;
+  ctx.stroke();
+  ctx.restore();
+}
 
 /** reused per call (no per-frame allocation) */
 const FALLBACK: VisibleObstacle[] = [];

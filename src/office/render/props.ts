@@ -8,6 +8,7 @@ import type { View } from '../../render/view';
 import { attackVariant } from '../core/events';
 import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
+import { heightTicks } from './readability';
 
 interface PropFrame {
   slot: BossId;
@@ -95,15 +96,19 @@ export function actionCue(kind: ObstacleKind): ActionCue {
 
 /** cue colours: jump orange, slide blue, lane-change red, drone ("don't jump high") purple */
 export const ACTION_COLORS: Readonly<Record<ActionCue, string>> = {
-  jump: '#FF9F1C', slide: '#3B8BFF', lane: '#E8344B', low: '#9B5CFF',
+  jump: '#FF9F1C', slide: '#3B8BFF', lane: '#C2103A', low: '#9B5CFF',
 };
 
 /**
  * The hazard's footprint on its lane's floor: a soft tinted ellipse in the cue colour with a crisp rim
  * (lane hazards also paint the blocked lane red across `laneBand` px), so the lane and the move read at a glance.
  */
+const LANE_DASH = [5, 3];
+const NO_DASH: number[] = [];
+
 export function drawFootprint(
-  ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1, laneBand = 0,
+  ctx: CanvasRenderingContext2D, kind: ObstacleKind, x: number, floorY: number, width: number, alpha = 1, _laneBand = 0,
+  level = 0,
 ): void {
   const cue = actionCue(kind);
   const color = ACTION_COLORS[cue];
@@ -112,18 +117,15 @@ export function drawFootprint(
   ctx.save();
   ctx.globalAlpha *= alpha;
   if (cue === 'lane') {
-    // F8 the blocked lane, kept quiet (art review): a faint strip and an outlined ellipse, no filled block
-    const half = laneBand > 0 ? laneBand / 2 : ry;
-    ctx.globalAlpha *= 0.08;
-    ctx.fillStyle = color;
-    ctx.fillRect(x - rx * 2.2, floorY - half, rx * 4.4, half * 2);
-    ctx.globalAlpha /= 0.08;
+    // lane change: a crimson OUTLINE only (a filled red read like the amber jump mark on peach floors)
     ctx.beginPath();
     ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
-    ctx.globalAlpha *= 0.5;
+    ctx.globalAlpha *= 0.85;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = 2;
+    ctx.setLineDash(LANE_DASH);
     ctx.stroke();
+    ctx.setLineDash(NO_DASH);
     ctx.restore();
     return;
   }
@@ -138,11 +140,14 @@ export function drawFootprint(
   ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
+  // jumps: 1–3 notches on the ring's front edge = the level to jump
+  if (cue === 'jump' && level > 0) heightTicks(ctx, x, floorY + ry, level, Math.max(0.6, width / 50));
 }
 
-/** outline rings in logical px: white inside, dark comic ink outside (≈ 3 px on screen at play size) */
-const OUTLINE_WHITE = 1.3;
-const OUTLINE_INK = 2.8;
+/** outline rings in logical px: white inside, the move's colour, dark comic ink outside (≈ 2 px dark at play size) */
+const OUTLINE_WHITE = 1.1;
+const OUTLINE_CUE = 2.3;
+const OUTLINE_INK = 3.4;
 const INK = '#2E2433';
 const OUTLINE_DIRS: readonly (readonly [number, number])[] = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [0.71, 0.71], [-0.71, 0.71], [0.71, -0.71], [-0.71, -0.71],
@@ -174,6 +179,45 @@ function silhouette(img: HTMLImageElement, color: string): HTMLCanvasElement | n
   return out;
 }
 
+/** a solid `color` outline `r` px around an image drawn at (x, y, w, h) (silhouettes cached per colour) */
+export function outlineImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number, color: string, r: number): void {
+  ring(ctx, silhouette(img, color), x, y, w, h, r);
+}
+
+/**
+ * Perf (review): the ink + move-colour + white rings baked once per (image, cue) into one canvas, so a prop
+ * costs two drawImage calls instead of 24. Ring widths are fractions of the drawn height (tuned at 50 px).
+ */
+const BAKE_H = 128;
+const RING_REF_H = 50;
+const baked = new WeakMap<HTMLImageElement, Map<string, { canvas: HTMLCanvasElement; pad: number } | null>>();
+
+function bakedRings(img: HTMLImageElement, cue: ActionCue | null): { canvas: HTMLCanvasElement; pad: number } | null {
+  let byCue = baked.get(img);
+  if (!byCue) {
+    byCue = new Map();
+    baked.set(img, byCue);
+  }
+  const key = cue ?? '-';
+  if (byCue.has(key)) return byCue.get(key) ?? null;
+  let out: { canvas: HTMLCanvasElement; pad: number } | null = null;
+  try {
+    const k = BAKE_H / RING_REF_H;
+    const pad = Math.ceil(OUTLINE_INK * k) + 1;
+    const h = BAKE_H;
+    const w = Math.max(1, Math.round((h * img.naturalWidth) / img.naturalHeight));
+    const { canvas, ctx } = makeCanvas(w + 2 * pad, h + 2 * pad);
+    ring(ctx, silhouette(img, INK), pad, pad, w, h, OUTLINE_INK * k);
+    if (cue) ring(ctx, silhouette(img, ACTION_COLORS[cue]), pad, pad, w, h, OUTLINE_CUE * k);
+    ring(ctx, silhouette(img, '#FFFFFF'), pad, pad, w, h, OUTLINE_WHITE * k);
+    out = { canvas, pad };
+  } catch {
+    out = null;
+  }
+  byCue.set(key, out);
+  return out;
+}
+
 function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: number, y: number, w: number, h: number, r: number): void {
   if (sil) for (const [dx, dy] of OUTLINE_DIRS) ctx.drawImage(sil, x + dx * r, y + dy * r, w, h);
 }
@@ -188,7 +232,7 @@ const UNOUTLINED: ReadonlySet<string> = new Set(['pointer']);
  */
 export function drawProp(
   ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, h: number, ay: number, flip = false, alpha = 1,
-  m?: Readonly<PropMotion>,
+  m?: Readonly<PropMotion>, cue: ActionCue | null = null,
 ): void {
   const w = (h * img.naturalWidth) / img.naturalHeight;
   ctx.save();
@@ -197,9 +241,14 @@ export function drawProp(
   ctx.translate(x + (m?.dx ?? 0), y - h * ay + h / 2 + (m?.dy ?? 0));
   if (m && m.rot !== 0) ctx.rotate(m.rot);
   if (flip) ctx.scale(-1, 1);
+  if (recording) record(ctx, img, w, h);
   if (!NO_OUTLINE.has(img)) {
-    ring(ctx, silhouette(img, INK), -w / 2, -h / 2, w, h, OUTLINE_INK);
-    ring(ctx, silhouette(img, '#FFFFFF'), -w / 2, -h / 2, w, h, OUTLINE_WHITE);
+    // dark ink outermost (reads on every floor, stage 5's lavender too), the move's colour, then white
+    const r = bakedRings(img, cue);
+    if (r) {
+      const k = h / BAKE_H;
+      ctx.drawImage(r.canvas, -w / 2 - r.pad * k, -h / 2 - r.pad * k, w + 2 * r.pad * k, h + 2 * r.pad * k);
+    }
   }
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
@@ -300,14 +349,91 @@ export function stackItems(level: number): readonly StackItem[] {
 /** draw a stack around the column at x: item centres at their beam heights × `depth` above `floorY`, items × `size` */
 export function drawStack(
   ctx: CanvasRenderingContext2D, img: HTMLImageElement, items: readonly StackItem[], x: number, floorY: number, depth: number,
-  size: number, flip: boolean, alpha: number, m: Readonly<PropMotion>,
+  size: number, flip: boolean, alpha: number, m: Readonly<PropMotion>, cue: ActionCue | null = null,
 ): void {
   for (const it of items) {
     ITEM_MOTION.dx = m.dx + it.dx * depth;
     ITEM_MOTION.dy = m.dy;
     ITEM_MOTION.rot = m.rot + it.rot;
-    drawProp(ctx, img, x, floorY - it.height * depth, STACK_ITEM * size, 0.5, flip, alpha, ITEM_MOTION);
+    drawProp(ctx, img, x, floorY - it.height * depth, STACK_ITEM * size, 0.5, flip, alpha, ITEM_MOTION, cue);
   }
 }
 
 const ITEM_MOTION: PropMotion = { dx: 0, dy: 0, rot: 0 };
+
+// ---------- blackout: every prop drawn this frame, replayed as a glowing silhouette over the darkness ----------
+
+/** props recorded per frame: ≥ 3 lanes × 3-high bundles × 8 beats + 12 doors / elevators, with headroom */
+export const PROP_RECORD_CAPACITY = 192;
+
+interface PropRec {
+  img: HTMLImageElement | null;
+  /** the prop's full canvas transform (a, b, c, d, e, f) and its own opacity */
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+  f: number;
+  alpha: number;
+  w: number;
+  h: number;
+}
+
+const RECS: PropRec[] = Array.from({ length: PROP_RECORD_CAPACITY }, () => ({
+  img: null, a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, alpha: 1, w: 0, h: 0,
+}));
+let recCount = 0;
+let recording = false;
+let overflowed = false;
+const SIL_COLOR = '#7CFFEA';
+
+/** start recording the props drawn from now on (the office renderer: around the v8 frame during a blackout) */
+export function startPropRecord(): void {
+  recording = true;
+  recCount = 0;
+  overflowed = false;
+}
+
+export function stopPropRecord(): void {
+  recording = false;
+}
+
+export const recordedProps = (): number => recCount;
+
+/** more props were drawn than recorded: the renderer skips the darkness that frame (never hide a hazard) */
+export const recordOverflowed = (): boolean => overflowed;
+
+function record(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number): void {
+  if (recCount >= RECS.length) {
+    overflowed = true;
+    return;
+  }
+  const r = RECS[recCount++];
+  const m = ctx.getTransform(); // read once, kept as six numbers (no matrix object retained)
+  r.img = img;
+  r.a = m.a;
+  r.b = m.b;
+  r.c = m.c;
+  r.d = m.d;
+  r.e = m.e;
+  r.f = m.f;
+  r.alpha = ctx.globalAlpha;
+  r.w = w;
+  r.h = h;
+}
+
+/** each recorded prop as a cyan silhouette at its own position, size and opacity (held, thrown or on its path) */
+export function drawRecordedSilhouettes(ctx: CanvasRenderingContext2D, alpha: number): void {
+  ctx.save();
+  for (let i = 0; i < recCount; i++) {
+    const r = RECS[i];
+    if (!r.img) continue;
+    // the tinted silhouette; without one (no canvas to tint on) the prop itself — never an empty box
+    const sil = silhouette(r.img, SIL_COLOR);
+    ctx.setTransform(r.a, r.b, r.c, r.d, r.e, r.f);
+    ctx.globalAlpha = alpha * r.alpha;
+    ctx.drawImage(sil ?? r.img, -r.w / 2, -r.h / 2, r.w, r.h);
+  }
+  ctx.restore();
+}

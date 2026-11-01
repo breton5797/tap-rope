@@ -35,7 +35,7 @@ import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
 import { TutorialRun, tutorialStops, type TutorialStep } from './tutorial';
 import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
 import { autoplayResult, takeChallenge, withoutChallenge } from './run-policy';
-import { commitMissions, missionView, startMissions, trackMissions, type MissionRun } from './missions';
+import { commitMissions, missionView, pickupCue, startMissions, trackMissions, type MissionRun } from './missions';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
 type Screen = 'menu' | 'controls' | 'picker' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
@@ -45,6 +45,8 @@ const COUNT_STEP = 0.6;
 const BRIEFING_TIME = 2.6;
 const STORY_BOSSES = new Set(['w5-s10', 'w10-s10']);
 const RESULT_DELAY = 1.3;
+/** office v2.1: the mission verdict sound follows the stamp thunk by this much */
+const STAMP_VERDICT_MS = 180;
 /** v8 (A6): static screens (menus behind opaque cards, pause, result, cutscenes) redraw the canvas at this rate */
 const STATIC_FPS = 15;
 /** boot never waits longer than this for the photographic art (the procedural look covers the rest) */
@@ -112,6 +114,7 @@ export function startApp(): void {
       slowMo: (seconds, factor) => { warp = slowMo(warp, seconds, factor, reducedMotion()); },
     },
     view: () => session,
+    pickupCue: (kind) => pickupCue(missions, kind),
   };
 
   let save: SaveData = loadSave();
@@ -149,6 +152,8 @@ export function startApp(): void {
   let lastStampAt: number | undefined;
   /** this frame's mission view (built once, shared by the HUD and the render snapshot) */
   let missionNow: MissionView | undefined;
+  /** the pending mission-verdict sound after a stamp (cleared on a new run and on quitting) */
+  let verdictTimer = 0;
   const osReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const reducedMotion = (): boolean => save.settings.reducedMotion || Boolean(osReducedMotion?.matches);
 
@@ -174,6 +179,7 @@ export function startApp(): void {
 
   const toMenu = (show: (s: SaveData) => void): void => {
     screen = 'menu';
+    window.clearTimeout(verdictTimer);
     lastRunKey = '';
     tutorial.reset([]); // quitting inside a tutorial freeze must not freeze the menu demo
     frozenReal = -1;
@@ -273,6 +279,7 @@ export function startApp(): void {
     missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
     lastStampAt = undefined;
     missionNow = undefined;
+    window.clearTimeout(verdictTimer);
     prevBoss = null;
     bossLine = -1;
     finisher = 'off';
@@ -330,6 +337,7 @@ export function startApp(): void {
     if (session.status !== 'playing') return; // run already over: the result card is on its way
     screen = 'paused';
     clearGoTimer();
+    window.clearTimeout(verdictTimer);
     audio.stopMusic();
     ui.showCountdown(null);
     ui.showBriefing(null);
@@ -562,7 +570,11 @@ export function startApp(): void {
     ui.updateMission(view, view ? session.stage : null, session.time);
     if (view?.stampAt === undefined || view.stampAt === lastStampAt) return;
     lastStampAt = view.stampAt;
-    audio.sfx(view.stampOk ? 'achieve' : 'bump');
+    // the stamp lands, then its verdict (v8 has no missions, so none of this ever plays there)
+    audio.sfx('stamp');
+    const verdict = view.stampOk ? 'mission-ok' : 'mission-miss';
+    window.clearTimeout(verdictTimer);
+    verdictTimer = window.setTimeout(() => audio.sfx(verdict), STAMP_VERDICT_MS);
     haptics.vibrate(view.stampOk ? [18, 40, 28] : 12);
   };
 

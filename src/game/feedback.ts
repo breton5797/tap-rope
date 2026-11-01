@@ -1,5 +1,5 @@
 /** Translates GameEvents into juice: particles, popups, sound and haptics. */
-import type { AudioApi, Beat, EffectsApi, ImpactOpts, ObstacleKind, StageDef } from '../types';
+import type { AudioApi, Beat, EffectsApi, ImpactOpts, ObstacleKind, PickupCue, StageDef } from '../types';
 import type { GameEvent, Session } from './session';
 import { COPY } from '../flavor';
 
@@ -26,6 +26,8 @@ export interface FeedbackDeps {
   readonly haptics: Haptics;
   readonly time?: TimeApi;
   readonly view?: () => FeedbackView;
+  /** office v2.1: a pickup's own sound + buzz (mission items, power-ups by kind); absent / null = v8 sounds */
+  readonly pickupCue?: (kind: ObstacleKind) => PickupCue | null;
 }
 
 const HIT_STOP = 0.07;
@@ -173,15 +175,20 @@ function onHit(d: FeedbackDeps, e: Extract<GameEvent, { type: 'hit' }>): void {
 }
 
 function onPickup(d: FeedbackDeps, kind: ObstacleKind): void {
+  const cue = d.pickupCue?.(kind) ?? null;
   if (kind === 'coin') {
     d.fx.burst('coin');
-    d.audio.sfx('coin');
+    if (cue) {
+      d.audio.sfx(cue.name, cue.level);
+      if (cue.haptic) d.haptics.vibrate(cue.haptic as number | number[]);
+    } else d.audio.sfx('coin');
     return;
   }
   d.fx.burst('powerup');
   d.fx.popup(PICKUP_TEXT[kind] ?? '', 'info');
-  d.audio.sfx('powerup');
-  d.haptics.vibrate(25);
+  if (cue) d.audio.sfx(cue.name, cue.level);
+  else d.audio.sfx('powerup');
+  d.haptics.vibrate((cue?.haptic ?? 25) as number | number[]);
 }
 
 function laneDir(d: FeedbackDeps, e: Extract<GameEvent, { type: 'lane' }>): -1 | 1 {
