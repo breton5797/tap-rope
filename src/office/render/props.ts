@@ -241,6 +241,7 @@ export function drawProp(
   ctx.translate(x + (m?.dx ?? 0), y - h * ay + h / 2 + (m?.dy ?? 0));
   if (m && m.rot !== 0) ctx.rotate(m.rot);
   if (flip) ctx.scale(-1, 1);
+  if (recording) record(ctx, img, w, h);
   if (!NO_OUTLINE.has(img)) {
     // dark ink outermost (reads on every floor, stage 5's lavender too), the move's colour, then white
     const r = bakedRings(img, cue);
@@ -359,3 +360,53 @@ export function drawStack(
 }
 
 const ITEM_MOTION: PropMotion = { dx: 0, dy: 0, rot: 0 };
+
+// ---------- blackout: every prop drawn this frame, replayed as a glowing silhouette over the darkness ----------
+
+interface PropRec {
+  img: HTMLImageElement | null;
+  m: DOMMatrix | null;
+  w: number;
+  h: number;
+}
+
+const RECS: PropRec[] = Array.from({ length: 48 }, () => ({ img: null, m: null, w: 0, h: 0 }));
+let recCount = 0;
+let recording = false;
+const SIL_COLOR = '#7CFFEA';
+
+/** start recording the props drawn from now on (the office renderer: around the v8 frame during a blackout) */
+export function startPropRecord(): void {
+  recording = true;
+  recCount = 0;
+}
+
+export function stopPropRecord(): void {
+  recording = false;
+}
+
+export const recordedProps = (): number => recCount;
+
+function record(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number): void {
+  if (recCount >= RECS.length) return;
+  const r = RECS[recCount++];
+  r.img = img;
+  r.m = ctx.getTransform(); // the prop's full transform (position, flip, spin): blackout-only, ≤ 1.5 s
+  r.w = w;
+  r.h = h;
+}
+
+/** each recorded prop as a cyan silhouette at its own position and size (held, thrown or on its path) */
+export function drawRecordedSilhouettes(ctx: CanvasRenderingContext2D, alpha: number): void {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  for (let i = 0; i < recCount; i++) {
+    const r = RECS[i];
+    if (!r.img || !r.m) continue;
+    // the tinted silhouette; without one (no canvas to tint on) the prop itself — never an empty box
+    const sil = silhouette(r.img, SIL_COLOR);
+    ctx.setTransform(r.m);
+    ctx.drawImage(sil ?? r.img, -r.w / 2, -r.h / 2, r.w, r.h);
+  }
+  ctx.restore();
+}

@@ -35,38 +35,35 @@ describe('pickupSize', () => {
   });
 });
 
-describe('blackout outline pass', () => {
-  it('strokes an outline for every hazard on screen while the dark overlay is on', () => {
-    let strokes = 0;
-    const ctx = new Proxy({}, {
-      get: (_t, k) => (k === 'stroke' ? () => { strokes++; } : () => undefined),
-      set: () => true,
-    }) as unknown as CanvasRenderingContext2D;
-    const o = (kind: VisibleObstacle['kind'], lanes: VisibleObstacle['lanes'], tu = 1): VisibleObstacle =>
-      ({ id: '3-0', kind, level: 1, from: null, timeUntil: tu, height: 0, lanes, sudden: false });
-    drawBlackout(ctx, computeView(390, 844, 2), [o('floor', null), o('guard', [1])], 0.8, 0.9);
-    expect(strokes).toBe(4); // floor in 3 lanes + guard in 1
+describe('blackout silhouettes (art review: the prop itself, never an empty box)', () => {
+  const fakeCtx = (log: string[]) => new Proxy({}, {
+    get: (_t, k) => (k === 'getTransform' ? () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) : k === 'drawImage' ? () => { log.push('img'); } : () => undefined),
+    set: () => true,
+  }) as unknown as CanvasRenderingContext2D;
+  const img = { naturalWidth: 100, naturalHeight: 100 } as HTMLImageElement;
+
+  it('records every prop drawn while the blackout is on and replays one silhouette per prop', async () => {
+    const { drawProp, startPropRecord, stopPropRecord, recordedProps, drawRecordedSilhouettes } = await import('../../src/office/render/props');
+    const log: string[] = [];
+    const ctx = fakeCtx(log);
+    startPropRecord();
+    drawProp(ctx, img, 10, 10, 40, 1);
+    drawProp(ctx, img, 50, 10, 40, 1, false, 1, undefined, 'jump');
+    drawProp(ctx, img, 90, 10, 40, 0.5);
+    stopPropRecord();
+    expect(recordedProps()).toBe(3);
+    drawProp(ctx, img, 0, 0, 40, 1); // not recorded once stopped
+    expect(recordedProps()).toBe(3);
+    log.length = 0;
+    drawRecordedSilhouettes(ctx, 0.9);
+    expect(log.length).toBe(3);
   });
 
-  it('outlines a prop held in the boss\'s hand where it is drawn (not off screen on its path)', async () => {
-    const { setThrowFrame } = await import('../../src/office/render/boss-throw');
+  it('the blackout pass only darkens: no boxes', () => {
     let strokes = 0;
-    const moves: number[][] = [];
-    const ctx = new Proxy({}, {
-      get: (_t, k) => (k === 'stroke' ? () => { strokes++; } : k === 'moveTo' ? (x: number, y: number) => { moves.push([x, y]); } : () => undefined),
-      set: () => true,
-    }) as unknown as CanvasRenderingContext2D;
-    const v = computeView(390, 844, 2);
-    setThrowFrame(true, v);
-    const held: VisibleObstacle = { id: '5-0', kind: 'floor', level: 1, from: null, timeUntil: 1.7, height: 0, lanes: null, sudden: false };
-    const { throwHand } = await import('../../src/office/render/boss-throw');
-    const hand = { ...throwHand() };
-    drawBlackout(ctx, v, [held], 0.8, 0.9);
-    setThrowFrame(false, v);
-    expect(strokes).toBe(1);
-    // the outline sits at the hand (held: arc step 0), not at the prop's off-screen path
-    expect(Math.abs(moves[0][0] - hand.x)).toBeLessThan(40);
-    expect(Math.abs(moves[0][1] - hand.y)).toBeLessThan(40);
+    const ctx = new Proxy({}, { get: (_t, k) => (k === 'stroke' ? () => { strokes++; } : () => undefined), set: () => true }) as unknown as CanvasRenderingContext2D;
+    drawBlackout(ctx, computeView(390, 844, 2), 0.8);
+    expect(strokes).toBe(0);
   });
 });
 

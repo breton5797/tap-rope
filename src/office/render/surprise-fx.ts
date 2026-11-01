@@ -1,16 +1,10 @@
-// Office surprise visuals (office spec §6, §9): blackout with glowing hazard outlines, fire-drill red flash,
-// high-five popup, broadcast banner and the superiors' speech bubbles. Drawn over the finished v8 frame in
-// logical coordinates; the hit boxes and the "!" warnings are the v8 ones (warnings are redrawn on top).
-import type { VisibleObstacle } from '../../types';
-import { HAZARD_KINDS } from '../../types';
-import {
-  CEIL_LASER_END, ENTER_TIME, FLOOR_BACK, beamSpeed, depthScale, laneY, fixedX, flyingX, projX, projY,
-} from '../../render/layout';
-import { chaserX, dropHeight } from '../../render/hazards';
-import { joinTime, throwArc, throwHand, throwStep } from './boss-throw';
-import { ACTION_COLORS, PROP_SIZE, flyingSpan, heldLane, type ActionCue } from './props';
+// Office surprise visuals (office spec §6, §9): blackout darkness (the props come back as silhouettes, see
+// props.ts), fire-drill red flash, high-five popup, broadcast banner and the superiors' speech bubbles. Drawn
+// over the finished v8 frame in logical coordinates; hit boxes and "!" warnings are the v8 ones.
+import { FLOOR_BACK, depthScale, laneY, projX } from '../../render/layout';
+import { ACTION_COLORS, type ActionCue } from './props';
 import { roundRect, type Ctx } from '../../render/util';
-import { PLAYER_X, SCROLL_SPEED } from '../../types';
+import { PLAYER_X } from '../../types';
 import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
@@ -22,78 +16,10 @@ const MAX_DROP = 40;
 const BUBBLE_H = 26;
 const BUBBLE_FONT = '700 12px ui-rounded, system-ui, sans-serif';
 
-interface Box { x: number; y: number; w: number; h: number }
-
-const LANES = [0, 1, 2] as const;
-const NEON = '#7CFFEA';
-
-/** a square prop box centred on x, anchored at y by `ay` (1 = bottom, 0.5 = centre) */
-const square = (x: number, y: number, size: number, ay: number): Box => ({ x: x - size / 2, y: y - size * ay, w: size, h: size });
-
-/** screen boxes of a hazard (same placement as the office props) */
-const HAND_LAND = { x: 0, y: 0 };
-
-function boxesOf(o: VisibleObstacle, v: View): Box[] {
-  const lanes: readonly number[] = o.lanes ?? LANES;
-  // held in / thrown from the boss's hand (boss-throw): outline it where it is drawn, once
-  const flying = o.kind === 'beam' || o.kind === 'high';
-  const join = joinTime(flying ? beamSpeed('front', v) : SCROLL_SPEED);
-  const step = throwStep(o.kind, o.from, o.timeUntil, join);
-  if (step === -1) return [];
-  if (step !== null) {
-    // where the office lasers / gadgets draw it: the hero's lane, at its prop size
-    const d = heldLane();
-    const size = (flying ? flyingSpan(o).h : o.kind === 'floor' ? PROP_SIZE.floor : o.kind === 'ceiling' ? PROP_SIZE.ceiling : PROP_SIZE.drone) * depthScale(d);
-    HAND_LAND.x = projX(flying ? flyingX('front', join, v) : fixedX(join), d);
-    HAND_LAND.y = projY(d, 0);
-    const p = throwArc(throwHand(), HAND_LAND, step);
-    return [square(p.x, p.y, size, flying ? 1 : 0.5)];
-  }
-  return lanes.flatMap((d): Box[] => {
-    const s = depthScale(d);
-    const tu = o.timeUntil;
-    switch (o.kind) {
-      case 'floor': return [square(projX(fixedX(tu), d), projY(d, 0), PROP_SIZE.floor * s, 1)];
-      case 'ceiling': return [square(projX(fixedX(tu), d), projY(d, CEIL_LASER_END), PROP_SIZE.ceiling * s, 1)];
-      case 'drone': return [square(projX(fixedX(tu), d), projY(d, 160), PROP_SIZE.drone * s, 0.5)];
-      case 'guard': return [square(projX(fixedX(tu), d), projY(d, 0), PROP_SIZE.guard * s, 1)];
-      case 'drop': return [square(projX(fixedX(tu), d), projY(d, dropHeight(tu)), PROP_SIZE.drop * s, 1)];
-      case 'chaser': return [square(projX(chaserX(tu, v), d), projY(d, 34), PROP_SIZE.chaser * s, 0.5)];
-      case 'beam': case 'high': {
-        const back = o.from === 'back';
-        const { bottom, h } = flyingSpan(o);
-        const y = projY(d, bottom + h);
-        // not on screen yet: outline it at the edge it will enter from (where its chevrons are)
-        if (tu > ENTER_TIME) return [{ x: back ? v.x0 + 2 : v.x0 + v.w - h * s - 2, y, w: h * s, h: h * s }];
-        // centred on the beam head, like the prop (F2)
-        const x = projX(flyingX(back ? 'back' : 'front', tu, v), d);
-        return [{ x: x - (h * s) / 2, y, w: h * s, h: h * s }];
-      }
-      default: return [];
-    }
-  });
-}
-
-/** darkness over the scene, then every hazard as a glowing outline (alpha ≥ 0.8 in the window) */
-export function drawBlackout(ctx: Ctx, v: View, obs: readonly VisibleObstacle[], scene: number, outline: number): void {
-  // the world only: the rhythm lane stays lit
+/** the blackout darkness over the world (the rhythm lane stays lit); the props come back as silhouettes */
+export function drawBlackout(ctx: Ctx, v: View, scene: number): void {
   ctx.fillStyle = `rgba(6,8,22,${scene})`;
   ctx.fillRect(v.x0, v.y0, v.w, laneTopY(v) - v.y0);
-  if (outline <= 0) return;
-  ctx.strokeStyle = NEON;
-  ctx.shadowColor = NEON;
-  ctx.shadowBlur = 8;
-  ctx.lineWidth = 2;
-  ctx.globalAlpha = outline;
-  for (const o of obs) {
-    if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil < -0.4) continue;
-    for (const b of boxesOf(o, v)) {
-      roundRect(ctx, b.x, b.y, b.w, b.h, 5);
-      ctx.stroke();
-    }
-  }
-  ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
 }
 
 /** fire drill: pulsing red edge wash + "소방훈련!" banner (the rear hazard keeps its v8 "!") */

@@ -6,7 +6,7 @@
 import type { Beat, BossView, EffectsApi, Renderer, RenderRun, RenderSnapshot, VisibleObstacle } from '../../types';
 import { HAZARD_KINDS, LOGICAL_H, LOGICAL_W, PLAYER_X } from '../../types';
 import { createRenderer as createV8Renderer } from '../../render/index';
-import { BEAM_H, FLOOR_FRONT, depthScale, laneY, projX, projY, visualLane } from '../../render/layout';
+import { BEAM_H, FLOOR_FRONT, depthScale, fixedX, laneY, projX, projY, visualLane } from '../../render/layout';
 import { drawLaserWarnings } from '../../render/lasers';
 import { SpriteCache } from '../../render/sprites';
 import { computeView, type View } from '../../render/view';
@@ -19,7 +19,9 @@ import { drawClock, laneTopY } from './clock';
 import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeLanes, scanSigns, stayLowBand } from './readability';
 import { hudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
-import { actionCue, beatIdOf, propIdFor, propImage, setFocusLane, setPropFrame } from './props';
+import {
+  actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord,
+} from './props';
 import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
 import {
   drawAttackCallout, drawBlackout, drawColleague, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive,
@@ -169,7 +171,11 @@ class OfficeRenderer implements Renderer {
     this.feelFrame(snap, run);
     // the sign scan runs before the v8 frame so its "!" pass knows which rear hazards get the arrow instead
     this.scan = scanSigns(snap.obstacles);
+    // during a blackout, record every prop the v8 frame draws (replayed as silhouettes over the darkness)
+    const dark = this.blackoutOn(snap, plan);
+    if (dark) startPropRecord();
     this.inner.render(snap);
+    if (dark) stopPropRecord();
     const ctx = this.ctx;
     if (!ctx) return;
     try {
@@ -184,6 +190,12 @@ class OfficeRenderer implements Renderer {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1;
     }
+  }
+
+  private blackoutOn(snap: RenderSnapshot, plan: Plan | null): boolean {
+    if (!snap.running || !plan) return false;
+    const e = activeAt(plan.events, 'blackout', snap.time);
+    return e !== null && blackoutAlpha(snap.time, e).scene > 0;
   }
 
   /** v2 feel pack context for the swapped draw modules: throws, pickup sprites, boss pose */
@@ -226,7 +238,10 @@ class OfficeRenderer implements Renderer {
     if (blackout) {
       const a = blackoutAlpha(t, blackout);
       if (a.scene > 0) {
-        drawBlackout(ctx, v, snap.obstacles, a.scene, a.outline);
+        drawBlackout(ctx, v, a.scene);
+        // every hazard on screen comes back as a glowing silhouette of its own prop (held, thrown or on path)
+        drawRecordedSilhouettes(ctx, a.outline);
+        ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
         drawLaserWarnings(ctx, v, snap.obstacles, snap.realTime, snap.fever, snap.reducedMotion, Math.round(lane));
         drawWarnings(ctx, v, snap.obstacles, lane, snap.realTime, this.sprites, snap.reducedMotion);
       }
@@ -289,7 +304,8 @@ class OfficeRenderer implements Renderer {
       const beat = beatIdOf(o);
       BLOCKED.length = 0;
       for (const x of snap.obstacles) if (beatIdOf(x) === beat && x.lanes && HAZARD_KINDS.includes(x.kind)) for (const l of x.lanes) BLOCKED.push(l);
-      const x = o.kind === 'chaser' ? PLAYER_X + 40 : PLAYER_X + Math.max(30, o.timeUntil * 120);
+      // beside the lane attack itself (its own x on the open lanes), so they never read as a drone / jump sign
+      const x = o.kind === 'chaser' ? PLAYER_X + 40 : Math.max(PLAYER_X + 30, fixedX(o.timeUntil));
       for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3));
     }
   }
