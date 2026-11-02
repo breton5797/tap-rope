@@ -18,7 +18,21 @@ describe('mission script', () => {
     const kinds = STAGES.map((s) => STAGE_MISSIONS[s.id].map((m) => m.kind).join(','));
     expect(kinds).toEqual([
       'dodge,collect,finale', 'collect,dodge,finale', 'chase,dodge,finale', 'dodge,collect,finale', 'finale,chase,finale',
+      'dodge,collect,finale', 'dodge,chase,finale', 'chase,collect,finale', 'dodge,chase,finale', 'finale,chase,finale',
     ]);
+  });
+
+  it('part 2: hazards keep rising past stage 5 (≈14 → 20), stage 7 drills lanejump, stage 10 ends on a bonus envelope', () => {
+    const peak = (id: string) => Math.max(...STAGE_MISSIONS[id].map((m) => m.hazards));
+    const peaks = STAGES.map((s) => peak(s.id));
+    for (let i = 5; i < peaks.length; i += 1) expect(peaks[i], STAGES[i].id).toBeGreaterThanOrEqual(peaks[i - 1]);
+    expect(peaks[9]).toBe(20);
+    expect(STAGE_MISSIONS['w7-s10'].some((m) => m.focus?.includes('lanejump'))).toBe(true);
+    for (const s of STAGES.slice(0, 6)) for (const m of STAGE_MISSIONS[s.id]) expect(m.moves, s.id).not.toContain('lanejump');
+    expect(STAGE_MISSIONS['w10-s10'][2].collectible).toBe('envelope');
+    // part 2 reuses the five part-1 collectibles
+    const items = new Set(STAGES.slice(5).flatMap((s) => STAGE_MISSIONS[s.id].map((m) => m.collectible).filter(Boolean)));
+    for (const c of items) expect(['coupon', 'docs', 'cookie', 'badge', 'envelope']).toContain(c);
   });
 
   it('missions only use moves their stage teaches; collect missions name a collectible', () => {
@@ -77,6 +91,6 @@ describe('grade, stars, bonus', () => {
   });
 
   it('mission bonus grows with the stage', () => {
-    expect([0, 1, 4].map(MISSION_BONUS)).toEqual([150, 300, 750]);
+    expect([0, 1, 4, 9].map(MISSION_BONUS)).toEqual([150, 300, 750, 1500]);
   });
 });

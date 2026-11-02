@@ -1,4 +1,4 @@
-// Office content (office spec §4, §13): five boss stages of three sections, two free characters, the clock.
+// Office content (office spec §4, §13; part 2 spec §1): ten boss stages of three sections, four free characters, the clock.
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { buildCampaign, designCustomStage } from '../../src/core/campaign';
@@ -18,8 +18,13 @@ const NEW_MOVES: readonly (readonly MoveId[])[] = [
   ['chaser', 'high'],
   ['triple'],
   ['rear'],
+  [],
+  ['lanejump'],
+  [],
+  [],
+  [],
 ];
-const IDS = ['w1-s10', 'w2-s10', 'w3-s10', 'w4-s10', 'w5-s10'];
+const IDS = Array.from({ length: 10 }, (_, i) => `w${i + 1}-s10`);
 
 describe('v8 campaign is untouched', () => {
   it('buildCampaign output matches the pre-office snapshot', () => {
@@ -28,7 +33,7 @@ describe('v8 campaign is untouched', () => {
 });
 
 describe('office stages', () => {
-  it('five boss stages with the w{n}-s10 ids, three sections each', () => {
+  it('ten boss stages with the w{n}-s10 ids, three sections each', () => {
     expect(STAGES.map((s) => s.id)).toEqual(IDS);
     STAGES.forEach((s, i) => {
       expect(s.kind).toBe('boss');
@@ -36,7 +41,13 @@ describe('office stages', () => {
       expect(s.chapter).toBe(i);
       expect(stageById(s.id)).toBe(s);
     });
-    expect(CHAPTERS).toHaveLength(5);
+    expect(CHAPTERS).toHaveLength(10);
+    expect(CHAPTERS.map((c) => c.part)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+    expect(CHAPTERS.map((c) => c.subtitle)).toEqual([
+      '17:30 → 17:36', '17:36 → 17:42', '17:42 → 17:48', '17:48 → 17:54', '17:54 → 18:00',
+      '18:00 → 18:06', '18:06 → 18:12', '18:12 → 18:18', '18:18 → 18:24', '18:24 → 18:30',
+    ]);
+    for (const c of CHAPTERS) expect(c.briefing).toMatch(/[가-힣]/);
   });
 
   it('each stage has every move taught so far and none taught later', () => {
@@ -55,9 +66,21 @@ describe('office stages', () => {
     }
   });
 
-  it('stage order ends at stage 5', () => {
-    expect(IDS.slice(0, 4).map((id) => nextStageId(id))).toEqual(IDS.slice(1));
-    expect(nextStageId('w5-s10')).toBeNull();
+  it('stage order runs 1 → 10 (stage 5 opens stage 6) and ends at stage 10', () => {
+    expect(IDS.slice(0, 9).map((id) => nextStageId(id))).toEqual(IDS.slice(1));
+    expect(nextStageId('w5-s10')).toBe('w6-s10');
+    expect(nextStageId('w10-s10')).toBeNull();
+  });
+
+  it('part 2 looks: 6 the gate plaza at night, 7 street, 8 subway, 9 food alley, 10 the street at night', () => {
+    expect(STAGES.slice(5).map((s) => [s.world, s.variant])).toEqual([[0, 'night'], [4, 'base'], [5, 'base'], [6, 'base'], [4, 'night']]);
+    expect(DESIGNED_LOOKS[4]).toEqual(['base', 'night']);
+    expect(DESIGNED_LOOKS[5]).toEqual(['base']);
+    expect(DESIGNED_LOOKS[6]).toEqual(['base']);
+    expect(DESIGNED_LOOKS[0]).toEqual(['base', 'dawn', 'night']);
+    // each part-2 stage walks toward the next stage's place
+    for (const i of [5, 6, 7, 8]) expect(CHAPTER_SCENES[i].scenes[2]).toEqual(sceneFor(STAGES[i + 1], 0));
+    STAGES.forEach((s, i) => expect(sceneFor(s, 1), s.id).toEqual(CHAPTER_SCENES[i].scenes[1]));
   });
 
   it('stage 5 is the sunset lobby (world 0 dawn: the exterior glass set), stage 1 the office, every look designed', () => {
@@ -104,12 +127,15 @@ describe('office characters', () => {
 });
 
 describe('OFFICE_CLOCK', () => {
-  it('17:30 at the start, +6 minutes per stage, 18:00 at the end', () => {
+  it('17:30 at the start, +6 minutes per stage, 18:00 after stage 5, 18:30 after stage 10', () => {
     expect(OFFICE_CLOCK(0, 0)).toBe('17:30');
     expect(OFFICE_CLOCK(0, 1)).toBe('17:36');
     expect(OFFICE_CLOCK(2, 0.5)).toBe('17:45');
     expect(OFFICE_CLOCK(4, 0.999)).toBe('17:59');
     expect(OFFICE_CLOCK(4, 1)).toBe('18:00');
+    expect(OFFICE_CLOCK(5, 0)).toBe('18:00');
+    expect(OFFICE_CLOCK(9, 0)).toBe('18:24');
+    expect(OFFICE_CLOCK(9, 1)).toBe('18:30');
   });
 
   it('restart uses the stage start clock and clamps progress', () => {

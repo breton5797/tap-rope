@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Office tester (login spec §1): the floor map opens all five stages; members and guests keep the normal unlocks.
+// Office tester (login spec §1): the floor map opens all ten stages; members and guests keep the normal unlocks.
 import { describe, expect, it, vi } from 'vitest';
 import { defaultSave } from '../../src/core/storage';
 import type { UiCallbacks } from '../../src/types';
@@ -20,15 +20,15 @@ function ctx(): Ctx {
 const locked = (el: HTMLElement): number => el.querySelectorAll('.node__disc.is-locked').length;
 
 describe('tester map', () => {
-  it('a guest on a fresh save sees stages 2–5 locked', () => {
+  it('a guest on a fresh save sees stages 2–10 locked', () => {
     state.tester = false;
-    expect(locked(buildStageSelect(ctx(), defaultSave(), () => undefined))).toBe(4);
+    expect(locked(buildStageSelect(ctx(), defaultSave(), () => undefined))).toBe(9);
   });
 
   it('a tester sees every stage open', () => {
     state.tester = true;
     const el = buildStageSelect(ctx(), defaultSave(), () => undefined);
-    expect(el.querySelectorAll('.node__disc')).toHaveLength(5);
+    expect(el.querySelectorAll('.node__disc')).toHaveLength(10);
     expect(locked(el)).toBe(0);
   });
 });

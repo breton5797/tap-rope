@@ -58,13 +58,16 @@ describe('office vocabulary', () => {
     expect(goals[1].text).toContain('2단계');
   });
 
-  it('achievements fit the five-stage office run and its two characters', async () => {
+  it('achievements fit the ten-stage office run and its free characters', async () => {
     const { ACHIEVEMENTS, evaluateAchievements } = await import('../../src/office/core/achievements');
     const ids = ACHIEVEMENTS.map((a) => a.id);
-    for (const gone of ['zone-7', 'zone-10', 'escape', 'endless-60', 'endless-180', 'daily-1', 'daily-7', 'stars-150']) expect(ids).not.toContain(gone);
-    const save = { ...defaultSave(), stars: { 'w1-s10': 1, 'w2-s10': 1, 'w3-s10': 1, 'w4-s10': 1, 'w5-s10': 1 } };
-    const unlocked = evaluateAchievements(save, null);
+    for (const gone of ['escape', 'endless-60', 'endless-180', 'daily-1', 'daily-7', 'stars-150']) expect(ids).not.toContain(gone);
+    const part1 = { ...defaultSave(), stars: { 'w1-s10': 1, 'w2-s10': 1, 'w3-s10': 1, 'w4-s10': 1, 'w5-s10': 1 } };
+    const unlocked = evaluateAchievements(part1, null);
     expect(unlocked).toEqual(expect.arrayContaining(['first-clear', 'zone-1', 'zone-3', 'zone-5']));
+    expect(unlocked).not.toContain('zone-7');
+    const all = { ...part1, stars: Object.fromEntries(Array.from({ length: 10 }, (_, i) => [`w${i + 1}-s10`, 1])) };
+    expect(evaluateAchievements(all, null)).toEqual(expect.arrayContaining(['zone-5', 'zone-7', 'zone-10']));
     // both characters are free from the start: no trophy for owning them
     expect(ids).not.toContain('all-operators');
   });

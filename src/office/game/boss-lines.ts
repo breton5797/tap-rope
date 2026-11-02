@@ -1,15 +1,16 @@
 /**
  * Office boss lines (office spec §5) — the office build's src/game/boss-lines.ts (build/office-swaps.ts).
  * Same helpers as v8: each phase is announced with the superior's attack name ("2차 공격 — 결재판 부메랑"),
- * and the last hazard becomes the finisher slow motion. On stage 5 each section has its own superior, so
- * phase n is announced with that section's superior's n-th attack.
+ * and the last hazard becomes the finisher slow motion. On stages 5 and 10 each section has its own superior,
+ * so phase n is announced with that section's superior's n-th attack. Lines are keyed by slot, so a part-2
+ * rematch (박과장 on 7, 윤이사 on 9, 최팀장 / 한전무 on 10) repeats the attack names of that superior.
  */
 import type { BossId, BossView } from '../../types';
 import { FINISHER_SLOW, INTRO_LINE_AGE, finisherStarts, type PhaseLine } from '../../game/boss-lines';
 
 export { FINISHER_SLOW, INTRO_LINE_AGE, finisherStarts, type PhaseLine };
 
-/** attack name per superior and phase (1..3); unused v8 slots keep a generic office set */
+/** attack name per superior and phase (1..3): every v8 slot is a superior now (crane / sniper / gunship = part 2) */
 export const BOSS_ATTACKS: Readonly<Record<BossId, readonly [string, string, string]>> = {
   warden: ['포스트잇 폭풍', '서류 더미 와르르', '커피 좀 사 와~ 쟁반'],
   'sewer-eye': ['최종_v3 종이비행기', '결재판 부메랑', '복합기 용지 걸림'],
@@ -18,9 +19,9 @@ export const BOSS_ATTACKS: Readonly<Record<BossId, readonly [string, string, str
   jailer: ['결재 서류 회오리', '서류 회오리 2연타', '최종 결재 폭풍'],
   apc: ['넥타이 채찍', '법인카드 "회식 가자"', '회식 총공세'],
   chimera: ['화상회의 거대 얼굴', '회전문 가속', '금일봉 봉투 비'],
-  crane: ['야근 요청', '추가 업무', '주말 출근'],
-  sniper: ['야근 요청', '추가 업무', '주말 출근'],
-  gunship: ['야근 요청', '추가 업무', '주말 출근'],
+  crane: ['설문지 폭탄', '서명판 부메랑', '"하나만 더!" 설문 폭풍'],
+  sniper: ['영수증 뭉치 투척', '돋보기 "이건 뭐지?"', '감사 도장 연타'],
+  gunship: ['훈화 말씀 확성기', '"자네!" 손짓', '창립기념 떡 세례'],
 };
 
 /** surprise event "사장님 깜짝 순시 사내방송": every superior's line becomes this (copy only) */

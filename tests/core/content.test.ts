@@ -39,7 +39,7 @@ describe('CHAPTERS', () => {
     const pairs = CHAPTERS.map((c) => `${c.theme}/${c.variant}`);
     expect(new Set(pairs).size).toBe(10);
     for (const c of CHAPTERS) expect(DESIGNED_LOOKS[c.theme]).toContain(c.variant);
-    expect(DESIGNED_LOOKS).toEqual({ 0: ['base', 'night', 'dawn'], 1: ['base', 'dark', 'alarm'], 2: ['base', 'alarm'], 3: ['base', 'steam'] });
+    expect(DESIGNED_LOOKS).toEqual({ 0: ['base', 'night', 'dawn'], 1: ['base', 'dark', 'alarm'], 2: ['base', 'alarm'], 3: ['base', 'steam'], 4: [], 5: [], 6: [] });
   });
 });
 

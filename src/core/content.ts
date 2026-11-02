@@ -23,6 +23,10 @@ export const DESIGNED_LOOKS: Readonly<Record<WorldId, readonly Variant[]>> = {
   1: ['base', 'dark', 'alarm'],
   2: ['base', 'alarm'],
   3: ['base', 'steam'],
+  // themes 4–6 belong to the office build (part 2): v8 draws no look there
+  4: [],
+  5: [],
+  6: [],
 };
 
 export const CHAPTERS: readonly ChapterMeta[] = [

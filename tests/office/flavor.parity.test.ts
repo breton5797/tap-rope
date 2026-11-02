@@ -29,8 +29,11 @@ describe('office copy', () => {
     expect(COPY.resultFailStatus).toBe('야근 확정');
     expect(COPY.resultRetry).toBe('내일은 꼭…!');
     expect(COPY.titleShop).toBe('사원 선택');
-    // stage 5 (w5-s10) clear is the ending, not v8's "phase 2" rescue line
+    // stage 5 (w5-s10) clear is the 18:00 칼퇴 with the part-2 hook; stage 10 (w10-s10) the 18:30 home ending
     expect(COPY.resultStoryRescue).toContain('칼퇴 성공! 18:00:00');
+    expect(COPY.resultStoryRescue).toContain('단톡방');
+    expect(COPY.resultStoryEnd).toContain('18:30');
+    expect(COPY.resultStoryEnd).toContain('귀가');
     expect([COPY.pickupShield, COPY.pickupSlow, COPY.pickupHeart].join(' ')).toMatch(/노캔 이어폰.*아이스 아메리카노.*삼각김밥/);
     expect(COPY.tutJumpKicker + COPY.tutSlideKicker + COPY.tutLaneKicker).toContain('김대리');
   });

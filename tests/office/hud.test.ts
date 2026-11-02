@@ -1,4 +1,4 @@
-// Office HUD (Review Focus 2): on stage 5 the HUD boss bar follows the section's superior and its own gauge.
+// Office HUD (Review Focus 2): on stages 5 and 10 the HUD boss bar follows the section's superior and its own gauge.
 // Loads the shared v8 snapshot.ts through Vite with the office module swaps, exactly as the office build does.
 import { createServer, type ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -41,6 +41,12 @@ describe('office HUD boss bar', () => {
     const own = s.beats.filter((b) => isHazard(b) && b.section === 1).length;
     const half = Math.floor(own / 2);
     expect(toHud({ ...sec1, hazardDone: sec1.hazardDone + half }).boss?.hp).toBeCloseTo(1 - half / own, 9);
+  });
+
+  it('stage 10 names 최팀장 → 한전무 → 회장님 with a fresh gauge each', () => {
+    const s = createSession('stage', { ...(stageById('w10-s10') as StageDef), seed: 4242 });
+    expect([0, 1, 2].map((i) => toHud(atSection(s, i)).boss?.name)).toEqual(['최팀장', '한전무', '회장님']);
+    for (const i of [0, 1, 2]) expect(toHud(atSection(s, i)).boss?.hp, `section ${i}`).toBe(1);
   });
 
   it('stages 1-4 keep one superior and a whole-stage gauge', () => {

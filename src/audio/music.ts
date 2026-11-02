@@ -30,7 +30,7 @@ export interface Style {
 }
 
 /** Per-theme timbre: 0 outpost, 1 lab, 2 prison, 3 industrial. */
-const STYLES: Readonly<Record<WorldId, Style>> = {
+const BASE_STYLES = {
   0: {
     root: 33, prog: [0, -4, 0, -2], pad: [0, 3, 7], bassType: 'sawtooth', bassCut: 520, bassLine: [0, 0, 12, 0, 0, 0, 7, 0],
     hits: [0, 10], hatEvery: 2, hatFreq: 8500, padType: 'sawtooth', padCut: 900,
@@ -51,7 +51,9 @@ const STYLES: Readonly<Record<WorldId, Style>> = {
     hits: [0, 4, 8, 12], hatEvery: 1, hatFreq: 7200, padType: 'square', padCut: 800,
     motif: [], motifType: 'square', clank: [2, 7, 10, 13],
   },
-};
+} satisfies Readonly<Record<0 | 1 | 2 | 3, Style>>;
+/** themes 4–6 are office-only (part 2); v8 never plays them, so they reuse the outpost loop */
+const STYLES: Readonly<Record<WorldId, Style>> = { ...BASE_STYLES, 4: BASE_STYLES[0], 5: BASE_STYLES[0], 6: BASE_STYLES[0] };
 
 export interface Music {
   start(bpm: number, world: WorldId, fromTime: number): void;

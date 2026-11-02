@@ -43,6 +43,8 @@ const S2 = [...S1, 'double', 'beam', 'drone', 'drop'] as const;
 const S3 = [...S2, 'chaser', 'high'] as const;
 const S4 = [...S3, 'triple'] as const;
 const S5 = [...S4, 'rear'] as const;
+/** part 2: stage 6 remixes S5, stage 7 adds lanejump, 8–10 remix everything */
+const S7 = [...S5, 'lanejump'] as const;
 
 const COLLECT = { density: 0.6, pickupRate: 1 } as const;
 const DODGE = { density: 1, pickupRate: 0.25 } as const;
@@ -51,7 +53,11 @@ const FINALE = { density: 1, pickupRate: 0.15 } as const;
 
 const m = (spec: MissionSpec): MissionSpec => spec;
 
-/** spec §3.2 — numbers are hazards (dodge / chase / finale) or the collect target */
+/**
+ * spec §3.2 — numbers are hazards (dodge / chase / finale) or the collect target. Part 2 (6–10, part 2 spec §1)
+ * keeps three missions per stage in the superiors' voices and the five part-1 collectibles; its hazard counts
+ * continue the part-1 trend (≈14 → 20) as placeholders for the balance pass.
+ */
 export const STAGE_MISSIONS: Readonly<Record<string, readonly [MissionSpec, MissionSpec, MissionSpec]>> = {
   'w1-s10': [
     m({ kind: 'dodge', title: '포스트잇 폭풍', target: 8, hazards: 8, moves: S1, focus: ['lane'], ...DODGE, line: '잠깐만~ 이것만 좀 봐줄래?' }),
@@ -77,6 +83,32 @@ export const STAGE_MISSIONS: Readonly<Record<string, readonly [MissionSpec, Miss
     m({ kind: 'finale', title: '결재 회오리', target: 14, hazards: 14, moves: S5, focus: ['drone'], ...FINALE, line: '이 결재는 오늘 꼭 받아야 해!' }),
     m({ kind: 'chase', title: '회식 가자', target: 14, hazards: 14, moves: S5, focus: ['chaser', 'rear'], ...CHASE, line: '다들 저녁 먹고 가지? 내가 쏜다!' }),
     m({ kind: 'finale', title: '회전문 피날레', target: 16, hazards: 16, moves: S5, focus: ['lane'], ...FINALE, collectible: 'envelope', line: '수고 많아요~ 잠깐 얘기 좀 할까?' }),
+  ],
+  // ---- part 2: 퇴근길 (18:00 → 18:30) ----
+  'w6-s10': [
+    m({ kind: 'dodge', title: '설문지 폭탄', target: 14, hazards: 14, moves: S5, focus: ['drone'], ...DODGE, line: '퇴근 전에 설문 하나만! 금방 끝나~' }),
+    m({ kind: 'collect', title: '사원증 찍고 나가기', target: 8, hazards: 12, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'badge', ...COLLECT, line: '출입 기록은 남기고 가야지~' }),
+    m({ kind: 'finale', title: '서명판 부메랑', target: 16, hazards: 16, moves: S5, focus: ['beam'], ...FINALE, line: '여기 서명 하나만! 진짜 하나만!' }),
+  ],
+  'w7-s10': [
+    m({ kind: 'dodge', title: '택시 잡기 대소동', target: 15, hazards: 15, moves: S7, focus: ['lanejump'], ...DODGE, line: '택시! 택시! 같이 타고 가자~' }),
+    m({ kind: 'chase', title: '같이 타자! 추격', target: 16, hazards: 16, moves: S7, focus: ['chaser'], ...CHASE, line: '가면서 엑셀 얘기 좀 하자니까!' }),
+    m({ kind: 'finale', title: '버스 문 닫히기 직전', target: 17, hazards: 17, moves: S7, focus: ['lanejump'], ...FINALE, line: '최종_v4는 버스에서 보자~' }),
+  ],
+  'w8-s10': [
+    m({ kind: 'chase', title: '영수증 추격', target: 16, hazards: 16, moves: S7, focus: ['chaser', 'rear'], ...CHASE, line: '잠깐, 영수증 처리 확인 좀!' }),
+    m({ kind: 'collect', title: '흩날린 영수증', target: 9, hazards: 14, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'docs', ...COLLECT, line: '이 영수증, 하나도 빠짐없이 모아 와!' }),
+    m({ kind: 'finale', title: '개찰구 돌파', target: 18, hazards: 18, moves: S7, focus: ['rear'], ...FINALE, line: '감사는 퇴근 후에도 계속된다!' }),
+  ],
+  'w9-s10': [
+    m({ kind: 'dodge', title: '꼬치 세례', target: 18, hazards: 18, moves: S7, focus: ['drop', 'drone'], ...DODGE, line: '1차는 맛보기야! 하나 더 먹어~' }),
+    m({ kind: 'chase', title: '2차 가자! 추격', target: 18, hazards: 18, moves: S7, focus: ['chaser', 'lanejump'], ...CHASE, line: '2차 가자! 노래방 예약해 놨어!' }),
+    m({ kind: 'finale', title: '골목 끝 노래방 앞', target: 19, hazards: 19, moves: S7, focus: ['lanejump'], ...FINALE, line: '마이크 잡고 한 곡만 하고 가!' }),
+  ],
+  'w10-s10': [
+    m({ kind: 'finale', title: '퇴근길 통화 5분만', target: 18, hazards: 18, moves: S7, focus: ['high'], ...FINALE, line: '잠깐 통화 5분만! 진짜 5분!' }),
+    m({ kind: 'chase', title: '집 앞 결재 추격', target: 19, hazards: 19, moves: S7, focus: ['chaser', 'rear'], ...CHASE, line: '이 결재, 집 앞에서 받아도 되지?' }),
+    m({ kind: 'finale', title: '현관문 피날레', target: 20, hazards: 20, moves: S7, focus: ['lanejump'], ...FINALE, collectible: 'envelope', line: '자네, 내일 아침 7시에 잠깐 보지!' }),
   ],
 };
 

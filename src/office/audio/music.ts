@@ -7,7 +7,7 @@ import { createStyledMusic, type Music, type Style } from '../../audio/music';
 export * from '../../audio/music';
 
 /** 0 office, 1 pantry corridor, 2 meeting rooms, 3 elevator hall / lobby — all major (I–IV–V–IV style) */
-export const OFFICE_STYLES: Readonly<Record<WorldId, Style>> = {
+const PART1_STYLES = {
   0: {
     root: 41, prog: [0, 5, 7, 5], pad: [0, 4, 7, 11], bassType: 'square', bassCut: 900, bassLine: [0, 12, 0, 12, 7, 12, 0, 12], bassLen: 0.9,
     hits: [0, 8], hatEvery: 2, hatFreq: 9000, padType: 'triangle', padCut: 2400,
@@ -28,7 +28,9 @@ export const OFFICE_STYLES: Readonly<Record<WorldId, Style>> = {
     hits: [0, 4, 8, 12], hatEvery: 1, hatFreq: 9500, padType: 'triangle', padCut: 2800,
     motif: [[0, 88], [3, 84], [32, 88], [35, 84], [48, 91]], motifType: 'sine',
   },
-};
+} satisfies Readonly<Record<0 | 1 | 2 | 3, Style>>;
+/** PLACEHOLDER (core worker): part-2 themes 4 거리 / 5 지하철 / 6 먹자골목 reuse the office / lobby loops until the render worker voices them */
+export const OFFICE_STYLES: Readonly<Record<WorldId, Style>> = { ...PART1_STYLES, 4: PART1_STYLES[0], 5: PART1_STYLES[3], 6: PART1_STYLES[1] };
 
 export function createMusic(ctx: BaseAudioContext, out: AudioNode): Music {
   return createStyledMusic(ctx, out, OFFICE_STYLES);

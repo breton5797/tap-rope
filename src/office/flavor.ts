@@ -72,9 +72,9 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   // the fail headline is a big red rubber stamp (office.css)
   resultFailStatus: '야근 확정',
   resultFailTitle: '상사한테 딱 걸렸다…',
-  // shown after stage 5 (w5-s10): the ending
-  resultStoryRescue: '칼퇴 성공! 18:00:00 — 타임카드 쾅!',
-  resultStoryEnd: '칼퇴 성공! 18:00:00 — 타임카드 쾅!',
+  // shown after stage 5 (w5-s10): the part-1 ending with the part-2 hook; after stage 10 (w10-s10): home
+  resultStoryRescue: '칼퇴 성공! 18:00:00 — 그런데 단톡방 알림이…! 2부 퇴근길 개방',
+  resultStoryEnd: '18:30 귀가 성공! 현관문 띠리릭 — 오늘도 무사 퇴근!',
   resultStoryNext: '한 층 내려왔다! {n}단계 개방',
   resultNext: '다음 층으로',
   resultRetry: '내일은 꼭…!',

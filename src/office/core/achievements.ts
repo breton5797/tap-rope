@@ -1,7 +1,8 @@
 /**
  * Office achievements (칼퇴근 대작전), swapped in for src/core/achievements.ts: the v8 ids that make sense for a
- * five-stage, offline run with two free characters, renamed in the office voice. No endless / daily / roster
- * trophies (those modes and purchases are off). Same exports and the same pure evaluation as v8.
+ * ten-stage (two-part), offline run with free characters, renamed in the office voice. No endless / daily /
+ * roster trophies (those modes and purchases are off). Same exports and the same pure evaluation as v8.
+ * The stamp collector keeps its v2 id 'stamps-15' (saves and rewards key on it) but now needs all 30 stamps.
  */
 import type { AchievementId, AchievementMeta, RunSummary, SaveData } from '../../types';
 import { STAGES } from '../../core/content';
@@ -15,6 +16,8 @@ export const ACHIEVEMENTS: readonly AchievementMeta[] = [
   { id: 'zone-1', name: '김대리 따돌림', desc: '1단계 12층 기획팀 사무실을 클리어한다.' },
   { id: 'zone-3', name: '회의 불참', desc: '3단계 회의실 층을 클리어한다.' },
   { id: 'zone-5', name: '18:00 칼퇴', desc: '5단계 1층 로비를 지나 정시에 퇴근한다.' },
+  { id: 'zone-7', name: '버스 탑승 성공', desc: '7단계 퇴근길 버스정류장을 클리어한다.' },
+  { id: 'zone-10', name: '18:30 귀가', desc: '10단계 우리 집 앞 동네를 지나 현관문에 도착한다.' },
   { id: 'flawless-boss', name: '무사고 퇴근', desc: '한 대도 안 맞고 단계를 클리어한다.' },
   { id: 'perfect-stage', name: '완벽한 칼퇴', desc: 'MISS와 GOOD 없이 단계를 클리어한다.' },
   { id: 'chain-50', name: '50 콤보', desc: '한 판에 50 연속을 달성한다.' },
@@ -22,13 +25,13 @@ export const ACHIEVEMENTS: readonly AchievementMeta[] = [
   { id: 'overdrive-3', name: '칼퇴 모드 3연발', desc: '한 판에 칼퇴 모드를 3회 발동한다.' },
   { id: 'all-stars-zone', name: '우수 사원', desc: '모든 단계에서 별 3개를 받는다.' },
   { id: 'archivist', name: '사내 소식통', desc: '컷신을 모두 본다.' },
-  { id: 'stamps-15', name: '도장 수집가', desc: '미션 도장 15개를 모두 모은다.' },
+  { id: 'stamps-15', name: '도장 수집가', desc: '미션 도장 30개를 모두 모은다.' },
 ];
 
 type Check = (save: SaveData, run: RunSummary | null) => boolean;
 
-/** v2: every mission stamp of the five stages (the map keeps each stage's best) */
-export const STAMPS_ALL = 15;
+/** every mission stamp of the ten stages, three each (the map keeps each stage's best) */
+export const STAMPS_ALL = 30;
 export const stampTotal = (): number => Object.values(loadStamps()).reduce((n, s) => n + s.filter(Boolean).length, 0);
 
 const stageWin = (run: RunSummary | null): run is RunSummary => run?.mode === 'stage' && run.cleared;
@@ -40,6 +43,8 @@ const CHECKS: Partial<Record<AchievementId, Check>> = {
   'zone-1': (save, run) => clearedStage(save, run, 'w1-s10'),
   'zone-3': (save, run) => clearedStage(save, run, 'w3-s10'),
   'zone-5': (save, run) => clearedStage(save, run, 'w5-s10'),
+  'zone-7': (save, run) => clearedStage(save, run, 'w7-s10'),
+  'zone-10': (save, run) => clearedStage(save, run, 'w10-s10'),
   'flawless-boss': (_save, run) => stageWin(run) && run.hitsTaken === 0,
   'perfect-stage': (_save, run) => stageWin(run) && run.misses === 0 && run.goods === 0,
   'chain-50': (_save, run) => (run?.maxCombo ?? 0) >= 50,
