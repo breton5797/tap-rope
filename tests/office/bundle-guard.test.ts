@@ -45,7 +45,7 @@ describe('office bundle guard', () => {
       expect(html).not.toMatch(/<script/i); // self-contained, no scripts
     }
     const privacy = readFileSync(join(out, 'privacy.html'), 'utf8');
-    for (const must of ['breton5797@gmail.com', '이메일', '계정 식별자', '기기에만', 'Supabase', '만 14세 미만', '2026-11-02']) {
+    for (const must of ['breton5797@gmail.com', '이메일', '계정 식별자', '프로필', 'IP 주소', 'User-Agent', 'Supabase Inc.', 'ap-northeast-2', '국외 이전', 'Google LLC', 'Apple Inc.', '삭제를 요청할 때까지', '보관 정책에 따라', '기기에만', '만 14세 미만', '2026-11-02']) {
       expect(privacy, must).toContain(must);
     }
     expect(readFileSync(join(out, 'terms.html'), 'utf8')).toContain('기록 보존을 보장하지 않아요');

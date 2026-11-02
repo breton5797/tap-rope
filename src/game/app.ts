@@ -35,7 +35,7 @@ import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
 import { TutorialRun, tutorialStops, type TutorialStep } from './tutorial';
 import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
 import { autoplayResult, takeChallenge, testResult, withoutChallenge } from './run-policy';
-import { accountState, initAccount, onAccountChange } from '../platform/account';
+import { accountState, initAccount, onAccountChange, onAccountNotice } from '../platform/account';
 import { commitMissions, missionView, pickupCue, startMissions, trackMissions, type MissionRun } from './missions';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
@@ -663,6 +663,7 @@ export function startApp(): void {
   registerServiceWorker();
   bootArt(renderer, ui, () => ui.showTitle(save));
   // office login: restore a stored session; the floor map follows the tester flag (v8: no accounts)
+  onAccountNotice((message) => ui.toast(message)); // a failed sign-in (office), before the boot check runs
   initAccount();
   onAccountChange(() => {
     if (screen === 'menu' && document.querySelector('.layer--screen')?.getAttribute('data-screen') === 'stages') ui.showStageSelect(save);

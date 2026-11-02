@@ -487,6 +487,14 @@ if (['all', 'login'].includes(which)) {
     await click(page.getByRole('button', { name: '설정' }));
     const legal = await page.locator('.screen--settings .legal a').evaluateAll((els) => els.map((a) => a.getAttribute('href')));
     check(legal.join(',') === './privacy.html,./terms.html', `settings links the privacy policy and terms (${legal.join(', ')})`);
+    // a failed OAuth return: one friendly notice, a clean URL, still no supabase request
+    for (const back of ['?error=access_denied&error_description=denied', '?from=apple#error=server_error&error_description=x']) {
+      await page.goto(`${OFFICE}${back}`);
+      const toast = await page.getByText('로그인에 실패했어요. 다시 시도해 주세요.').first().waitFor({ timeout: 8000 }).then(() => true, () => false);
+      const url = page.url();
+      check(toast && !/error/.test(url), `OAuth error return ${back.slice(0, 7)}…: toast shown, URL cleaned (${url.replace(OFFICE, './')})`);
+    }
+    check(supabaseHits === before, `guest + failed returns: still no supabase request (${supabaseHits - before})`);
     await ctx.close();
   }
   for (const [role, email, tester] of [['tester', 'tester@example.com', true], ['member', 'member@example.com', false]]) {

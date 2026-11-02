@@ -22,6 +22,11 @@ export function onAccountChange(_cb: (s: AccountState) => void): () => void {
   return () => undefined;
 }
 
+/** messages for the player, e.g. a failed sign-in (v8: none) */
+export function onAccountNotice(_cb: (message: string) => void): () => void {
+  return () => undefined;
+}
+
 /** restore a stored session at boot (v8: nothing) */
 export function initAccount(): void {}
 

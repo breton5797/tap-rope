@@ -24,6 +24,7 @@ function fakeAccount(initial: AccountState = GUEST, available = true) {
       subs.add(cb);
       return () => subs.delete(cb);
     },
+    onNotice: () => () => undefined,
     init: () => undefined,
     signIn: vi.fn(async () => undefined),
     signOut: vi.fn(async () => {

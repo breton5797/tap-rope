@@ -11,7 +11,7 @@
 2. **Site URL**: `https://breton5797.github.io/tap-rope/office/`
 3. **Redirect URLs**에 추가:
    - `https://breton5797.github.io/tap-rope/office/**`
-   - `http://localhost:5173/**` (개발용, 선택)
+   - (로컬 개발 중에만) `http://localhost:5173/**` — 개발할 때만 잠깐 추가하고 끝나면 **삭제**하세요. 운영 설정에 남겨 두지 않습니다.
 4. Save
 
 ## 2. 구글 로그인 (10분)
@@ -46,6 +46,10 @@
 
 ## 4. 무적 테스트 계정 활성화
 - 서버 설정(마이그레이션 `supabase/migrations/20261102000000_office_testers.sql`)이 적용되어 있어야 합니다. 적용 후 breton5797@gmail.com으로 구글(또는 같은 이메일의 애플) 로그인 → 화면에 `TEST` 배지가 보이면 성공.
-- 테스터 추가/삭제는 `game.office_testers` 테이블에 이메일을 넣거나 빼면 됩니다(다음 로그인부터 반영).
+- 테스터 추가/삭제는 `game.office_testers` 테이블에 이메일을 넣거나 뺀 뒤, 그 사용자의 표시를 갱신하는 아래 SQL을 실행합니다(트리거는 사용자 정보가 바뀔 때만 돌기 때문에, 다시 로그인하는 것만으로는 반영되지 않습니다 — 이메일·인증 상태가 바뀌는 경우는 예외):
+  ```sql
+  update auth.users set email = email where lower(email) = '<주소>';
+  ```
+  반영 후 해당 사용자는 로그아웃 → 다시 로그인하면(새 토큰) `TEST` 배지가 보이거나 사라집니다.
 
 설정이 끝나면 "설정 완료"라고 알려 주세요. 라이브에서 실제 로그인을 확인하겠습니다.

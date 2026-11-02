@@ -5,6 +5,7 @@ import { authEnv, redirectTo, sessionKey } from '../../src/office/platform/auth-
 import { createAuth, isTester, type Auth } from '../../src/office/platform/auth';
 import { createAccount, GUEST } from '../../src/office/platform/account';
 
+const BASE_URL = 'https://breton5797.github.io/tap-rope/office/';
 const ENV = { url: 'https://bmstuotifpmaspszrgyi.supabase.co', key: 'sb_publishable_x' };
 
 describe('auth config', () => {
@@ -74,7 +75,7 @@ describe('account store', () => {
 
   it('guests never load the auth client', () => {
     const loadAuth = vi.fn();
-    const acc = createAccount({ configured: true, loadAuth, pending: () => false });
+    const acc = createAccount({ configured: true, loadAuth, stored: () => false, href: () => BASE_URL, replaceUrl: () => undefined });
     acc.init();
     expect(loadAuth).not.toHaveBeenCalled();
     expect(acc.state()).toEqual(GUEST);
@@ -82,7 +83,7 @@ describe('account store', () => {
 
   it('restores a stored session at boot and reports the tester flag', async () => {
     const { auth } = fakeAuth({ email: 'boss@example.com', app_metadata: { office_tester: true } });
-    const acc = createAccount({ configured: true, loadAuth: async () => ({ auth, isTester: tester as never }), pending: () => true });
+    const acc = createAccount({ configured: true, loadAuth: async () => ({ auth, isTester: tester as never }), stored: () => true, href: () => BASE_URL, replaceUrl: () => undefined });
     const seen: unknown[] = [];
     acc.onChange((s) => seen.push(s));
     acc.init();
@@ -93,7 +94,7 @@ describe('account store', () => {
 
   it('a normal member is signed in but not a tester; sign-out returns to guest', async () => {
     const { auth, emit } = fakeAuth(null);
-    const acc = createAccount({ configured: true, loadAuth: async () => ({ auth, isTester: tester as never }), pending: () => false });
+    const acc = createAccount({ configured: true, loadAuth: async () => ({ auth, isTester: tester as never }), stored: () => false, href: () => BASE_URL, replaceUrl: () => undefined });
     await acc.signIn('google');
     expect(auth.signIn).toHaveBeenCalledWith('google');
     emit({ email: 'member@example.com', app_metadata: {} });
@@ -104,7 +105,7 @@ describe('account store', () => {
 
   it('without login config it is unavailable and stays a guest', () => {
     const loadAuth = vi.fn();
-    const acc = createAccount({ configured: false, loadAuth, pending: () => true });
+    const acc = createAccount({ configured: false, loadAuth, stored: () => true, href: () => BASE_URL, replaceUrl: () => undefined });
     acc.init();
     expect(acc.available).toBe(false);
     expect(loadAuth).not.toHaveBeenCalled();
