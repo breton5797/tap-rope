@@ -4,7 +4,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { UiCallbacks } from '../../src/types';
 import type { Ctx } from '../../src/ui/dom';
-import { loginEntry, maskEmail } from '../../src/office/ui/login';
+import { legalLinks, loginEntry, maskEmail } from '../../src/office/ui/login';
+import { buildSettings } from '../../src/ui/settings';
+import { defaultSave } from '../../src/core/storage';
 import { GUEST, type Account, type AccountState } from '../../src/office/platform/account';
 
 function ctx(): Ctx {
@@ -52,6 +54,8 @@ describe('office login entry', () => {
     expect(sheet.getAttribute('role')).toBe('dialog');
     expect(buttons(sheet)).toEqual(['Google로 계속하기', 'Apple로 계속하기', '닫기']);
     expect(sheet.textContent).toContain('이메일은 로그인 확인에만 사용해요');
+    const links = Array.from(sheet.querySelectorAll<HTMLAnchorElement>('.login-sheet__privacy a')).map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['./privacy.html', './terms.html']);
     (sheet.querySelectorAll('button')[1] as HTMLButtonElement).click();
     expect(acc.signIn).toHaveBeenCalledWith('apple');
     (sheet.querySelectorAll('button')[2] as HTMLButtonElement).click();
@@ -81,5 +85,14 @@ describe('office login entry', () => {
     expect(maskEmail('breton5797@gmail.com')).toBe('br***@gmail.com');
     expect(maskEmail('a@x.io')).toBe('a***@x.io');
     expect(maskEmail(null)).toBe('회원');
+  });
+});
+
+describe('legal pages', () => {
+  it('the settings screen links the privacy policy and terms', () => {
+    const el = buildSettings(ctx(), defaultSave(), () => undefined, () => undefined);
+    const hrefs = Array.from(el.querySelectorAll<HTMLAnchorElement>('.legal a')).map((a) => [a.textContent, a.getAttribute('href')]);
+    expect(hrefs).toEqual([['개인정보처리방침', './privacy.html'], ['이용약관', './terms.html']]);
+    expect(legalLinks()?.querySelectorAll('a')).toHaveLength(2);
   });
 });

@@ -4,6 +4,7 @@ import type { SaveData, Settings } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
 import { buildTransfer } from './transfer';
+import { legalLinks } from './login';
 
 interface ToggleDef {
   readonly key: keyof Settings;
@@ -73,6 +74,7 @@ export function buildSettings(ctx: Ctx, save: SaveData, onBack: () => void, onLo
         h('div', { cls: 'credits__logo mono', text: COPY.creditsLogo }),
         h('p', { text: COPY.creditsLine }),
         h('p', { cls: 'credits__small', text: COPY.creditsSmall }),
+        legalLinks(),
       ]),
     ]),
   ]);

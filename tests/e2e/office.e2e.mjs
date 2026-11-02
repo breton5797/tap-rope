@@ -470,6 +470,23 @@ if (['all', 'login'].includes(which)) {
     await waitScreen(page, 'stages');
     check((await lockedDiscs(page)) === 4, `guest: stages 2–5 locked on a fresh save (${await lockedDiscs(page)})`);
     check(supabaseHits === before, `guest: no supabase request (${supabaseHits - before})`);
+    // privacy policy + terms (Google OAuth publishing): served, precached by the office worker, linked
+    for (const pg of ['privacy.html', 'terms.html']) {
+      const res = await page.request.get(`${OFFICE}${pg}`);
+      check(res.status() === 200 && /칼퇴근 대작전/.test(await res.text()), `${pg} serves 200`);
+    }
+    const cached = await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      const keys = await caches.keys();
+      const c = await caches.open(keys.find((k) => k.startsWith('office-escape-')));
+      return Promise.all(['privacy.html', 'terms.html'].map(async (p) => Boolean(await c.match(new URL(p, location.href).href))));
+    });
+    check(cached.every(Boolean), `privacy.html / terms.html precached by the office worker (${cached.join(',')})`);
+    await page.goto(OFFICE);
+    await waitTitle(page);
+    await click(page.getByRole('button', { name: '설정' }));
+    const legal = await page.locator('.screen--settings .legal a').evaluateAll((els) => els.map((a) => a.getAttribute('href')));
+    check(legal.join(',') === './privacy.html,./terms.html', `settings links the privacy policy and terms (${legal.join(', ')})`);
     await ctx.close();
   }
   for (const [role, email, tester] of [['tester', 'tester@example.com', true], ['member', 'member@example.com', false]]) {

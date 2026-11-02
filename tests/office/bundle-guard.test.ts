@@ -36,6 +36,21 @@ describe('office bundle guard', () => {
     expect(all).not.toMatch(/sb_secret_[\w-]{8,}/);
   });
 
+  it('ships and precaches the privacy policy and terms pages', () => {
+    const sw = readFileSync(join(out, 'sw.js'), 'utf8');
+    for (const page of ['privacy.html', 'terms.html']) {
+      expect(sw, page).toContain(`./${page}`);
+      const html = readFileSync(join(out, page), 'utf8');
+      expect(html).toContain('칼퇴근 대작전');
+      expect(html).not.toMatch(/<script/i); // self-contained, no scripts
+    }
+    const privacy = readFileSync(join(out, 'privacy.html'), 'utf8');
+    for (const must of ['breton5797@gmail.com', '이메일', '계정 식별자', '기기에만', 'Supabase', '만 14세 미만', '2026-11-02']) {
+      expect(privacy, must).toContain(must);
+    }
+    expect(readFileSync(join(out, 'terms.html'), 'utf8')).toContain('기록 보존을 보장하지 않아요');
+  });
+
   it('loads the auth client lazily (not in the entry chunk)', () => {
     expect(files.length).toBeGreaterThan(1);
     expect(entry.includes('signInWithOAuth')).toBe(false);

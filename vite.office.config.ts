@@ -11,7 +11,8 @@ import { swapModules } from './build/swap-modules.ts';
 
 export { OFFICE_SWAPS };
 
-const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
+/** public-office files precached by the office worker (incl. the privacy policy and terms pages) */
+const PUBLIC_FILES = ['./privacy.html', './terms.html', './manifest.webmanifest', './icon.svg', './icon-maskable.svg', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 /** the entry is office.html in the repo root; the deployed folder serves it as index.html */
 function officeIndex(): Plugin {

@@ -1149,3 +1149,17 @@ body {
   background: var(--red-dim);
   border-radius: 999px;
 }
+
+/* privacy policy / terms links (login sheet, settings) */
+.legal {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.legal a,
+.login-sheet__privacy a {
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
