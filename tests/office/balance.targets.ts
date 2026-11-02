@@ -14,6 +14,11 @@ export interface Slack {
 
 export const NO_SLACK: Slack = { rise: 0, step: 0, last: 0 };
 
+/** the normal-profile character spread (max − min ≤ 10 pp) is a hard gate on part 1 (stages 1–5) only; part 2 is
+ * minimised and reported (lead decision 2026-11-03: hearts 2–4 make ≤ 10 pp unreachable there without shields) */
+export const SPREAD_GATE_STAGES = 5;
+export const SPREAD_GATE_PP = 10;
+
 /** per stage (1-based order): mean clear and max−min spread over the characters, in pp */
 export function curve(cells: readonly Cell[], profile: ProfileId): { readonly clear: number[]; readonly spread: number[] } {
   const mine = cells.filter((c) => c.profile === profile);

@@ -3,12 +3,12 @@
 //   BALANCE_REPORT=1 npx vitest run --project office tests/office/balance.report.test.ts
 // BALANCE_SEEDS=n (default 200), BALANCE_PROFILES=casual,normal (default all), BALANCE_OUT=path (also writes the
 // tables to that file), BALANCE_ASSERT=1 (fail unless the spec §4 targets hold with no slack: casual curve, expert ≥ 90%,
-// normal character spread ≤ 10 pp). Runs in the office module graph, like bot.test.ts.
+// normal character spread ≤ 10 pp on stages 1–5; stages 6–10 are reported only). Runs in the office module graph, like bot.test.ts.
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROFILE_IDS, type ProfileId } from '../../src/game/bot-profiles';
 import { formatReport, measureCell, runSeeds, SKINS, stageCount, type Cell } from './balance.harness';
-import { casualFailures, curve, NO_SLACK } from './balance.targets';
+import { casualFailures, curve, NO_SLACK, SPREAD_GATE_PP, SPREAD_GATE_STAGES } from './balance.targets';
 
 const env = process.env;
 const enabled = env.BALANCE_REPORT === '1';
@@ -23,7 +23,12 @@ describe.runIf(enabled)('balance report', () => {
     const cells: Cell[] = profiles.flatMap((p) =>
       Array.from({ length: stageCount() }, (_, i) => i).flatMap((i) => SKINS.map((skin) => measureCell(p, i, skin, seeds))));
     const secs = ((performance.now() - t0) / 1000).toFixed(1);
-    const report = `${formatReport(cells)}\n\n_${cells.reduce((a, c) => a + c.runs, 0)} runs, ${seedCount} seeds per cell, ${secs} s_\n`;
+    const pp = (xs: readonly number[]): string => xs.map((x) => x.toFixed(1)).join(' · ');
+    const notes = [
+      ...(profiles.includes('casual') ? [`casual 정시원 (cat) clear %: ${pp(cells.filter((c) => c.profile === 'casual' && c.skin === 'cat').map((c) => c.clear * 100))}`] : []),
+      ...(profiles.includes('normal') ? [`normal spread pp: ${pp(curve(cells, 'normal').spread)} (gate ≤ ${SPREAD_GATE_PP} on stages 1–${SPREAD_GATE_STAGES})`] : []),
+    ].map((l) => `- ${l}`).join('\n');
+    const report = `${formatReport(cells)}\n\n${notes}\n\n_${cells.reduce((a, c) => a + c.runs, 0)} runs, ${seedCount} seeds per cell, ${secs} s_\n`;
     process.stdout.write(`\n${report}\n`);
     if (env.BALANCE_OUT) writeFileSync(env.BALANCE_OUT, report);
     expect(cells.length).toBe(profiles.length * stageCount() * SKINS.length);
@@ -31,7 +36,8 @@ describe.runIf(enabled)('balance report', () => {
       const fails = [
         ...(profiles.includes('casual') ? casualFailures(curve(cells, 'casual').clear, NO_SLACK) : []),
         ...(profiles.includes('expert') ? curve(cells, 'expert').clear.flatMap((c, i) => (c < 90 ? [`expert stage ${i + 1} ${c.toFixed(1)}%`] : [])) : []),
-        ...(profiles.includes('normal') ? curve(cells, 'normal').spread.flatMap((s, i) => (s > 10 ? [`normal spread stage ${i + 1} ${s.toFixed(1)} pp`] : [])) : []),
+        ...(profiles.includes('normal') ? curve(cells, 'normal').spread.slice(0, SPREAD_GATE_STAGES)
+          .flatMap((s, i) => (s > SPREAD_GATE_PP ? [`normal spread stage ${i + 1} ${s.toFixed(1)} pp`] : [])) : []),
       ];
       expect(fails).toEqual([]);
     }
