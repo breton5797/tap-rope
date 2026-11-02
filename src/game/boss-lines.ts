@@ -3,7 +3,7 @@
  * ("PHASE 2 — 기관포 연사"), and the last hazard becomes a finisher (slow motion, then the boss blows up
  * as the agent lands). Pure helpers; app.ts plays them, render/boss.ts draws the blast.
  */
-import type { BossId, BossView } from '../types';
+import type { BossId, BossView, StageDef } from '../types';
 
 /** attack name per boss and phase (1..3) */
 export const BOSS_ATTACKS: Readonly<Record<BossId, readonly [string, string, string]>> = {
@@ -28,8 +28,8 @@ export interface PhaseLine {
   readonly text: string; // attack name
 }
 
-/** the phase line due now, given the last phase already announced (−1 = none) */
-export function phaseLineDue(lastAnnounced: number, cur: BossView | null): PhaseLine | null {
+/** the phase line due now, given the last phase already announced (−1 = none); `_stage` is for the office build's rematch names */
+export function phaseLineDue(lastAnnounced: number, cur: BossView | null, _stage?: Pick<StageDef, 'id' | 'kind' | 'chapter'>): PhaseLine | null {
   if (!cur || cur.state === 'defeated' || cur.phase <= lastAnnounced) return null;
   if (cur.phase === 0 && cur.state === 'intro' && cur.stateAge < INTRO_LINE_AGE) return null;
   return { phase: cur.phase, kicker: `PHASE ${cur.phase + 1}`, text: BOSS_ATTACKS[cur.id][cur.phase] };

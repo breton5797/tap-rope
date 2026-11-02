@@ -194,6 +194,29 @@ describe('office boss lines', () => {
     expect(BOSS_ATTACKS.sniper.join(' ')).toContain('영수증');
   });
 
+  it('part-2 rematches announce their own commute attacks (keyed by stage), others fall back to the slot', () => {
+    const v = (id: BossView['id'], phase: 0 | 1 | 2) => ({ id, phase, hp: 1, state: 'fight', stateAge: 0, attack: null }) as const;
+    const text = (n: number, id: BossView['id'], phase: 0 | 1 | 2) => phaseLineDue(-1, v(id, phase), stage(n))?.text;
+    // the same slot on its part-1 stage, or with no stage given, keeps the part-1 names
+    expect(text(2, 'sewer-eye', 1)).toBe(BOSS_ATTACKS['sewer-eye'][1]);
+    expect(phaseLineDue(-1, v('sewer-eye', 1))?.text).toBe(BOSS_ATTACKS['sewer-eye'][1]);
+    expect(text(8, 'sniper', 2)).toBe(BOSS_ATTACKS.sniper[2]);
+    expect(text(10, 'gunship', 2)).toBe(BOSS_ATTACKS.gunship[2]);
+    // rematches: their own names, never the part-1 ones
+    const rematch: readonly [number, BossView['id'], 0 | 1 | 2][] = [
+      [7, 'sewer-eye', 0], [7, 'sewer-eye', 1], [7, 'sewer-eye', 2], [9, 'apc', 0], [9, 'apc', 1], [9, 'apc', 2],
+      [10, 'lab-ai', 0], [10, 'jailer', 1],
+    ];
+    for (const [n, id, phase] of rematch) {
+      const t = text(n, id, phase) ?? '';
+      expect(t, `${n} ${id} ${phase}`).toMatch(/[가-힣]/);
+      expect(BOSS_ATTACKS[id], `${n} ${id} ${phase}`).not.toContain(t);
+    }
+    expect([0, 1, 2].map((p) => text(7, 'sewer-eye', p as 0 | 1 | 2)).join(' ')).toMatch(/택시|버스/);
+    expect([0, 1, 2].map((p) => text(9, 'apc', p as 0 | 1 | 2)).join(' ')).toMatch(/2차|꼬치|노래방/);
+    expect([text(10, 'lab-ai', 0), text(10, 'jailer', 1)].join(' ')).toMatch(/집|현관|퇴근길/);
+  });
+
   it('announces the stage-5 superior of the current section', () => {
     const v = { id: 'apc', phase: 1, hp: 1, state: 'intro', stateAge: 0, attack: null } as const;
     expect(phaseLineDue(0, v)?.text).toBe(BOSS_ATTACKS.apc[1]);
