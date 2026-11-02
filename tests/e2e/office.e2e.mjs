@@ -360,6 +360,15 @@ if (['all', 'heroes'].includes(which)) {
   for (const [id, name, hearts] of HIRES) {
     const ctx = await newContext();
     const page = await newPage(ctx);
+    // the time of the latest canvas draw of a hero slide frame (for the mid-slide capture)
+    await page.addInitScript(() => {
+      window.__slideAt = 0;
+      const draw = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.drawImage = function (img, ...rest) {
+        if (img instanceof HTMLImageElement && /\/hero-\w+-slide\d*\.webp/.test(img.src) && this.canvas.isConnected) window.__slideAt = performance.now();
+        return draw.call(this, img, ...rest);
+      };
+    });
     await page.goto(`${OFFICE}?autoplay=1`);
     await waitTitle(page);
     await openStage(page, 1);
@@ -389,6 +398,10 @@ if (['all', 'heroes'].includes(which)) {
       return n > 0 ? n : null;
     }, null, { timeout: 20000 }).then((h) => h.jsonValue());
     check(hud === hearts, `${name}: HUD hearts ${hud} (want ${hearts})`);
+    const sliding = await page.waitForFunction(() => window.__slideAt > 0 && performance.now() - window.__slideAt < 60, null, { timeout: 60000, polling: 16 })
+      .then(() => true, () => false);
+    if (sliding) await shot(page, `h-${id}-slide`);
+    check(sliding, `${name}: slide frames drawn (mid-slide capture h-${id}-slide)`);
     const txt = await playToResult(page, `h-${id}`);
     check(/퇴근 성공|CLOCK OUT/.test(txt), `${name}: stage 1 cleared by autoplay`);
     check((await page.locator('.report__hero').innerText().catch(() => '')).includes(name), `${name}: result card shows the hire`);
