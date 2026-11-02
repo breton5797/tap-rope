@@ -118,3 +118,18 @@ describe('lane switch time outside a run', () => {
     expect(frameLaneSwitch('cat', false)).toBe(LANE_SWITCH_TIME);
   });
 });
+
+describe('per-hero draw scale (taller 고도약)', () => {
+  it('고도약 draws ×1.12, the others ×1', async () => {
+    const { heroDrawScale, MAX_DRAW_SCALE } = await import('../../src/office/render/hero-style');
+    expect(heroDrawScale('bunny')).toBeCloseTo(1.12);
+    for (const s of ['kid', 'cat', 'robot', 'ninja']) expect(heroDrawScale(s)).toBe(1);
+    expect(MAX_DRAW_SCALE).toBeCloseTo(1.12);
+  });
+
+  it('the picker preview keeps the height ratio inside its canvas (tallest hero fills it)', async () => {
+    const { previewHeight } = await import('../../src/office/render/hero-preview');
+    expect(previewHeight(150, 'bunny')).toBeCloseTo(150);
+    expect(previewHeight(150, 'kid')).toBeCloseTo(150 / 1.12);
+  });
+});

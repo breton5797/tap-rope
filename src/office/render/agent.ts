@@ -11,7 +11,7 @@ import { RIG_SIZE } from '../../render/rig';
 import type { Ctx } from '../../render/util';
 import { HIT_SHOW, frameFallbacks, heroLean, heroPose, showsWin, type HeroFrameId, type PoseCtx } from './hero-frames';
 import { blinkAlpha, heroSetScale } from './hero-scale';
-import { heroSkin, type HeroSkin } from './hero-style';
+import { heroDrawScale, heroSkin, type HeroSkin } from './hero-style';
 import { outlineImage } from './props';
 import { officeImage } from './images';
 
@@ -74,8 +74,8 @@ export class AgentPainter {
       return;
     }
     const s = f.scale * RIG_SIZE;
-    // a frame set shrunk to fit its canvas (고도약's jumps) is drawn back at the hero's run1 size
-    const h = HERO_H * s * heroSetScale(this.skin, pose.frame);
+    // a frame set shrunk to fit its canvas is drawn back at the hero's run1 size; 고도약 is drawn taller
+    const h = HERO_H * s * heroSetScale(this.skin, pose.frame) * heroDrawScale(this.skin);
     const w = (h * img.naturalWidth) / img.naturalHeight;
     const reduced = f.reduced === true;
     const feetY = f.floorY - f.p.height * f.depth;

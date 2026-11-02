@@ -43,3 +43,15 @@ export function laneSwitchFor(id: string): number {
 export function frameLaneSwitch(id: string, running: boolean): number {
   return running ? laneSwitchFor(id) : LANE_SWITCH_TIME;
 }
+
+/**
+ * Drawn size per hero (feet-anchored, every frame set and the picker preview): 고도약 is the tall hire, but
+ * his 512×640 frames can only hold ~1.02× 칼퇴준's pixel height, so he is drawn ×1.12. (Render-only; his
+ * hit box is the same as everyone's.) Move to CHARACTERS when core grows a drawScale field.
+ */
+const DRAW_SCALE: Readonly<Record<HeroSkin, number>> = { kid: 1, cat: 1, bunny: 1.12, robot: 1 };
+export const MAX_DRAW_SCALE = Math.max(...HERO_SKINS.map((s) => DRAW_SCALE[s]));
+
+export function heroDrawScale(id: string): number {
+  return DRAW_SCALE[heroSkin(id)];
+}
