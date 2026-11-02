@@ -1,5 +1,5 @@
 // Office hero sprites (office spec §8, v2 §4 F3/F4): which drawn frame shows for the player state, and the
-// squash / stretch / spin around it. Pure. Frames: hero-<kid|cat>-{run1..run4 (or run1..run8), jump, slide,
+// squash / stretch / spin around it. Pure. Frames: hero-<kid|cat|bunny|robot>-{run1..run4 (or run1..run8), jump, slide,
 // hit, win}.webp, plus optional jump-{launch,apex,spin,glide} and slide-{in,hold}; the lane change is a lean.
 import type { Mood, PlayerState } from '../../types';
 import { laneProgress } from '../../render/layout';
@@ -26,6 +26,9 @@ const MAX_LEAN = (8 * Math.PI) / 180;
  * 'cheer' for the whole 칼퇴 모드 (fever) while the hero is still running — that keeps the run cycle.
  * `progress` is the stage progress (RenderRun.progress; 1 = every hazard done, endless stays 0).
  */
+/** every frame the hero may show while running (facing right); the win still is the only exception (cleared) */
+export const RIGHT_FACING = /^(run[1-8]|jump[1-8]?|slide[1-4]?|hit[1-4]?)$/;
+
 export function showsWin(mood: Mood, progress: number): boolean {
   return mood === 'cheer' && progress >= 1;
 }

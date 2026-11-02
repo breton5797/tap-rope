@@ -6,12 +6,13 @@
  */
 import type {
   Beat, Door, GameMode, JudgeResult, LaneDir, LaneId, Mood, ObstacleKind, PhysicsConfig, PlayerState,
-  ScoreState, StageDef, Swipe, TransitionKind, Variant, WorldId,
+  ScoreState, SkinId, StageDef, Swipe, TransitionKind, Variant, WorldId,
 } from '../types';
 import { HAZARD_KINDS, WARN_LEAD } from '../types';
-import { initialPlayer, moveLane, physicsForWorld, slidePlayer, stepPlayer, swipePlayer, tapPlayer } from '../core/physics';
+import { initialPlayer, moveLane, slidePlayer, stepPlayer, swipePlayer, tapPlayer } from '../core/physics';
 import { judgeBeat } from '../core/judge';
-import { applyJudge, computeStars, initialScore, tickScore } from '../core/scoring';
+import { applyJudge, computeStars, initialScore, tickScore, type ScoreMods } from '../core/scoring';
+import { runStats } from '../flavor';
 import { dailyStage, endlessStage, generateStage } from '../core/levels';
 import { isSudden } from '../core/timeline';
 import { beatShape, gapAfter } from '../core/spacing';
@@ -59,6 +60,10 @@ export interface Session {
   readonly player: PlayerState;
   readonly score: ScoreState;
   readonly hearts: number;
+  /** v2.2: the chosen character's max hearts (v8: MAX_HEARTS) */
+  readonly maxHearts: number;
+  /** v2.2: the chosen character's fever gain / coin multiplier (v8: ×1) */
+  readonly mods: ScoreMods;
   readonly hitsTaken: number;
   readonly shield: boolean;
   readonly slowTime: number;
@@ -114,20 +119,22 @@ function snapToBeat(t: number, bpm: number): number {
   return Math.ceil(t / beat - 1e-9) * beat;
 }
 
-export function createSession(mode: GameMode, stage: StageDef | null, opts: { date?: string; seed?: number } = {}): Session {
+export function createSession(mode: GameMode, stage: StageDef | null, opts: { date?: string; seed?: number; skin?: SkinId } = {}): Session {
   const seed = opts.seed ?? 1;
   const def =
     mode === 'stage' && stage ? stage
       : mode === 'daily' ? dailyStage(opts.date ?? '2026-01-01')
         : endlessStage(0, seed);
   const world: WorldId = def.world;
-  const cfg = physicsForWorld(world);
+  // the chosen character's physics (v8: the world's, for every skin), also laid out with it
+  const stats = runStats(world, opts.skin ?? 'kid');
+  const cfg = stats.physics;
   const { beats, doors } = generateStage(def, cfg, snapToBeat(LEAD_IN, def.bpm));
   // the scene switches when the agent passes each door; the music keeps the stage tempo
   const tempoQueue = doors.map((d): TempoChange => ({ at: d.time, bpm: def.bpm, world: d.to.world, variant: d.to.variant }));
   return {
     mode, stage: def, world, bpm: def.bpm, variant: def.variant, tempoQueue, cfg, beats, cursor: 0, time: 0,
-    player: initialPlayer(), score: initialScore(), hearts: MAX_HEARTS, hitsTaken: 0,
+    player: initialPlayer(), score: initialScore(), hearts: stats.hearts, maxHearts: stats.hearts, mods: { feverGain: stats.feverGain, coinMul: stats.coinMul }, hitsTaken: 0,
     shield: false, slowTime: 0, invulnTime: 0, mood: 'idle', moodTime: 0, status: 'playing',
     hazardTotal: mode === 'endless' ? Infinity : beats.filter(isHazardBeat).length,
     hazardDone: 0, endlessChunk: 0, seed, doors, section: 0, doorCue: 0, alertCue: 0, lag: 0,
@@ -231,7 +238,7 @@ function applyPickups(s: Session, kinds: readonly ObstacleKind[]): Applied {
   const events: GameEvent[] = kinds.map((kind) => ({ type: 'pickup', kind }));
   const shield = s.shield || kinds.includes('shield');
   const slowTime = kinds.includes('slow') ? SLOW_TIME : s.slowTime;
-  const hearts = kinds.includes('heart') ? Math.min(MAX_HEARTS, s.hearts + 1) : s.hearts;
+  const hearts = kinds.includes('heart') ? Math.min(s.maxHearts, s.hearts + 1) : s.hearts;
   return { s: { ...s, shield, slowTime, hearts }, events };
 }
 
@@ -260,7 +267,7 @@ function judgeNext(s0: Session): Applied {
   const pick = applyPickups(s, hitRes.result.collected);
   s = pick.s;
   events.push(...pick.events);
-  const scored = applyJudge(s.score, hitRes.result);
+  const scored = applyJudge(s.score, hitRes.result, s.mods);
   if (scored.feverStarted) events.push({ type: 'fever' });
   if (scored.comboMilestone !== null) events.push({ type: 'combo', combo: scored.comboMilestone });
   const shielded = hitRes.events.some((e) => e.type === 'hit' && e.shielded);

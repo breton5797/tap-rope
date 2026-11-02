@@ -8,6 +8,7 @@ import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
 import { PLAYER_X } from '../../types';
 import { collectibleFor, stageCollectible } from './collectibles';
+import { heroAccent, jumpRingScale } from './hero-style';
 import { officeImage } from './images';
 import { JUMP_RING_COLORS, Juice, pickupFromPopup, takeoffRing, type PowerUp } from './juice';
 
@@ -38,6 +39,9 @@ export class JuiceFx {
   private sparkleAcc = 0;
   private heelAcc = 0;
   private readonly hero = { x: 0, y: 0 };
+  /** the hero's FX accent and take-off ring scale (v2.2 four heroes) */
+  private accent = heroAccent('kid');
+  private ringScale = 1;
   private readonly plus = { text: '', x: 0, y: 0, age: 9 };
 
   /** the EffectsApi the game talks to: v8 effects + this queue */
@@ -82,6 +86,8 @@ export class JuiceFx {
     const dt = Number.isFinite(gap) && gap <= STALE ? Math.min(0.1, Math.max(0, gap)) : 0;
     this.lastReal = snap.realTime;
     const reduced = snap.reducedMotion;
+    this.accent = heroAccent(snap.skin);
+    this.ringScale = jumpRingScale(snap.skin);
     const p = snap.player;
     const lane = visualLane(p);
     this.hero.x = PLAYER_X;
@@ -138,15 +144,18 @@ export class JuiceFx {
       case 'jump': {
         const level = Math.min(3, Math.max(1, c.level));
         const r = takeoffRing(level);
-        // one ring per level, each a beat later and wider: white, cyan, gold
-        for (let i = 0; i < level; i++) this.juice.ring(x, floorY, r.radius * (1 + i * 0.35), r.width + 0.6, r.life, JUMP_RING_COLORS[i], i * 0.07);
+        // one ring per level, each a beat later and wider: the hero accent, cyan, gold; the jump stat widens them
+        const radius = r.radius * this.ringScale;
+        for (let i = 0; i < level; i++) {
+          this.juice.ring(x, floorY, radius * (1 + i * 0.35), r.width + 0.6, r.life, i === 0 ? this.accent : JUMP_RING_COLORS[i], i * 0.07);
+        }
         if (level >= 3) this.juice.burst('sparkle', x, floorY - 10, reduced);
         return;
       }
       case 'land':
         return; // the hero painter draws the (small, light) landing dust
       case 'lane':
-        if (!reduced) this.juice.burst('streak', x - 18, y - 40, reduced, -c.dir);
+        if (!reduced) this.juice.burst('streak', x - 18, y - 40, reduced, -c.dir, this.accent);
         return;
       case 'slide':
         this.juice.burst('heel', x - 14, floorY - 2, reduced);
@@ -191,13 +200,13 @@ export class JuiceFx {
     if (m.index === pm.index && m.kind === 'collect' && m.value > pm.value) {
       // a collect mission always flies its collectible (never the clock coin)
       const id = collectibleFor(snap.run?.stageIndex ?? 0, m.index) ?? stageCollectible(snap.run?.stageIndex ?? 0);
-      this.juice.burst('coin', x, y - 40, reduced);
+      this.juice.burst('coin', x, y - 40, reduced, undefined, this.accent);
       if (Number.isFinite(hud.chip.x)) this.juice.fly(id ? `collect-${id}` : 'pickup-coin', { x, y: y - 40 }, hud.chip, 'chip', this.onChip);
       this.plus.text = '+1';
       this.plus.x = x + 22;
       this.plus.y = y - 76;
       this.plus.age = 0;
-      if (m.complete && !pm.complete) this.juice.burst('star', x, y - 60, reduced);
+      if (m.complete && !pm.complete) this.juice.burst('star', x, y - 60, reduced, undefined, this.accent);
     }
     pm.index = m.index;
     pm.value = m.value;
@@ -224,12 +233,18 @@ export class JuiceFx {
     const t = snap.realTime;
     if (snap.shield) {
       const pulse = snap.reducedMotion ? 0 : Math.sin(t * 5) * 2;
+      // on top of the hero, clear in the middle: only the rim is tinted (the hero is never washed out)
       ctx.save();
-      ctx.globalAlpha = 0.18;
-      ctx.fillStyle = '#9BE7FF';
+      ctx.translate(x, y - 46);
+      ctx.scale(34 + pulse, 50 + pulse);
+      ctx.fillStyle = this.bubbleFill(ctx);
+      ctx.beginPath();
+      ctx.arc(0, 0, 1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
       ctx.beginPath();
       ctx.ellipse(x, y - 46, 34 + pulse, 50 + pulse, 0, 0, Math.PI * 2);
-      ctx.fill();
       ctx.globalAlpha = 0.8;
       ctx.strokeStyle = '#7FDBFF';
       ctx.lineWidth = 2;
@@ -251,6 +266,19 @@ export class JuiceFx {
 
   /** the slow-mo ice vignette, built once per view */
   private ice: { key: string; g: CanvasGradient } | null = null;
+  private bubble: { ctx: Ctx; g: CanvasGradient } | null = null;
+
+  /** unit-circle bubble fill: transparent inside, a cyan band at the rim (built once per context) */
+  private bubbleFill(ctx: Ctx): CanvasGradient {
+    if (this.bubble?.ctx !== ctx) {
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      g.addColorStop(0, 'rgba(155,231,255,0)');
+      g.addColorStop(0.72, 'rgba(155,231,255,0)');
+      g.addColorStop(1, 'rgba(155,231,255,0.32)');
+      this.bubble = { ctx, g };
+    }
+    return this.bubble.g;
+  }
 
   private iceTint(ctx: Ctx, v: View): CanvasGradient {
     if (!this.ice || this.ice.key !== v.key) {

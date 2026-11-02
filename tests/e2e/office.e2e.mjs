@@ -3,7 +3,7 @@
 // both service workers). supabase.co is blocked and every attempt is counted (must be 0 for the office).
 //
 // Usage (from the worktree, after `npm run build && npm run build:office`):
-//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio] [DIST]
+//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes] [DIST]
 // `playwright` is not a repo dependency and ESM ignores NODE_PATH: install it next to the repo first
 // (`npm i --no-save playwright && npx playwright install chromium`).
 // DIST defaults to <cwd>/dist. Screenshots: $E2E_SHOTS (default <tmp>/office-e2e-shots/). Exit code 1 on any failed check.
@@ -219,6 +219,7 @@ if (['all', 'sw', 'campaign'].includes(which)) {
     await page.waitForTimeout(900); // the card's pop-in
     await shot(page, '02-picker');
     await click(page.locator('.picker__pick', { hasText: '정시원' }));
+    await click(page.locator('.picker__confirm')); // v2.2: a tap selects, the button hires
     await waitScreen(page, 'controls');
     await click(page.getByRole('button', { name: /^확인/ }));
     const ops = await skipCutscenes(page, 5000, '03-op-start');
@@ -351,6 +352,79 @@ if (['all', 'flake'].includes(which)) {
     await ctx.close();
   }
   check(advanced === 0, `picker never advances without a click (${advanced}/10 runs advanced)`);
+}
+
+// ---------- 8. v2.2 four hires: picker cards + star bars, each hire clears stage 1, HUD hearts, save kept ----------
+const HIRES = [['kid', '칼퇴준', 3], ['cat', '정시원', 2], ['bunny', '고도약', 3], ['robot', '유행운', 4]];
+if (['all', 'heroes'].includes(which)) {
+  for (const [id, name, hearts] of HIRES) {
+    const ctx = await newContext();
+    const page = await newPage(ctx);
+    // the time of the latest canvas draw of a hero slide frame (for the mid-slide capture)
+    await page.addInitScript(() => {
+      window.__slideAt = 0;
+      const draw = CanvasRenderingContext2D.prototype.drawImage;
+      CanvasRenderingContext2D.prototype.drawImage = function (img, ...rest) {
+        if (img instanceof HTMLImageElement && /\/hero-\w+-slide\d*\.webp/.test(img.src) && this.canvas.isConnected) window.__slideAt = performance.now();
+        return draw.call(this, img, ...rest);
+      };
+    });
+    await page.goto(`${OFFICE}?autoplay=1`);
+    await waitTitle(page);
+    await openStage(page, 1);
+    await waitScreen(page, 'picker');
+    await page.waitForTimeout(900);
+    const cards = await page.locator('.picker__pick').evaluateAll((els) => els.map((e) => ({
+      name: e.querySelector('.skin__name')?.textContent ?? '',
+      rows: e.querySelectorAll('.hero-stars__row').length,
+      pips: [...e.querySelectorAll('.hero-stars__row')].map((r) => r.querySelectorAll('.hero-stars__pip.is-on').length).join(''),
+      role: e.querySelector('.hero-card__role')?.textContent ?? '',
+      quote: e.querySelector('.hero-card__quote')?.textContent ?? '',
+    })));
+    if (id === 'kid') {
+      check(cards.length === 4 && cards.every((c) => c.rows === 5 && c.role && c.quote), `picker: 4 cards with role, 5 star bars and a catchphrase (${cards.map((c) => `${c.name} ${c.pips}`).join(' / ')})`);
+      await shot(page, 'h0-picker');
+    }
+    await click(page.locator('.picker__pick', { hasText: name }));
+    await page.waitForTimeout(400);
+    if (id === 'robot') await shot(page, 'h0-picker-robot');
+    check((await page.locator('.picker__pick.is-selected .skin__name').textContent()) === name, `${name}: selected card`);
+    await click(page.locator('.picker__confirm'));
+    await waitScreen(page, 'controls');
+    await click(page.getByRole('button', { name: /^확인/ }));
+    await skipCutscenes(page, 5000);
+    const hud = await page.waitForFunction(() => {
+      const n = document.querySelectorAll('[aria-label^="방탄 "] .heart').length;
+      return n > 0 ? n : null;
+    }, null, { timeout: 20000 }).then((h) => h.jsonValue());
+    check(hud === hearts, `${name}: HUD hearts ${hud} (want ${hearts})`);
+    const sliding = await page.waitForFunction(() => window.__slideAt > 0 && performance.now() - window.__slideAt < 60, null, { timeout: 60000, polling: 16 })
+      .then(() => true, () => false);
+    if (sliding) await shot(page, `h-${id}-slide`);
+    check(sliding, `${name}: slide frames drawn (mid-slide capture h-${id}-slide)`);
+    const txt = await playToResult(page, `h-${id}`);
+    check(/퇴근 성공|CLOCK OUT/.test(txt), `${name}: stage 1 cleared by autoplay`);
+    check((await page.locator('.report__hero').innerText().catch(() => '')).includes(name), `${name}: result card shows the hire`);
+    const saved = await readSave(page, OFFICE_KEY);
+    check(saved?.skin === id && ['kid', 'cat', 'bunny', 'robot'].every((k) => saved.ownedSkins.includes(k)), `${name}: save skin=${saved?.skin}, owns all four`);
+    await page.goto(OFFICE);
+    await waitTitle(page);
+    check((await readSave(page, OFFICE_KEY))?.skin === id, `${name}: choice survives a reload`);
+    if (id === 'robot') {
+      await click(page.getByRole('button', { name: /사원 선택/ }));
+      await waitScreen(page, 'shop');
+      // past the screen-in fade (a capture during it looks washed out); the room must settle fully opaque
+      const settled = await page.waitForFunction(() => {
+        const el = document.querySelector('.screen--shop');
+        return el && el.getAnimations({ subtree: false }).every((x) => x.playState === 'finished') && getComputedStyle(el).opacity === '1';
+      }, null, { timeout: 5000 }).then(() => true, () => false);
+      check(settled, '사원 선택 room settles fully opaque after its screen-in transition');
+      const room = await page.locator('.screen--shop .skin').evaluateAll((els) => els.map((e) => e.querySelectorAll('.hero-stars__row').length));
+      check(room.length === 4 && room.every((n) => n === 5), `사원 선택 room shows the same 4 cards with star bars (${room.join(',')})`);
+      await shot(page, 'h5-room');
+    }
+    await ctx.close();
+  }
 }
 
 // ---------- 7. office v2.1 audio: sampled sfx on actions / pickups / stamps, gesture-gated loading, synth fallback ----------

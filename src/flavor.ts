@@ -4,7 +4,8 @@
  * features are offered, the localStorage key prefix and the per-run seed. This file is the v8 flavour;
  * the office build swaps in src/office/flavor.ts (build/office-swaps.ts), which keeps the same exports.
  */
-import type { StageDef } from './types';
+import type { PhysicsConfig, SkinId, StageDef, WorldId } from './types';
+import { physicsForWorld } from './core/physics';
 
 export interface Features {
   /** server runs / device identity (also needs VITE_SUPABASE_URL) */
@@ -148,4 +149,17 @@ export function stageVars(s: Readonly<{ chapter: number; index: number }>): Reco
 /** v8: a stage plays its fixed designed seed (stars and replays depend on it) */
 export function runSeedFor(stage: StageDef): number {
   return stage.seed;
+}
+
+/** what the chosen character changes in a run (office v2.2): physics, max hearts, fever gain, coin multiplier */
+export interface RunStats {
+  readonly physics: PhysicsConfig;
+  readonly hearts: number;
+  readonly feverGain: number;
+  readonly coinMul: number;
+}
+
+/** v8: every operator plays the world physics with 3 hearts (session MAX_HEARTS) and ×1 fever / coins */
+export function runStats(world: WorldId, _skin: SkinId): RunStats {
+  return { physics: physicsForWorld(world), hearts: 3, feverGain: 1, coinMul: 1 };
 }

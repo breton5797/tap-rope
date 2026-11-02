@@ -4,10 +4,11 @@
  * seed per run, and the comic office copy (spec §4, §7).
  * Imports of '../flavor' from here reach the real v8 module (the swap skips its own replacement).
  */
-import type { StageDef } from '../types';
-import { V8_COPY, fillCopy, stageVars, type CopyKey, type Features } from '../flavor';
+import { V8_COPY, fillCopy, stageVars, type CopyKey, type Features, type RunStats } from '../flavor';
+import type { SkinId, StageDef, WorldId } from '../types';
+import { statsFor } from './core/characters';
 
-export { V8_COPY, fillCopy, stageVars, type CopyKey, type Features };
+export { V8_COPY, fillCopy, stageVars, type CopyKey, type Features, type RunStats };
 
 export const FEATURES: Features = {
   online: false, endless: false, daily: false, shop: false, leaderboard: false, transfer: false, firstRunPick: true,
@@ -122,4 +123,10 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
 /** a fresh uniform uint32 for every run start (P3: chosen once, kept on the run, never steered by input) */
 export function runSeedFor(_stage: StageDef): number {
   return crypto.getRandomValues(new Uint32Array(1))[0];
+}
+
+/** v2.2: the chosen hire's stats (one physics for every floor) */
+export function runStats(_world: WorldId, skin: SkinId): RunStats {
+  const s = statsFor(skin);
+  return { physics: s.physics, hearts: s.hearts, feverGain: s.feverGain, coinMul: s.coinMul };
 }

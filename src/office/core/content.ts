@@ -9,6 +9,7 @@ import type { ChapterMeta, MoveId, Scene, SkinMeta, StageDef, TransitionKind, Va
 import { designCustomStage } from '../../core/campaign';
 import type { MissionSpec } from './missions';
 import { hashString } from '../../core/rng';
+import { CHARACTERS } from './characters';
 
 export { movesForMix } from '../../core/moves';
 
@@ -77,11 +78,8 @@ export function transitionFor(stage: StageLook, section: number): TransitionKind
   return scenesOf(stage).transitions[Math.max(1, clampSection(section)) - 1];
 }
 
-/** both new hires are free and owned from the start (picked on the first launch) */
-export const SKINS: readonly SkinMeta[] = [
-  { id: 'kid', name: '칼퇴준', price: 0 },
-  { id: 'cat', name: '정시원', price: 0 },
-];
+/** v2.2: all four hires are free and owned from the start (picked on the first launch) */
+export const SKINS: readonly SkinMeta[] = CHARACTERS.map((c) => ({ id: c.id, name: c.name, price: 0 }));
 
 /** spec §13: moves each stage teaches (beams arrive with the 2단 jump: the 결재판 boomerang) */
 const NEW_MOVES: readonly (readonly MoveId[])[] = [

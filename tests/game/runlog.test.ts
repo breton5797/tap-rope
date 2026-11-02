@@ -35,6 +35,12 @@ describe('run log', () => {
     expect(sum.mode).toBe('endless');
   });
 
+  it('records the skin only when it changes the simulation (v8: never, so server records stay as they were)', () => {
+    const s = createSession('endless', null, { seed: 9 });
+    expect(createRunLog('endless', 9, 'd', 'cat').record(s)).not.toHaveProperty('skin');
+    expect(createRunLog('endless', 9, 'd').record(s)).not.toHaveProperty('skin');
+  });
+
   it('campaign runs make a summary but no replay record', () => {
     const log = createRunLog('stage', 0, '2026-10-27');
     expect(log.record(createSession('endless', null, { seed: 1 }))).toBeNull();

@@ -57,7 +57,7 @@ function namesOf(id: BossId): Record<BossPose, string> {
   return n;
 }
 
-function opaqueBox(img: HTMLImageElement): FitRect {
+export function opaqueBox(img: HTMLImageElement): FitRect {
   const cached = boxes.get(img);
   if (cached) return cached;
   const box: FitRect = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };

@@ -9,12 +9,13 @@
  */
 import type { Cutscene, CutsceneId, CutsceneShot, SaveData, SkinId, StageDef } from '../../types';
 import { OFFICE_BOSSES, bossFor } from './boss';
+import { CHARACTERS } from './characters';
 
 type Frame = CutsceneShot['from'];
 
 /** the player character in CUTSCENES, replaced by the chosen character's name when played */
 export const HERO = '나';
-const HERO_NAMES: Partial<Record<SkinId, string>> = { kid: '칼퇴준', cat: '정시원' };
+const HERO_NAMES: Partial<Record<SkinId, string>> = Object.fromEntries(CHARACTERS.map((c) => [c.id, c.name]));
 
 const img = (name: string) => `./art/cut/${name}.webp`;
 const frame = (zoom: number, x = 0.5, y = 0.5): Frame => ({ zoom, x, y });

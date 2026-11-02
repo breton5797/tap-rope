@@ -10,6 +10,7 @@ import { button, formatNumber, h, header, type Ctx } from './dom';
 import { avatar } from './avatar';
 import { icons } from './icons';
 import { coinChip } from './title';
+import { heroDetails } from './hero-card';
 
 /** portrait photo over the vector avatar: the avatar shows while loading or when the file is missing */
 export function portrait(id: SkinMeta['id'], cls: string): HTMLElement {
@@ -47,6 +48,7 @@ function skinCard(ctx: Ctx, save: SaveData, skin: SkinMeta): HTMLElement {
   return h('article', { cls: `skin card${selected ? ' is-selected' : ''}${owned ? ' is-owned' : ' is-locked'}` }, [
     h('div', { cls: 'skin__art' }, [portrait(skin.id, 'portrait--card'), owned ? null : h('span', { cls: 'skin__lock' }, [icons.lock()])]),
     h('div', { cls: 'skin__name', text: skin.name }),
+    heroDetails(skin.id),
     priceAction(ctx, save, skin),
   ]);
 }

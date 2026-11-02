@@ -34,3 +34,16 @@ describe('office stages are clearable on every run seed', () => {
     expect(failed).toEqual([]);
   });
 });
+
+/** v2.2: every hire clears every stage — layouts are generated with the character's own physics */
+const HIRE_SEEDS = seeds.slice(0, 20);
+
+describe('office stages are clearable by every character', () => {
+  it.each((['kid', 'cat', 'bunny', 'robot'] as const).flatMap((skin) => STAGES.map((s) => [skin, s.id, s] as const)))(
+    '%s %s: the bot clears 20 seeds',
+    (skin, _id, stage) => {
+      const failed = HIRE_SEEDS.filter((seed) => play(createSession('stage', { ...stage, seed }, { skin })).status !== 'cleared');
+      expect(failed).toEqual([]);
+    },
+  );
+});

@@ -453,6 +453,211 @@ body {
   border-width: 3px;
 }
 
+/* ---------- v2.2 four hires: picker cards, character room, result portrait ---------- */
+.screen--picker {
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.modal--picker {
+  width: min(460px, 100%);
+  max-height: none;
+  margin: auto 0;
+}
+
+.picker__grid--hires {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hero-card {
+  --accent: var(--teal);
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 10px;
+  text-align: left;
+  border: 2px solid var(--outline);
+  box-shadow: 0 3px 0 var(--outline);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.hero-card .skin__name {
+  text-align: left;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.picker__pick.hero-card.is-selected {
+  background: var(--panel-solid);
+  border-color: var(--accent);
+  border-width: 3px;
+  box-shadow: 0 4px 0 var(--accent);
+  transform: scale(1.03);
+  z-index: 1;
+}
+
+.hero-card__info {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hero-card__role {
+  justify-self: start;
+  padding: 1px 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent);
+  border-radius: 999px;
+}
+
+.hero-card__blurb {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.hero-stars {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-stars__row {
+  display: grid;
+  grid-template-columns: 3.4em 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.hero-stars__bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+}
+
+.hero-stars__pip {
+  height: 7px;
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.hero-stars__pip.is-on {
+  background: var(--accent);
+}
+
+/* the catchphrase: a quiet line, a speech bubble on the selected card */
+.hero-card__quote {
+  position: relative;
+  margin: 2px 0 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.picker__pick.is-selected .hero-card__quote {
+  justify-self: start;
+  padding: 4px 10px;
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 700;
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  animation: hero-bubble 220ms ease-out;
+}
+
+@keyframes hero-bubble {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* the selected hire runs in place beside its name (run-preview.ts) */
+.picker__pick.hero-card {
+  position: relative;
+}
+
+.picker__run {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 48px;
+  height: 62px;
+  pointer-events: none;
+}
+
+/* keep the blurb clear of the runner */
+.picker__pick.is-selected .hero-card__blurb {
+  padding-right: 44px;
+}
+
+.picker__confirm {
+  width: 100%;
+  margin-top: 14px;
+}
+
+/* the character room: one hire per row, art beside the details */
+.screen--shop .shop__grid {
+  grid-template-columns: 1fr;
+}
+
+.screen--shop .skin {
+  grid-template-columns: 84px 1fr;
+  grid-template-areas: 'art name' 'art info' 'art act';
+  align-items: start;
+  column-gap: 10px;
+}
+
+.screen--shop .skin__art { grid-area: art; }
+.screen--shop .skin__name { grid-area: name; text-align: left; font-size: 16px; }
+.screen--shop .hero-card__info { grid-area: info; }
+.screen--shop .skin > .btn,
+.screen--shop .skin > .skin__state { grid-area: act; justify-self: start; }
+
+.report__hero {
+  --accent: var(--teal);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 2px;
+}
+
+.portrait--result {
+  width: 56px;
+  flex: none;
+  border: 2px solid var(--accent);
+}
+
+.report__hero-text {
+  display: grid;
+}
+
+.report__hero-role {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.report__hero-name {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-card { transition: none; }
+  .picker__pick.hero-card.is-selected { transform: none; }
+  .picker__pick.is-selected .hero-card__quote { animation: none; }
+}
+
 /* ---------- floor map (stage select): one stage per floor of the building ---------- */
 .screen--floors .floors__scroll {
   padding: 0;

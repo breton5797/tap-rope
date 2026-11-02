@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest';
 import { defaultSave, parseSave } from '../../src/core/storage';
 
 describe('office save', () => {
-  it('owns both characters on a fresh save', () => {
-    expect(defaultSave().ownedSkins).toEqual(['kid', 'cat']);
+  it('owns all four hires on a fresh save (v2.2)', () => {
+    expect(defaultSave().ownedSkins).toEqual(['kid', 'cat', 'bunny', 'robot']);
     expect(defaultSave().skin).toBe('kid');
   });
 
   it('keeps free characters owned when a stored save lists fewer', () => {
-    const save = parseSave({ ...defaultSave(), ownedSkins: ['kid'], skin: 'cat' });
-    expect(save.ownedSkins).toEqual(['kid', 'cat']);
+    const save = parseSave({ ...defaultSave(), ownedSkins: ['kid', 'cat'], skin: 'cat' }); // a v2.1 save
+    expect(save.ownedSkins).toEqual(['kid', 'cat', 'bunny', 'robot']);
     expect(save.skin).toBe('cat');
   });
 });

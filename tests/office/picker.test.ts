@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// First-run character picker (office spec §4): one card per owned character, a tap picks it.
+// First-run character picker (office spec §4): one card per owned character, a tap selects, the button hires.
 import { describe, expect, it, vi } from 'vitest';
 import { defaultSave } from '../../src/core/storage';
 import type { UiCallbacks } from '../../src/types';
@@ -21,6 +21,7 @@ describe('character picker', () => {
     expect(picks).toHaveLength(2);
     expect(el.getAttribute('role')).toBe('dialog');
     picks[1].click();
+    el.querySelector<HTMLButtonElement>('.picker__confirm')?.click(); // v2.2: a tap selects, the button hires
     expect(onPick).toHaveBeenCalledWith('cat');
   });
 
