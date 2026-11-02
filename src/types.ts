@@ -584,6 +584,8 @@ export interface Renderer {
 // ---------- UI contract ----------
 
 export interface HudState {
+  /** office tester run: a TEST badge (absent in v8) */
+  readonly tester?: true;
   readonly hearts: number;
   readonly maxHearts: number;
   readonly score: number;
@@ -630,6 +632,8 @@ export interface ResultInfo {
   readonly missions?: MissionOutcome;
   /** office v2.2: the hire who ran (result card portrait); absent in v8 */
   readonly skin?: SkinId;
+  /** office tester run: marked "테스트 판 · 기록 안 함", nothing was saved (absent in v8) */
+  readonly testRun?: true;
 }
 
 /** v8: one ₵ reward line on the result card. */

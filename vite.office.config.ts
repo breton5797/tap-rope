@@ -1,6 +1,8 @@
 // Office build (칼퇴근 대작전, office spec §10): the v8 app from office.html with the modules in
 // build/office-swaps.ts swapped for src/office/, emitted to dist/office/ (served at ./office/ next to v8).
-// Mode 'office' reads .env.office, which blanks the server URL: the build is offline. Run: npm run build:office
+// Mode 'office' reads .env.office: the project URL and PUBLISHABLE key for the optional sign-in only (login
+// spec §2). Game data stays on the device: FEATURES.online is false and src/platform/online.ts is swapped for
+// an always-offline stub, so no leaderboard / register / submit-run call ships. Run: npm run build:office
 import type { Plugin } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
 import { OFFICE_SWAPS } from './build/office-swaps.ts';
@@ -9,7 +11,8 @@ import { swapModules } from './build/swap-modules.ts';
 
 export { OFFICE_SWAPS };
 
-const PUBLIC_FILES = ['./manifest.webmanifest', './icon.svg', './icon-maskable.svg', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
+/** public-office files precached by the office worker (incl. the privacy policy and terms pages) */
+const PUBLIC_FILES = ['./privacy.html', './terms.html', './manifest.webmanifest', './icon.svg', './icon-maskable.svg', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 /** the entry is office.html in the repo root; the deployed folder serves it as index.html */
 function officeIndex(): Plugin {
@@ -28,8 +31,12 @@ function officeIndex(): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
-  if (env.VITE_SUPABASE_URL || env.VITE_SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error('office build must be offline: VITE_SUPABASE_URL / _PUBLISHABLE_KEY must be empty (run with --mode office)');
+  const key = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
+  if (key && !key.startsWith('sb_publishable_')) {
+    throw new Error('office build: VITE_SUPABASE_PUBLISHABLE_KEY must be a publishable key (never a secret / service key)');
+  }
+  if (Boolean(env.VITE_SUPABASE_URL) !== Boolean(key)) {
+    throw new Error('office build: set both VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY for sign-in, or neither');
   }
   return {
     base: './',

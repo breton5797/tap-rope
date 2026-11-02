@@ -33,6 +33,8 @@ interface Refs {
   readonly bossName: HTMLElement;
   readonly bossPhase: HTMLElement;
   readonly bossCells: readonly HTMLElement[];
+  /** office tester runs: a TEST badge beside the hearts (hidden otherwise) */
+  readonly test: HTMLElement;
 }
 
 type Prev = { -readonly [K in keyof HudState]?: HudState[K] };
@@ -70,6 +72,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     bossName: h('span', { cls: 'boss__name' }),
     bossPhase: h('span', { cls: 'boss__phase mono' }),
     bossCells: [0, 1, 2].map(() => h('i', { cls: 'boss__cell' }, [h('b', { cls: 'boss__fill' })])),
+    test: h('span', { cls: 'hud__test mono', text: 'TEST', attrs: { hidden: '' } }),
   };
   refs.boss.append(
     h('div', { cls: 'boss__head' }, [refs.bossCode, refs.bossName, refs.bossPhase]),
@@ -85,7 +88,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     ]),
     // v8 (A2): the SLIDE chip is gone (the runner's pose shows the slide); armor + power-up chips share one row
     h('div', { cls: 'hud__mid' }, [
-      h('div', { cls: 'hud__left' }, [refs.hearts]),
+      h('div', { cls: 'hud__left' }, [refs.hearts, refs.test]),
       h('div', { cls: 'hud__status' }, [refs.shield, refs.slow]),
     ]),
     // labels sit beside the bars, never on the fill
@@ -243,6 +246,7 @@ export function createHud(ctx: Ctx): Hud {
       const reduced = ctx.reducedMotion();
       if (prev.hearts !== s.hearts || prev.maxHearts !== s.maxHearts) renderHearts(refs, s.hearts, s.maxHearts, prev, reduced);
       if (prev.combo !== s.combo) renderCombo(refs, s.combo, prev.combo, reduced);
+      if (prev.tester !== s.tester) refs.test.hidden = s.tester !== true;
       renderValues(refs, s, prev, reduced);
       renderFever(refs, s, prev);
       if (!sameBoss(prev.boss, s.boss ?? null)) renderBoss(refs, s.boss ?? null, prev.boss ?? undefined, reduced);

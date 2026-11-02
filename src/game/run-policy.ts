@@ -2,6 +2,7 @@
  * v8 review fixes — small pure rules app.ts applies around a run:
  * - a challenge link (?endless=<seed>&vs=<score>) seeds ONE endless run, then is spent (and leaves the URL);
  * - ?autoplay=1 bot runs earn nothing: no stars, best score, coins, streak or achievements.
+ * - office tester runs (invincible) record nothing either and say so on the result card.
  */
 import type { GameMode, ResultInfo } from '../types';
 
@@ -29,4 +30,9 @@ export const AUTOPLAY_NOTE = 'AUTOPLAY · 보상 없음';
 /** the result card of a bot run: nothing earned, no record, flagged in the title */
 export function autoplayResult(base: ResultInfo, prevBest: number): ResultInfo {
   return { ...base, best: prevBest, newRecord: false, coinsEarned: 0, title: `${base.title} · ${AUTOPLAY_NOTE}` };
+}
+
+/** the result card of an office tester run: nothing earned or saved, marked "테스트 판 · 기록 안 함" */
+export function testResult(base: ResultInfo, prevBest: number): ResultInfo {
+  return { ...base, best: prevBest, newRecord: false, coinsEarned: 0, testRun: true };
 }

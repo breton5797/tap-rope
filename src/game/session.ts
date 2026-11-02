@@ -64,6 +64,8 @@ export interface Session {
   readonly maxHearts: number;
   /** v2.2: the chosen character's fever gain / coin multiplier (v8: ×1) */
   readonly mods: ScoreMods;
+  /** office tester: hits play as usual but cost no heart, so the run never fails (v8: false) */
+  readonly invincible: boolean;
   readonly hitsTaken: number;
   readonly shield: boolean;
   readonly slowTime: number;
@@ -119,7 +121,7 @@ function snapToBeat(t: number, bpm: number): number {
   return Math.ceil(t / beat - 1e-9) * beat;
 }
 
-export function createSession(mode: GameMode, stage: StageDef | null, opts: { date?: string; seed?: number; skin?: SkinId } = {}): Session {
+export function createSession(mode: GameMode, stage: StageDef | null, opts: { date?: string; seed?: number; skin?: SkinId; invincible?: boolean } = {}): Session {
   const seed = opts.seed ?? 1;
   const def =
     mode === 'stage' && stage ? stage
@@ -134,7 +136,7 @@ export function createSession(mode: GameMode, stage: StageDef | null, opts: { da
   const tempoQueue = doors.map((d): TempoChange => ({ at: d.time, bpm: def.bpm, world: d.to.world, variant: d.to.variant }));
   return {
     mode, stage: def, world, bpm: def.bpm, variant: def.variant, tempoQueue, cfg, beats, cursor: 0, time: 0,
-    player: initialPlayer(), score: initialScore(), hearts: stats.hearts, maxHearts: stats.hearts, mods: { feverGain: stats.feverGain, coinMul: stats.coinMul }, hitsTaken: 0,
+    player: initialPlayer(), score: initialScore(), hearts: stats.hearts, maxHearts: stats.hearts, mods: { feverGain: stats.feverGain, coinMul: stats.coinMul }, invincible: opts.invincible === true, hitsTaken: 0,
     shield: false, slowTime: 0, invulnTime: 0, mood: 'idle', moodTime: 0, status: 'playing',
     hazardTotal: mode === 'endless' ? Infinity : beats.filter(isHazardBeat).length,
     hazardDone: 0, endlessChunk: 0, seed, doors, section: 0, doorCue: 0, alertCue: 0, lag: 0,
@@ -250,7 +252,7 @@ function resolveHit(s: Session, raw: JudgeResult): { s: Session; result: JudgeRe
     const result: JudgeResult = { ...raw, grade: 'good', hit: false };
     return { s: { ...s, shield: false, invulnTime: INVULN_TIME }, result, events: [{ type: 'hit', shielded: true, hearts: s.hearts }] };
   }
-  const hearts = s.hearts - 1;
+  const hearts = s.invincible ? s.hearts : s.hearts - 1;
   const next: Session = {
     ...s, hearts, hitsTaken: s.hitsTaken + 1, invulnTime: INVULN_TIME, mood: 'hurt', moodTime: 0.7,
   };

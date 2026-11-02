@@ -78,6 +78,7 @@ export function runTitle(s: Session): string {
 
 export function toHud(s: Session): HudState {
   return {
+    ...(s.invincible ? { tester: true as const } : {}),
     hearts: s.hearts,
     maxHearts: s.maxHearts,
     score: s.score.score,

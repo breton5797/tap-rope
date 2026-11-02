@@ -37,4 +37,7 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/ui/stages.ts': 'src/office/ui/stages.ts',
   'src/ui/picker.ts': 'src/office/ui/picker.ts',
   'src/ui/hero-card.ts': 'src/office/ui/hero-card.ts',
+  'src/platform/account.ts': 'src/office/platform/account.ts',
+  'src/platform/online.ts': 'src/office/platform/online.ts',
+  'src/ui/login.ts': 'src/office/ui/login.ts',
 };

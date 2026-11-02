@@ -6,6 +6,7 @@ import { COPY, FEATURES } from '../flavor';
 import type { SaveData } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
+import { loginEntry } from './login';
 
 export interface TitleNav {
   readonly toStages: () => void;
@@ -85,6 +86,7 @@ export function buildTitle(ctx: Ctx, save: SaveData, nav: TitleNav, today: strin
     artImage('./art/title.webp', 'art--title'),
     h('div', { cls: 'title__top' }, [
       button({ label: COPY.titleGuide, variant: 'glass', size: 'sm', icon: icons.help(), cls: 'btn--guide', onPress: ctx.tap(nav.toGuide) }),
+      loginEntry(ctx),
       coinChip(save.coins),
     ]),
     h('div', { cls: 'title__hero' }, [logo()]),

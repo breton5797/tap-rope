@@ -34,7 +34,8 @@ import { bindInput } from './input';
 import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
 import { TutorialRun, tutorialStops, type TutorialStep } from './tutorial';
 import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
-import { autoplayResult, takeChallenge, withoutChallenge } from './run-policy';
+import { autoplayResult, takeChallenge, testResult, withoutChallenge } from './run-policy';
+import { accountState, initAccount, onAccountChange, onAccountNotice } from '../platform/account';
 import { commitMissions, missionView, pickupCue, startMissions, trackMissions, type MissionRun } from './missions';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
@@ -201,7 +202,7 @@ export function startApp(): void {
     ui.hideAll();
     ui.showCutscene(c, () => {
       persist(markCutsceneSeen(save, c.id));
-      if (!AUTOPLAY) progress.recheck(); // bot sessions unlock no achievements
+      if (!AUTOPLAY && !session.invincible) progress.recheck(); // bot and tester sessions unlock no achievements
       then();
     });
   };
@@ -255,7 +256,7 @@ export function startApp(): void {
     if (!save.controlsSeen) {
       // first v5 run: teach the split controls before anything moves
       screen = 'controls';
-      session = createSession(mode, stage, { date: todayIso(), seed: 1, skin: save.skin });
+      session = createSession(mode, stage, { date: todayIso(), seed: 1, skin: save.skin, invincible: accountState().tester });
       audio.stopMusic();
       ui.hideAll();
       ui.showControls(() => {
@@ -275,7 +276,8 @@ export function startApp(): void {
     // the run's own stage copy carries its seed, drawn once here (v8: the stage's designed seed; never
     // changed by input). run.stage keeps the original, so a retry draws again.
     // v2.2: the hire's stats (v8 flavour: identical for every operator)
-    session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed, skin: save.skin });
+    // office login spec §1: a tester's run is invincible and records nothing (v8: never a tester)
+    session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed, skin: save.skin, invincible: accountState().tester });
     runLog = createRunLog(mode, seed, date, save.skin);
     missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
     lastStampAt = undefined;
@@ -353,7 +355,10 @@ export function startApp(): void {
     const cleared = session.status === 'cleared';
     if (cleared && run.mode === 'stage' && STORY_BOSSES.has(session.stage.id)) audio.sfx('rescue');
     // office v2: a cleared stage's stars are its mission stamps (v8: none, the judged stars)
-    const outcome = run.mode === 'stage' ? commitMissions(missions, cleared, !AUTOPLAY) : null;
+    // bot runs and tester runs record nothing (no stars, stamps, best, coins, streak or achievements)
+    const testRun = session.invincible;
+    const noRecord = AUTOPLAY || testRun;
+    const outcome = run.mode === 'stage' ? commitMissions(missions, cleared, !noRecord) : null;
     const stars = outcome && cleared ? outcome.stars : sessionStars(session);
     const coinsEarned = session.score.coins + (outcome?.bonus ?? 0);
     const key = run.mode === 'stage' ? session.stage.id : run.mode === 'endless' ? 'endless' : `daily:${run.date}`;
@@ -361,7 +366,7 @@ export function startApp(): void {
     const score = session.score.score;
     const saveBefore = save; // economy pays first-clear / new-star rewards against the save before this run
     // bot runs (?autoplay=1, QA / demo) record nothing: no stars, best, coins, streak or achievements
-    if (!AUTOPLAY) persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, coinsEarned));
+    if (!noRecord) persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, coinsEarned));
     const stageId = run.mode === 'stage' ? session.stage.id : null;
     const next = stageId ? nextStageId(stageId) : null;
     const base: ResultInfo = {
@@ -385,9 +390,9 @@ export function startApp(): void {
     };
     ui.showTutorial(null);
     // bot runs (?autoplay=1, QA/demo) are never submitted to the leaderboard
-    const record = AUTOPLAY ? null : runLog.record(session);
+    const record = noRecord ? null : runLog.record(session);
     const summary = outcome ? { ...runLog.summary(session, stageId), stamps: outcome.stamps.map((v) => v === true), grade: outcome.grade } : runLog.summary(session, stageId);
-    const info = AUTOPLAY ? autoplayResult(base, prevBest) : progress.afterRun(summary, record, base, saveBefore);
+    const info = testRun ? testResult(base, prevBest) : AUTOPLAY ? autoplayResult(base, prevBest) : progress.afterRun(summary, record, base, saveBefore);
     // the "vs" duel belongs to the challenge run's result only
     if (challengeRun) {
       challengeRun = false;
@@ -657,6 +662,12 @@ export function startApp(): void {
   applySettings(save.settings);
   registerServiceWorker();
   bootArt(renderer, ui, () => ui.showTitle(save));
+  // office login: restore a stored session; the floor map follows the tester flag (v8: no accounts)
+  onAccountNotice((message) => ui.toast(message)); // a failed sign-in (office), before the boot check runs
+  initAccount();
+  onAccountChange(() => {
+    if (screen === 'menu' && document.querySelector('.layer--screen')?.getAttribute('data-screen') === 'stages') ui.showStageSelect(save);
+  });
   if (FEATURES.online) void online.init(); // never throws; flushes runs queued while offline
 
   let last = performance.now();

@@ -3,7 +3,7 @@
 // both service workers). supabase.co is blocked and every attempt is counted (must be 0 for the office).
 //
 // Usage (from the worktree, after `npm run build && npm run build:office`):
-//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes] [DIST]
+//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes|login] [DIST]
 // `playwright` is not a repo dependency and ESM ignores NODE_PATH: install it next to the repo first
 // (`npm i --no-save playwright && npx playwright install chromium`).
 // DIST defaults to <cwd>/dist. Screenshots: $E2E_SHOTS (default <tmp>/office-e2e-shots/). Exit code 1 on any failed check.
@@ -55,6 +55,8 @@ const errors = [];
 const missing = new Set();
 const failures = [];
 let supabaseHits = 0;
+/** supabase.co requests to Supabase Auth (/auth/v1/): the only server the office may talk to (login spec §2) */
+let authHits = 0;
 const check = (ok, what) => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${what}`);
   if (!ok) failures.push(what);
@@ -62,7 +64,11 @@ const check = (ok, what) => {
 
 async function newContext(viewport = PHONE) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2, hasTouch: true, serviceWorkers: 'allow' });
-  await ctx.route(/supabase\.co/, (r) => { supabaseHits += 1; return r.abort(); });
+  await ctx.route(/supabase\.co/, (r) => {
+    supabaseHits += 1;
+    if (new URL(r.request().url()).pathname.startsWith('/auth/v1/')) authHits += 1;
+    return r.abort();
+  });
   // quiet runs: sound off from the first frame of a fresh save is not possible, so mute WebAudio instead
   await ctx.addInitScript(() => { window.AudioContext = undefined; window.webkitAudioContext = undefined; });
   // v2 missions: record every mission card / stamp that appears, and every chip change, with its time
@@ -427,6 +433,126 @@ if (['all', 'heroes'].includes(which)) {
   }
 }
 
+// ---------- 9. optional login + tester mode: guests untouched; a fake stored session as tester / member ----------
+const SB_KEY = 'sb-bmstuotifpmaspszrgyi-auth-token';
+/** a stored supabase-js session (valid for an hour, so nothing is refreshed); app_metadata decides tester */
+const fakeSession = (email, tester) => {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const user = {
+    id: '00000000-0000-4000-8000-000000000001', aud: 'authenticated', role: 'authenticated', email,
+    app_metadata: { provider: 'google', providers: ['google'], ...(tester ? { office_tester: true } : {}) },
+    user_metadata: {}, created_at: '2026-11-02T00:00:00Z',
+  };
+  const access = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: user.id, email, exp, role: 'authenticated', app_metadata: user.app_metadata })}.c2ln`;
+  return JSON.stringify({ access_token: access, token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'fake-refresh', user });
+};
+const lockedDiscs = (page) => page.locator('.node__disc.is-locked').count();
+if (['all', 'login'].includes(which)) {
+  // guest: the 로그인 sheet, no supabase request at all, normal unlocks
+  {
+    const before = supabaseHits;
+    const ctx = await newContext();
+    const page = await newPage(ctx);
+    await page.addInitScript((save) => localStorage.setItem('officeescape.save.v2', save), officeSave({ skin: 'kid' }));
+    await page.goto(OFFICE);
+    await waitTitle(page);
+    await click(page.getByRole('button', { name: '로그인' }));
+    const sheet = page.locator('.login-sheet');
+    await sheet.waitFor({ timeout: 5000 });
+    await page.waitForTimeout(700); // past the pop-in
+    const labels = await sheet.locator('button').allInnerTexts();
+    check(labels.join('|') === 'Google로 계속하기|Apple로 계속하기|닫기' && /이메일은 로그인 확인에만 사용해요/.test(await sheet.innerText()), `guest: login sheet (${labels.join(' / ')}) + privacy line`);
+    await shot(page, 'l0-login-sheet');
+    await click(sheet.getByRole('button', { name: '닫기' }));
+    check((await sheet.count()) === 0, 'guest: the sheet closes');
+    await click(page.getByRole('button', { name: /퇴근 시작/ }));
+    await waitScreen(page, 'stages');
+    check((await lockedDiscs(page)) === 4, `guest: stages 2–5 locked on a fresh save (${await lockedDiscs(page)})`);
+    check(supabaseHits === before, `guest: no supabase request (${supabaseHits - before})`);
+    // privacy policy + terms (Google OAuth publishing): served, precached by the office worker, linked
+    for (const pg of ['privacy.html', 'terms.html']) {
+      const res = await page.request.get(`${OFFICE}${pg}`);
+      check(res.status() === 200 && /칼퇴근 대작전/.test(await res.text()), `${pg} serves 200`);
+    }
+    const cached = await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+      const keys = await caches.keys();
+      const c = await caches.open(keys.find((k) => k.startsWith('office-escape-')));
+      return Promise.all(['privacy.html', 'terms.html'].map(async (p) => Boolean(await c.match(new URL(p, location.href).href))));
+    });
+    check(cached.every(Boolean), `privacy.html / terms.html precached by the office worker (${cached.join(',')})`);
+    await page.goto(OFFICE);
+    await waitTitle(page);
+    await click(page.getByRole('button', { name: '설정' }));
+    const legal = await page.locator('.screen--settings .legal a').evaluateAll((els) => els.map((a) => a.getAttribute('href')));
+    check(legal.join(',') === './privacy.html,./terms.html', `settings links the privacy policy and terms (${legal.join(', ')})`);
+    // a failed OAuth return: one friendly notice, a clean URL, still no supabase request
+    for (const back of ['?error=access_denied&error_description=denied', '?from=apple#error=server_error&error_description=x']) {
+      await page.goto(`${OFFICE}${back}`);
+      const toast = await page.getByText('로그인에 실패했어요. 다시 시도해 주세요.').first().waitFor({ timeout: 8000 }).then(() => true, () => false);
+      const url = page.url();
+      check(toast && !/error/.test(url), `OAuth error return ${back.slice(0, 7)}…: toast shown, URL cleaned (${url.replace(OFFICE, './')})`);
+    }
+    check(supabaseHits === before, `guest + failed returns: still no supabase request (${supabaseHits - before})`);
+    await ctx.close();
+  }
+  for (const [role, email, tester] of [['tester', 'tester@example.com', true], ['member', 'member@example.com', false]]) {
+    const ctx = await newContext();
+    const page = await newPage(ctx);
+    await page.addInitScript(([k, v, save]) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(k, v);
+        localStorage.setItem('officeescape.save.v2', save);
+        sessionStorage.setItem('seeded', '1');
+      }
+    }, [SB_KEY, fakeSession(email, tester), officeSave({ skin: 'kid', seenCutscenes: ['op-start', 'boss-1'] })]);
+    await page.goto(OFFICE);
+    await waitTitle(page);
+    const chip = page.locator('.login__chip');
+    await chip.waitFor({ timeout: 10000 });
+    const label = await chip.getAttribute('aria-label');
+    check((await chip.innerText()).trim() === `${email.slice(0, 2)}***` && label === `로그인됨 ${email.slice(0, 2)}***@example.com` && !(await page.locator('#ui').innerText()).includes(email),
+      `${role}: masked email chip (${await chip.innerText()} · ${label}) + 로그아웃`);
+    await shot(page, `l1-${role}-title`);
+    await click(page.getByRole('button', { name: /퇴근 시작/ }));
+    await waitScreen(page, 'stages');
+    await page.waitForTimeout(500);
+    const locked = await lockedDiscs(page);
+    check(locked === (tester ? 0 : 4), `${role}: ${tester ? 'every stage open' : 'normal unlocks'} on the map (${locked} locked)`);
+    if (tester) await shot(page, 'l2-tester-map');
+    // stage 1 with no input at all: a tester survives every hit, anyone else runs out of hearts
+    await click(page.getByRole('button', { name: /^퇴근길 1단계 / }));
+    await skipCutscenes(page, 3000);
+    await page.locator('.hud').waitFor({ timeout: 15000 });
+    const badge = await page.locator('.hud__test').isVisible().catch(() => false);
+    check(badge === tester, `${role}: TEST badge ${badge ? 'shown' : 'hidden'}`);
+    let minHearts = 99;
+    const poll = setInterval(async () => {
+      const n = await page.locator('[aria-label^="방탄 "] .heart:not(.is-empty)').count().catch(() => minHearts);
+      if (n > 0 || minHearts === 99) minHearts = Math.min(minHearts, n);
+    }, 250);
+    await page.waitForTimeout(8000);
+    if (tester) await shot(page, 'l3-tester-run');
+    await page.getByText(RESULT).first().waitFor({ timeout: 240000 });
+    clearInterval(poll);
+    await page.waitForTimeout(1200);
+    const ui = await page.locator('#ui').innerText();
+    if (tester) {
+      check(/퇴근 성공/.test(ui) && minHearts === 3, `tester: no input, never lost a heart (min ${minHearts}/3), stage cleared`);
+      check(/테스트 판 · 기록 안 함/.test(ui), 'tester: result marked 테스트 판 · 기록 안 함');
+      await shot(page, 'l4-tester-result');
+      const save = await readSave(page, OFFICE_KEY);
+      check(Object.keys(save?.stars ?? {}).length === 0 && Object.keys(save?.bestScores ?? {}).length === 0 && (save?.coins ?? 0) === 0,
+        `tester: nothing saved (stars ${JSON.stringify(save?.stars)}, best ${JSON.stringify(save?.bestScores)}, coins ${save?.coins})`);
+    } else {
+      check(/야근 확정/.test(ui), 'member: no input fails the stage as usual (not invincible)');
+    }
+    await ctx.close();
+  }
+  check(supabaseHits === authHits, `login: supabase requests only to /auth/v1/ (${authHits} auth of ${supabaseHits})`);
+}
+
 // ---------- 7. office v2.1 audio: sampled sfx on actions / pickups / stamps, gesture-gated loading, synth fallback ----------
 const SFX = ['jump1', 'jump2', 'jump3', 'land', 'slide', 'lane', 'pick-coin', 'pick-shield', 'pick-slow', 'pick-heart', 'pick-item',
   'pick-item-done', 'perfect', 'stamp', 'mission-ok', 'mission-miss'];
@@ -541,7 +667,7 @@ if (['all', 'audio'].includes(which)) {
 
 console.log('bot stamps (earned/total):', JSON.stringify(botStamps));
 check(missing.size === 0, `every requested file ships (${missing.size} missing${missing.size ? `: ${[...missing].sort().join(', ')}` : ''})`);
-check(supabaseHits === 0, `no requests to supabase.co (${supabaseHits})`);
+check(supabaseHits === authHits, `no supabase.co requests outside Supabase Auth (${supabaseHits - authHits}; auth ${authHits})`);
 console.log('errors:', errors.length ? errors : 'none');
 if (errors.length) failures.push('page errors');
 await browser.close();
