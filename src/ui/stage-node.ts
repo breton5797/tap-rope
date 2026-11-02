@@ -132,8 +132,9 @@ function stageDisc(ctx: Ctx, stage: StageDef, unlocked: boolean, isNext: boolean
   return disc;
 }
 
-export function stageNode(ctx: Ctx, save: SaveData, stage: StageDef, isNext: boolean, fresh: ReadonlySet<MoveId>): HTMLElement {
-  const unlocked = isStageUnlocked(save, STAGES.indexOf(stage));
+/** openAll (office tester): every stage selectable regardless of progress */
+export function stageNode(ctx: Ctx, save: SaveData, stage: StageDef, isNext: boolean, fresh: ReadonlySet<MoveId>, openAll = false): HTMLElement {
+  const unlocked = openAll || isStageUnlocked(save, STAGES.indexOf(stage));
   const best = save.bestScores[stage.id] ?? 0;
   const kind = stage.kind ?? 'normal';
   const kindLabel = KIND_LABEL[kind];

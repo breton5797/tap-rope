@@ -197,6 +197,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     ]),
     resultHero(r.skin),
     h('div', { cls: 'report__status mono', text: head.status }),
+    r.testRun && COPY.resultTestRun ? h('div', { cls: 'report__test mono', text: COPY.resultTestRun }) : null,
     h('h2', { cls: 'report__title', text: head.title }),
     story ? h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]) : null,
     missionResult(r),

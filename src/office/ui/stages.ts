@@ -9,6 +9,7 @@ import { h, header, type Ctx } from '../../ui/dom';
 import { icons } from '../../ui/icons';
 import { firstIntroductions, stageNode } from '../../ui/stage-node';
 import { stampDots } from '../../ui/mission';
+import { accountState } from '../../platform/account';
 
 export { chapterSkin } from '../../ui/stages';
 
@@ -27,9 +28,11 @@ const starsOf = (save: SaveData): number => STAGES.reduce((n, s) => n + (save.st
 
 export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): HTMLElement {
   const fresh = firstIntroductions();
+  // login spec §1: a tester picks any floor
+  const openAll = accountState().tester;
   const next = STAGES.find((s, i) => isStageUnlocked(save, i) && (save.stars[s.id] ?? 0) === 0);
   const nodes = STAGES.map((s, i) => {
-    const el = stageNode(ctx, save, s, s === next, fresh.get(s.id) ?? new Set());
+    const el = stageNode(ctx, save, s, s === next, fresh.get(s.id) ?? new Set(), openAll);
     const [x, y] = FLOORS[i] ?? [50, 50];
     el.style.left = `${x}%`;
     el.style.top = `calc(${y}% - ${DISC_CENTER}px)`;

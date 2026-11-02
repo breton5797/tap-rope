@@ -1058,3 +1058,94 @@ body {
 .stamp-dot.is-ok {
   background: #3fbf8f;
 }
+
+/* ---------- optional login (title) + tester mode ---------- */
+.title__top .login {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.login__chip {
+  max-width: 6.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+}
+
+/* the sheet is mounted on #ui: pin it over the whole viewport */
+.login-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: auto; /* #ui and its layers never catch taps; the sheet opts in like a screen */
+  display: flex;
+  padding: 16px;
+}
+
+.login-sheet__card {
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+
+.login-sheet__providers {
+  display: grid;
+  gap: 8px;
+}
+
+.login-sheet__providers .btn {
+  width: 100%;
+}
+
+.login-sheet__apple {
+  --bg: #111;
+  --tc: #fff;
+}
+
+.login-sheet__status:empty {
+  display: none;
+}
+
+.login-sheet__status {
+  margin: 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.login-sheet__privacy {
+  margin: 0;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+
+.login-sheet__close {
+  justify-self: center;
+}
+
+.hud__test:not([hidden]) {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  background: var(--red);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.report__test {
+  justify-self: center;
+  margin: 2px 0;
+  padding: 2px 10px;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--red-dim);
+  border-radius: 999px;
+}

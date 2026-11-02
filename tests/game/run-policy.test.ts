@@ -31,3 +31,14 @@ describe('autoplayResult', () => {
     expect(r.title).toContain(AUTOPLAY_NOTE);
   });
 });
+
+describe('tester runs (office login spec §1)', () => {
+  it('earn nothing, keep the previous best and are marked as test runs', async () => {
+    const { testResult } = await import('../../src/game/run-policy');
+    const base = {
+      mode: 'stage', stageId: 'w1-s10', title: 'T', cleared: true, stars: 3, score: 900, best: 900, newRecord: true,
+      perfects: 1, goods: 0, misses: 0, maxCombo: 1, coinsEarned: 40, hasNext: true,
+    } as const;
+    expect(testResult(base, 500)).toEqual({ ...base, best: 500, newRecord: false, coinsEarned: 0, testRun: true });
+  });
+});

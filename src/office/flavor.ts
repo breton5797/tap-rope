@@ -85,6 +85,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   resultRank: '직급 평가',
   resultNewRecord: '최고 기록!',
   resultEarlier: '이전 퇴근 기록으로 받은 보상',
+  resultTestRun: '테스트 판 · 기록 안 함',
   cutSkip: '건너뛰기 ▸▸',
   // character room + first-run picker
   shopKicker: '오늘의 칼퇴 사원',
