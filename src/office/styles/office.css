@@ -590,9 +590,14 @@ body {
   position: absolute;
   top: 6px;
   right: 8px;
-  width: 56px;
-  height: 72px;
+  width: 48px;
+  height: 62px;
   pointer-events: none;
+}
+
+/* keep the blurb clear of the runner */
+.picker__pick.is-selected .hero-card__blurb {
+  padding-right: 44px;
 }
 
 .picker__confirm {
