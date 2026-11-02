@@ -125,7 +125,8 @@ const NEW_MOVES: readonly (readonly MoveId[])[] = [
   [],
   [],
 ];
-/** difficulty per stage; 6–10 are monotone placeholders the balance pass tunes (part 2 spec §4) */
+/** difficulty per stage (tempo, jump levels, move mix); the part-2 balance pass kept these — hazard counts were the
+ * lever that moved the bots' clear rates (docs/balance/after.md) */
 const D: readonly number[] = [0.15, 0.3, 0.45, 0.58, 0.7, 0.73, 0.76, 0.79, 0.82, 0.85];
 
 export const STAGES: readonly StageDef[] = CHAPTERS.map((c, i) => {

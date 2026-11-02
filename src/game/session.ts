@@ -207,10 +207,14 @@ function applyTempo(s: Session): Session {
   const due = s.tempoQueue.filter((c) => c.at <= s.time);
   if (due.length === 0) return s;
   const latest = due[due.length - 1];
+  const section = s.doors.filter((d) => d.time <= s.time).length;
+  // office part 2: a door may restore hearts (door.heal); v8 / endless doors carry none
+  const heal = s.doors.slice(s.section, section).reduce((n, d) => n + (d.heal ?? 0), 0);
   return {
     ...s, bpm: latest.bpm, world: latest.world, variant: latest.variant,
     tempoQueue: s.tempoQueue.filter((c) => c.at > s.time),
-    section: s.doors.filter((d) => d.time <= s.time).length,
+    section,
+    hearts: heal > 0 ? Math.min(s.maxHearts, s.hearts + heal) : s.hearts,
   };
 }
 

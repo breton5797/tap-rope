@@ -113,6 +113,8 @@ export interface Door {
   readonly transition: TransitionKind;
   readonly from: Scene;
   readonly to: Scene;
+  /** office part-2 balance: hearts restored (up to the character's max) when the door is passed; absent = 0 */
+  readonly heal?: number;
 }
 
 export interface PlayerState {
