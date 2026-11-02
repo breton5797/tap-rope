@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { CUTSCENE_IMAGES, CUTSCENES, FAIL_IMAGE, HERO, cutsceneAfter, cutsceneBefore } from '../../src/office/core/cutscenes';
 import { stageById } from '../../src/core/content';
-import { defaultSave, markCutsceneSeen } from '../../src/core/storage';
+import { defaultSave, markCutsceneSeen, parseSave } from '../../src/core/storage';
 import type { CutsceneId, StageDef } from '../../src/types';
 
 const stage = (n: number) => stageById(`w${n}-s10`) as StageDef;
@@ -15,10 +15,10 @@ describe('office CUTSCENES', () => {
   it('has the opening, ten superior cutscenes, the part-2 bridge and the ending in story order', () => {
     expect(CUTSCENES.map((c) => c.id)).toEqual([
       'op-start', 'boss-1', 'boss-2', 'boss-3', 'boss-4', 'boss-5', 'rescue',
-      'boss-6', 'boss-7', 'boss-8', 'boss-9', 'boss-10', 'escape-end',
+      'boss-6', 'boss-7', 'boss-8', 'boss-9', 'boss-10', 'home-end',
     ]);
     expect(CUTSCENES.find((c) => c.id === 'op-start')?.shots).toHaveLength(2);
-    expect(CUTSCENES.find((c) => c.id === 'escape-end')?.shots).toHaveLength(2);
+    expect(CUTSCENES.find((c) => c.id === 'home-end')?.shots).toHaveLength(2);
   });
 
   it('uses exactly the spec images', () => {
@@ -62,7 +62,8 @@ describe('office CUTSCENES', () => {
   });
 
   it('ends on the "내일 출근 09:00" twist after the 18:30 front door', () => {
-    const end = CUTSCENES.find((c) => c.id === 'escape-end');
+    const end = CUTSCENES.find((c) => c.id === 'home-end');
+    expect(end?.shots.map((s) => s.image)).toEqual(['./art/cut/end-3.webp', './art/cut/end-2.webp']);
     expect(end?.shots[0].caption).toContain('18:30');
     expect(end?.shots[0].caption).toContain('현관문');
     expect(end?.shots[end.shots.length - 1].caption).toContain('내일 출근 09:00');
@@ -90,9 +91,11 @@ describe('cutsceneBefore / cutsceneAfter', () => {
     expect(cutsceneBefore(stage(1), save0)?.id).toBe('op-start');
     expect(cutsceneBefore(stage(1), seen('op-start'))?.id).toBe('boss-1');
     expect(cutsceneBefore(stage(1), seen('op-start', 'boss-1'))).toBeNull();
-    expect([2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => cutsceneBefore(stage(n), save0)?.id)).toEqual([
+    // stage 6 leads with the part-2 bridge when it was never seen (see the save-compat case below)
+    expect([2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => cutsceneBefore(stage(n), seen('rescue'))?.id)).toEqual([
       'boss-2', 'boss-3', 'boss-4', 'boss-5', 'boss-6', 'boss-7', 'boss-8', 'boss-9', 'boss-10',
     ]);
+    expect(cutsceneBefore(stage(6), save0)?.id).toBe('rescue');
     expect(cutsceneBefore(stage(3), seen('boss-3'))).toBeNull();
     expect(cutsceneBefore({ ...stage(1), id: 'w1-s1', kind: 'normal' }, save0)).toBeNull();
   });
@@ -101,10 +104,35 @@ describe('cutsceneBefore / cutsceneAfter', () => {
     expect(cutsceneAfter('w5-s10', true, save0)?.id).toBe('rescue');
     expect(cutsceneAfter('w5-s10', false, save0)).toBeNull();
     expect(cutsceneAfter('w5-s10', true, seen('rescue'))).toBeNull();
-    expect(cutsceneAfter('w10-s10', true, save0)?.id).toBe('escape-end');
+    expect(cutsceneAfter('w10-s10', true, save0)?.id).toBe('home-end');
     expect(cutsceneAfter('w10-s10', false, save0)).toBeNull();
-    expect(cutsceneAfter('w10-s10', true, seen('escape-end'))).toBeNull();
+    expect(cutsceneAfter('w10-s10', true, seen('home-end'))).toBeNull();
     for (const n of [1, 2, 3, 4, 6, 7, 8, 9]) expect(cutsceneAfter(`w${n}-s10`, true, save0)).toBeNull();
+  });
+
+  it('save compat: a v2 save that saw the old 18:00 escape-end still gets the 18:30 home-end', () => {
+    expect(CUTSCENES.map((c) => c.id)).not.toContain('escape-end');
+    // the stored id is unknown to the office build: parsing the save drops it
+    const old = parseSave({ ...save0, seenCutscenes: ['op-start', 'boss-1', 'escape-end'] });
+    expect(old.seenCutscenes).toEqual(['op-start', 'boss-1']);
+    expect(cutsceneAfter('w10-s10', true, old)?.id).toBe('home-end');
+    // archivist stays reachable: marking every listed cutscene seen covers CUTSCENES exactly
+    const all = seen(...CUTSCENES.map((c) => c.id));
+    expect(all.seenCutscenes).toEqual(CUTSCENES.map((c) => c.id));
+  });
+
+  it('save compat: whoever cleared stage 5 before part 2 gets the rescue bridge before stage 6, once', () => {
+    const before = seen('op-start', 'boss-1', 'boss-2', 'boss-3', 'boss-4', 'boss-5');
+    expect(cutsceneBefore(stage(6), before)?.id).toBe('rescue');
+    // app.ts replays cutsceneBefore after marking it seen: then 강차장
+    expect(cutsceneBefore(stage(6), seen('rescue'))?.id).toBe('boss-6');
+    expect(cutsceneBefore(stage(6), seen('rescue', 'boss-6'))).toBeNull();
+    // a new player saw it after the first stage-5 clear: no second play
+    const fresh = seen('op-start', 'boss-1', 'boss-2', 'boss-3', 'boss-4', 'boss-5');
+    expect(cutsceneAfter('w5-s10', true, fresh)?.id).toBe('rescue');
+    expect(cutsceneBefore(stage(6), markCutsceneSeen(fresh, 'rescue'))?.id).toBe('boss-6');
+    // only stage 6 carries the bridge
+    for (const n of [7, 8, 9, 10]) expect(cutsceneBefore(stage(n), before)?.id).toBe(`boss-${n}`);
   });
 
   it('hero lines are spoken by the chosen character (archive replays say 나)', () => {

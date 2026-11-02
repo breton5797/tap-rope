@@ -335,6 +335,8 @@ export interface BossView {
 
 export type CutsceneId =
   | 'op-start' | 'rescue' | 'escape-end'
+  // office part 2: the 18:30 ending (a new id, so v2 saves that saw the old 18:00 escape-end still get it)
+  | 'home-end'
   | 'boss-1' | 'boss-2' | 'boss-3' | 'boss-4' | 'boss-5'
   | 'boss-6' | 'boss-7' | 'boss-8' | 'boss-9' | 'boss-10';
 

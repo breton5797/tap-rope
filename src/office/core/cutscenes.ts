@@ -2,8 +2,11 @@
  * Office story (office spec §4; part 2 spec §1) — the office build's src/core/cutscenes.ts (build/office-swaps.ts).
  * - op-start then boss-1 before stage 1 (app.ts replays cutsceneBefore after each one is marked seen),
  *   boss-N before stage N (stages 5 / 10: one shot per section superior), rescue after the first clear of
- *   stage 5 (the 18:00 칼퇴, then the 단톡방 알림 that starts part 2 — v8's id, office story) and escape-end
+ *   stage 5 (the 18:00 칼퇴, then the 단톡방 알림 that starts part 2 — v8's id, office story) and home-end
  *   after the first clear of stage 10 (18:30, the front door).
+ * - Save compat (v2 saves from the 5-stage build): the old ending was 'escape-end'; the office build no longer
+ *   lists it, so parseSave drops it from the seen list and home-end still plays. A save that cleared stage 5
+ *   before part 2 existed never saw rescue: it plays before stage 6 instead (then boss-6), once.
  * - Hero lines use the speaker HERO ("나"); cutsceneBefore/After swap in the chosen character's name
  *   (save.skin: kid = 칼퇴준, cat = 정시원). The archive replays CUTSCENES as is.
  * - Images: public-office/art/cut/<name>.webp (CUTSCENE_IMAGES, incl. the fail stamp image).
@@ -88,8 +91,8 @@ const RESCUE: Cutscene = {
   ],
 };
 
-const ESCAPE_END: Cutscene = {
-  id: 'escape-end', title: '18:30 귀가 성공!',
+const HOME_END: Cutscene = {
+  id: 'home-end', title: '18:30 귀가 성공!',
   shots: [
     shot('end-3', HERO, '18:30 현관문 도어락 띠리릭. 집에 왔다!', 3.5, frame(1, 0.5, 0.5), frame(1.15, 0.5, 0.45)),
     shot('end-2', HERO, '소파에 털썩, 만세! …그런데 내일 출근 09:00', 4, frame(1.2, 0.5, 0.6), frame(1, 0.5, 0.5)),
@@ -98,7 +101,7 @@ const ESCAPE_END: Cutscene = {
 
 /** story order: opening, superiors 1–5, the part-2 bridge, superiors 6–10, ending */
 export const CUTSCENES: readonly Cutscene[] = [
-  OP_START, ...[1, 2, 3, 4].map(bossCutscene), BOSS_5, RESCUE, ...[6, 7, 8, 9].map(bossCutscene), BOSS_10, ESCAPE_END,
+  OP_START, ...[1, 2, 3, 4].map(bossCutscene), BOSS_5, RESCUE, ...[6, 7, 8, 9].map(bossCutscene), BOSS_10, HOME_END,
 ];
 
 /** every image the story uses (public-office/art/cut/<name>.webp), incl. the fail stamp */
@@ -124,13 +127,14 @@ const unseen = (id: CutsceneId, save: Seen): Cutscene | null => {
 export function cutsceneBefore(stage: Pick<StageDef, 'id' | 'kind' | 'chapter'>, save: Seen): Cutscene | null {
   const boss = bossFor(stage);
   if (!boss) return null;
-  const opening = boss.chapter === 0 ? unseen('op-start', save) : null;
-  return opening ?? unseen(`boss-${boss.chapter + 1}` as CutsceneId, save);
+  // stage 1: the opening first; stage 6: the part-2 bridge for saves that cleared stage 5 before it existed
+  const lead = boss.chapter === 0 ? unseen('op-start', save) : boss.chapter === 5 ? unseen('rescue', save) : null;
+  return lead ?? unseen(`boss-${boss.chapter + 1}` as CutsceneId, save);
 }
 
-/** the cutscene to play after a run of `stageId` (first clear of stage 5: rescue, of stage 10: escape-end), else null */
+/** the cutscene to play after a run of `stageId` (first clear of stage 5: rescue, of stage 10: home-end), else null */
 export function cutsceneAfter(stageId: string | null, cleared: boolean, save: Seen): Cutscene | null {
   if (!cleared) return null;
   if (stageId === 'w5-s10') return unseen('rescue', save);
-  return stageId === 'w10-s10' ? unseen('escape-end', save) : null;
+  return stageId === 'w10-s10' ? unseen('home-end', save) : null;
 }
