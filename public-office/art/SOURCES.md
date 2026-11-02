@@ -297,3 +297,4 @@ Processing (`vkey.py`, `vnorm.py` in the job tmp dir): 24 fps frames; mint backg
 `hero-{bunny,robot}-slide.webp` = copy of the new `slide4`.
 
 - Slides redone (3rd clip each, same Seedance 2.0 Mini settings), action: runs two steps then drops into a fast low baseball slide / sliding tackle toward the RIGHT: body leaning far BACK, the front leg extended straight FORWARD to the right along the floor, the other leg bent under, one hand trailing on the floor behind, dust kicking up, sliding forward with momentum and staying low in that slide pose. Dynamic motion, hair and clothes blown back. Not sitting still, not crawling. — `hero-robot-slide1..4` frames 41,45,57,73; `hero-bunny-slide1..4` frames 57,61,69,85 (with dust, kept as part of the sprite); `hero-{bunny,robot}-slide.webp` = new slide4.
+- Slide dust removed (dedust.py: low-saturation / mint pixels > 10 px from any outline dropped, main body kept, 0.7 px feather); renderer draws its own slide streaks.
