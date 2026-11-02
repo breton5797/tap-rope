@@ -581,6 +581,20 @@ body {
   to { transform: none; opacity: 1; }
 }
 
+/* the selected hire runs in place beside its name (run-preview.ts) */
+.picker__pick.hero-card {
+  position: relative;
+}
+
+.picker__run {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 56px;
+  height: 72px;
+  pointer-events: none;
+}
+
 .picker__confirm {
   width: 100%;
   margin-top: 14px;

@@ -47,6 +47,9 @@ describe('office picker', () => {
     expect(cards[3].classList.contains('is-selected')).toBe(true);
     expect(cards[0].classList.contains('is-selected')).toBe(false);
     expect(cards[3].getAttribute('aria-pressed')).toBe('true');
+    // the run preview canvas follows the selection
+    expect(cards[3].querySelectorAll('canvas.picker__run')).toHaveLength(1);
+    expect(el.querySelectorAll('canvas.picker__run')).toHaveLength(1);
     const confirm = el.querySelector<HTMLButtonElement>('.picker__confirm');
     expect(confirm?.textContent).toContain('유행운');
     confirm?.click();

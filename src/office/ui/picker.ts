@@ -1,7 +1,7 @@
 // Office character picker (v2.2 spec §3), swapped in for src/ui/picker.ts: four hire cards (key art, name, type
 // tag, blurb, five star bars, catchphrase). A tap selects (the card grows and its catchphrase pops as a speech
 // bubble, the `perfect` sound plays); the confirm button hires the selected one (`mission-ok`). Starts on the
-// saved hire.
+// saved hire. The selected card also plays the hero's run cycle (run-preview.ts).
 import { SKINS } from '../../core/content';
 import { COPY } from '../../flavor';
 import type { SaveData, SkinId } from '../../types';
@@ -9,6 +9,7 @@ import { button, h, type Ctx } from '../../ui/dom';
 import { portrait } from '../../ui/shop';
 import { characterFor } from '../core/characters';
 import { heroDetails } from './hero-card';
+import { createRunPreview } from './run-preview';
 
 const confirmLabel = (id: SkinId): string => `${characterFor(id).name}(으)로 출근!`;
 
@@ -20,6 +21,7 @@ export function buildPicker(ctx: Ctx, save: SaveData, onPick: (id: SkinId) => vo
     onPick(chosen);
   }) });
   const confirmText = confirm.querySelector('.btn__label');
+  const preview = createRunPreview({ reduced: () => ctx.reducedMotion() });
   const cards = hires.map((s) => {
     const el = h('button', {
       cls: 'skin card picker__pick hero-card',
@@ -41,7 +43,9 @@ export function buildPicker(ctx: Ctx, save: SaveData, onPick: (id: SkinId) => vo
       const on = c.dataset.hire === id;
       c.classList.toggle('is-selected', on);
       c.setAttribute('aria-pressed', String(on));
+      if (on) c.append(preview.el);
     });
+    preview.show(id);
     if (confirmText) confirmText.textContent = confirmLabel(id);
     confirm.setAttribute('aria-label', confirmLabel(id));
   };
