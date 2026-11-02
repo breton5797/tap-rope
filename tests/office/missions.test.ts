@@ -1,7 +1,7 @@
 // Office v2 missions (spec §3): the per-stage mission script and the pure rules for progress, grade and stars.
 import { describe, expect, it } from 'vitest';
 import {
-  MISSION_BONUS, STAGE_MISSIONS, missionProgress, stageGrade, starsFor, type MissionSpec, type MissionStats,
+  MISSION_BONUS, STAGE_MISSIONS, maxHitsFor, missionProgress, stageGrade, starsFor, type MissionSpec, type MissionStats,
 } from '../../src/office/core/missions';
 import { STAGES } from '../../src/core/content';
 
@@ -71,6 +71,25 @@ describe('missionProgress', () => {
     expect(missionProgress(spec('finale', 8), stats({ hits: 2, finisherClean: true })).complete).toBe(true);
     expect(missionProgress(spec('finale', 8), stats({ hits: 0, finisherClean: false })).complete).toBe(false);
     expect(missionProgress(spec('finale', 8), stats({ hits: 3, finisherClean: true })).complete).toBe(false);
+  });
+});
+
+describe('hit allowance scales with part length (part-2 balance)', () => {
+  it('2 up to 21 hazards, then +1 per 8: 22 → 3, 30 → 4', () => {
+    expect([8, 14, 18, 21, 22, 29, 30, 38].map((n) => maxHitsFor(spec('chase', n)))).toEqual([2, 2, 2, 2, 3, 3, 4, 5]);
+  });
+
+  it('every part-1 chase / finale allows exactly 2', () => {
+    for (const s of STAGES.slice(0, 5)) {
+      for (const m of STAGE_MISSIONS[s.id]) if (m.kind === 'chase' || m.kind === 'finale') expect(maxHitsFor(m), s.id).toBe(2);
+    }
+  });
+
+  it('a long chase / finale holds while hits ≤ its allowance', () => {
+    expect(missionProgress(spec('chase', 30), stats({ hits: 4, hazardsTotal: 30 })).complete).toBe(true);
+    expect(missionProgress(spec('chase', 30), stats({ hits: 5, hazardsTotal: 30 })).complete).toBe(false);
+    expect(missionProgress(spec('finale', 22), stats({ hits: 3, finisherClean: true })).complete).toBe(true);
+    expect(missionProgress(spec('finale', 22), stats({ hits: 4, finisherClean: true })).complete).toBe(false);
   });
 });
 

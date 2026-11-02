@@ -120,6 +120,14 @@ export function missionFor(stageId: string, section: number): MissionSpec | null
 
 const DODGE_SHARE = 0.8;
 const MAX_HITS = 2;
+/** part-2 balance: long chase / finale parts allow one more hit per HITS_STEP hazards past HITS_FROM (part 1: 2) */
+const HITS_FROM = 14;
+const HITS_STEP = 8;
+
+/** hits a chase / finale part allows for its stamp: 2, +1 per 8 hazards beyond 14 (22 → 3, 30 → 4) */
+export function maxHitsFor(spec: MissionSpec): number {
+  return MAX_HITS + Math.max(0, Math.floor((spec.hazards - HITS_FROM) / HITS_STEP));
+}
 
 /** value / target shown on the chip and whether the mission is (so far) complete */
 export function missionProgress(spec: MissionSpec, s: MissionStats): { readonly value: number; readonly target: number; readonly complete: boolean } {
@@ -129,9 +137,9 @@ export function missionProgress(spec: MissionSpec, s: MissionStats): { readonly 
     case 'collect':
       return { value: s.collected, target: spec.target, complete: s.collected >= spec.target };
     case 'chase':
-      return { value: s.dodged, target: s.hazardsTotal, complete: s.hits <= MAX_HITS };
+      return { value: s.dodged, target: s.hazardsTotal, complete: s.hits <= maxHitsFor(spec) };
     case 'finale':
-      return { value: s.dodged, target: s.hazardsTotal, complete: s.finisherClean && s.hits <= MAX_HITS };
+      return { value: s.dodged, target: s.hazardsTotal, complete: s.finisherClean && s.hits <= maxHitsFor(spec) };
   }
 }
 
