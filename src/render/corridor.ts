@@ -407,7 +407,7 @@ export class Corridor {
     return null;
   }
 
-  private readonly rigs: readonly ShaftRig[] = [0, 1, 2, 3].map((t) => ({
+  private readonly rigs: readonly ShaftRig[] = [0, 1, 2, 3, 4, 5, 6].map((t) => ({
     w: TOP_PW, xs: lampsOf(t), s: WALL_S, y: WALL_TOP_Y - 18,
   }));
 

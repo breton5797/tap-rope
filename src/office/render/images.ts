@@ -12,13 +12,16 @@ function seq(name: string, n: number): string[] {
   return Array.from({ length: n }, (_, i) => `${name}${i + 1}`);
 }
 
+/** each superior sprite slot once (a rematch reuses its part-1 slot) */
+const BOSS_SLOTS: readonly string[] = [...new Set(OFFICE_BOSSES.map((b) => b.slot))];
+
 const HERO_FRAMES: readonly HeroFrameId[] = ['run1', 'run2', 'run3', 'run4', 'jump', 'slide', 'hit', 'win'];
 
 /** every sprite the office renderer draws: the four heroes' frames, the props, the superiors */
 export const OFFICE_ART: readonly string[] = [
   ...HERO_SKINS.flatMap((skin) => HERO_FRAMES.map((f) => `hero-${skin}-${f}`)),
   ...OFFICE_PROPS.map((p) => `prop-${p}`),
-  ...OFFICE_BOSSES.map((b) => `boss-${b.slot}`),
+  ...BOSS_SLOTS.map((slot) => `boss-${slot}`),
 ];
 
 /**
@@ -29,7 +32,7 @@ export const OFFICE_EXTRA_ART: readonly string[] = [
   ...HERO_SKINS.flatMap((skin) => [
     ...['run5', 'run6', 'run7', 'run8', ...seq('jump', 8), ...seq('slide', 4), ...seq('hit', 4)].map((f) => `hero-${skin}-${f}`),
   ]),
-  ...OFFICE_BOSSES.flatMap((b) => ['idle2', 'attack', 'tired', ...seq('throw', 6)].map((p) => `boss-${b.slot}-${p}`)),
+  ...BOSS_SLOTS.flatMap((slot) => ['idle2', 'attack', 'tired', ...seq('throw', 6)].map((p) => `boss-${slot}-${p}`)),
   ...['coin', 'shield', 'slow', 'heart'].map((k) => `pickup-${k}`),
   'prop-colleague',
   // the collectibles the stage missions use (collect-cookie exists but no stage uses it)

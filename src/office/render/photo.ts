@@ -6,23 +6,80 @@ import type { Variant } from '../../types';
 import { GROUND_Y } from '../../types';
 import type { Photo } from '../../render/art';
 import { CEIL_Y, FLOOR_BACK, FLOOR_FRONT, laneY } from '../../render/layout';
-import { FLOOR_PW, WALL_PW } from '../../render/photo';
-import { makeCanvas, vGrad, type Ctx } from '../../render/util';
+import { FLOOR_PW, PHOTO_TOP_H, TOP_PW, WALL_PW, lampsOf as v8LampsOf, skyBand as v8SkyBand } from '../../render/photo';
+import { makeCanvas, seeded, vGrad, type Ctx } from '../../render/util';
 
 export * from '../../render/photo';
 
-/** a barely-there warm lift instead of the v8 grade (pastel art stays as painted) */
-export function grade(ctx: Ctx, _variant: Variant, x: number, y: number, w: number, h: number, _dim = 0): void {
+/**
+ * stage 10 is the street (theme 4) after dark with no photos of its own: a dusk multiply of this strength
+ * over the same art, plus a faint warm street-lamp lift so it stays a readable comic night, not a blackout.
+ * Theme 0 at night is its own painted exterior set and takes no extra tint.
+ */
+const NIGHT_DUSK: Readonly<Partial<Record<number, number>>> = { 4: 0.34 };
+
+/** a barely-there warm lift instead of the v8 grade (pastel art stays as painted); `dim` > 0 at night = dusk */
+export function grade(ctx: Ctx, variant: Variant, x: number, y: number, w: number, h: number, dim = 0): void {
   ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  ctx.globalAlpha = 0.04;
-  ctx.fillStyle = '#FFE6C8';
-  ctx.fillRect(x, y, w, h);
+  if (variant === 'night' && dim > 0) {
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = dim;
+    ctx.fillStyle = '#3B3F7A';
+    ctx.fillRect(x, y, w, h);
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.07;
+    ctx.fillStyle = '#FFB36B';
+    ctx.fillRect(x, y, w, h);
+  } else {
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = 0.04;
+    ctx.fillStyle = '#FFE6C8';
+    ctx.fillRect(x, y, w, h);
+  }
   ctx.restore();
 }
 
-export function themeDim(_theme: number): number {
-  return 0;
+/** the dusk strength of a theme's night look (0 = none); the corridor passes it to grade() as `dim` */
+export function themeDim(theme: number): number {
+  return NIGHT_DUSK[theme] ?? 0;
+}
+
+/**
+ * baked light-fixture centres of the part-2 ceilings, in ceiling-tile px: the subway's fluorescent strip is
+ * evenly spaced shafts; the street and the food alley are open-air (awnings / string lights) — no shafts.
+ */
+const PART2_LAMPS: Readonly<Partial<Record<number, readonly number[]>>> = {
+  4: [],
+  5: [128, 384, 640, 896].map((x) => (x / 1024) * TOP_PW),
+  6: [],
+};
+
+export function lampsOf(theme: number): readonly number[] {
+  return PART2_LAMPS[theme] ?? v8LampsOf(theme);
+}
+
+/**
+ * the open sky over an exterior set. Night (stage 6, the gate plaza) is a pastel dusk — indigo fading to the
+ * periwinkle the wall art paints at its top edge — instead of the v8 near-black; dawn keeps the v8 band.
+ */
+export function skyBand(ctx: Ctx, kind: 'night' | 'dawn', feather = 44): void {
+  if (kind !== 'night') {
+    v8SkyBand(ctx, kind, feather);
+    return;
+  }
+  const h = PHOTO_TOP_H;
+  ctx.fillStyle = vGrad(ctx, 0, h, [[0, '#2B3157'], [0.6, '#5F6AAE'], [1, '#9AA8E0']]);
+  ctx.fillRect(0, 0, TOP_PW, h);
+  const rnd = seeded(47);
+  ctx.fillStyle = '#FFF6E0';
+  for (let i = 0; i < 24; i++) {
+    ctx.globalAlpha = 0.35 + rnd() * 0.5;
+    const r = 0.8 + rnd() * 1.2;
+    ctx.fillRect(rnd() * TOP_PW, rnd() * h * 0.5, r, r);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#9AA8E0';
+  ctx.fillRect(0, h, TOP_PW, feather);
 }
 
 /** the wall photo with only a soft contact line where it meets the floor */

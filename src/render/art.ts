@@ -5,9 +5,13 @@
 // swallowed: a file that does not fetch or decode is marked failed and its layer stays procedural;
 // a theme with no usable files is a plain procedural theme.
 import type { Variant, WorldId } from '../types';
+import { DESIGNED_LOOKS } from '../core/content';
 
 const WALL_PHOTOS = ['a', 'b', 'c'] as const;
+/** the four corridor themes every build has: the loading screen waits for these */
 const THEMES: readonly WorldId[] = [0, 1, 2, 3];
+/** themes only some builds draw (office part 2: 4 거리, 5 지하철역, 6 먹자골목) — fetched in the background */
+const LATE_THEMES: readonly WorldId[] = ([4, 5, 6] as const).filter((t) => DESIGNED_LOOKS[t].length > 0);
 /** exterior sets (theme 0 only): rooftop at night, helipad at dawn — open sky, no ceiling photo */
 const EXTERIORS: readonly ('night' | 'dawn')[] = ['night', 'dawn'];
 const VARIANT_INDEX: Readonly<Record<Variant, number>> = { base: 0, alarm: 1, dark: 2, steam: 3, night: 4, dawn: 5 };
@@ -107,11 +111,11 @@ export class ArtStore {
 
   /**
    * Fetch every photo (each fetch times out after FETCH_TIMEOUT_MS). Resolves once the 20 core
-   * files have settled; the optional exterior extras keep loading in the background.
+   * files have settled; the optional exterior extras and late themes keep loading in the background.
    */
   async load(onProgress?: (done: number, total: number) => void): Promise<void> {
     const names = THEMES.flatMap(files);
-    const extras = exteriorFiles();
+    const extras = [...exteriorFiles(), ...LATE_THEMES.flatMap(files)];
     this.started = true;
     for (const n of names) this.inflight.add(n);
     for (const n of extras) this.inflight.add(n);

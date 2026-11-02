@@ -1,9 +1,10 @@
 // Office build stand-in for src/render/boss-rigs.ts (build/office-swaps.ts): every superior is a standing
-// comic figure (public-office/art/boss-<slot>.webp), so all seven slots share one "ground" photo rig at the
+// comic figure (public-office/art/boss-<slot>.webp), so all ten slots share one "ground" photo rig at the
 // back of the corridor — no rotors, searchlights or eye glow; attacks leave from the hand, steam from the head.
 import type { BossAttackKind, BossId, BossView } from '../../types';
 import type { View } from '../../render/view';
 import { BOSS_RIGS, type BossMotion, type BossRig, type Pt } from '../../render/boss-rigs';
+import { OFFICE_BOSSES } from '../core/boss';
 
 export * from '../../render/boss-rigs';
 
@@ -55,7 +56,9 @@ const person: BossRig = {
 /** the pastel figures are drawn as painted (no v8 teal grade) */
 export const BOSS_PHOTO_GRADE: readonly (readonly [number, string])[] | null = null;
 
-const SLOTS: readonly BossId[] = ['warden', 'sewer-eye', 'lab-ai', 'core', 'jailer', 'apc', 'chimera'];
+/** every superior's sprite slot (part 2 adds crane 강차장, sniper 문상무, gunship 회장님); a slot whose sprite is
+ * missing still falls back to its v8 procedural rig (render/boss.ts) */
+const SLOTS: readonly BossId[] = [...new Set(OFFICE_BOSSES.map((b) => b.slot))];
 
 /** v8 contract: rigs for the photo sprites; a slot without an entry keeps its procedural rig */
 export const BOSS_PHOTO_RIGS: Readonly<Partial<Record<BossId, BossRig>>> = Object.fromEntries(SLOTS.map((id) => [id, person]));

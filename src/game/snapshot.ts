@@ -64,7 +64,7 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
 function bossHud(s: Session): HudState['boss'] {
   const meta = s.mode === 'stage' ? bossForSection(s.stage, s.section) : null;
   if (!meta) return null;
-  // the gauge the boss view shows (office stage 5: the current section's superior only)
+  // the gauge the boss view shows (office stages 5 and 10: the current section's superior only)
   const hp = sessionBoss(s)?.hp ?? (s.hazardTotal > 0 ? Math.max(0, 1 - s.hazardDone / s.hazardTotal) : 1);
   return { name: meta.name, codename: meta.codename, hp, phase: s.section };
 }

@@ -281,6 +281,12 @@ body {
   top: calc(var(--safe-t) + 184px);
 }
 
+/* part 2 zone tints (zone--t{theme}-{variant}, the fallback when zone-{n}.webp is missing): the way home */
+.zone--t4-base { --z: #5a7bb0; }
+.zone--t4-night { --z: #2b3157; }
+.zone--t5-base { --z: #4f7a66; }
+.zone--t6-base { --z: #8a4a52; }
+
 /* ---------- briefing card ---------- */
 .brief__card {
   background: var(--panel);
@@ -687,6 +693,94 @@ body {
   inset: 0;
   background: rgba(46, 36, 51, 0.15);
   pointer-events: none;
+}
+
+.floors[hidden] {
+  display: none;
+}
+
+/* part 2 (the way home after dark) */
+.floors--part2 {
+  background: linear-gradient(180deg, #2b3157, #5a4a78 60%, #f2a96b);
+}
+
+/* 1부 / 2부 tabs under the header */
+.floors__tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 6px 16px 10px;
+}
+
+.floors__tab {
+  display: inline-flex;
+  flex: 1 1 0;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  max-width: 220px;
+  min-height: 44px;
+  padding: 0 14px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  background: var(--panel-solid);
+  border: 2.5px solid var(--outline);
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--outline);
+  cursor: pointer;
+}
+
+.floors__tab.is-active {
+  background: var(--amber);
+}
+
+.floors__tab.is-locked {
+  color: var(--ink-soft);
+}
+
+.floors__tab svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 2부 before stage 5 is cleared: the map dimmed under a "coming next" card */
+.floors.is-teaser .floors__img {
+  filter: grayscale(0.7) brightness(0.6);
+}
+
+.floors__teaser {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  width: min(80%, 300px);
+  padding: 16px 18px;
+  color: var(--ink);
+  text-align: center;
+  background: var(--panel-solid);
+  border: 2.5px solid var(--outline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  transform: translate(-50%, -50%);
+}
+
+.floors__teaser svg {
+  width: 26px;
+  height: 26px;
+}
+
+.floors__teaser strong {
+  font-size: 17px;
+}
+
+.floors__teaser span {
+  color: var(--ink-soft);
+  font-size: 13px;
 }
 
 .floors__node {

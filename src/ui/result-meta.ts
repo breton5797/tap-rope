@@ -24,7 +24,7 @@ export function failTip(id: MoveId): HTMLElement {
 /** boss-win banner: the boss art with "거점 제압" (falls back to the gradient when the art is missing) */
 export function bossBanner(r: ResultInfo): HTMLElement | null {
   const stage = STAGES.find((s) => s.id === r.stageId);
-  // the boss of the last section: the one beaten last (v8: the zone boss; office stage 5: 사장님)
+  // the boss of the last section: the one beaten last (v8: the zone boss; office stage 5: 사장님, stage 10: 회장님)
   const boss = stage && r.mode === 'stage' && r.cleared ? bossForSection(stage, stage.sections - 1) : null;
   if (!boss) return null;
   return h('div', { cls: 'report__boss' }, [

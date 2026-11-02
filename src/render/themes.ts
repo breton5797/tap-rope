@@ -1,4 +1,5 @@
-// Corridor themes: 0 security outpost, 1 research lab, 2 prison block, 3 industrial / sewer.
+// Corridor themes: 0 security outpost, 1 research lab, 2 prison block, 3 industrial / sewer; the office build's
+// part 2 adds 4 street / bus stop, 5 subway concourse, 6 food alley (outdoor-ish, warm, pastel-friendly).
 // Each theme's procedural base finish (surface, panels, pipes, trim) is the fallback back wall when
 // its photo art is missing; colours here also drive the ceiling band, floor and service space.
 import { GROUND_Y } from '../types';
@@ -128,6 +129,54 @@ function industrialBase(ctx: Ctx, w: number): void {
   ctx.fillRect(0, GROUND_Y - 18, w, 18);
 }
 
+/** 4 퇴근길 거리: shopfront glass over a brick plinth */
+function streetBase(ctx: Ctx, w: number): void {
+  ctx.fillStyle = vGrad(ctx, WALL_TOP, GROUND_Y, [[0, '#B9C9E6'], [1, '#93A6C8']]);
+  ctx.fillRect(0, WALL_TOP, w, GROUND_Y - WALL_TOP);
+  panels(ctx, 0, w, at(0.18), at(0.72), 120, '#D9E8F5', '#5B6E90', 'rgba(255,255,255,0.55)');
+  ctx.fillStyle = '#B5654E';
+  ctx.fillRect(0, at(0.72), w, GROUND_Y - at(0.72));
+  ctx.fillStyle = 'rgba(60,30,26,0.35)';
+  for (let y = at(0.72) + 10; y < GROUND_Y; y += 10) ctx.fillRect(0, y, w, 1.2);
+}
+
+/** 5 지하철역: white tile wall with a line-colour band */
+function subwayBase(ctx: Ctx, w: number): void {
+  ctx.fillStyle = '#E8ECEF';
+  ctx.fillRect(0, WALL_TOP, w, GROUND_Y - WALL_TOP);
+  ctx.strokeStyle = 'rgba(120,132,145,0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let y = WALL_TOP; y < GROUND_Y; y += 16) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+  }
+  for (let x = 0; x < w; x += 24) {
+    ctx.moveTo(x, WALL_TOP);
+    ctx.lineTo(x, GROUND_Y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#3BAA5C';
+  ctx.fillRect(0, MID - 8, w, 16);
+  ctx.fillStyle = '#9AA4AE';
+  ctx.fillRect(0, GROUND_Y - 22, w, 22);
+}
+
+/** 6 먹자골목: warm wooden shopfronts under paper lanterns */
+function alleyBase(ctx: Ctx, w: number): void {
+  ctx.fillStyle = vGrad(ctx, WALL_TOP, GROUND_Y, [[0, '#5A3A4E'], [1, '#3E2838']]);
+  ctx.fillRect(0, WALL_TOP, w, GROUND_Y - WALL_TOP);
+  panels(ctx, 0, w, at(0.3), GROUND_Y - 18, 96, '#C98A52', '#5A3424', 'rgba(255,230,180,0.25)');
+  for (let x = 30; x < w; x += 96) {
+    ctx.fillStyle = '#FF6B4A';
+    circle(ctx, x, at(0.16), 9);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,214,140,0.5)';
+    circle(ctx, x, at(0.16), 4);
+    ctx.fill();
+  }
+}
+
 export const THEMES: readonly ThemeArt[] = [
   {
     top: [[0, '#0B0F1C'], [1, '#1A2238']], girder: '#26304A', duct: ['#3A4766', '#222A40'], led: '#3DFFB4',
@@ -148,6 +197,21 @@ export const THEMES: readonly ThemeArt[] = [
     top: [[0, '#0A0A0C'], [1, '#22191A']], girder: '#3A2A2A', duct: ['#5A4A40', '#33281F'], led: '#7AF0A0',
     ceil: ['#4C3A36', '#2C2220'], ceilLight: '#C8FFC8', floorTop: ['#4E4A4A', '#353131'], floorFront: ['#1E2A26', '#0A1210'],
     seam: 'rgba(0,0,0,0.5)', floorLine: '#7AF0A0', lamp: 'rgba(160,255,170,0.25)', base: industrialBase,
+  },
+  {
+    top: [[0, '#6E8FC8'], [1, '#A9C1E6']], girder: '#5B6E90', duct: ['#C9D4DD', '#8C99A6'], led: '#FFD36B',
+    ceil: ['#C3D3EC', '#9FB4D6'], ceilLight: '#FFFFFF', floorTop: ['#B8BCC4', '#9CA1AB'], floorFront: ['#7D828C', '#4E525A'],
+    seam: 'rgba(70,74,84,0.45)', floorLine: '#FFFFFF', lamp: 'rgba(255,230,170,0.3)', base: streetBase,
+  },
+  {
+    top: [[0, '#2A2F36'], [1, '#4A525C']], girder: '#5A636E', duct: ['#B9C2CA', '#7E8892'], led: '#3BAA5C',
+    ceil: ['#D6DCE1', '#AEB6BD'], ceilLight: '#F4FFF8', floorTop: ['#C9CCD0', '#A8ADB3'], floorFront: ['#6E747B', '#40454B'],
+    seam: 'rgba(80,88,96,0.45)', floorLine: '#FFD23C', lamp: 'rgba(230,255,240,0.3)', base: subwayBase,
+  },
+  {
+    top: [[0, '#1E1428'], [1, '#3A2440']], girder: '#4A2E3E', duct: ['#7A4E46', '#4A2E28'], led: '#FF8A4A',
+    ceil: ['#4E3046', '#34202E'], ceilLight: '#FFD9A0', floorTop: ['#8A7468', '#6A564C'], floorFront: ['#3E302A', '#1E1612'],
+    seam: 'rgba(30,18,14,0.5)', floorLine: '#FFD9A0', lamp: 'rgba(255,200,140,0.35)', base: alleyBase,
   },
 ];
 
