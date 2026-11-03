@@ -404,3 +404,32 @@ non-chibi), `crane-attack` (sheets cut by the frame edge) and its v2 (no throw),
 lettering), `zone-6..9` (English/garbled signs, "6:10 PM"). Regenerations added: "IMPORTANT: there is absolutely no writing anywhere
 in the picture: no letters, no Korean or English words, no numbers, no sound-effect lettering; every sign, awning, screen and vehicle
 is plain solid color." Known small compromise: the A-frame menu board in `cut/boss-9-a` carries a few illegible scribble lines.
+
+
+## Part 2 art-director fixes (2026-11-03)
+
+Spend **9 credits** (6 images, nano_banana_flash 1k); part-2 total now **112.5 cr** (balance 1249.33 → 1240.33).
+
+- `boss-crane-throw1..6`, `boss-gunship-throw1..6` re-normalized from the same clips (`normthrow.py`): ONE scale per clip so the
+  TALLEST chosen frame equals the idle's opaque height (no shrink-to-fit), every frame's feet on the idle's bottom row (y 1015),
+  every frame's alpha-mass centroid x on the idle's centroid x. Crane frames re-picked so she faces left: 41,43,44,46,62,66 (the
+  old 25/39 glanced screen-right). Opaque bbox before → after (idle crane 107,8,660,1016; idle gunship 98,8,670,1016):
+  crane throw1 (91,159,676,1015) → (102,24,609,1015), throw4 (14,153,483,1012) → (102,8,651,1015);
+  gunship throw2 (204,58,698,1015) → (167,18,680,1015), throw3 (233,58,730,1015) → (184,18,702,1015). The remaining
+  gunship bbox offset (centre 423/443 vs 384) is the cane reaching right; head/feet centres stay within 25 px of the idle.
+- `cut/boss-9-a`: green bottles replaced with water bottles / orange soda cans (no alcohol), everything else kept (edit of the
+  previous generation).
+- `wall-6-a/b/c`: `wall-6-c` source edited to remove the pink neon spiral (looked like the necktie hazard) and cyan star
+  (looked like a pickup); the theme-6 edge profile was recomputed, so a and b changed only in their outer 64 px.
+- New stage-10 night set `wall-4-night-a/b/c` + `floor-4-night` (same recipe and sizes as theme 4; shared edge profile;
+  floor soften 0.25, mirror-tiled).
+- `zone-5..9`: colour saturation × 0.88 (PIL ImageEnhance.Color), re-encoded q 80.
+
+| file | model | cr | prompt |
+|---|---|---|---|
+| `wall-4-night-a.webp` | nano_banana_flash | 1.5 | $WALL The wall: a quiet Korean residential street of low red-brick villa apartment buildings (3 storeys) at night around 6:30 pm with a last deep-blue dusk glow low in the sky, warm yellow lit windows, soft street lamps, calm and quiet, simple uncluttered shapes, low detail, no neon signs, no stars drawn as shapes, no symbols, small balconies with a few potted plants, a glass building entrance door with a warm porch light. |
+| `wall-4-night-b.webp` | nano_banana_flash | 1.5 | $WALL The wall: a quiet Korean residential street at night around 6:30 pm with a last deep-blue dusk glow low in the sky, warm yellow lit windows, soft street lamps, calm and quiet, simple uncluttered shapes, low detail, no neon signs, no stars drawn as shapes, no symbols: a low brick wall with a small metal gate in front of a two-storey house, a street lamp and a small tree, lit windows behind. |
+| `wall-4-night-c.webp` | nano_banana_flash | 1.5 | $WALL The wall: a quiet Korean residential street at night around 6:30 pm with a last deep-blue dusk glow low in the sky, warm yellow lit windows, soft street lamps, calm and quiet, simple uncluttered shapes, low detail, no neon signs, no stars drawn as shapes, no symbols: the entrance of a small apartment building with mailboxes by the glass door, a parked bicycle against the wall, warm lit windows above, beige tiled facade. |
+| `floor-4-night.webp` | nano_banana_flash | 1.5 | $FLOORsoft cool blue-grey night sidewalk with large square paving slabs, only very subtle thin seams, nearly uniform color, flat even lighting, nothing on the floor, no lines across, no markings. |
+| `cut/boss-9-a.webp` | nano_banana_flash (edit, ref = previous generation) | 1.5 | Edit this exact image. Keep everything identical (same character, pose, alley, lanterns, menu board, colors, composition, line style). Change ONLY the green glass bottles on the tables and the ground: replace every bottle with a plain orange soda can or a clear water bottle with a blue cap, no labels, no writing. No alcohol anywhere. |
+| `wall-6-c.webp` | nano_banana_flash (edit, ref = previous generation) | 1.5 | Edit this exact image. Keep everything identical (same shop fronts, doors, crates, plant, fairy lights, colors, composition, line style). Change ONLY two things: remove the pink neon spiral shape and remove the cyan neon star outline on the wall, painting plain wall bricks there instead. No new neon shapes, no symbols, no writing. |
