@@ -12,7 +12,7 @@ import { SAVE_PREFIX } from '../../flavor';
 import { STAGES } from '../../core/content';
 import { bossForSection } from '../../core/boss';
 import {
-  MISSION_BONUS, STAGE_MISSIONS, missionProgress, stageGrade, starsFor, type MissionKind, type MissionSpec, type MissionStats,
+  MISSION_BONUS, STAGE_MISSIONS, maxHitsFor, missionProgress, stageGrade, starsFor, type MissionKind, type MissionSpec, type MissionStats,
 } from '../core/missions';
 
 export interface MissionRun {
@@ -221,6 +221,8 @@ export interface MissionCard {
   readonly target: number;
   readonly line: string;
   readonly superior: string;
+  /** hits a chase / finale part allows for its stamp (maxHitsFor: 2 in part 1, 3–4 on long part-2 parts) */
+  readonly maxHits: number;
 }
 
 /** the card shown as a section starts: which mission, its goal and the section's superior */
@@ -230,6 +232,6 @@ export function missionCardFor(stage: StageDef, section: number): MissionCard | 
   if (!specs || !spec) return null;
   return {
     index: section, total: specs.length, kind: spec.kind, title: spec.title, target: spec.target, line: spec.line,
-    superior: bossForSection(stage, section)?.name ?? '',
+    superior: bossForSection(stage, section)?.name ?? '', maxHits: maxHitsFor(spec),
   };
 }

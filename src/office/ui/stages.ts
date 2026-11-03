@@ -36,12 +36,12 @@ export const FLOORS: readonly (readonly [x: number, y: number])[] = [
   [32, 51], // 회의실 층
   [38, 67], // 엘리베이터홀·비상계단
   [46, 86], // 1층 로비·회전문
-  // 2부: the way home, gate first — each node on the path just in front of its landmark in map-bg-2
-  [52, 19], // 회사 정문·광장
-  [46, 37], // 퇴근길 버스정류장
-  [58, 55], // 지하철역 개찰구
-  [42, 71], // 먹자골목
-  [64, 88], // 우리 집 앞 동네
+  // 2부: the way home, gate first — on the landmarks of map-bg-2 (art hand-off)
+  [54, 16], // 회사 정문·광장
+  [47, 34], // 퇴근길 버스정류장
+  [58, 51], // 지하철역 개찰구
+  [37, 68], // 먹자골목
+  [72, 85], // 우리 집 앞 동네
 ];
 /** the v8 node's disc centre below its top edge (stage-node.ts DISC_CENTER) */
 const DISC_CENTER = 39;

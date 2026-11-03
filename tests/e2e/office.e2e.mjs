@@ -478,7 +478,7 @@ if (['all', 'login'].includes(which)) {
     check((await sheet.count()) === 0, 'guest: the sheet closes');
     await click(page.getByRole('button', { name: /퇴근 시작/ }));
     await waitScreen(page, 'stages');
-    check((await lockedDiscs(page)) === 4, `guest: stages 2–5 locked on a fresh save (${await lockedDiscs(page)})`);
+    check((await lockedDiscs(page)) === STAGE_COUNT - 1, `guest: stages 2–10 locked on a fresh save (${await lockedDiscs(page)})`);
     check(supabaseHits === before, `guest: no supabase request (${supabaseHits - before})`);
     // privacy policy + terms (Google OAuth publishing): served, precached by the office worker, linked
     for (const pg of ['privacy.html', 'terms.html']) {
@@ -529,7 +529,7 @@ if (['all', 'login'].includes(which)) {
     await waitScreen(page, 'stages');
     await page.waitForTimeout(500);
     const locked = await lockedDiscs(page);
-    check(locked === (tester ? 0 : 4), `${role}: ${tester ? 'every stage open' : 'normal unlocks'} on the map (${locked} locked)`);
+    check(locked === (tester ? 0 : STAGE_COUNT - 1), `${role}: ${tester ? 'every stage open' : 'normal unlocks'} on the map (${locked} locked)`);
     if (tester) await shot(page, 'l2-tester-map');
     // stage 1 with no input at all: a tester survives every hit, anyone else runs out of hearts
     await click(page.getByRole('button', { name: /^퇴근길 1단계 / }));
