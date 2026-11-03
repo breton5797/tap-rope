@@ -433,3 +433,21 @@ Spend **9 credits** (6 images, nano_banana_flash 1k); part-2 total now **112.5 c
 | `floor-4-night.webp` | nano_banana_flash | 1.5 | $FLOORsoft cool blue-grey night sidewalk with large square paving slabs, only very subtle thin seams, nearly uniform color, flat even lighting, nothing on the floor, no lines across, no markings. |
 | `cut/boss-9-a.webp` | nano_banana_flash (edit, ref = previous generation) | 1.5 | Edit this exact image. Keep everything identical (same character, pose, alley, lanterns, menu board, colors, composition, line style). Change ONLY the green glass bottles on the tables and the ground: replace every bottle with a plain orange soda can or a clear water bottle with a blue cap, no labels, no writing. No alcohol anywhere. |
 | `wall-6-c.webp` | nano_banana_flash (edit, ref = previous generation) | 1.5 | Edit this exact image. Keep everything identical (same shop fronts, doors, crates, plant, fairy lights, colors, composition, line style). Change ONLY two things: remove the pink neon spiral shape and remove the cyan neon star outline on the wall, painting plain wall bricks there instead. No new neon shapes, no symbols, no writing. |
+
+## Neon-strip pass (2026-11-03, 0 credits)
+
+Long thin glowing cyan / magenta / red strokes can read as laser hazards at phone size. A local repaint (`deneon.py`, job tmp dir)
+turned saturated bright cyan, magenta and red pixels (sat > 0.22, value > 0.45) plus their 3 px glow halo into a muted,
+non-glowing amber (hue 35°, saturation ≤ 0.28, value × 0.88). It worked only inside these regions (wall coordinates), on the
+generated sources, and then the per-theme 64 px edge profile was recomputed, so every variant of a theme changed in its outer
+64 px:
+- `wall-4-a` and `wall-4-b` below y 70 (the neon tubes behind the bus stop and the long cyan strip on the right-hand roof);
+- `wall-5-a` row of coloured light tubes (y 100–160);
+- `wall-5-b` row of cyan lights under the gate sign (y 215–250);
+- `wall-5-c` glowing cyan display bar;
+- `wall-6-b` cyan sign outlines and the red sign on the right brick wall;
+- `wall-4-night-a` small pink/cyan door lights.
+
+Afterwards I re-scanned every theme 4–6 and 4-night wall for saturated cyan/red/magenta runs at least 60 px wide and at most
+1/5 as tall as wide. The runs that remain are not glowing: the light-blue bench in `wall-5-a`, the orange tent and flat
+dark-red counter in `wall-6-b`, and a flat blue sign border in `wall-4-night-b`.
