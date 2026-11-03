@@ -3,7 +3,7 @@
 //   BALANCE_REPORT=1 npx vitest run --project office tests/office/balance.report.test.ts
 // BALANCE_SEEDS=n (default 200), BALANCE_PROFILES=casual,normal (default all), BALANCE_OUT=path (also writes the
 // tables to that file), BALANCE_ASSERT=1 (fail unless the spec §4 targets hold with no slack: casual curve, expert ≥ 90%,
-// normal character spread ≤ 10 pp on stages 1–5; stages 6–10 are reported only). Runs in the office module graph, like bot.test.ts.
+// normal character spread ≤ 10 pp on every stage). Runs in the office module graph, like bot.test.ts.
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROFILE_IDS, type ProfileId } from '../../src/game/bot-profiles';
