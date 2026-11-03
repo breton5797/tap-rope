@@ -1269,3 +1269,17 @@ body {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* a refilled heart (pickup or section-door heal) pops in green so the heal reads mid-run */
+.heart.is-refilled {
+  animation: heart-refill 480ms ease-out;
+}
+
+@keyframes heart-refill {
+  0% { transform: scale(1.7); box-shadow: 0 0 12px #3ddc84; }
+  100% { transform: scale(1); box-shadow: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart.is-refilled { animation: none; }
+}

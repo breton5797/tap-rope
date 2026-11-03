@@ -87,6 +87,9 @@ export const V8_COPY = {
   resultStoryEnd: '탈출 성공. 전 작전 종료.',
   resultStoryNext: '거점 제압. ZONE {zone} 개방',
   resultNext: '다음 작전',
+  // part 2 (chapters 6–10) variants of the two lines above; v8 reads the same in both parts
+  resultStoryNextPart2: '거점 제압. ZONE {zone} 개방',
+  resultNextPart2: '다음 작전',
   resultRetry: '재투입',
   resultReplay: '재투입',
   resultMap: '작전 지도',

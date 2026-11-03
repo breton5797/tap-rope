@@ -248,7 +248,7 @@ if (['all', 'sw', 'campaign'].includes(which)) {
       console.log(`stage ${n}:`, txt);
       check(/퇴근 성공|CLOCK OUT/.test(txt), `stage ${n} cleared by autoplay`);
       if (n === 5) check(/18:00:00/.test(await page.locator('#ui').innerText()), 'stage 5 result reads 칼퇴 성공! 18:00:00');
-      if (n < STAGE_COUNT) await click(page.getByRole('button', { name: /다음 층으로/ }));
+      if (n < STAGE_COUNT) await click(page.getByRole('button', { name: /다음 층으로|다음 장소로/ }));
     }
     check(/18:30/.test(await page.locator('#ui').innerText()), 'stage 10 result reads 18:30 귀가 성공');
   }
@@ -622,7 +622,7 @@ async function audioRun(blockSfx, stages) {
     results.push(await playToResult(page, `a${n}${blockSfx ? '-blocked' : ''}`));
     const audio = await page.evaluate(() => window.__audio);
     results.push(audio);
-    if (n < stages) await click(page.getByRole('button', { name: /다음 층으로/ }));
+    if (n < stages) await click(page.getByRole('button', { name: /다음 층으로|다음 장소로/ }));
   }
   await ctx.close();
   return { beforeGesture, results };

@@ -110,11 +110,16 @@ function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduc
     const wasFull = prev.hearts === undefined ? full : i < prev.hearts;
     node.classList.toggle('is-empty', !full);
     if (wasFull === full || prev.hearts === undefined) return;
-    // a refill (heart pickup, office section-door heal) pops in with a green glow so it reads mid-run
+    // a refill is tagged for skins that want a bigger cue (office: green pop on section-door heals)
+    if (full) {
+      node.classList.remove('is-refilled');
+      void (node as HTMLElement).offsetWidth; // restart the CSS animation on a second refill
+      node.classList.add('is-refilled');
+    }
     const frames = full
-      ? [{ opacity: 0.3, transform: 'scale(1.7)', boxShadow: '0 0 12px #3ddc84' }, { opacity: 1, transform: 'scale(1)', boxShadow: 'none' }]
+      ? [{ opacity: 0.3 }, { opacity: 1 }]
       : [{ background: '#ff2a3a', boxShadow: '0 0 10px #ff2a3a' }, { background: '#ff2a3a' }, {}];
-    animate(node, frames, { duration: full ? 480 : 520, easing: 'ease-out' }, reduced);
+    animate(node, frames, { duration: full ? 300 : 520, easing: 'ease-out' }, reduced);
   });
   refs.hearts.setAttribute('aria-label', `방탄 ${hearts}/${max}`);
   refs.hearts.classList.toggle('is-critical', hearts === 1 && max > 1);

@@ -1,7 +1,7 @@
 // Result = 작전 보고서 (operation report): status, rank ticks, score count-up and a stats table.
 // v8: boss-win banner, fail tip (what hit you), ★3 rule, ₵ rewards, achievement badges, daily streak,
 // next-rank gap, leaderboard / share / challenge buttons; stats fold away on a failed run.
-import { STAGES } from '../core/content';
+import { CHAPTERS, STAGES } from '../core/content';
 import { COPY, FEATURES, fillCopy, stageVars } from '../flavor';
 import type { Board, ResultInfo } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
@@ -97,7 +97,14 @@ function storyBeat(r: ResultInfo): string | null {
   if (r.mode !== 'stage' || !r.cleared || stage?.kind !== 'boss') return null;
   if (r.stageId === 'w5-s10') return COPY.resultStoryRescue;
   if (r.stageId === 'w10-s10' || !r.hasNext) return COPY.resultStoryEnd;
-  return fillCopy(COPY.resultStoryNext, stageVars({ chapter: stage.chapter + 1, index: 0 }));
+  const line = inPart2(r) ? COPY.resultStoryNextPart2 : COPY.resultStoryNext;
+  return fillCopy(line, stageVars({ chapter: stage.chapter + 1, index: 0 }));
+}
+
+/** the run's stage is in part 2 (office: the way home; v8 copy reads the same in both parts) */
+function inPart2(r: ResultInfo): boolean {
+  const stage = STAGES.find((s) => s.id === r.stageId);
+  return stage !== undefined && CHAPTERS[stage.chapter]?.part === 2;
 }
 
 /** Identity of a run's report: a second showResult with the same key only updates the online line. */
@@ -140,7 +147,7 @@ function extras(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement | 
 function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
   const next =
     r.mode === 'stage' && r.cleared && r.hasNext
-      ? button({ label: COPY.resultNext, variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
+      ? button({ label: inPart2(r) ? COPY.resultNextPart2 : COPY.resultNext, variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
       : null;
   const retry = button({
     label: r.cleared ? COPY.resultReplay : COPY.resultRetry,

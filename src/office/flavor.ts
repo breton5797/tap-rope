@@ -77,6 +77,9 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   resultStoryEnd: '18:30 귀가 성공! 현관문 띠리릭 — 오늘도 무사 퇴근!',
   resultStoryNext: '한 층 내려왔다! {n}단계 개방',
   resultNext: '다음 층으로',
+  // part 2 is the way home, not floors
+  resultStoryNextPart2: '퇴근길 한 고비 넘겼다! {n}단계 개방',
+  resultNextPart2: '다음 장소로',
   resultRetry: '내일은 꼭…!',
   resultReplay: '한 번 더!',
   resultMap: '층별 안내도',
