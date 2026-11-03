@@ -58,6 +58,16 @@ describe('office stage map', () => {
     expect(sheet(el, 2).hidden).toBe(false);
     expect(sheet(el, 1).hidden).toBe(true);
     expect(tab2.getAttribute('aria-selected')).toBe('true');
+    expect(el.querySelector('.topbar__title')?.textContent).toBe('퇴근길 지도');
+  });
+
+  it('titles each map: 층별 안내도 for the building, 퇴근길 지도 for the way home', () => {
+    const el = buildStageSelect(ctx(), cleared(5), () => undefined);
+    expect(el.querySelector('.topbar__title')?.textContent).toBe('퇴근길 지도');
+    expect(el.getAttribute('aria-label')).toBe('퇴근길 지도');
+    el.querySelector<HTMLElement>('.floors__tab[data-part="1"]')?.click();
+    expect(el.querySelector('.topbar__title')?.textContent).toBe('층별 안내도');
+    expect(el.getAttribute('aria-label')).toBe('층별 안내도');
   });
 
   it('opens on 2부 once stage 5 is cleared, unlocked', () => {
@@ -90,5 +100,28 @@ describe('map parts', () => {
     expect(initialPart(cleared(4))).toBe(1);
     expect(initialPart(cleared(7))).toBe(2);
     expect(initialPart(cleared(10))).toBe(2);
+  });
+});
+
+describe('map scroll', () => {
+  it('scrolls the next stage into view on its map, also after switching tabs back to it', async () => {
+    const seen: string[] = [];
+    const orig = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element): void {
+      seen.push(this.querySelector('.node__disc')?.getAttribute('aria-label') ?? '');
+    };
+    try {
+      const el = buildStageSelect(ctx(), cleared(9), () => undefined);
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      expect(seen.at(-1)).toMatch(/^퇴근길 10단계 /);
+      seen.length = 0;
+      el.querySelector<HTMLElement>('.floors__tab[data-part="1"]')?.click();
+      el.querySelector<HTMLElement>('.floors__tab[data-part="2"]')?.click();
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toMatch(/^퇴근길 10단계 /);
+    } finally {
+      Element.prototype.scrollIntoView = orig;
+    }
   });
 });

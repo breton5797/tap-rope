@@ -12,6 +12,9 @@ const WALL_PHOTOS = ['a', 'b', 'c'] as const;
 const THEMES: readonly WorldId[] = [0, 1, 2, 3];
 /** themes only some builds draw (office part 2: 4 거리, 5 지하철역, 6 먹자골목) — fetched in the background */
 const LATE_THEMES: readonly WorldId[] = ([4, 5, 6] as const).filter((t) => DESIGNED_LOOKS[t].length > 0);
+/** a late theme's own variant photos (office stage 10: wall-4-night-*, floor-4-night), base files fill the gaps */
+const LATE_VARIANTS: readonly (readonly [WorldId, Variant])[] = LATE_THEMES.flatMap((t) =>
+  DESIGNED_LOOKS[t].filter((v) => v !== 'base').map((v) => [t, v] as const));
 /** exterior sets (theme 0 only): rooftop at night, helipad at dawn — open sky, no ceiling photo */
 const EXTERIORS: readonly ('night' | 'dawn')[] = ['night', 'dawn'];
 const VARIANT_INDEX: Readonly<Record<Variant, number>> = { base: 0, alarm: 1, dark: 2, steam: 3, night: 4, dawn: 5 };
@@ -28,6 +31,8 @@ export interface PhotoSet {
   readonly ceiling: string | null;
   /** exterior scene: draw an open-sky band instead of a ceiling */
   readonly sky: 'night' | 'dawn' | null;
+  /** the photos are painted for this variant already (a late theme's own set): no extra variant tint */
+  readonly painted?: boolean;
 }
 
 function files(t: WorldId): string[] {
@@ -36,6 +41,21 @@ function files(t: WorldId): string[] {
 
 function exteriorFiles(): string[] {
   return EXTERIORS.flatMap((e) => [...WALL_PHOTOS.map((s) => `wall-0-${e}-${s}`), `floor-0-${e}`]);
+}
+
+function variantFiles(t: WorldId, v: Variant): string[] {
+  return [...WALL_PHOTOS.map((s) => `wall-${t}-${v}-${s}`), `floor-${t}-${v}`];
+}
+
+const hasVariantSet = (t: WorldId, v: Variant): boolean => LATE_VARIANTS.some(([a, b]) => a === t && b === v);
+
+/** every photo load() fetches: the core themes, then the background extras */
+export function corridorArtFiles(): string[] {
+  return [...THEMES.flatMap(files), ...extraFiles()];
+}
+
+function extraFiles(): string[] {
+  return [...exteriorFiles(), ...LATE_THEMES.flatMap(files), ...LATE_VARIANTS.flatMap(([t, v]) => variantFiles(t, v))];
 }
 
 /** a fetch that hasn't completed after this long is abandoned (the file counts as missing) */
@@ -115,7 +135,7 @@ export class ArtStore {
    */
   async load(onProgress?: (done: number, total: number) => void): Promise<void> {
     const names = THEMES.flatMap(files);
-    const extras = [...exteriorFiles(), ...LATE_THEMES.flatMap(files)];
+    const extras = extraFiles();
     this.started = true;
     for (const n of names) this.inflight.add(n);
     for (const n of extras) this.inflight.add(n);
@@ -156,6 +176,7 @@ export class ArtStore {
       for (const s of WALL_PHOTOS) if (this.inflight.has(`wall-0-${variant}-${s}`)) return true;
       if (this.inflight.has(`floor-0-${variant}`)) return true;
     }
+    if (hasVariantSet(t, variant)) for (const n of variantFiles(t, variant)) if (this.inflight.has(n)) return true;
     return false;
   }
 
@@ -186,6 +207,10 @@ export class ArtStore {
       const ext = this.exterior(variant);
       if (ext) return ext;
     }
+    if (hasVariantSet(t, variant)) {
+      const own = this.variantSet(t, variant);
+      if (own) return own;
+    }
     const walls = WALL_PHOTOS.map((s) => `wall-${t}-${s}`).filter((n) => this.usable(n));
     const floor = this.usable(`floor-${t}`) ? `floor-${t}` : null;
     const ceiling = this.usable(`ceiling-${t}`) ? `ceiling-${t}` : null;
@@ -199,6 +224,16 @@ export class ArtStore {
     const own = `floor-0-${e}`;
     const floor = this.usable(own) ? own : this.usable('floor-0') ? 'floor-0' : null;
     return this.cached({ id: `${walls.join(',')}|${floor}|sky-${e}`, walls, floor, ceiling: null, sky: e });
+  }
+
+  /** a late theme's variant walls (and floor, else the base floor) under its base ceiling; null without walls */
+  private variantSet(t: WorldId, v: Variant): PhotoSet | null {
+    const walls = WALL_PHOTOS.map((s) => `wall-${t}-${v}-${s}`).filter((n) => this.usable(n));
+    if (walls.length === 0) return null;
+    const own = `floor-${t}-${v}`;
+    const floor = this.usable(own) ? own : this.usable(`floor-${t}`) ? `floor-${t}` : null;
+    const ceiling = this.usable(`ceiling-${t}`) ? `ceiling-${t}` : null;
+    return this.cached({ id: `${walls.join(',')}|${floor}|${ceiling}`, walls, floor, ceiling, sky: null, painted: true });
   }
 
   /** one PhotoSet object per identity (no per-frame allocation once stable) */

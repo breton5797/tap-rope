@@ -274,7 +274,8 @@ class SceneCache {
     ctx.setTransform(kx, 0, 0, ky, 0, -y * ky);
     draw(ctx);
     // the dawn exterior set is brighter than the interiors: a little extra dim keeps it in family
-    const dim = themeDim(this.world) + (this.photo?.sky === 'dawn' ? 0.12 : 0);
+    // a painted variant set (office stage 10's night street) needs no extra variant dim
+    const dim = this.photo?.painted ? 0 : themeDim(this.world) + (this.photo?.sky === 'dawn' ? 0.12 : 0);
     if (gradeH > 0) grade(ctx, this.variant, 0, y, w, gradeH, dim);
     after?.(ctx);
     return canvas;

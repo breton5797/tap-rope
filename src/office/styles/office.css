@@ -740,6 +740,18 @@ body {
   color: var(--ink-soft);
 }
 
+/* a locked part stays grey and outlined even while its teaser is shown (orange = playable) */
+.floors__tab.is-locked,
+.floors__tab.is-locked.is-active {
+  background: #ece6ea;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.floors__tab.is-locked.is-active {
+  border-style: solid;
+}
+
 .floors__tab svg {
   width: 16px;
   height: 16px;

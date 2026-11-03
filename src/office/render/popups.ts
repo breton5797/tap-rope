@@ -76,6 +76,10 @@ function drawOne(ctx: Ctx, p: PopupPool['items'][number]): void {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
+  // white outer rim, then dark ink: the teal PERFECT reads on pastel walls too (art review)
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeText(p.text, 0, 0);
   ctx.lineWidth = 3;
   ctx.strokeStyle = 'rgba(46,36,51,0.85)';
   ctx.strokeText(p.text, 0, 0);

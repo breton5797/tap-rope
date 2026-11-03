@@ -37,3 +37,50 @@ describe('office ArtStore themes', () => {
     expect(art.waiting(5, 'base')).toBe(false);
   });
 });
+
+describe('office ArtStore: stage 10 night street set', () => {
+  /** a fetch that serves `ok` files as tiny images and 404s the rest */
+  const serve = (ok: readonly string[]) => (url: string) => {
+    const name = url.replace('./art/', '').replace('.webp', '');
+    return Promise.resolve(ok.includes(name)
+      ? new Response(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/webp' }), { status: 200, headers: { 'content-type': 'image/webp' } })
+      : new Response(null, { status: 404 }));
+  };
+  const BASE4 = ['wall-4-a', 'wall-4-b', 'wall-4-c', 'floor-4', 'ceiling-4'];
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  it('requests the night files of theme 4', async () => {
+    const asked: string[] = [];
+    vi.stubGlobal('fetch', (url: string) => {
+      asked.push(url);
+      return Promise.resolve(new Response(null, { status: 404 }));
+    });
+    await new ArtStore().load();
+    for (const f of ['wall-4-night-a', 'wall-4-night-b', 'wall-4-night-c', 'floor-4-night']) expect(asked).toContain(`./art/${f}.webp`);
+  });
+
+  it('uses the night walls / floor when they exist (base ceiling, no sky, painted = no extra dusk tint)', async () => {
+    vi.stubGlobal('fetch', serve([...BASE4, 'wall-4-night-a', 'wall-4-night-b', 'floor-4-night']));
+    const art = new ArtStore();
+    await art.load();
+    await settle();
+    const set = art.photoSet(4, 'night');
+    expect(set?.walls).toEqual(['wall-4-night-a', 'wall-4-night-b']);
+    expect(set?.floor).toBe('floor-4-night');
+    expect(set?.ceiling).toBe('ceiling-4');
+    expect(set?.sky).toBeNull();
+    expect(set?.painted).toBe(true);
+    expect(art.photoSet(4, 'base')?.walls).toEqual(['wall-4-a', 'wall-4-b', 'wall-4-c']);
+  });
+
+  it('falls back to the base street (dusk-tinted) without night files', async () => {
+    vi.stubGlobal('fetch', serve(BASE4));
+    const art = new ArtStore();
+    await art.load();
+    await settle();
+    const set = art.photoSet(4, 'night');
+    expect(set?.walls).toEqual(['wall-4-a', 'wall-4-b', 'wall-4-c']);
+    expect(set?.floor).toBe('floor-4');
+    expect(set?.painted).toBeFalsy();
+  });
+});

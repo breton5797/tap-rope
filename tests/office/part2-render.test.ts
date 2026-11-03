@@ -102,3 +102,18 @@ describe('stage 7 lanejump readability', () => {
     expect(combos).toBeGreaterThan(0);
   });
 });
+
+describe('callout hint colour chips (art review: combo moves)', () => {
+  it('splits a combo hint into one segment per move, each in its action colour', async () => {
+    const { hintSegments } = await import('../../src/office/render/readability');
+    const { ACTION_COLORS } = await import('../../src/office/render/props');
+    expect(hintSegments('옆으로! + 점프!')).toEqual([
+      { text: '옆으로!', color: ACTION_COLORS.lane }, { text: '점프!', color: ACTION_COLORS.jump },
+    ]);
+    expect(hintSegments('뒤에서! 옆으로! + 숙여!')).toEqual([
+      { text: '뒤에서! 옆으로!', color: ACTION_COLORS.lane }, { text: '숙여!', color: ACTION_COLORS.slide },
+    ]);
+    expect(hintSegments('점프 2단!')).toEqual([{ text: '점프 2단!', color: ACTION_COLORS.jump }]);
+    expect(hintSegments('낮게!')).toEqual([{ text: '낮게!', color: ACTION_COLORS.low }]);
+  });
+});

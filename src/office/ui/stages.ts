@@ -20,12 +20,14 @@ export type MapPart = 1 | 2;
 interface MapSheet {
   readonly part: MapPart;
   readonly label: string;
+  /** the screen title while this map is shown */
+  readonly title: string;
   readonly src: string;
 }
 
 export const MAP_SHEETS: readonly MapSheet[] = [
-  { part: 1, label: '1부 사무실', src: './art/map-bg.webp' },
-  { part: 2, label: '2부 퇴근길', src: './art/map-bg-2.webp' },
+  { part: 1, label: '1부 사무실', title: COPY.resultMap, src: './art/map-bg.webp' },
+  { part: 2, label: '2부 퇴근길', title: '퇴근길 지도', src: './art/map-bg-2.webp' },
 ];
 
 /** each stage's landmark centre in its map art (percent of its width / height), stage 1 first */
@@ -118,6 +120,14 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
   let active = initialPart(save, openAll);
   const sheets = MAP_SHEETS.map((m) => mapSheet(m, nodes.filter((_, i) => partOf(i) === m.part), partOpen(save, m.part, openAll)));
   const scroll = h('div', { cls: 'scroll floors__scroll' }, sheets);
+  const nextIndex = next ? STAGES.indexOf(next) : -1;
+  /** the next stage to play into view when it is on this map (past its first stage), else the map's top */
+  const focusNext = (part: MapPart): void => {
+    scroll.scrollTop = 0;
+    const first = STAGES.findIndex((_, k) => partOf(k) === part);
+    if (nextIndex <= first || partOf(nextIndex) !== part) return;
+    requestAnimationFrame(() => nodes[nextIndex]?.scrollIntoView?.({ block: 'center', behavior: ctx.reducedMotion() ? 'auto' : 'smooth' }));
+  };
   const show = (part: MapPart): void => {
     active = part;
     sheets.forEach((el, i) => (el.hidden = MAP_SHEETS[i].part !== part));
@@ -126,24 +136,22 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
       t.classList.toggle('is-active', on);
       t.setAttribute('aria-selected', String(on));
     });
-    scroll.scrollTop = 0;
+    focusNext(part);
+    const title = MAP_SHEETS.find((m) => m.part === part)?.title ?? COPY.resultMap;
+    top.querySelector('.topbar__title')?.replaceChildren(title);
+    screen.setAttribute('aria-label', title);
   };
   const tabs = partTabs(ctx, save, openAll, active, show);
-  show(active);
   const total = h('div', { cls: 'chip chip--star chip--sm', attrs: { 'aria-label': `전체 평가 ${starsOf(save)}/${STAGES.length * 3}` } }, [
     icons.star(),
     h('span', { cls: 'chip__value', text: `${starsOf(save)}/${STAGES.length * 3}` }),
   ]);
+  const top = header(ctx, COPY.resultMap, onBack, [total], icons.back());
   const screen = h('section', { cls: 'screen screen--stages screen--floors', attrs: { 'aria-label': COPY.resultMap } }, [
-    header(ctx, COPY.resultMap, onBack, [total], icons.back()),
+    top,
     h('nav', { cls: 'floors__tabs', attrs: { role: 'tablist', 'aria-label': '지도' } }, tabs),
     scroll,
   ]);
-  // bring the next stage to play into view (the first stage of a map needs no scroll)
-  requestAnimationFrame(() => {
-    const i = next ? STAGES.indexOf(next) : -1;
-    const first = STAGES.findIndex((_, k) => partOf(k) === active);
-    if (i > first && partOf(i) === active) nodes[i]?.scrollIntoView?.({ block: 'center', behavior: ctx.reducedMotion() ? 'auto' : 'smooth' });
-  });
+  show(active);
   return screen;
 }
