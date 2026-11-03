@@ -15,7 +15,7 @@ describe('office run stats', () => {
     }
   });
 
-  it.each([['kid', 3], ['cat', 2], ['bunny', 3], ['robot', 4]] as const)('%s starts with %i hearts on the HUD', (skin, n) => {
+  it.each([['kid', 3], ['cat', 3], ['bunny', 3], ['robot', 4]] as const)('%s starts with %i hearts on the HUD', (skin, n) => {
     const s = createSession('stage', STAGES[0], { skin });
     expect(s.hearts).toBe(n);
     expect(toHud(s).maxHearts).toBe(n);

@@ -59,8 +59,8 @@ export const CHARACTERS: readonly Character[] = [
   },
   {
     id: 'cat', name: '정시원', gender: 'f', role: '민첩형 · 눈치 백단', accent: '#f0628f',
-    blurb: '숙이기가 길고 레인 이동이 가벼워요. 대신 체력이 적어요.', catchphrase: '6시 땡이면 저는 없는 사람입니다!',
-    stars: { jump: 3, agility: 5, hearts: 2, focus: 3, luck: 3 },
+    blurb: '숙이기가 길고 레인 이동이 가벼워요. 몸놀림으로 승부!', catchphrase: '6시 땡이면 저는 없는 사람입니다!',
+    stars: { jump: 3, agility: 5, hearts: 3, focus: 3, luck: 3 },
   },
   {
     id: 'bunny', name: '고도약', gender: 'm', role: '점프형 · 다리 긴 신입', accent: '#ff8a2a',
@@ -91,7 +91,8 @@ const BASE: Tuning = {
 /** spec §2 numbers (stars are the display of these) */
 const TUNING: Readonly<Record<string, Tuning>> = {
   kid: BASE,
-  cat: { ...BASE, laneTime: 0.24, slideTime: 0.65, hearts: 2 },
+  /** 2026-11-03 user-approved balance change: cat hearts 2 → 3 (docs/balance/after.md) */
+  cat: { ...BASE, laneTime: 0.24, slideTime: 0.65 },
   bunny: { ...BASE, jumpMul: 1.12, boostMul: 1.08, feverGain: 0.8, coinMul: 0.8 },
   robot: { ...BASE, hearts: 4, feverGain: 0.8, coinMul: 1.5 },
 };

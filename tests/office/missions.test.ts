@@ -22,11 +22,11 @@ describe('mission script', () => {
     ]);
   });
 
-  it('part 2: hazards keep rising past stage 5 (balance pass: 18 → 31), stage 7 drills lanejump, stage 10 ends on a bonus envelope', () => {
+  it('part 2: hazards keep rising past stage 5 (balance pass: 18 → 34), stage 7 drills lanejump, stage 10 ends on a bonus envelope', () => {
     const peak = (id: string) => Math.max(...STAGE_MISSIONS[id].map((m) => m.hazards));
     const peaks = STAGES.map((s) => peak(s.id));
     for (let i = 5; i < peaks.length; i += 1) expect(peaks[i], STAGES[i].id).toBeGreaterThanOrEqual(peaks[i - 1]);
-    expect(peaks[9]).toBe(31);
+    expect(peaks[9]).toBe(34);
     expect(STAGE_MISSIONS['w7-s10'].some((m) => m.focus?.includes('lanejump'))).toBe(true);
     for (const s of STAGES.slice(0, 6)) for (const m of STAGE_MISSIONS[s.id]) expect(m.moves, s.id).not.toContain('lanejump');
     expect(STAGE_MISSIONS['w10-s10'][2].collectible).toBe('envelope');
