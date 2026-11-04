@@ -40,8 +40,8 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   briefPhotoTag: '{zone}',
   briefStamp: '정시 퇴근',
   briefKicker: '퇴근 브리핑',
-  briefPart1: '퇴근 30분 전',
-  briefPart2: '마지막 관문',
+  briefPart1: '1부 · 사무실',
+  briefPart2: '2부 · 퇴근길',
   briefFrom: '퇴근 시계 {sub}',
   // HUD + pickups
   hudArmor: '체력',
@@ -120,8 +120,26 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   nodeBoss: '상사',
   nodeBonus: '간식',
   zoneTag: '{n}단계',
-  bossPhase: '{n}차 공격 · {n}/3',
+  bossPhase: '{n}차 공격',
   bossPhaseAria: '{n}차 공격',
+  // fixed labels (kid-friendly miss reasons, HUD / result / archive / toast wording)
+  missDrone: 'MISS · 숙이지 말고 한 번만 점프!',
+  missLevel2: 'MISS · 두 번 점프!',
+  missLevel3: 'MISS · 세 번 점프!',
+  missLow: 'MISS · 점프!',
+  missSlide: 'MISS · 숙이지 말고 점프!',
+  missStanding: 'MISS · 아래로 쓱 숙이기!',
+  missLane: 'MISS · 줄 바꾸기!',
+  hitShielded: '막았다! 노캔 이어폰',
+  hudBossAria: '퇴근 게이지',
+  resultFunds: '받은 칼퇴 포인트',
+  resultMapPart2: '퇴근길 지도',
+  archiveRec: '장면 {n}',
+  archiveShots: '{n}컷',
+  archiveLocked: '잠김',
+  archiveUnseen: '아직 못 본 장면',
+  archiveKicker: '퇴근 앨범',
+  achToastKicker: '업적 달성!',
 };
 
 /** a fresh uniform uint32 for every run start (P3: chosen once, kept on the run, never steered by input) */

@@ -41,7 +41,7 @@ const HERO_ANSWERS: Readonly<Record<number, string>> = {
   6: '설문은… 집에 가서 꼭 할게요! 아마도요!',
   7: '과장님, 저 버스 타요! 반대 방향이에요!',
   8: '영수증은 내일 아침 9시 1분에 드릴게요!',
-  9: '이사님, 저 오늘 집밥 예약했어요!',
+  9: '이사님, 저 오늘 집에서 저녁 먹기로 했어요!',
 };
 
 const bossCutscene = (n: number): Cutscene => {
@@ -94,8 +94,8 @@ const RESCUE: Cutscene = {
 const HOME_END: Cutscene = {
   id: 'home-end', title: '18:30 귀가 성공!',
   shots: [
-    shot('end-3', HERO, '18:30 현관문 도어락 띠리릭. 집에 왔다!', 3.5, frame(1, 0.5, 0.5), frame(1.15, 0.5, 0.45)),
-    shot('end-2', HERO, '소파에 털썩, 만세! …그런데 내일 출근 09:00', 4, frame(1.2, 0.5, 0.6), frame(1, 0.5, 0.5)),
+    shot('end-2', HERO, '치킨 들고 만세! 마지막 골목만 지나면 집이다!', 3.5, frame(1, 0.5, 0.5), frame(1.15, 0.5, 0.45)),
+    shot('end-3', HERO, '18:30 현관문 띠리릭, 집에 왔다! …그런데 내일 출근 09:00', 4, frame(1.2, 0.5, 0.6), frame(1, 0.5, 0.5)),
   ],
 };
 

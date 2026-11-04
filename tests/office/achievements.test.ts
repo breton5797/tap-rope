@@ -56,6 +56,11 @@ describe('office goals (10 stages)', () => {
     expect(achievementProgress('stamps-15', save())).toEqual({ cur: 0, max: 30 });
   });
 
+  it('with everything done, the title goal says home by 18:30 and points back at stamps / achievements', () => {
+    const done = save({ stars: stars(10, 3), achievements: Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, 1])) });
+    expect(nextGoal(done, '2026-11-05').text).toBe('18:30 귀가 완료! 내일 출근 09:00 — 도장·업적 다시 도전');
+  });
+
   it('after stage 5 the next goal is stage 6; stage 10 is the last (boss) goal', () => {
     expect(nextGoal(save({ stars: stars(5) }), '2026-11-03')).toMatchObject({ kind: 'stage' });
     expect(nextGoal(save({ stars: stars(5) }), '2026-11-03').text).toContain('6단계');

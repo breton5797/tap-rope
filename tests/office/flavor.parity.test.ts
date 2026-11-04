@@ -1,6 +1,7 @@
 // Office copy, music and sound (office spec §4, §7): comic Korean on every copy key, no spy words, a
 // cheerful major-key loop on the same beat grid, and comic re-voicings of a few sound effects.
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { V8_COPY } from '../../src/flavor';
 import { COPY } from '../../src/office/flavor';
 import { createMusic, OFFICE_STYLES } from '../../src/office/audio/music';
@@ -36,6 +37,44 @@ describe('office copy', () => {
     expect(COPY.resultStoryEnd).toContain('귀가');
     expect([COPY.pickupShield, COPY.pickupSlow, COPY.pickupHeart].join(' ')).toMatch(/노캔 이어폰.*아이스 아메리카노.*삼각김밥/);
     expect(COPY.tutJumpKicker + COPY.tutSlideKicker + COPY.tutLaneKicker).toContain('김대리');
+  });
+
+  it('polish copy: part labels, phase label, part-2 map, kid-friendly miss reasons', () => {
+    expect(COPY.briefPart1).toBe('1부 · 사무실');
+    expect(COPY.briefPart2).toBe('2부 · 퇴근길');
+    expect(COPY.bossPhase).toBe('{n}차 공격');
+    expect(COPY.resultMapPart2).toBe('퇴근길 지도');
+    expect(COPY.missLane).toBe('MISS · 줄 바꾸기!');
+    expect(COPY.missLevel2).toBe('MISS · 두 번 점프!');
+    expect(COPY.missLevel3).toBe('MISS · 세 번 점프!');
+    for (const k of ['missDrone', 'missLow', 'missSlide', 'missStanding'] as const) expect(COPY[k], k).toMatch(/^MISS · [가-힣 ]+!$/);
+    // no v8 leftovers in the office wording of the screens' fixed labels
+    const fixed = ['hudBossAria', 'resultFunds', 'archiveRec', 'archiveShots', 'archiveLocked', 'archiveUnseen', 'archiveKicker', 'achToastKicker', 'hitShielded'] as const;
+    for (const k of fixed) expect(COPY[k], k).toMatch(/[가-힣]/);
+    expect(Object.values(COPY).join(' ')).not.toMatch(/방탄|보스 내구도|SERVICE RECORD|획득 자금|SHOTS|LOCKED/);
+  });
+
+  it('v8 keeps the exact strings its screens inlined before they became copy keys', () => {
+    expect([V8_COPY.missDrone, V8_COPY.missLevel2, V8_COPY.missLevel3, V8_COPY.missLow, V8_COPY.missSlide, V8_COPY.missStanding, V8_COPY.missLane])
+      .toEqual(['DETECTED · 고도 낮춰', 'MISS · 고도 부족', 'MISS · 고도 부족', 'MISS · 점프', 'MISS · 점프 구간', 'MISS · 슬라이딩', 'MISS · 레인 이탈']);
+    expect(V8_COPY.hitShielded).toBe('BLOCKED · 실드');
+    expect(V8_COPY.hudBossAria).toBe('보스 내구도');
+    expect(V8_COPY.resultFunds).toBe('획득 자금');
+    expect(V8_COPY.resultMapPart2).toBe(V8_COPY.resultMap);
+    expect([V8_COPY.archiveRec, V8_COPY.archiveShots, V8_COPY.archiveLocked, V8_COPY.archiveUnseen, V8_COPY.archiveKicker, V8_COPY.achToastKicker])
+      .toEqual(['REC {n}', '{n} SHOTS', 'LOCKED', '미확인 기록', 'SERVICE RECORD', 'ACHIEVEMENT UNLOCKED']);
+  });
+
+  it('the store / home-screen description tells both parts (18:00 칼퇴, then home by 18:30)', () => {
+    const html = readFileSync(new URL('../../office.html', import.meta.url), 'utf8');
+    const meta = /<meta name="description" content="([^"]+)"/.exec(html)?.[1] ?? '';
+    const manifest = JSON.parse(readFileSync(new URL('../../public-office/manifest.webmanifest', import.meta.url), 'utf8')) as { description: string };
+    for (const d of [meta, manifest.description]) {
+      expect(d).toContain('18:00');
+      expect(d).toContain('18:30');
+      expect(d).toContain('현관문');
+      expect(d).not.toMatch(/슬라이딩/);
+    }
   });
 
   it('keeps a stage-number placeholder where v8 has one', () => {

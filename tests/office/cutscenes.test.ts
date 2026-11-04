@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { CUTSCENE_IMAGES, CUTSCENES, FAIL_IMAGE, HERO, cutsceneAfter, cutsceneBefore } from '../../src/office/core/cutscenes';
 import { stageById } from '../../src/core/content';
-import { defaultSave, markCutsceneSeen, parseSave } from '../../src/core/storage';
+import { defaultSave, markCutsceneSeen, parseSave, recordResult } from '../../src/core/storage';
 import type { CutsceneId, StageDef } from '../../src/types';
 
 const stage = (n: number) => stageById(`w${n}-s10`) as StageDef;
@@ -43,6 +43,11 @@ describe('office CUTSCENES', () => {
     expect(c?.shots.map((s) => s.speaker)).toEqual(['최팀장', '한전무', '회장님']);
   });
 
+  it('the hero answers 윤이사 with a family dinner (no 집밥 예약)', () => {
+    const c = CUTSCENES.find((x) => x.id === 'boss-9');
+    expect(c?.shots[1].caption).toBe('이사님, 저 오늘 집에서 저녁 먹기로 했어요!');
+  });
+
   it('stages 6-9: the superior speaks, then the hero answers', () => {
     const names = ['강차장', '박과장', '문상무', '윤이사'];
     [6, 7, 8, 9].forEach((n, i) => {
@@ -63,10 +68,14 @@ describe('office CUTSCENES', () => {
 
   it('ends on the "내일 출근 09:00" twist after the 18:30 front door', () => {
     const end = CUTSCENES.find((c) => c.id === 'home-end');
-    expect(end?.shots.map((s) => s.image)).toEqual(['./art/cut/end-3.webp', './art/cut/end-2.webp']);
-    expect(end?.shots[0].caption).toContain('18:30');
-    expect(end?.shots[0].caption).toContain('현관문');
-    expect(end?.shots[end.shots.length - 1].caption).toContain('내일 출근 09:00');
+    // end-2 is the sunset street (치킨 상자 만세), end-3 the front door at night: the street comes first
+    expect(end?.shots.map((s) => s.image)).toEqual(['./art/cut/end-2.webp', './art/cut/end-3.webp']);
+    expect(end?.shots[0].caption).toMatch(/치킨|길/);
+    expect(end?.shots[0].caption).not.toMatch(/소파|현관/);
+    const last = end?.shots[end.shots.length - 1].caption ?? '';
+    expect(last).toContain('18:30');
+    expect(last).toContain('현관문');
+    expect(last).toContain('내일 출근 09:00');
   });
 
   it('keeps the player shot timing and Ken Burns ranges, comic all-ages copy (no spy words)', () => {
@@ -133,6 +142,31 @@ describe('cutsceneBefore / cutsceneAfter', () => {
     expect(cutsceneBefore(stage(6), markCutsceneSeen(fresh, 'rescue'))?.id).toBe('boss-6');
     // only stage 6 carries the bridge
     for (const n of [7, 8, 9, 10]) expect(cutsceneBefore(stage(n), before)?.id).toBe(`boss-${n}`);
+  });
+
+  it('the real first-clear path (app.ts order): record the w5 clear, play rescue, mark it, then stage 6 opens on 강차장 — rescue exactly once', () => {
+    // app.ts endRun: persist(recordResult(...)) first, then cutsceneAfter(stageId, cleared, save), then the result
+    let save = seen('op-start', 'boss-1', 'boss-2', 'boss-3', 'boss-4', 'boss-5');
+    save = recordResult(save, 'w5-s10', 2, 12000, 300);
+    const played: CutsceneId[] = [];
+    const after = cutsceneAfter('w5-s10', true, save);
+    if (after) {
+      played.push(after.id);
+      save = markCutsceneSeen(save, after.id); // playCutscene's onDone (skip included)
+    }
+    // the player picks stage 6 on the map: cutsceneBefore is replayed until it returns null (app.ts startRun)
+    for (let c = cutsceneBefore(stage(6), save); c; c = cutsceneBefore(stage(6), save)) {
+      played.push(c.id);
+      save = markCutsceneSeen(save, c.id);
+    }
+    // a replay of stage 5 and a second visit to stage 6 play nothing more
+    expect(cutsceneAfter('w5-s10', true, recordResult(save, 'w5-s10', 3, 15000, 300))).toBeNull();
+    expect(cutsceneBefore(stage(6), save)).toBeNull();
+    expect(played).toEqual(['rescue', 'boss-6']);
+    // a failed first try at stage 5 plays nothing; the bridge still waits for the clear
+    const failed = seen('op-start', 'boss-1', 'boss-2', 'boss-3', 'boss-4', 'boss-5');
+    expect(cutsceneAfter('w5-s10', false, failed)).toBeNull();
+    expect(cutsceneAfter('w5-s10', true, failed)?.id).toBe('rescue');
   });
 
   it('hero lines are spoken by the chosen character (archive replays say 나)', () => {

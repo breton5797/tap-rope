@@ -36,7 +36,7 @@ describe('office labels', () => {
     expect(fillCopy(OFFICE.stageTag, vars(stage))).toBe('3단계');
     expect(fillCopy(OFFICE.stageNum, vars(stage))).toBe('3');
     expect(fillCopy(OFFICE.zoneTag, vars(stage))).toBe('3단계');
-    expect(fillCopy(OFFICE.bossPhase, { n: 1 })).toBe('1차 공격 · 1/3');
+    expect(fillCopy(OFFICE.bossPhase, { n: 1 })).toBe('1차 공격');
     expect(fillCopy(OFFICE.bossPhaseAria, { n: 2 })).toBe('2차 공격');
     expect(fillCopy(OFFICE.resultStoryNext, vars({ chapter: 1, index: 9 }))).toBe('한 층 내려왔다! 2단계 개방');
   });
