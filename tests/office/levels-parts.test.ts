@@ -136,6 +136,19 @@ describe('office stage composer', () => {
     }
   });
 
+  it('mission items are flagged: every coin of a collect part or of a part with a bonus collectible, and no other coin', () => {
+    for (const r of runs) {
+      STAGE_MISSIONS[r.stage.id].forEach((m, k) => {
+        const coins = r.beats.filter((b) => b.part === k).flatMap((b) => b.obstacles.filter((o) => o.kind === 'coin'));
+        const itemPart = m.kind === 'collect' || m.collectible !== undefined;
+        for (const o of coins) expect(o.item === true, `${r.stage.id}#${r.seed} part ${k}`).toBe(itemPart);
+        for (const b of r.beats.filter((x) => x.part === k)) {
+          for (const o of b.obstacles.filter((x) => x.kind !== 'coin')) expect(o.item, `${r.stage.id} ${o.kind}`).toBeUndefined();
+        }
+      });
+    }
+  });
+
   it("the finale's last hazard is a jump (floor / beam): the leap over the superior", () => {
     for (const r of runs) {
       STAGE_MISSIONS[r.stage.id].forEach((m, k) => {

@@ -30,7 +30,8 @@ describe('event → sample', () => {
 });
 
 describe('pickup cues', () => {
-  const judge = (beatId: number): GameEvent => ({ type: 'judge', shielded: false, result: { beatId, grade: 'perfect', hit: false, reason: null, collected: ['coin'] } });
+  // a collect part's coins are mission items (Obstacle.item): the judge counts them in `items`
+  const judge = (beatId: number): GameEvent => ({ type: 'judge', shielded: false, result: { beatId, grade: 'perfect', hit: false, reason: null, collected: ['coin'], items: 1 } });
 
   it('collect coins rise in pitch 1.0 → 1.25 over the target, then "done" on the last one', () => {
     const def = { ...(stageById('w1-s10') as StageDef), seed: 5 };

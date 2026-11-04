@@ -76,6 +76,8 @@ export interface Obstacle {
   readonly from?: LaserFrom;
   /** lane hazards: the 1–2 lanes they block; pickups: their single lane; full-width lasers: absent */
   readonly lanes?: readonly LaneId[];
+  /** office: a coin that is a mission item (collect part / bonus collectible) — counted for the mission, never as ₵; v8 never sets it */
+  readonly item?: true;
 }
 
 /** One moment on the timeline. Every obstacle in a beat reaches the agent at `time`. */
@@ -161,6 +163,8 @@ export interface JudgeResult {
   readonly collected: readonly ObstacleKind[]; // pickups collected
   /** v8: seconds the deciding input was off its ideal moment (+ late, − early) on a graded pass; else absent */
   readonly offset?: number;
+  /** office: how many of the collected coins are mission items (Obstacle.item); absent when none */
+  readonly items?: number;
 }
 
 export interface ScoreState {

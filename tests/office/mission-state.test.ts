@@ -16,6 +16,11 @@ const isHazard = (b: Beat) => b.obstacles.some((o) => HAZARD_KINDS.includes(o.ki
 const judge = (beatId: number, hit = false, collected: string[] = [], shielded = false): GameEvent => ({
   type: 'judge', shielded, result: { beatId, grade: hit ? 'miss' : 'perfect', hit, reason: hit ? 'low' : null, collected: collected as never[] },
 });
+/** a mission item picked up (Obstacle.item): the judge reports a collected coin and counts it in `items` */
+const pickItem = (beatId: number): GameEvent => {
+  const e = judge(beatId, false, ['coin']) as Extract<GameEvent, { type: 'judge' }>;
+  return { ...e, result: { ...e.result, items: 1 } };
+};
 
 function setup(n: number, seed = 11) {
   const def = { ...stage(n), seed };
@@ -41,7 +46,9 @@ describe('mission tracker', () => {
     expect(v.value).toBe(2); // the shielded one counts as dodged
     expect(v.target).toBe(p0.length);
     const coin = beats.find((b) => b.part === 1 && b.obstacles.some((o) => o.kind === 'coin'))!;
-    r = trackMissions(r, at(beats, 1, 20), [judge(coin.id, false, ['coin'])])!;
+    // a coin that is not a flagged item does not count for the mission
+    expect(missionView(trackMissions(r, at(beats, 1, 20), [judge(coin.id, false, ['coin'])])!, 20)!.value).toBe(0);
+    r = trackMissions(r, at(beats, 1, 20), [pickItem(coin.id)])!;
     expect(missionView(r, 20)!.kind).toBe('collect');
     expect(missionView(r, 20)!.value).toBe(1);
   });
@@ -105,7 +112,7 @@ describe('mission tracker', () => {
     const { beats, run } = setup(5, seed);
     const coins = beats.filter((b) => b.part === 2 && b.obstacles.some((o) => o.kind === 'coin')).slice(0, 2);
     expect(coins.length).toBe(2);
-    let r = trackMissions(run, at(beats, 2, 60), coins.map((b) => judge(b.id, false, ['coin'])))!;
+    let r = trackMissions(run, at(beats, 2, 60), coins.map((b) => pickItem(b.id)))!;
     r = trackMissions(r, at(beats, 2, 61), [{ type: 'end', cleared: false }])!;
     const out = commitMissions(r, false, false)!;
     expect(out.items).toBe(2);

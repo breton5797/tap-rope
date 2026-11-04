@@ -93,7 +93,7 @@ export const STAGE_MISSIONS: Readonly<Record<string, readonly [MissionSpec, Miss
   // ---- part 2: 퇴근길 (18:00 → 18:30) ----
   'w6-s10': [
     m({ kind: 'dodge', title: '설문지 폭탄', target: 21, hazards: 21, moves: S5, focus: ['drone'], ...DODGE, line: '퇴근 전에 설문 하나만! 금방 끝나~', warmup: 8 }),
-    m({ kind: 'collect', title: '출입 사원증', target: 8, hazards: 18, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'badge', ...COLLECT, line: '출입 기록은 남기고 가야지~' }),
+    m({ kind: 'collect', title: '출입 사원증', target: 7, hazards: 18, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'badge', ...COLLECT, line: '출입 기록은 남기고 가야지~' }),
     m({ kind: 'finale', title: '서명판 부메랑', target: 23, hazards: 23, moves: S5, focus: ['beam'], ...FINALE, line: '여기 서명 하나만! 진짜 하나만!' }),
   ],
   'w7-s10': [
@@ -103,7 +103,7 @@ export const STAGE_MISSIONS: Readonly<Record<string, readonly [MissionSpec, Miss
   ],
   'w8-s10': [
     m({ kind: 'chase', title: '영수증 추격', target: 28, hazards: 28, moves: S7, focus: ['chaser', 'rear'], ...CHASE, line: '잠깐, 영수증 처리 확인 좀!' }),
-    m({ kind: 'collect', title: '흩날린 영수증', target: 9, hazards: 25, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'docs', ...COLLECT, line: '이 영수증, 하나도 빠짐없이 모아 와!' }),
+    m({ kind: 'collect', title: '흩날린 영수증', target: 8, hazards: 25, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'docs', ...COLLECT, line: '이 영수증, 하나도 빠짐없이 모아 와!' }),
     m({ kind: 'finale', title: '개찰구 돌파', target: 32, hazards: 32, moves: S7, focus: ['rear'], ...FINALE, line: '감사는 퇴근 후에도 계속된다!' }),
   ],
   'w9-s10': [

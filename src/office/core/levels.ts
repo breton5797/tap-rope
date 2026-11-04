@@ -6,7 +6,8 @@
  * door in its middle, all on the stage's half-beat grid.
  * Per part: a collect part spreads out (density < 1) and every pickup becomes a 1단 coin on a lane the next
  * hazard leaves open, with at least target + 2 of them; a finale's last hazard becomes a jump (the leap over
- * the superior); a part with a `warmup` opens with plain single jumps / slides for that many seconds. Beats carry `part`. Stages without a mission script (menu demo, endless) use v8 unchanged.
+ * the superior); a part with a `warmup` opens with plain single jumps / slides for that many seconds. The coins of a
+ * collect part (and of a part with a bonus collectible) are flagged Obstacle.item: mission items, never ₵. Beats carry `part`. Stages without a mission script (menu demo, endless) use v8 unchanged.
  */
 import type { Beat, Door, LaneId, Obstacle, PhysicsConfig, StageDef } from '../../types';
 import { HAZARD_KINDS, LANES } from '../../types';
@@ -40,6 +41,12 @@ function partSlots(spec: MissionSpec, def: StageDef, cfg: PhysicsConfig): { beat
 }
 
 const coin = (lane: LaneId): Obstacle => ({ kind: 'coin', level: 1, lanes: [lane] });
+
+/** a part's coins as mission items (collect part, or a part with a bonus collectible): never paid as ₵ */
+const asItems = (beats: readonly Beat[]): Beat[] =>
+  beats.map((b) => (b.obstacles.some((o) => o.kind === 'coin')
+    ? { ...b, obstacles: b.obstacles.map((o) => (o.kind === 'coin' ? { ...o, item: true as const } : o)) }
+    : b));
 
 function pickLane(rng: Rng, open: readonly LaneId[]): LaneId {
   return open[Math.floor(rng() * open.length)] ?? 1;
@@ -149,6 +156,7 @@ function composeOffice(stage: StageDef, specs: readonly MissionSpec[], cfg: Phys
     if (spec.warmup) ({ beats, slots } = warmupPart(beats, slots, spec.warmup, half, cfg));
     if (spec.kind === 'collect') ({ beats, slots } = collectPart(spec, beats, slots, half, cfg, rng));
     if (spec.kind === 'finale') beats = finalePart(beats);
+    if (spec.kind === 'collect' || spec.collectible) beats = asItems(beats);
     return { beats, slots };
   });
   let beats: Beat[] = [];
