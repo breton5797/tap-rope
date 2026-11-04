@@ -513,3 +513,8 @@ blank, with no text (`sign-stand` shows only a checkbox icon, and the `taxi` roo
 | `prop-skewer.webp` | nano_banana_flash | 1.5 | $PROP one Korean grilled skewer (kkochi) with chunks of grilled chicken and green onion on a wooden stick, glossy sauce. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
 | `prop-video-call.webp` | nano_banana_flash | 1.5 | $PROP a giant upright smartphone standing on the floor like a sign, its screen showing a video call with one cheerful cartoon man's face in a suit and a green call button icon, no text. |
 | `prop-smartphone.webp` | nano_banana_flash | 1.5 | $PROP a small black smartphone with a glowing blank screen and a little ringing vibration mark. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+
+- 2026-11-05 follow-up (1.5 cr; part-2 total **140 cr**, balance 1212.83): the first `prop-gold-badge` (a gold star disc with
+  sparkles) read as a coin pickup, so it was regenerated as a navy/red enamel shield lapel pin with a silver pin-back:
+  nano_banana_flash, `$PROP a big shield-shaped company lapel pin badge seen at an angle, deep navy enamel face with a thick red enamel ring border and a polished silver metal rim, a simple white abstract leaf emblem in the middle, and the silver pin-back clasp clearly visible sticking out behind it. Not round, not gold, no coin, no star, no sparkles. It flies toward the LEFT, with a few short grey speed swooshes trailing on its right side.`. The detached sparkles on `prop-magnifier` were removed locally by keeping only
+  the largest connected part and re-containing it in 512×512 with an 8 px margin.
