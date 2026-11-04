@@ -168,9 +168,13 @@ export function drawFootprint(
   ctx.fill();
   ctx.globalAlpha /= 0.4;
   ctx.globalAlpha *= 0.9;
-  inkRim(ctx, 3.6);
+  // ink rim, a white under-stroke, then the move colour: reads on the dark night asphalt too (round 2 #7)
+  inkRim(ctx, 5);
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 3.8;
+  ctx.stroke();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.8;
+  ctx.lineWidth = 2.4;
   ctx.stroke();
   ctx.restore();
   // jumps: 1–3 notches on the ring's front edge = the level to jump

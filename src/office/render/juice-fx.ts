@@ -144,7 +144,7 @@ export class JuiceFx {
       case 'jump': {
         const level = Math.min(3, Math.max(1, c.level));
         const r = takeoffRing(level);
-        // one ring per level, each a beat later and wider: white, cyan, gold; the jump stat widens them. Never the
+        // one ring per level, each a beat later and wider, in neutral greys; the jump stat widens them. Never the
         // hero accent (a magenta ring on the floor read as a lane footprint — polish P2)
         const radius = r.radius * this.ringScale;
         for (let i = 0; i < level; i++) {

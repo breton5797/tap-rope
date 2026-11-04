@@ -20,7 +20,7 @@ import { CalloutHold } from './callout-hold';
 import { superiorOnStage } from './superior';
 import { overlayState } from '../ui/mission';
 import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeArrowX, safeLanes, scanSigns, stayLowBand } from './readability';
-import { hudBand, setCalloutBottom } from './hud-band';
+import { hudBand, lastHudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import {
   actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, recordOverflowed, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord,
@@ -181,6 +181,8 @@ class OfficeRenderer implements Renderer {
     setLaneSwitchTime(frameLaneSwitch(snap.skin, snap.running));
     // the sign scan runs before the v8 frame so its "!" pass knows which rear hazards get the arrow instead
     this.scan = scanSigns(snap.obstacles);
+    // round 2 #9: the judgement popups (drawn inside the v8 frame) clear a callout that starts this frame too
+    this.predictCallout(snap);
     // polish P2: the colleague running behind fades while an attack comes from behind (it hid rear props on iPad)
     escortLook.alpha = this.scan.rearHeights.length > 0 ? ESCORT_FADE : 1;
     // during a blackout, record every prop the v8 frame draws (replayed as silhouettes over the darkness)
@@ -334,6 +336,22 @@ class OfficeRenderer implements Renderer {
 
 
   /** catchphrase while the superior walks in, exit line once its gauge runs out */
+  /** the callout's bottom last time one was drawn (it sits at a near-constant height) */
+  private lastCallout = Number.NEGATIVE_INFINITY;
+
+  /** before the v8 frame: a callout about to appear this frame lends the popups its last known bottom */
+  private predictCallout(snap: RenderSnapshot): void {
+    const band = lastHudBand();
+    if (Number.isFinite(band.callout)) {
+      this.lastCallout = band.callout;
+      return;
+    }
+    const b = snap.boss;
+    if (!b || !snap.running || !b.attack || b.state !== 'fight' || !Number.isFinite(this.lastCallout)) return;
+    const o = attackObstacle(snap, isHazard);
+    if (o && this.calloutHold.peek(beatIdOf(o), o.timeUntil, snap.realTime)) setCalloutBottom(this.lastCallout);
+  }
+
   private bubble(
     ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number, avoid: Rect | null, noCallout = false,
   ): void {

@@ -230,3 +230,60 @@ describe('surprise event copy by stage (core eventCopy)', () => {
     expect(eventText(7, 'broadcast')).not.toContain('사내방송');
   });
 });
+
+describe('judgement popups never intersect the callout box (round 2 #9)', () => {
+  it('the scaled text box of every stacked popup ends up below the callout bottom', async () => {
+    const { popupBoxes } = await import('../../src/office/render/popups');
+    // a CHAIN popup stacked above a PERFECT, both freshly popped (scale 1.12) or fully drifted
+    for (const age of [0, 0.05, 0.4]) {
+      const items = [
+        { y0: 300, bump: 30, age, life: 0.6, size: 16 }, // x80 CHAIN
+        { y0: 300, bump: 0, age, life: 0.6, size: 26 }, // PERFECT
+      ];
+      for (const callout of [250, 290, 330]) {
+        const boxes = popupBoxes(items, callout, Number.NEGATIVE_INFINITY);
+        for (const b of boxes) expect(b.top).toBeGreaterThanOrEqual(callout);
+      }
+      // no callout and no HUD line: no shift (same as a callout far above every popup)
+      expect(popupBoxes(items, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY)).toEqual(popupBoxes(items, 0, Number.NEGATIVE_INFINITY));
+    }
+  });
+});
+
+describe('take-off rings are neutral (round 2 #14)', () => {
+  it('every jump ring colour is a grey (no hue that reads as a lane / move footprint)', async () => {
+    const { JUMP_RING_COLORS } = await import('../../src/office/render/juice');
+    for (const c of JUMP_RING_COLORS) {
+      const n = Number.parseInt(c.slice(1), 16);
+      const ch = [n >> 16, (n >> 8) & 255, n & 255];
+      expect(Math.max(...ch) - Math.min(...ch), c).toBeLessThanOrEqual(24);
+    }
+  });
+});
+
+describe('footprint rings on dark floors (round 2 #7)', () => {
+  /** a fake 2D context recording each stroke's style and width */
+  const recorder = () => {
+    const strokes: { style: string; width: number }[] = [];
+    const ctx = {
+      globalAlpha: 1, strokeStyle: '', fillStyle: '', lineWidth: 1,
+      save() {}, restore() {}, beginPath() {}, ellipse() {}, fill() {}, setLineDash() {}, moveTo() {}, lineTo() {}, closePath() {},
+      stroke() { strokes.push({ style: String(this.strokeStyle), width: this.lineWidth }); },
+    };
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, strokes };
+  };
+
+  it('every footprint (jump amber, slide blue, lane red) gets a white under-stroke wider than its colour ring', async () => {
+    const { drawFootprint, ACTION_COLORS } = await import('../../src/office/render/props');
+    for (const [kind, cue] of [['floor', 'jump'], ['ceiling', 'slide'], ['guard', 'lane']] as const) {
+      const { ctx, strokes } = recorder();
+      drawFootprint(ctx, kind, 100, 200, 60);
+      const white = strokes.findIndex((s) => /^(#fff(fff)?|rgba\(255, ?255, ?255)/i.test(s.style));
+      const colour = strokes.findIndex((s) => s.style === ACTION_COLORS[cue]);
+      expect(white, kind).toBeGreaterThanOrEqual(0);
+      expect(colour, kind).toBeGreaterThan(white);
+      expect(strokes[white].width).toBeGreaterThan(strokes[colour].width);
+      expect(strokes[colour].width, kind).toBeGreaterThanOrEqual(2.4);
+    }
+  });
+});

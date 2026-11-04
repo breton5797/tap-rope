@@ -46,3 +46,15 @@ describe('CalloutHold', () => {
     for (const s of d.values()) expect(s).toBeGreaterThanOrEqual(CALLOUT_MIN - 1 / 60);
   });
 });
+
+describe('CalloutHold.peek', () => {
+  it('answers like show() without changing the hold', () => {
+    const hold = new CalloutHold();
+    expect(hold.peek(1, 0.9, 0)).toBe(true);
+    expect(hold.peek(1, 0.2, 0.1)).toBe(false); // not started yet: a beat inside CALLOUT_END never starts
+    expect(hold.show(1, 0.9, 0)).toBe(true);
+    expect(hold.peek(1, 0.2, 0.3)).toBe(true); // held
+    expect(hold.peek(2, 0.2, 0.3)).toBe(false);
+    expect(hold.show(1, 0.2, 0.3)).toBe(true);
+  });
+});

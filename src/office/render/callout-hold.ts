@@ -12,6 +12,13 @@ export class CalloutHold {
   private beat = -1;
   private since = 0;
 
+  /** what show() would answer, without starting or switching the hold (the renderer predicts the callout) */
+  peek(beat: number, timeUntil: number, now: number): boolean {
+    if (timeUntil < 0) return false;
+    if (beat !== this.beat) return timeUntil >= CALLOUT_END;
+    return timeUntil >= CALLOUT_END || now - this.since < CALLOUT_MIN;
+  }
+
   /** whether the callout for `beat` (arriving in `timeUntil` s) shows at `now` (s, monotonic) */
   show(beat: number, timeUntil: number, now: number): boolean {
     if (timeUntil < 0) return false;
