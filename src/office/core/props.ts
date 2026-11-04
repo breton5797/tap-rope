@@ -21,6 +21,8 @@ export const PART1_PROPS = [
 export const PART2_PROPS = [
   'sign-stand', 'survey', 'magnifier', 'receipts', 'receipt', 'cane', 'rice-cake', 'gold-badge', 'megaphone',
   'taxi', 'laptop', 'mic-stand', 'skewer', 'video-call', 'smartphone',
+  // playtest round 2: own shapes for 문상무's 계산기, 윤이사's 탬버린 and 최팀장's "진짜 5분" bubble
+  'calculator', 'tambourine', 'call-bubble',
 ] as const;
 
 /** every prop sprite (public-office/art/prop-<id>.webp) */
@@ -31,9 +33,9 @@ type Part2Prop = (typeof PART2_PROPS)[number];
 
 /** callout-only props: their own name, a part-1 sprite */
 export const PROP_ALIASES = {
-  'survey-box': 'papers', 'sign-board': 'clipboard', pen: 'pointer', 'audit-board': 'clipboard', calculator: 'corp-card',
-  'taxi-receipt': 'paper-plane', 'excel-sheet': 'paper-jam', 'skewer-tray': 'coffee-tray', tambourine: 'necktie', mic: 'pointer',
-  'call-bubble': 'latte-bubble', 'home-clipboard': 'clipboard',
+  'survey-box': 'papers', 'sign-board': 'clipboard', pen: 'pointer', 'audit-board': 'clipboard',
+  'taxi-receipt': 'paper-plane', 'excel-sheet': 'paper-jam', 'skewer-tray': 'coffee-tray', mic: 'pointer',
+  'home-clipboard': 'clipboard',
 } as const satisfies Readonly<Record<string, Part1Prop>>;
 export type AttackPropId = OfficePropId | keyof typeof PROP_ALIASES;
 
@@ -42,6 +44,7 @@ export const PROP_FALLBACK: Readonly<Record<Part2Prop, Part1Prop>> = {
   'sign-stand': 'whiteboard', survey: 'paper-plane', magnifier: 'door', receipts: 'papers', receipt: 'paper-plane',
   cane: 'revolving-door', 'rice-cake': 'envelope', 'gold-badge': 'envelope', megaphone: 'ceo-screen',
   taxi: 'cart', laptop: 'papers', 'mic-stand': 'corp-card', skewer: 'necktie', 'video-call': 'ceo-screen', smartphone: 'pointer',
+  calculator: 'corp-card', tambourine: 'necktie', 'call-bubble': 'latte-bubble',
 };
 
 /** what the superior shouts as the prop flies (the attack callout) */

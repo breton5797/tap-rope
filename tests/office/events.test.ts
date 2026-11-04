@@ -211,6 +211,10 @@ describe('attackVariant', () => {
     for (const id of PART2_PROPS) expect(PART1_PROPS).toContain(PROP_FALLBACK[id]);
     for (const [alias, sprite] of Object.entries(PROP_ALIASES)) expect(PART1_PROPS, alias).toContain(sprite);
     expect(propSprite('unknown-prop')).toEqual({ sprite: 'papers', fallback: null });
+    // round 2: 계산기 / 탬버린 / "진짜 5분" get their own sprites (no longer the corp card, necktie or 라떼 bubble)
+    expect(propSprite('calculator')).toEqual({ sprite: 'calculator', fallback: 'corp-card' });
+    expect(propSprite('tambourine')).toEqual({ sprite: 'tambourine', fallback: 'necktie' });
+    expect(propSprite('call-bubble')).toEqual({ sprite: 'call-bubble', fallback: 'latte-bubble' });
   });
 
   it('fail tips name the stage superior\'s own prop for the move that cost the heart', () => {
