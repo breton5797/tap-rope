@@ -371,7 +371,8 @@ if (['all', 'flake'].includes(which)) {
 }
 
 // ---------- 8. v2.2 four hires: picker cards + star bars, each hire clears stage 1, HUD hearts, save kept ----------
-const HIRES = [['kid', '칼퇴준', 3], ['cat', '정시원', 2], ['bunny', '고도약', 3], ['robot', '유행운', 4]];
+// 정시원 hearts 2 → 3: balance change 2026-11-03 (src/office/core/characters.ts)
+const HIRES = [['kid', '칼퇴준', 3], ['cat', '정시원', 3], ['bunny', '고도약', 3], ['robot', '유행운', 4]];
 if (['all', 'heroes'].includes(which)) {
   for (const [id, name, hearts] of HIRES) {
     const ctx = await newContext();
