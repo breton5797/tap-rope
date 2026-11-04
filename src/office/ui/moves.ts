@@ -42,9 +42,9 @@ export const FAIL_TIPS: Readonly<Record<MoveId, string>> = {
 };
 
 /** office stages: "<the stage superior's prop> → <what to do>" (core failTipFor); else the generic tip */
-export function failTipText(id: MoveId, stageId: string | null): string {
+export function failTipText(id: MoveId, stageId: string | null, section: number | null = null): string {
   const n = /^w(\d+)-s10$/.exec(stageId ?? '');
-  return n ? failTipFor(Number(n[1]), id) : FAIL_TIPS[id];
+  return n ? failTipFor(Number(n[1]), id, section ?? 0) : FAIL_TIPS[id];
 }
 
 /** guide sheet order = the order the five office stages teach them (spec §13) */

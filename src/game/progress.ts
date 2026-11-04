@@ -148,7 +148,7 @@ export function createProgress(d: ProgressDeps): Progress {
       if (summary.cleared) requestPersistentStorage();
       const endlessSeed = record?.mode === 'endless' ? record.seed : null;
       const meta: ResultMeta = {
-        rewards, streak, unlocked, hitBy: summary.hitBy ?? null, seed: endlessSeed,
+        rewards, streak, unlocked, hitBy: summary.hitBy ?? null, hitSection: summary.hitSection ?? null, seed: endlessSeed,
         vs: challenge && endlessSeed === challenge.seed ? challenge.vs : null,
         board: record ? boardOf(record) : null, hits: summary.hitsTaken, frame: frameOf(d.getSave())?.color ?? null,
       };

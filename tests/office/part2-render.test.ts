@@ -287,3 +287,19 @@ describe('footprint rings on dark floors (round 2 #7)', () => {
     }
   });
 });
+
+describe('lane art while a collectible sprite is loading (code review)', () => {
+  it('a mission item never falls back to the ₵ icon: a neutral item glyph instead', async () => {
+    const { laneCollectibleArt, setPickupFrame } = await import('../../src/office/render/gadgets');
+    const { STAGES } = await import('../../src/core/content');
+    const { generateStage } = await import('../../src/core/levels');
+    const { DEFAULT_PHYSICS } = await import('../../src/core/physics');
+    const { beats } = generateStage({ ...STAGES[7], seed: 3 }, DEFAULT_PHYSICS, 2);
+    setPickupFrame(beats, 7);
+    const coin = beats.find((b) => b.part === 1 && b.obstacles.some((o) => o.kind === 'coin'))!;
+    // node: no Image → the sprite is "missing"; the hook still returns art (the neutral glyph), not null
+    expect(laneCollectibleArt(coin.id, 'coin')).not.toBeNull();
+    const plain = beats.find((b) => b.part === 0 && b.obstacles.some((o) => o.kind === 'coin'));
+    if (plain) expect(laneCollectibleArt(plain.id, 'coin')).toBeNull();
+  });
+});

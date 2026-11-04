@@ -34,10 +34,11 @@ export function laneCollectibleName(kind: ObstacleKind, beat: Beat | undefined, 
   return name.startsWith('collect-') ? name : null;
 }
 
-/** rhythm-lane hook (render/lane.ts laneArt): collect-mission coins show their collectible, not ₵ */
-export function laneCollectibleArt(beatId: number, kind: ObstacleKind): HTMLImageElement | null {
+/** rhythm-lane hook (render/lane.ts laneArt): collect-mission coins show their collectible (a neutral item glyph
+ * while its sprite loads or is missing), never ₵ */
+export function laneCollectibleArt(beatId: number, kind: ObstacleKind): HTMLImageElement | 'item' | null {
   const name = laneCollectibleName(kind, run.beats[beatId], run.stageIndex);
-  return name ? officeImage(name) : null;
+  return name ? officeImage(name) ?? 'item' : null;
 }
 
 function droneProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: number, t: number): void {

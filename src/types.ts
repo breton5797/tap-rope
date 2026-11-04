@@ -396,6 +396,8 @@ export interface RunSummary {
   readonly date: string; // YYYY-MM-DD (local)
   /** v8: the move that would have dodged the hit that ended a failed run (fail-screen tip), else null */
   readonly hitBy?: MoveId | null;
+  /** the section of that hit (office: stages 5 / 10 bring one superior per section), else null */
+  readonly hitSection?: number | null;
   /** office v2: mission stamps (one per section) and the stage grade; absent in v8 */
   readonly stamps?: readonly boolean[];
   readonly grade?: 'S' | 'A' | 'B' | 'C';
@@ -658,6 +660,8 @@ export interface ResultMeta {
   readonly streak: { readonly count: number; readonly extended: boolean } | null;
   readonly unlocked: readonly AchievementId[];
   readonly hitBy: MoveId | null;
+  /** the section the run failed in (office fail tip names that section's superior's prop) */
+  readonly hitSection?: number | null;
   /** endless: the seed (challenge link); vs = the challenger's score when this run used their seed */
   readonly seed: number | null;
   readonly vs: number | null;

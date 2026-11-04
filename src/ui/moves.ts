@@ -49,7 +49,7 @@ export const FAIL_TIPS: Readonly<Record<MoveId, string>> = {
 };
 
 /** the result card's fail tip for the move that cost the run (skins may name the stage's own attack) */
-export function failTipText(id: MoveId, _stageId: string | null): string {
+export function failTipText(id: MoveId, _stageId: string | null, _section: number | null = null): string {
   return FAIL_TIPS[id];
 }
 

@@ -14,10 +14,10 @@ import { artImage } from './title';
 
 export { FAIL_TIPS };
 
-export function failTip(id: MoveId, stageId: string | null = null): HTMLElement {
+export function failTip(id: MoveId, stageId: string | null = null, section: number | null = null): HTMLElement {
   return h('div', { cls: 'report__tip', attrs: { role: 'note' } }, [
     h('span', { cls: 'report__tip-glyph' }, [moveGlyph(id)]),
-    h('span', { cls: 'report__tip-text', text: failTipText(id, stageId) }),
+    h('span', { cls: 'report__tip-text', text: failTipText(id, stageId, section) }),
   ]);
 }
 

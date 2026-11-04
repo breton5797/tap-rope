@@ -101,3 +101,13 @@ describe('final-stage headline (core resultFinalStatus / resultFinalTitle)', () 
     expect(mid.querySelector('.report__status')?.textContent).toBe('퇴근 성공!');
   });
 });
+
+describe('fail tip on the multi-superior stages (code review)', () => {
+  it('names the prop of the section the run failed in', async () => {
+    const { failTipFor } = await import('../../src/office/core/events');
+    for (const section of [0, 1, 2]) {
+      const el = buildResult(ctx(), result({ stageId: 'w10-s10', title: '10단계', cleared: false, meta: meta({ hitBy: 'jump', hitSection: section }) }));
+      expect(el.querySelector('.report__tip-text')?.textContent).toBe(failTipFor(10, 'jump', section));
+    }
+  });
+});

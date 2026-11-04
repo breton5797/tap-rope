@@ -31,11 +31,11 @@ const KIND_INDEX: Readonly<Record<ObstacleKind, number>> = {
  * Skin seam: art for a pickup icon (e.g. the office's mission collectible instead of the coin), drawn on a light
  * disc in the icon's place. v8 leaves it null (its icons only).
  */
-export const laneArt: { pickup: ((beatId: number, kind: ObstacleKind) => CanvasImageSource | null) | null } = { pickup: null };
+export const laneArt: { pickup: ((beatId: number, kind: ObstacleKind) => CanvasImageSource | 'item' | null) | null } = { pickup: null };
 const PICKUP_KINDS: ReadonlySet<ObstacleKind> = new Set(['coin', 'shield', 'slow', 'heart']);
 
-/** a skin's pickup art on a light disc, ICON px across at `scale` */
-function drawPickupArt(ctx: Ctx, img: CanvasImageSource, x: number, y: number, scale: number): void {
+/** a skin's pickup art on a light disc, ICON px across at `scale`; 'item' = a neutral item glyph (art loading) */
+function drawPickupArt(ctx: Ctx, img: CanvasImageSource | 'item', x: number, y: number, scale: number): void {
   const r = (ICON / 2) * scale;
   ctx.fillStyle = '#FFFFFF';
   ctx.strokeStyle = '#3FBF8F';
@@ -43,6 +43,16 @@ function drawPickupArt(ctx: Ctx, img: CanvasImageSource, x: number, y: number, s
   circle(ctx, x, y, r);
   ctx.fill();
   ctx.stroke();
+  if (img === 'item') {
+    // a small mint gift box: "a mission item", never the ₵ coin
+    const b = r * 0.9;
+    ctx.fillStyle = '#3FBF8F';
+    roundRect(ctx, x - b / 2, y - b / 2 + r * 0.1, b, b * 0.8, 3);
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(x - r * 0.08, y - b / 2 + r * 0.1, r * 0.16, b * 0.8);
+    return;
+  }
   const s = r * 1.6;
   ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
 }

@@ -229,7 +229,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     story ? storyLine(story) : null,
     missionResult(r),
     onlineLine(r),
-    !r.cleared && meta?.hitBy ? failTip(meta.hitBy, r.stageId) : null,
+    !r.cleared && meta?.hitBy ? failTip(meta.hitBy, r.stageId, meta.hitSection ?? null) : null,
     h('div', { cls: 'report__scorebox' }, [
       h('div', { cls: 'report__label mono', text: COPY.resultScore }),
       score,

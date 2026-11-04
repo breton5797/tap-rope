@@ -143,6 +143,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       renderTutorial(layers.tutorial, ctx, null);
       renderBriefing(layers.briefing, null, true);
       setBusy('briefing', false);
+      setBusy('mission', false); // the mission card is gone with the run
       banners.clear(); // the report card shows this run's badges
       const el = buildResult(ctx, r);
       lastResult = { key, el };
@@ -173,6 +174,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       renderBriefing(layers.briefing, null, true);
       setBusy('countdown', false);
       setBusy('briefing', false);
+      setBusy('mission', false);
     },
     toast: (msg) => showToast(layers.toast, msg),
     toastAchievement: (a) => banners.push(a),
