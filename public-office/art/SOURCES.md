@@ -474,3 +474,14 @@ Spend **3.5 credits** (part-2 total **116 cr**, balance 1240.33 → 1236.83).
 | `prop-paper-jam.webp` (cut out as props: 512×512, 8 px margin, centred) | nano_banana_flash | 1.5 | $STYLE. Single game obstacle prop icon, one object only, centered, large and bold with a thick dark outline and saturated neon accent colors so it reads clearly at small size against pastel backgrounds, slight three-quarter view, on a pure flat white background, no shadow, no ground, no people, no hands. The object: one chunky floor-standing office photocopier printer standing on the ground on its own base, simple boxy silhouette, light blue-grey body with a very thick dark outline, a single sheet of paper sticking out of its slot, a small glowing orange warning light on the front panel. Only the printer: no paper cloud, no crumpled paper pile, no flying papers, no motion lines, no smoke. |
 | `cut/locked.webp` (9:16 → 1080×1920; archive thumbnail for locked records) | nano_banana_flash | 1.5 | $STYLE. Vertical 9:16 still illustration with a fully drawn background, absolutely no lettering, no words, no numbers: a closed secret office dossier, a thick manila folder lying on a dark desk under a desk lamp, tied with a red string, a big plain round red ink stamp mark with no letters on the cover, a chunky golden padlock on the string, a few blank black redaction bars on a paper peeking out, soft dim mysterious lighting, calm and cute not scary. |
 | `ach/stamps-15.webp` (128×128, 1 px margin) | gpt_image_2_5 | 0.5 | Round achievement badge icon for a mobile game, a single circular medal filling the whole square frame edge to edge, thick bold dark outline, pastel circular face with a neon colored rim, one big simple centered symbol readable at 64 pixels, bright Korean webtoon comic style, bold clean outlines, flat cel shading, transparent background outside the circle, no text, no letters, no numbers, no digits, no logos. The symbol: a cute wooden Korean seal stamp with a red ink base pressing onto a little stamp card completely filled with small round red stamp marks (plain circles, no letters), sparkles, red rim. |
+
+Part-1 walls (2026-11-05, 0 credits): the same pole pass was applied to `wall-0-*`, `wall-0-dawn-*`, `wall-1-*`, `wall-2-*` and
+`wall-3-*`. The poles are painted over the shipped files with a 64 px half, which covers the old smeared blend completely; the rest
+of each wall is unchanged. Pillar colours by theme:
+- theme 0: cream office column #EEE4D2
+- theme 0-dawn: lobby pillar #E2D6DE
+- theme 1: mint corridor pillar #D6ECE2
+- theme 2: lilac mullion pillar #D4C8E8
+- theme 3: peach elevator-hall pillar #F0D6C6
+
+Every join was checked by composing a|b|c|a at 512 px.
