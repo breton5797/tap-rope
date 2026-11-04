@@ -91,3 +91,13 @@ describe('fail tip names the stage superior\'s prop (core failTipFor)', () => {
     expect(el.querySelector('.report__tip-text')?.textContent).toBe(failTipFor(8, 'lane'));
   });
 });
+
+describe('final-stage headline (core resultFinalStatus / resultFinalTitle)', () => {
+  it('a cleared last stage says 18:30 귀가 완료!, other clears 퇴근 성공!', () => {
+    const last = buildResult(ctx(), result({ stageId: 'w10-s10', title: '10단계', cleared: true, stars: 3, hasNext: false }));
+    expect(last.querySelector('.report__status')?.textContent).toBe('18:30 귀가 완료!');
+    expect(last.querySelector('.report__title')?.textContent).toBe('오늘도 무사 퇴근!');
+    const mid = buildResult(ctx(), result({ stageId: 'w7-s10', title: '7단계', cleared: true, stars: 1, hasNext: true }));
+    expect(mid.querySelector('.report__status')?.textContent).toBe('퇴근 성공!');
+  });
+});

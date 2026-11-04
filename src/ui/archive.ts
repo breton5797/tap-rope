@@ -88,7 +88,7 @@ export function buildAchievements(ctx: Ctx, save: SaveData, onBack: () => void):
     header(ctx, '업적', onBack, [h('div', { cls: 'chip chip--sm mono', text: `${done.length}/${ACHIEVEMENTS.length}` })], icons.back()),
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'ach__summary' }, [
-        h('span', { cls: 'kicker', text: COPY.archiveKicker }),
+        h('span', { cls: 'kicker', text: COPY.achKicker }),
         h('div', { cls: 'ach__meter', attrs: { role: 'progressbar', 'aria-label': '업적 달성률', 'aria-valuenow': String(Math.round(pct * 100)), 'aria-valuemin': '0', 'aria-valuemax': '100' } }, [
           h('i', { style: { transform: `scaleX(${pct})` } }),
         ]),

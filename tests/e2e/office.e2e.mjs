@@ -411,7 +411,7 @@ if (['all', 'heroes'].includes(which)) {
     await click(page.getByRole('button', { name: /^확인/ }));
     await skipCutscenes(page, 5000);
     const hud = await page.waitForFunction(() => {
-      const n = document.querySelectorAll('[aria-label^="방탄 "] .heart').length;
+      const n = document.querySelectorAll('.hud__hearts .heart').length;
       return n > 0 ? n : null;
     }, null, { timeout: 20000 }).then((h) => h.jsonValue());
     check(hud === hearts, `${name}: HUD hearts ${hud} (want ${hearts})`);
@@ -540,7 +540,7 @@ if (['all', 'login'].includes(which)) {
     check(badge === tester, `${role}: TEST badge ${badge ? 'shown' : 'hidden'}`);
     let minHearts = 99;
     const poll = setInterval(async () => {
-      const n = await page.locator('[aria-label^="방탄 "] .heart:not(.is-empty)').count().catch(() => minHearts);
+      const n = await page.locator('.hud__hearts .heart:not(.is-empty)').count().catch(() => minHearts);
       if (n > 0 || minHearts === 99) minHearts = Math.min(minHearts, n);
     }, 250);
     await page.waitForTimeout(8000);

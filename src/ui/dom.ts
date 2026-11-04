@@ -144,7 +144,8 @@ export function holdFocus(el: HTMLElement): void {
   });
   const go = (): void => {
     if (!el.isConnected || el.contains(document.activeElement)) return;
-    (el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus({ preventScroll: true });
+    // a dialog may name its primary action (data-autofocus); else its first focusable
+    (el.querySelector<HTMLElement>('[data-autofocus]') ?? el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus({ preventScroll: true });
   };
   // focus that escapes the dialog (VoiceOver swipe, Tab from the canvas) is pulled back while it is open
   const onFocusIn = (e: FocusEvent): void => {

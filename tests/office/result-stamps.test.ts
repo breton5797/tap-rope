@@ -132,3 +132,26 @@ describe('one overlay at a time (polish P1d)', () => {
     expect(overlayState.card).toBe(false);
   });
 });
+
+describe('one mission card per section (pt-casual round 2, stage 6)', () => {
+  it('a card already on screen ends when the section title arrives and is not shown again', async () => {
+    const hud = document.createElement('div');
+    const briefing = document.createElement('div');
+    const root = document.createElement('div');
+    root.append(hud, briefing);
+    document.body.appendChild(root);
+    const v = view();
+    renderMission(hud, v, stage1, true, 20);
+    expect(hud.querySelector('.mission-card')).not.toBeNull(); // at GO
+    const line = document.createElement('div');
+    line.className = 'bossline';
+    briefing.appendChild(line);
+    renderMission(hud, v, stage1, true, 20.8);
+    expect(hud.querySelector('.mission-card')).toBeNull(); // the title takes over
+    line.remove();
+    for (const t of [23, 23.5, 24]) {
+      renderMission(hud, v, stage1, true, t);
+      expect(hud.querySelector('.mission-card')).toBeNull(); // never a second time mid-hazards
+    }
+  });
+});

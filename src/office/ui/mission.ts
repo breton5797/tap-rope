@@ -159,15 +159,19 @@ function titleUp(layer: HTMLElement): boolean {
 }
 
 /**
- * polish P1d: the mission card never shares the screen with the section title — while the title is up the card
- * is taken down and its window restarts (a full CARD_S) once the title has cleared.
+ * polish P1d: the mission card never shares the screen with the section title. A card that has not shown yet
+ * waits for the title to clear (then gets its full CARD_S); a card already on screen ends when the title
+ * arrives — one card per section, never a second one mid-hazards (round 2, stage 6).
  */
 function waitForTitle(card: Timed | null, layer: HTMLElement, time: number): Timed | null {
   if (!card) return null;
   const waiting = card.from === Number.POSITIVE_INFINITY;
   if (!waiting && time < card.from) return card;
   if (titleUp(layer)) {
-    card.el.remove();
+    if (card.el.isConnected) {
+      card.el.remove();
+      return null;
+    }
     return waiting ? card : { ...card, from: Number.POSITIVE_INFINITY, until: Number.POSITIVE_INFINITY };
   }
   return waiting ? { ...card, from: time, until: time + CARD_S } : card;
