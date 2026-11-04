@@ -218,3 +218,32 @@ describe('leaderboard + banners', () => {
     vi.useRealTimers();
   });
 });
+
+describe('heart refill cue', () => {
+  const base: HudState = {
+    hearts: 2, maxHearts: 3, score: 0, combo: 0, progress: 0, feverGauge: 0, fever: false, shield: false, slowMo: false,
+    title: '1-1 · t', coins: 0, sliding: false, section: 0, sections: 3, boss: null,
+  };
+
+  it('v8 keeps its 300 ms fade-in; the refilled heart is tagged is-refilled for the office stylesheet', () => {
+    const calls: { frames: Keyframe[]; opts: KeyframeAnimationOptions }[] = [];
+    const orig = Element.prototype.animate;
+    Element.prototype.animate = function (frames: Keyframe[], opts: KeyframeAnimationOptions) {
+      calls.push({ frames, opts });
+      return { cancel: () => undefined } as unknown as Animation;
+    } as typeof Element.prototype.animate;
+    try {
+      const root = document.createElement('div');
+      const ui = createUi(root, callbacks());
+      ui.showHud();
+      ui.updateHud(base);
+      ui.updateHud({ ...base, hearts: 3 });
+      const refill = calls.find((c) => (c.frames[0] as { opacity?: number }).opacity === 0.3);
+      expect(refill?.frames).toEqual([{ opacity: 0.3 }, { opacity: 1 }]);
+      expect(refill?.opts.duration).toBe(300);
+      expect(root.querySelectorAll('.heart')[2].classList.contains('is-refilled')).toBe(true);
+    } finally {
+      Element.prototype.animate = orig;
+    }
+  });
+});

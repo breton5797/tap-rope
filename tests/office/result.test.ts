@@ -47,3 +47,22 @@ describe('office result card', () => {
     expect(player.el.querySelector('.cut__skip')?.textContent).toContain('건너뛰기');
   });
 });
+
+describe('part-aware next-stage copy', () => {
+  const cleared = (n: number) => buildResult(ctx(), result({ stageId: `w${n}-s10`, title: `${n}단계`, cleared: true, stars: 1, hasNext: true }));
+
+  it('part 1 goes down a floor', () => {
+    const el = cleared(2);
+    expect(el.textContent).toContain('한 층 내려왔다! 3단계 개방');
+    expect(el.textContent).toContain('다음 층으로');
+  });
+
+  it('stages 6–9 move on along the way home', () => {
+    for (const n of [6, 7, 8, 9]) {
+      const el = cleared(n);
+      expect(el.textContent).toContain(`퇴근길 한 고비 넘겼다! ${n + 1}단계 개방`);
+      expect(el.textContent).toContain('다음 장소로');
+      expect(el.textContent).not.toContain('다음 층으로');
+    }
+  });
+});

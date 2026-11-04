@@ -31,7 +31,7 @@ describe('characters', () => {
   it('follow the spec table', () => {
     expect(CHARACTERS.map((c) => c.stars)).toEqual([
       { jump: 3, agility: 3, hearts: 3, focus: 3, luck: 3 },
-      { jump: 3, agility: 5, hearts: 2, focus: 3, luck: 3 },
+      { jump: 3, agility: 5, hearts: 3, focus: 3, luck: 3 },
       { jump: 5, agility: 3, hearts: 3, focus: 2, luck: 2 },
       { jump: 3, agility: 3, hearts: 4, focus: 2, luck: 5 },
     ]);
@@ -39,7 +39,7 @@ describe('characters', () => {
     expect(kid.physics).toEqual({ ...DEFAULT_PHYSICS, laneSwitchTime: LANE_SWITCH_TIME });
     expect([kid.laneTime, kid.slideTime, kid.hearts, kid.feverGain, kid.coinMul]).toEqual([0.3, 0.55, 3, 1, 1]);
     const cat = statsFor('cat');
-    expect([cat.laneTime, cat.slideTime, cat.hearts, cat.physics.slideTime]).toEqual([0.24, 0.65, 2, 0.65]);
+    expect([cat.laneTime, cat.slideTime, cat.hearts, cat.physics.slideTime]).toEqual([0.24, 0.65, 3, 0.65]); // hearts 2 → 3: user-approved balance change 2026-11-03
     expect(cat.physics.laneSwitchTime).toBeCloseTo(LANE_SWITCH_TIME * 0.8, 9);
     const bunny = statsFor('bunny');
     expect(bunny.physics.jumpV).toBeCloseTo(DEFAULT_PHYSICS.jumpV * 1.12, 9);
@@ -67,6 +67,8 @@ describe('characters', () => {
     const cat = CHARACTERS[1];
     expect(cat.blurb).toContain('숙이기가 길고');
     expect(cat.blurb).not.toMatch(/레인 이동이 빠르/);
+    // 2026-11-03: cat has the default 3 hearts, so the card no longer claims fewer
+    expect(cat.blurb).not.toMatch(/체력이 적/);
   });
 
   it('fall back to the balanced hire for an unknown skin', () => {

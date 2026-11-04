@@ -243,7 +243,7 @@ export function drawProp(
   if (flip) ctx.scale(-1, 1);
   if (recording) record(ctx, img, w, h);
   if (!NO_OUTLINE.has(img)) {
-    // dark ink outermost (reads on every floor, stage 5's lavender too), the move's colour, then white
+    // dark ink outermost (reads on every floor — stage 5's lavender, the part-2 streets at dusk — too), the move's colour, then white
     const r = bakedRings(img, cue);
     if (r) {
       const k = h / BAKE_H;

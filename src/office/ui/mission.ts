@@ -5,7 +5,7 @@
 import type { MissionView, ResultInfo, StageDef } from '../../types';
 import { h } from '../../ui/dom';
 import { STAGES } from '../../core/content';
-import { loadStamps, missionCardFor } from '../../game/missions';
+import { loadStamps, missionCardFor, type MissionCard } from '../../game/missions';
 import { MISSION_BONUS, STAGE_MISSIONS, type MissionKind } from '../core/missions';
 
 const KIND_LABEL: Readonly<Record<MissionKind, string>> = { dodge: '돌파', collect: '수집', chase: '추격', finale: '결전' };
@@ -55,12 +55,18 @@ function clear(): void {
   dom = null;
 }
 
+/** the card's goal line (a chase states its hit allowance; a finale only when a long part-2 part raises it above 2) */
+export function missionGoal(card: MissionCard): string {
+  return card.kind === 'collect' ? `${card.title} ${card.target}개 모으기`
+    : card.kind === 'chase' ? `${card.superior} 따돌리기 · 피격 ${card.maxHits}번까지`
+      : card.kind === 'finale' ? `마지막엔 ${card.superior} 뛰어넘기!${card.maxHits > 2 ? ` · 피격 ${card.maxHits}번까지` : ''}`
+        : `장애물 ${card.target}개 돌파`;
+}
+
 function cardEl(stage: StageDef, index: number): HTMLElement | null {
   const card = missionCardFor(stage, index);
   if (!card) return null;
-  const goal = card.kind === 'collect' ? `${card.title} ${card.target}개 모으기`
-    : card.kind === 'chase' ? `${card.superior} 따돌리기 · 피격 2번까지`
-      : card.kind === 'finale' ? `마지막엔 ${card.superior} 뛰어넘기!` : `장애물 ${card.target}개 돌파`;
+  const goal = missionGoal(card);
   return h('div', { cls: `mission-card mission-card--${card.kind}` }, [
     h('div', { cls: 'mission-card__kicker', text: `미션 ${card.index + 1}/${card.total} · ${KIND_LABEL[card.kind]}` }),
     h('div', { cls: 'mission-card__title', text: card.title }),

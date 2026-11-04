@@ -160,3 +160,29 @@ describe('missionCardFor', () => {
     expect(missionCardFor({ ...STAGES[0], id: 'endless-1' }, 0)).toBeNull();
   });
 });
+
+describe('mission card hit allowance (part-2 balance)', () => {
+  it('carries maxHitsFor(spec): part 1 chase 2, long part-2 chases more', async () => {
+    const { STAGE_MISSIONS, maxHitsFor } = await import('../../src/office/core/missions');
+    for (let n = 1; n <= 10; n++) {
+      STAGE_MISSIONS[`w${n}-s10`]!.forEach((spec, k) => expect(missionCardFor(stage(n), k)!.maxHits).toBe(maxHitsFor(spec)));
+    }
+    expect(missionCardFor(stage(3), 0)!.maxHits).toBe(2);
+    expect(missionCardFor(stage(10), 1)!.maxHits).toBeGreaterThan(2);
+  });
+
+  it('the chase card states the stage-specific allowance', async () => {
+    const { missionGoal } = await import('../../src/office/ui/mission');
+    expect(missionGoal(missionCardFor(stage(3), 0)!)).toBe('최팀장 따돌리기 · 피격 2번까지');
+    const long = missionCardFor(stage(10), 1)!;
+    expect(missionGoal(long)).toBe(`한전무 따돌리기 · 피격 ${long.maxHits}번까지`);
+  });
+
+  it('a finale states its allowance only when it is above 2 (part-1 copy unchanged)', async () => {
+    const { missionGoal } = await import('../../src/office/ui/mission');
+    expect(missionGoal(missionCardFor(stage(1), 2)!)).toBe('마지막엔 김대리 뛰어넘기!');
+    const end = missionCardFor(stage(10), 2)!;
+    expect(end.maxHits).toBeGreaterThan(2);
+    expect(missionGoal(end)).toBe(`마지막엔 회장님 뛰어넘기! · 피격 ${end.maxHits}번까지`);
+  });
+});

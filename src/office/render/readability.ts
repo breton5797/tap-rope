@@ -5,7 +5,7 @@ import type { LaneId, ObstacleKind, VisibleObstacle } from '../../types';
 import { HAZARD_KINDS } from '../../types';
 import type { Ctx } from '../../render/util';
 import { BEAM_H, HIGH_H } from '../../render/layout';
-import { ACTION_COLORS, actionCue } from './props';
+import { ACTION_COLORS, actionCue, type ActionCue } from './props';
 
 /** the hero's drawn height in logical px (agent.ts HERO_H 92 × RIG_SIZE 1.2) */
 export const HERO_PX = 110;
@@ -57,6 +57,24 @@ export function beatHint(obs: readonly Pick<VisibleObstacle, 'kind' | 'level' | 
   if (jump > 0) moves.push(jump >= 2 ? `점프 ${Math.min(3, jump)}단!` : '점프!');
   if (low) moves.push('낮게!');
   return `${rear ? '뒤에서! ' : ''}${moves.join(' + ')}`;
+}
+
+export interface HintSegment {
+  readonly text: string;
+  readonly color: string;
+}
+
+/** the move a hint word names (its action colour); 「뒤에서!」 rides with the move after it */
+function segmentCue(text: string): ActionCue {
+  if (text.includes('옆으로')) return 'lane';
+  if (text.includes('숙여')) return 'slide';
+  if (text.includes('낮게')) return 'low';
+  return 'jump';
+}
+
+/** a beat hint split into its moves (" + "), each coloured like its hazards, for the callout's colour chips */
+export function hintSegments(hint: string): HintSegment[] {
+  return hint.split(' + ').map((text) => ({ text, color: ACTION_COLORS[segmentCue(text)] }));
 }
 
 /** drawn pickup height: collectibles ~0.45×, power-ups / coins ~0.4× the hero */
@@ -186,23 +204,38 @@ export function twinkle(ctx: Ctx, x: number, y: number, r: number, t: number): v
 }
 
 /**
- * The laser pointer (최팀장): a thin red beam from the boss's hand to the target height with a bright dot
- * there — head (slide), knee / ankle (jump) — instead of a prop sprite.
+ * The laser pointer (최팀장): a thick red beam from the boss's hand to the target height with a bright dot
+ * there — head (slide), knee / ankle (jump) — instead of a prop sprite. Dark outline, red body and a white core
+ * so it reads on the pastel dusk skies too (art review), plus a halo ring around the dot.
  */
 export function pointerBeam(ctx: Ctx, hx: number, hy: number, x: number, y: number, s: number, alpha: number): void {
   ctx.save();
   ctx.globalAlpha *= alpha;
-  ctx.strokeStyle = 'rgba(255,40,60,0.75)';
-  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  if (hx !== x || hy !== y) {
+    ctx.beginPath();
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = 'rgba(46,36,51,0.55)';
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    ctx.strokeStyle = '#FF2A55';
+    ctx.lineWidth = 3.4;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+  }
+  // halo: the warning end-cap where the beam lands
+  ctx.fillStyle = 'rgba(255,42,85,0.28)';
   ctx.beginPath();
-  ctx.moveTo(hx, hy);
-  ctx.lineTo(x, y);
-  ctx.stroke();
+  ctx.arc(x, y, 11 * s, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = '#FF2A3A';
   ctx.strokeStyle = '#FFFFFF';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(x, y, 5 * s, 0, Math.PI * 2);
+  ctx.arc(x, y, 5.5 * s, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.restore();

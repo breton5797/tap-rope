@@ -15,7 +15,8 @@ import { OFFICE_CLOCK } from '../core/content';
 import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
 import { BROADCAST_LINE } from '../game/boss-lines';
-import { drawClock, laneTopY } from './clock';
+import { clockUrgent, drawClock, laneTopY } from './clock';
+import { superiorOnStage } from './superior';
 import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeLanes, scanSigns, stayLowBand } from './readability';
 import { hudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
@@ -119,8 +120,6 @@ function bossPoseFor(b: BossView | null, snap: RenderSnapshot): BossPose {
   if (b.hp <= 0 || b.state === 'defeated') return 'tired';
   return throwPose(b, snap) ?? (Math.sin(snap.realTime * Math.PI * STEP_HZ) < 0 ? 'idle2' : 'idle');
 }
-
-const superiorOf = (id: BossView['id']) => OFFICE_BOSSES.find((b) => b.slot === id) ?? null;
 
 class OfficeRenderer implements Renderer {
   private readonly inner: Renderer;
@@ -268,7 +267,7 @@ class OfficeRenderer implements Renderer {
     if (snap.running) this.juice.frame(ctx, v, snap, band);
     if (snap.running) this.signs(ctx, v, snap);
     if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
-    if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), run.stageIndex >= 4 && run.progress > 0.8);
+    if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), clockUrgent(run.stageIndex, run.progress));
     ctx.globalAlpha = 1;
   }
 
@@ -325,7 +324,7 @@ class OfficeRenderer implements Renderer {
   ): void {
     const b = snap.boss;
     if (!b || !snap.running) return;
-    const who = superiorOf(b.id);
+    const who = superiorOnStage(snap.run?.stageIndex ?? -1, b.phase);
     if (!who) return;
     // (exitId / exitAt are tracked in feelFrame)
     let text: string | null = null;

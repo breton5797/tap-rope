@@ -110,6 +110,12 @@ function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduc
     const wasFull = prev.hearts === undefined ? full : i < prev.hearts;
     node.classList.toggle('is-empty', !full);
     if (wasFull === full || prev.hearts === undefined) return;
+    // a refill is tagged for skins that want a bigger cue (office: green pop on section-door heals)
+    if (full) {
+      node.classList.remove('is-refilled');
+      void (node as HTMLElement).offsetWidth; // restart the CSS animation on a second refill
+      node.classList.add('is-refilled');
+    }
     const frames = full
       ? [{ opacity: 0.3 }, { opacity: 1 }]
       : [{ background: '#ff2a3a', boxShadow: '0 0 10px #ff2a3a' }, { background: '#ff2a3a' }, {}];

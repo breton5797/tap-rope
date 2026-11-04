@@ -27,6 +27,8 @@ const isHazard = (b: Beat): boolean => b.obstacles.some((o) => HAZARD_KINDS.incl
 const jumpSlots = (half: number, cfg: PhysicsConfig): number => Math.ceil((airtimeForLevel(1, cfg) + SAFETY) / half - 1e-9);
 /** extra items on a collect part beyond its target, so a missed one or two can be made up */
 const COLLECT_SPARE = 2;
+/** part-2 balance (part 2 spec §4): every door restores one heart, the same for every character */
+export const DOOR_HEAL = 1;
 
 /** a part's beats as half-beat slots from its own start (exact: the generator works on that grid) */
 function partSlots(spec: MissionSpec, def: StageDef, cfg: PhysicsConfig): { beats: Beat[]; slots: number[] } {
@@ -132,7 +134,7 @@ function composeOffice(stage: StageDef, specs: readonly MissionSpec[], cfg: Phys
       beats = [...beats, shield];
       doors = [...doors, {
         time: startTime + (rest + Math.floor(breakSlots / 2)) * half, section: k, transition: transitionFor(stage, k),
-        from: sceneFor(stage, k - 1), to: sceneFor(stage, k),
+        from: sceneFor(stage, k - 1), to: sceneFor(stage, k), heal: DOOR_HEAL,
       }];
       base = rest + breakSlots;
     }

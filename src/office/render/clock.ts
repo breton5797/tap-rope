@@ -16,6 +16,16 @@ export function clockY(v: View): number {
   return laneTopY(v) - ABOVE_LANE / v.s;
 }
 
+/** the stages whose clock runs out on a deadline: 5 (18:00 칼퇴) and 10 (18:30 귀가), 0-based */
+const DEADLINE_STAGES: ReadonlySet<number> = new Set([4, 9]);
+/** the clock turns red over the last fifth of a deadline stage */
+const URGENT_FROM = 0.8;
+
+/** red clock: the end of part 1 and the end of part 2 */
+export function clockUrgent(stageIndex: number, progress01: number): boolean {
+  return DEADLINE_STAGES.has(stageIndex) && progress01 > URGENT_FROM;
+}
+
 export function drawClock(ctx: Ctx, v: View, text: string, urgent: boolean): void {
   const Y = clockY(v);
   ctx.font = '800 17px ui-rounded, system-ui, sans-serif';

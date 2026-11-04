@@ -8,6 +8,7 @@ import { PLAYER_X } from '../../types';
 import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
+import { hintSegments } from './readability';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
 import type { View } from '../../render/view';
 
@@ -154,7 +155,11 @@ export function drawAttackCallout(
   ctx.font = CALLOUT_FONT;
   const textW = ctx.measureText(name).width;
   ctx.font = HINT_FONT;
-  const hintW = ctx.measureText(hint).width;
+  // a combo beat (lane + jump / slide) gets one colour chip per move, so each half reads in its hazard colour
+  const segs = hintSegments(hint);
+  const combo = segs.length > 1;
+  const segW = segs.map((g) => ctx.measureText(g.text).width + (combo ? CHIP_PAD * 2 : 0));
+  const hintW = segW.reduce((a, b) => a + b, 0) + (segs.length - 1) * CHIP_GAP;
   const w = Math.min(v.w - 16, 44 + textW + 10 + hintW + 14);
   const h = 34;
   const bw = personWidth(v.w);
@@ -178,13 +183,28 @@ export function drawAttackCallout(
   ctx.fillStyle = '#2E2433';
   ctx.font = CALLOUT_FONT;
   ctx.fillText(name, cx - w / 2 + 40, cy + 1);
-  ctx.fillStyle = color;
   ctx.font = HINT_FONT;
-  ctx.fillText(hint, cx - w / 2 + 40 + textW + 10, cy + 1);
+  let x = cx - w / 2 + 40 + textW + 10;
+  segs.forEach((g, i) => {
+    if (combo) {
+      ctx.fillStyle = g.color;
+      roundRect(ctx, x, cy - 11, segW[i], 22, 11);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(g.text, x + CHIP_PAD, cy + 1);
+    } else {
+      ctx.fillStyle = g.color;
+      ctx.fillText(g.text, x, cy + 1);
+    }
+    x += segW[i] + CHIP_GAP;
+  });
   ctx.restore();
   return cy + h / 2;
 }
 
+/** combo hint chips: inner padding and the gap between chips (css px) */
+const CHIP_PAD = 6;
+const CHIP_GAP = 4;
 const CALLOUT_FONT = '900 15px ui-rounded, system-ui, sans-serif';
 const HINT_FONT = '900 13px ui-rounded, system-ui, sans-serif';
 

@@ -1,7 +1,7 @@
 // Office v2 missions (spec §3): the per-stage mission script and the pure rules for progress, grade and stars.
 import { describe, expect, it } from 'vitest';
 import {
-  MISSION_BONUS, STAGE_MISSIONS, missionProgress, stageGrade, starsFor, type MissionSpec, type MissionStats,
+  MISSION_BONUS, STAGE_MISSIONS, maxHitsFor, missionProgress, stageGrade, starsFor, type MissionSpec, type MissionStats,
 } from '../../src/office/core/missions';
 import { STAGES } from '../../src/core/content';
 
@@ -18,7 +18,21 @@ describe('mission script', () => {
     const kinds = STAGES.map((s) => STAGE_MISSIONS[s.id].map((m) => m.kind).join(','));
     expect(kinds).toEqual([
       'dodge,collect,finale', 'collect,dodge,finale', 'chase,dodge,finale', 'dodge,collect,finale', 'finale,chase,finale',
+      'dodge,collect,finale', 'dodge,chase,finale', 'chase,collect,finale', 'dodge,chase,finale', 'finale,chase,finale',
     ]);
+  });
+
+  it('part 2: hazards keep rising past stage 5 (balance pass: 18 → 34), stage 7 drills lanejump, stage 10 ends on a bonus envelope', () => {
+    const peak = (id: string) => Math.max(...STAGE_MISSIONS[id].map((m) => m.hazards));
+    const peaks = STAGES.map((s) => peak(s.id));
+    for (let i = 5; i < peaks.length; i += 1) expect(peaks[i], STAGES[i].id).toBeGreaterThanOrEqual(peaks[i - 1]);
+    expect(peaks[9]).toBe(34);
+    expect(STAGE_MISSIONS['w7-s10'].some((m) => m.focus?.includes('lanejump'))).toBe(true);
+    for (const s of STAGES.slice(0, 6)) for (const m of STAGE_MISSIONS[s.id]) expect(m.moves, s.id).not.toContain('lanejump');
+    expect(STAGE_MISSIONS['w10-s10'][2].collectible).toBe('envelope');
+    // part 2 reuses the five part-1 collectibles
+    const items = new Set(STAGES.slice(5).flatMap((s) => STAGE_MISSIONS[s.id].map((m) => m.collectible).filter(Boolean)));
+    for (const c of items) expect(['coupon', 'docs', 'cookie', 'badge', 'envelope']).toContain(c);
   });
 
   it('missions only use moves their stage teaches; collect missions name a collectible', () => {
@@ -60,6 +74,25 @@ describe('missionProgress', () => {
   });
 });
 
+describe('hit allowance scales with part length (part-2 balance)', () => {
+  it('2 up to 21 hazards, then +1 per 8: 22 → 3, 30 → 4', () => {
+    expect([8, 14, 18, 21, 22, 29, 30, 38].map((n) => maxHitsFor(spec('chase', n)))).toEqual([2, 2, 2, 2, 3, 3, 4, 5]);
+  });
+
+  it('every part-1 chase / finale allows exactly 2', () => {
+    for (const s of STAGES.slice(0, 5)) {
+      for (const m of STAGE_MISSIONS[s.id]) if (m.kind === 'chase' || m.kind === 'finale') expect(maxHitsFor(m), s.id).toBe(2);
+    }
+  });
+
+  it('a long chase / finale holds while hits ≤ its allowance', () => {
+    expect(missionProgress(spec('chase', 30), stats({ hits: 4, hazardsTotal: 30 })).complete).toBe(true);
+    expect(missionProgress(spec('chase', 30), stats({ hits: 5, hazardsTotal: 30 })).complete).toBe(false);
+    expect(missionProgress(spec('finale', 22), stats({ hits: 3, finisherClean: true })).complete).toBe(true);
+    expect(missionProgress(spec('finale', 22), stats({ hits: 4, finisherClean: true })).complete).toBe(false);
+  });
+});
+
 describe('grade, stars, bonus', () => {
   it('S = 3 stamps and no hits, A = 3 stamps, B = 1–2, C = 0', () => {
     expect(stageGrade([true, true, true], 0)).toBe('S');
@@ -77,6 +110,6 @@ describe('grade, stars, bonus', () => {
   });
 
   it('mission bonus grows with the stage', () => {
-    expect([0, 1, 4].map(MISSION_BONUS)).toEqual([150, 300, 750]);
+    expect([0, 1, 4, 9].map(MISSION_BONUS)).toEqual([150, 300, 750, 1500]);
   });
 });

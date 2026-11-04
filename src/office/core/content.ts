@@ -1,9 +1,12 @@
 /**
- * Office content (칼퇴근 대작전, office spec §4, §13), swapped in for src/core/content.ts: the 야근상사
- * building as four corridor themes, five chapters of one boss stage each (12층 사무실 → 1층 로비), the two
- * new hires and the 17:30 → 18:00 clock. Stage 5's lobby is world 0 'dawn': the art's sunset glass set (the
- * renderer only has exterior sets for theme 0). Stage ids keep the v8 `w{n}-s10` form so boss lookup, progress
- * and stars work unchanged. Each stage introduces 1–3 moves (spec §13 table) on top of everything before it.
+ * Office content (칼퇴근 대작전, office spec §4, §13; part 2 spec §1), swapped in for src/core/content.ts: the
+ * 야근상사 building as four corridor themes plus the way home as three outdoor themes (4 퇴근길 거리·버스정류장,
+ * 5 지하철역, 6 먹자골목), ten chapters of one boss stage each — part 1 (1–5) 12층 사무실 → 1층 로비, part 2
+ * (6–10) 회사 정문 → 우리 집 앞 — the four free hires and the 17:30 → 18:00 → 18:30 clock.
+ * Stage 5's lobby is world 0 'dawn' (the art's sunset glass set) and stage 6's 정문·광장 is world 0 'night' (the
+ * exterior night set); stage 10 is the street (theme 4) at night. Stage ids keep the v8 `w{n}-s10` form so boss
+ * lookup, progress and stars work unchanged. Part 1 stages introduce 1–3 moves each (spec §13 table); in part 2
+ * only stage 7 teaches one (lanejump), the others remix everything taught so far.
  */
 import type { ChapterMeta, MoveId, Scene, SkinMeta, StageDef, TransitionKind, Variant, WorldId, WorldMeta } from '../../types';
 import { designCustomStage } from '../../core/campaign';
@@ -18,14 +21,23 @@ export const WORLDS: readonly WorldMeta[] = [
   { id: 1, name: '탕비실 · 복도', subtitle: '복합기 앞 통로' },
   { id: 2, name: '회의실 층', subtitle: '유리벽 회의실' },
   { id: 3, name: '엘리베이터홀 · 로비', subtitle: '비상계단과 1층 회전문' },
+  { id: 4, name: '퇴근길 거리', subtitle: '버스정류장과 횡단보도' },
+  { id: 5, name: '지하철역', subtitle: '개찰구와 환승 통로' },
+  { id: 6, name: '먹자골목', subtitle: '회식 2차의 거리' },
 ];
 
-/** the looks the office art covers; world 0 dawn is the sunset lobby glass (the renderer's exterior set) */
+/**
+ * the looks the office art covers; world 0 dawn is the sunset lobby glass and world 0 night the gate plaza
+ * after dark (the renderer's exterior sets); world 4 night is the street near home (stage 10)
+ */
 export const DESIGNED_LOOKS: Readonly<Record<WorldId, readonly Variant[]>> = {
-  0: ['base', 'dawn'],
+  0: ['base', 'dawn', 'night'],
   1: ['base'],
   2: ['base'],
   3: ['base'],
+  4: ['base', 'night'],
+  5: ['base'],
+  6: ['base'],
 };
 
 export const CHAPTERS: readonly ChapterMeta[] = [
@@ -39,6 +51,16 @@ export const CHAPTERS: readonly ChapterMeta[] = [
     briefing: '라떼는 말이야, 9시 퇴근이 기본이었어. 오부장을 지나 계단으로.' },
   { id: 4, part: 1, name: '1층 로비·회전문', subtitle: '17:54 → 18:00', theme: 0, variant: 'dawn',
     briefing: '다들 저녁 먹고 가지? 내가 쏜다! 전무·이사·사장님을 뚫고 18:00 정각에 나간다.' },
+  { id: 5, part: 2, name: '회사 정문·광장', subtitle: '18:00 → 18:06', theme: 0, variant: 'night',
+    briefing: '퇴근 전에 설문 하나만! 인사팀 강차장이 서명판을 들고 정문을 막아섰다.' },
+  { id: 6, part: 2, name: '퇴근길 버스정류장', subtitle: '18:06 → 18:12', theme: 4, variant: 'base',
+    briefing: '택시 같이 타자, 가면서 엑셀 얘기 좀. 박과장보다 먼저 버스에 올라탄다.' },
+  { id: 7, part: 2, name: '지하철역 개찰구', subtitle: '18:12 → 18:18', theme: 5, variant: 'base',
+    briefing: '잠깐, 영수증 처리 확인 좀. 감사팀 문상무를 지나 개찰구를 통과하라.' },
+  { id: 8, part: 2, name: '먹자골목', subtitle: '18:18 → 18:24', theme: 6, variant: 'base',
+    briefing: '1차는 맛보기야! 2차 가자! 윤이사의 회식 2차 손짓을 뿌리친다.' },
+  { id: 9, part: 2, name: '우리 집 앞 동네', subtitle: '18:24 → 18:30', theme: 4, variant: 'night',
+    briefing: '최팀장·한전무에 회장님까지! 마지막 골목을 지나 18:30 현관문에 도착한다.' },
 ];
 
 export interface ChapterScenes {
@@ -56,6 +78,12 @@ export const CHAPTER_SCENES: readonly ChapterScenes[] = [
   { scenes: [sc(3, 'base'), sc(3, 'base'), sc(3, 'base')], transitions: ['elevator', 'stairs'] },
   // lobby glass at sunset → down the last stairs past the elevator hall → the revolving door
   { scenes: [sc(0, 'dawn'), sc(3, 'base'), sc(0, 'dawn')], transitions: ['stairs', 'turn'] },
+  // part 2: out of the gate plaza onto the street → down into the subway → up into the food alley → home
+  { scenes: [sc(0, 'night'), sc(0, 'night'), sc(4, 'base')], transitions: ['turn', 'turn'] },
+  { scenes: [sc(4, 'base'), sc(4, 'base'), sc(5, 'base')], transitions: ['turn', 'stairs'] },
+  { scenes: [sc(5, 'base'), sc(5, 'base'), sc(6, 'base')], transitions: ['turn', 'stairs'] },
+  { scenes: [sc(6, 'base'), sc(6, 'base'), sc(4, 'night')], transitions: ['turn', 'turn'] },
+  { scenes: [sc(4, 'night'), sc(4, 'night'), sc(4, 'night')], transitions: ['turn', 'turn'] },
 ];
 
 type StageLook = Pick<StageDef, 'chapter' | 'world' | 'variant'>;
@@ -81,15 +109,25 @@ export function transitionFor(stage: StageLook, section: number): TransitionKind
 /** v2.2: all four hires are free and owned from the start (picked on the first launch) */
 export const SKINS: readonly SkinMeta[] = CHARACTERS.map((c) => ({ id: c.id, name: c.name, price: 0 }));
 
-/** spec §13: moves each stage teaches (beams arrive with the 2단 jump: the 결재판 boomerang) */
+/**
+ * spec §13: moves each stage teaches (beams arrive with the 2단 jump: the 결재판 boomerang); part 2 (6–10)
+ * teaches only lanejump on stage 7, the rest remix (an empty row adds nothing: designCustomStage's intro)
+ */
 const NEW_MOVES: readonly (readonly MoveId[])[] = [
   ['jump', 'slide', 'lane'],
   ['double', 'beam', 'drone', 'drop'],
   ['chaser', 'high'],
   ['triple'],
   ['rear'],
+  [],
+  ['lanejump'],
+  [],
+  [],
+  [],
 ];
-const D: readonly number[] = [0.15, 0.3, 0.45, 0.58, 0.7];
+/** difficulty per stage (tempo, jump levels, move mix); the part-2 balance pass kept these — hazard counts were the
+ * lever that moved the bots' clear rates (docs/balance/after.md) */
+const D: readonly number[] = [0.15, 0.3, 0.45, 0.58, 0.7, 0.73, 0.76, 0.79, 0.82, 0.85];
 
 export const STAGES: readonly StageDef[] = CHAPTERS.map((c, i) => {
   const id = `w${i + 1}-s10`;
@@ -136,7 +174,7 @@ export function nextStageId(id: string): string | null {
 const CLOCK_START = 17 * 60 + 30;
 const STAGE_MINUTES = 6;
 
-/** wall clock "HH:MM" at `progress01` (clamped) through stage `stageIndex`: 17:30 + 6·n min, 18:00 at the end */
+/** wall clock "HH:MM" at `progress01` (clamped) through stage `stageIndex`: 17:30 + 6·n min, 18:00 after stage 5, 18:30 after 10 */
 export function OFFICE_CLOCK(stageIndex: number, progress01: number): string {
   const p = Math.min(1, Math.max(0, progress01));
   const minutes = Math.floor(CLOCK_START + STAGE_MINUTES * (stageIndex + p) + 1e-9);

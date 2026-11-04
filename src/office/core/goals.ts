@@ -1,6 +1,6 @@
 /**
  * Office goals (칼퇴근 대작전), swapped in for src/core/goals.ts: the title's "다음 목표" line only ever points at
- * the five office stages and the office achievements — never at daily / endless / the shop (all off here).
+ * the ten office stages and the office achievements — never at daily / endless / the shop (all off here).
  * Streak, ★3 rule and date helpers are the v8 ones.
  */
 import type { AchievementId, SaveData } from '../../types';
@@ -13,7 +13,7 @@ import type { Goal } from '../../core/goals';
 export * from '../../core/goals';
 
 const cleared = (save: SaveData, id: string): boolean => (save.stars[id] ?? 0) >= 1;
-const ZONE_STAGE: Partial<Record<AchievementId, number>> = { 'zone-1': 0, 'zone-3': 2, 'zone-5': 4 };
+const ZONE_STAGE: Partial<Record<AchievementId, number>> = { 'zone-1': 0, 'zone-3': 2, 'zone-5': 4, 'zone-7': 6, 'zone-10': 9 };
 
 /** progress toward a cumulative office achievement, null for one-run feats */
 export function achievementProgress(id: AchievementId, save: SaveData): { readonly cur: number; readonly max: number } | null {
@@ -41,5 +41,5 @@ export function nextGoal(save: SaveData, _today: string): Goal {
     .filter((x): x is { a: typeof x.a; p: { cur: number; max: number } } => x.p !== null && x.p.cur < x.p.max)
     .sort((x, y) => y.p.cur / y.p.max - x.p.cur / x.p.max)[0];
   if (closest) return { kind: 'achievement', text: `업적 ${closest.a.name} ${closest.p.cur}/${closest.p.max} · ₵${ACH_REWARD[closest.a.id]}` };
-  return { kind: 'achievement', text: '18:00 칼퇴 완료! 별 3개로 우수 사원에 도전' };
+  return { kind: 'achievement', text: '18:30 귀가 완료! 별 3개로 우수 사원에 도전' };
 }

@@ -3,7 +3,7 @@
 // both service workers). supabase.co is blocked and every attempt is counted (must be 0 for the office).
 //
 // Usage (from the worktree, after `npm run build && npm run build:office`):
-//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes|login] [DIST]
+//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes|login|map|perf] [DIST]
 // `playwright` is not a repo dependency and ESM ignores NODE_PATH: install it next to the repo first
 // (`npm i --no-save playwright && npx playwright install chromium`).
 // DIST defaults to <cwd>/dist. Screenshots: $E2E_SHOTS (default <tmp>/office-e2e-shots/). Exit code 1 on any failed check.
@@ -62,8 +62,8 @@ const check = (ok, what) => {
   if (!ok) failures.push(what);
 };
 
-async function newContext(viewport = PHONE) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 2, hasTouch: true, serviceWorkers: 'allow' });
+async function newContext(viewport = PHONE, on = browser) {
+  const ctx = await on.newContext({ viewport, deviceScaleFactor: 2, hasTouch: true, serviceWorkers: 'allow' });
   await ctx.route(/supabase\.co/, (r) => {
     supabaseHits += 1;
     if (new URL(r.request().url()).pathname.startsWith('/auth/v1/')) authHits += 1;
@@ -129,11 +129,16 @@ async function skipCutscenes(page, ms = 4000, tag = '') {
   return skipped;
 }
 
-/** stage n (1..5) from the title: 퇴근 시작! → chapter tab n → its stage node */
+/** stage n (1..10) from the title: 퇴근 시작! → its map tab (1부 1–5 / 2부 6–10) → its stage node */
 async function openStage(page, n) {
   await click(page.getByRole('button', { name: /퇴근 시작/ }));
   await waitScreen(page, 'stages');
-  // the floor map shows every stage at once; older builds had one chapter tab per stage
+  // part 2 spec §3: two maps behind 1부 / 2부 tabs (older builds: one floor map, or one chapter tab per stage)
+  const part = page.locator(`.floors__tab[data-part="${n > 5 ? 2 : 1}"]`);
+  if (await part.count()) {
+    await click(part);
+    await page.waitForTimeout(300);
+  }
   const tabs = page.locator('.chaps [role=tab]');
   if (await tabs.count()) {
     await click(tabs.nth(n - 1));
@@ -158,12 +163,16 @@ async function playToResult(page, tag, viewportTag = 'phone') {
 }
 
 /** spec §3.2: mission kinds and superiors per stage (cards must name the section's superior) */
-const KINDS = [['dodge', 'collect', 'finale'], ['collect', 'dodge', 'finale'], ['chase', 'dodge', 'finale'], ['dodge', 'collect', 'finale'], ['finale', 'chase', 'finale']];
-const SUPERIORS = [['김대리'], ['박과장'], ['최팀장'], ['오부장'], ['한전무', '윤이사', '사장님']];
+const KINDS = [['dodge', 'collect', 'finale'], ['collect', 'dodge', 'finale'], ['chase', 'dodge', 'finale'], ['dodge', 'collect', 'finale'], ['finale', 'chase', 'finale'],
+  // part 2 (src/office/core/missions.ts w6..w10)
+  ['dodge', 'collect', 'finale'], ['dodge', 'chase', 'finale'], ['chase', 'collect', 'finale'], ['dodge', 'chase', 'finale'], ['finale', 'chase', 'finale']];
+const SUPERIORS = [['김대리'], ['박과장'], ['최팀장'], ['오부장'], ['한전무', '윤이사', '사장님'],
+  ['강차장'], ['박과장'], ['문상무'], ['윤이사'], ['최팀장', '한전무', '회장님']];
+const STAGE_COUNT = 10;
 const botStamps = { dodge: [0, 0], chase: [0, 0], finale: [0, 0], collect: [0, 0] }; // [earned, total]
 const resetMission = (page) => page.evaluate(() => { window.__mission = { cards: [], stamps: [], chips: [] }; });
 
-/** the mission checks for one played stage (n = 1..5), its result card already up */
+/** the mission checks for one played stage (n = 1..10), its result card already up */
 async function checkMissions(page, n, tag) {
   const m = await page.evaluate(() => window.__mission);
   const cards = m.cards.map((c) => c.text);
@@ -184,7 +193,7 @@ async function checkMissions(page, n, tag) {
   KINDS[n - 1].forEach((kind, k) => { botStamps[kind][1] += 1; if (ok[k]) botStamps[kind][0] += 1; });
 }
 
-const allStars = Object.fromEntries(['w1-s10', 'w2-s10', 'w3-s10', 'w4-s10', 'w5-s10'].map((id) => [id, 1]));
+const allStars = Object.fromEntries(Array.from({ length: STAGE_COUNT }, (_, i) => [`w${i + 1}-s10`, 1]));
 const officeSave = (extra = {}) => JSON.stringify({
   version: 2, stars: {}, bestScores: {}, coins: 0, ownedSkins: ['kid', 'cat'], skin: 'cat', tutorialDone: true, briefed: [0, 1, 2, 3, 4],
   controlsSeen: true, seenCutscenes: [], achievements: {}, dailyStreak: { last: null, count: 0 },
@@ -193,7 +202,7 @@ const officeSave = (extra = {}) => JSON.stringify({
 });
 
 // ---------- 1. v8 first, then the office on the same origin: workers and saves stay apart ----------
-// ---------- 2. fresh office save: picker → 정시원 → controls → op-start → stages 1–5 → ending ----------
+// ---------- 2. fresh office save: picker → 정시원 → controls → op-start → stages 1–5 → rescue → 6–10 → ending ----------
 // (one context: the v8 worker is installed before the office is ever opened, like a returning v8 player)
 if (['all', 'sw', 'campaign'].includes(which)) {
   const ctx = await newContext();
@@ -232,15 +241,16 @@ if (['all', 'sw', 'campaign'].includes(which)) {
     check(ops >= 1, `opening cutscene(s) played after the picker (${ops})`);
     const saved = await readSave(page, OFFICE_KEY);
     check(saved?.skin === 'cat', `choice persisted in ${OFFICE_KEY} (skin=${saved?.skin})`);
-    for (let n = 1; n <= 5; n += 1) {
+    for (let n = 1; n <= STAGE_COUNT; n += 1) {
       if (n > 1) await resetMission(page);
       const txt = await playToResult(page, `s${n}`);
       await checkMissions(page, n, 'phone');
       console.log(`stage ${n}:`, txt);
       check(/퇴근 성공|CLOCK OUT/.test(txt), `stage ${n} cleared by autoplay`);
-      if (n < 5) await click(page.getByRole('button', { name: /다음 층으로/ }));
+      if (n === 5) check(/18:00:00/.test(await page.locator('#ui').innerText()), 'stage 5 result reads 칼퇴 성공! 18:00:00');
+      if (n < STAGE_COUNT) await click(page.getByRole('button', { name: /다음 층으로|다음 장소로/ }));
     }
-    check(/18:00:00/.test(await page.locator('#ui').innerText()), 'stage 5 result reads 칼퇴 성공! 18:00:00');
+    check(/18:30/.test(await page.locator('#ui').innerText()), 'stage 10 result reads 18:30 귀가 성공');
   }
   const v8Save = await page.evaluate((k) => localStorage.getItem(k), V8_KEY);
   check(v8Save === JSON.stringify({ marker: 'v8-save-untouched' }), 'v8 save untouched by the office');
@@ -316,9 +326,9 @@ if (['all', 'retry'].includes(which)) {
   await ctx.close();
 }
 
-// ---------- 5. iPad: every stage mid-run + the stage 5 result ----------
+// ---------- 5. iPad: every stage mid-run + the stage 5 / stage 10 results ----------
 if (['all', 'ipad'].includes(which)) {
-  for (let n = 1; n <= 5; n += 1) {
+  for (let n = 1; n <= STAGE_COUNT; n += 1) {
     const ctx = await newContext(IPAD);
     const stars = Object.fromEntries(Object.entries(allStars).slice(0, n - 1));
     await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [OFFICE_KEY, officeSave({ stars })]);
@@ -361,7 +371,8 @@ if (['all', 'flake'].includes(which)) {
 }
 
 // ---------- 8. v2.2 four hires: picker cards + star bars, each hire clears stage 1, HUD hearts, save kept ----------
-const HIRES = [['kid', '칼퇴준', 3], ['cat', '정시원', 2], ['bunny', '고도약', 3], ['robot', '유행운', 4]];
+// 정시원 hearts 2 → 3: balance change 2026-11-03 (src/office/core/characters.ts)
+const HIRES = [['kid', '칼퇴준', 3], ['cat', '정시원', 3], ['bunny', '고도약', 3], ['robot', '유행운', 4]];
 if (['all', 'heroes'].includes(which)) {
   for (const [id, name, hearts] of HIRES) {
     const ctx = await newContext();
@@ -468,7 +479,7 @@ if (['all', 'login'].includes(which)) {
     check((await sheet.count()) === 0, 'guest: the sheet closes');
     await click(page.getByRole('button', { name: /퇴근 시작/ }));
     await waitScreen(page, 'stages');
-    check((await lockedDiscs(page)) === 4, `guest: stages 2–5 locked on a fresh save (${await lockedDiscs(page)})`);
+    check((await lockedDiscs(page)) === STAGE_COUNT - 1, `guest: stages 2–10 locked on a fresh save (${await lockedDiscs(page)})`);
     check(supabaseHits === before, `guest: no supabase request (${supabaseHits - before})`);
     // privacy policy + terms (Google OAuth publishing): served, precached by the office worker, linked
     for (const pg of ['privacy.html', 'terms.html']) {
@@ -519,7 +530,7 @@ if (['all', 'login'].includes(which)) {
     await waitScreen(page, 'stages');
     await page.waitForTimeout(500);
     const locked = await lockedDiscs(page);
-    check(locked === (tester ? 0 : 4), `${role}: ${tester ? 'every stage open' : 'normal unlocks'} on the map (${locked} locked)`);
+    check(locked === (tester ? 0 : STAGE_COUNT - 1), `${role}: ${tester ? 'every stage open' : 'normal unlocks'} on the map (${locked} locked)`);
     if (tester) await shot(page, 'l2-tester-map');
     // stage 1 with no input at all: a tester survives every hit, anyone else runs out of hearts
     await click(page.getByRole('button', { name: /^퇴근길 1단계 / }));
@@ -612,7 +623,7 @@ async function audioRun(blockSfx, stages) {
     results.push(await playToResult(page, `a${n}${blockSfx ? '-blocked' : ''}`));
     const audio = await page.evaluate(() => window.__audio);
     results.push(audio);
-    if (n < stages) await click(page.getByRole('button', { name: /다음 층으로/ }));
+    if (n < stages) await click(page.getByRole('button', { name: /다음 층으로|다음 장소로/ }));
   }
   await ctx.close();
   return { beforeGesture, results };
@@ -663,6 +674,83 @@ if (['all', 'audio'].includes(which)) {
   const other = fresh.filter((e) => !blockedLoads.includes(e));
   errors.push(...other);
   check(other.length === 0 && blockedLoads.length <= SFX.length * 2, `sfx blocked: no page errors (${blockedLoads.length} expected aborted loads, ${other.length} other)`);
+}
+
+// ---------- 10. 1부 / 2부 map: teaser before stage 5, the way home after it (phone + iPad shots) ----------
+if (['all', 'map'].includes(which)) {
+  for (const [vp, tag] of [[PHONE, 'phone'], [IPAD, 'ipad']]) {
+    for (const cleared of [4, 5]) {
+      const ctx = await newContext(vp);
+      const stars = Object.fromEntries(Object.entries(allStars).slice(0, cleared));
+      await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [OFFICE_KEY, officeSave({ stars })]);
+      const page = await newPage(ctx);
+      await page.goto(OFFICE);
+      await waitTitle(page);
+      await click(page.getByRole('button', { name: /퇴근 시작/ }));
+      await waitScreen(page, 'stages');
+      const tab2 = page.locator('.floors__tab[data-part="2"]');
+      if (cleared === 4) {
+        check(await page.locator('.floors[data-part="1"]').isVisible(), `${tag}: stage 5 to play → the map opens on 1부`);
+        check(/잠김/.test((await tab2.getAttribute('aria-label')) ?? ''), `${tag}: 2부 tab locked before stage 5 is cleared`);
+        await click(tab2);
+        await page.waitForTimeout(500);
+        check(await page.locator('.floors__teaser').isVisible(), `${tag}: locked 2부 shows the teaser card`);
+        await shot(page, `30-map-part2-teaser-${tag}`);
+      } else {
+        await page.waitForTimeout(800);
+        check(await page.locator('.floors[data-part="2"]').isVisible(), `${tag}: stage 5 cleared → the map opens on 2부`);
+        check((await page.locator('.floors[data-part="2"] .node__disc.is-locked').count()) === 4, `${tag}: 2부 stage 6 open, 7–10 locked`);
+        check(/^5\/30$/.test((await page.locator('.chip--star .chip__value').innerText()).trim()), `${tag}: star total out of 30`);
+        await shot(page, `31-map-part2-${tag}`);
+        await click(page.locator('.floors__tab[data-part="1"]'));
+        await page.waitForTimeout(500);
+        await shot(page, `32-map-part1-${tag}`);
+      }
+      await ctx.close();
+    }
+  }
+}
+
+// ---------- 11. perf: frame-callback p99 at 4× CPU throttle, mid-run on part-2 stages (+ stage 1 baseline) ----------
+// PERF_STAGES="1,6,7" narrows the list. The budget is 7 ms p99 (part 2 spec §5). Its own browser with GPU raster:
+// headless Chromium otherwise rasterises the canvas in software, which alone costs 30–40 ms p99 on every stage.
+if (['all', 'perf'].includes(which)) {
+  const list = (process.env.PERF_STAGES ?? '1,6,7,8,9,10').split(',').map(Number);
+  const gpu = await chromium.launch({ args: ['--enable-gpu', '--use-angle=metal', '--ignore-gpu-blocklist'] });
+  for (const n of list) {
+    const ctx = await newContext(PHONE, gpu);
+    const stars = Object.fromEntries(Object.entries(allStars).slice(0, n - 1));
+    const seen = ['op-start', 'rescue', ...Array.from({ length: STAGE_COUNT }, (_, i) => `boss-${i + 1}`)];
+    await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [OFFICE_KEY, officeSave({ stars, seenCutscenes: seen })]);
+    await ctx.addInitScript(() => {
+      window.__frames = [];
+      const raf = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = (cb) => raf((ts) => {
+        const t0 = performance.now();
+        cb(ts);
+        if (window.__measure) window.__frames.push(performance.now() - t0);
+      });
+    });
+    const page = await newPage(ctx);
+    await page.goto(`${OFFICE}?autoplay=1`);
+    await waitTitle(page);
+    await openStage(page, n);
+    await skipCutscenes(page, 2500);
+    await page.waitForTimeout(5000); // past the countdown, art decoded
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    await page.evaluate(() => { window.__frames = []; window.__measure = true; });
+    await page.waitForTimeout(20000);
+    const frames = await page.evaluate(() => { window.__measure = false; return window.__frames; });
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await shot(page, `40-perf-s${n}`);
+    const sorted = [...frames].sort((a, b) => a - b);
+    const q = (p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] ?? NaN;
+    console.log(`perf stage ${n}: ${frames.length} frames, p50 ${q(0.5).toFixed(2)} ms, p95 ${q(0.95).toFixed(2)} ms, p99 ${q(0.99).toFixed(2)} ms, max ${q(1).toFixed(2)} ms`);
+    check(frames.length > 200 && q(0.99) <= 7, `perf stage ${n}: frame p99 ≤ 7 ms at 4× CPU (${q(0.99).toFixed(2)} ms over ${frames.length} frames)`);
+    await ctx.close();
+  }
+  await gpu.close();
 }
 
 console.log('bot stamps (earned/total):', JSON.stringify(botStamps));

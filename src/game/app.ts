@@ -591,7 +591,7 @@ export function startApp(): void {
 
   /** v8 (A3): phase lines, and the finisher (slow motion on the last hazard, the blast as the agent lands) */
   const tickBossShow = (boss: BossView | null): void => {
-    const line = phaseLineDue(bossLine, boss);
+    const line = phaseLineDue(bossLine, boss, session.stage);
     if (line) {
       bossLine = line.phase;
       ui.showBossLine(line.kicker, line.text);

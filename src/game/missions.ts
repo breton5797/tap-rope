@@ -22,6 +22,8 @@ export interface MissionCard {
   readonly target: number;
   readonly line: string;
   readonly superior: string;
+  /** hits a chase / finale part allows for its stamp */
+  readonly maxHits: number;
 }
 
 export function startMissions(_stage: StageDef | null, _beats: readonly Beat[]): MissionRun | null {

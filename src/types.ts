@@ -24,8 +24,9 @@ export const LANES: readonly LaneId[] = [0, 1, 2];
 /** −1 = toward the far lane (swipe up / ↑), +1 = toward the near lane (swipe down / ↓) */
 export type LaneDir = -1 | 1;
 
-/** Corridor THEME: 0 security outpost, 1 research lab, 2 prison block, 3 industrial / sewer. */
-export type WorldId = 0 | 1 | 2 | 3;
+/** Corridor THEME: 0 security outpost, 1 research lab, 2 prison block, 3 industrial / sewer (v8). The office
+ * build adds 4 퇴근길 거리·버스정류장, 5 지하철역, 6 먹자골목 (v8 content never uses 4–6). */
+export type WorldId = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 /** Look variant layered on a theme. alarm = red sirens; dark = lights low; steam = vents/fog;
  * night = outdoor night through windows; dawn = sunrise finale. */
 export type Variant = 'base' | 'alarm' | 'dark' | 'steam' | 'night' | 'dawn';
@@ -112,6 +113,8 @@ export interface Door {
   readonly transition: TransitionKind;
   readonly from: Scene;
   readonly to: Scene;
+  /** office part-2 balance: hearts restored (up to the character's max) when the door is passed; absent = 0 */
+  readonly heal?: number;
 }
 
 export interface PlayerState {
@@ -334,6 +337,8 @@ export interface BossView {
 
 export type CutsceneId =
   | 'op-start' | 'rescue' | 'escape-end'
+  // office part 2: the 18:30 ending (a new id, so v2 saves that saw the old 18:00 escape-end still get it)
+  | 'home-end'
   | 'boss-1' | 'boss-2' | 'boss-3' | 'boss-4' | 'boss-5'
   | 'boss-6' | 'boss-7' | 'boss-8' | 'boss-9' | 'boss-10';
 

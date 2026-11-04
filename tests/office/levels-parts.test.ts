@@ -79,7 +79,7 @@ describe('office stage composer', () => {
     }
   });
 
-  it('a best-lane player at a human pace reaches ≥ target+2 coins and survives every hazard (5 stages × 200 seeds)', () => {
+  it('a best-lane player at a human pace reaches ≥ target+2 coins and survives every hazard (10 stages × 200 seeds)', () => {
     const many = Array.from({ length: 200 }, (_, i) => Math.imul(i + 101, 2246822519) >>> 0);
     for (const stage of STAGES) {
       for (const seed of many) {
