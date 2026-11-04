@@ -76,6 +76,7 @@ describe('office images', () => {
     expect(m.OFFICE_ART).toContain('prop-revolving-door');
     expect(m.OFFICE_ART).toContain('boss-chimera');
     expect(m.OFFICE_ART.filter((n) => n.startsWith('hero-'))).toHaveLength(32); // 4 heroes × 8
-    expect(m.OFFICE_ART.filter((n) => n.startsWith('prop-'))).toHaveLength(20);
+    // 20 part-1 props + 15 part-2 props (office/core/props.ts PART2_PROPS)
+    expect(m.OFFICE_ART.filter((n) => n.startsWith('prop-'))).toHaveLength(35);
   });
 });

@@ -45,6 +45,11 @@ function attacksOf(cur: BossView, stage: LineStage | undefined): readonly [strin
 /** surprise event "사장님 깜짝 순시 사내방송": every superior's line becomes this (copy only) */
 export const BROADCAST_LINE = '네 사장님!';
 
+/** the broadcast answer on stage `stageIndex` (0-based): part 2's 단톡방 notice is from 회장님 */
+export function broadcastLine(stageIndex: number): string {
+  return stageIndex >= 5 ? '네 회장님!' : BROADCAST_LINE;
+}
+
 /** the phase line due now, given the last phase already announced (−1 = none), on `stage` (rematch names) */
 export function phaseLineDue(lastAnnounced: number, cur: BossView | null, stage?: LineStage): PhaseLine | null {
   if (!cur || cur.state === 'defeated' || cur.phase <= lastAnnounced) return null;

@@ -7,38 +7,28 @@
  *   broadcast = copy only.
  * - Beat-anchored hazard events start their presentation WARN_LEAD before the beat (the "!" lead).
  * - attackVariant: the prop a superior uses for a hazard beat, from that superior's spec §5 attacks that
- *   fit the attack kind (2–3 looks where the table allows), else a generic prop of that kind.
+ *   fit the attack kind (2–3 looks where the table allows), else a generic prop of that kind (props.ts; the
+ *   part-2 rematches pick from their stage's row when the stage is given).
+ * - Part 2 (stages 6–10) is outdoors: no blackout, carts are delivery carts (no cleaning robot), and the
+ *   broadcast / fire-drill banners read as the commute (eventCopy).
  */
 import type { Beat, BossAttackKind, BossId } from '../../types';
 import { HAZARD_KINDS, LANE_HAZARD_KINDS, WARN_LEAD } from '../../types';
 import { hashString, mulberry32 } from '../../core/rng';
+import { propsFor, type OfficePropId } from './props';
 
 export type OfficeEventKind = 'cart' | 'highfive' | 'blackout' | 'fire-drill' | 'broadcast';
 /** `beatIndex` indexes `beats`; `time` = when the event's presentation starts (seconds of stage time) */
 export interface OfficeEvent { kind: OfficeEventKind; beatIndex: number; time: number; duration: number }
 
-/** every prop sprite (public-office/art/prop-<id>.webp) */
-export const OFFICE_PROPS = [
-  'postit', 'papers', 'coffee-tray', 'paper-plane', 'clipboard', 'paper-jam', 'door', 'whiteboard', 'pointer', 'golf',
-  'latte-bubble', 'elevator', 'doc-tornado', 'necktie', 'corp-card', 'ceo-screen', 'revolving-door', 'envelope', 'cart', 'robot',
-] as const;
-export type OfficePropId = (typeof OFFICE_PROPS)[number];
+export {
+  ATTACK_PROPS, OFFICE_PROPS, PART1_PROPS, PART2_PROPS, PROP_ALIASES, PROP_CALLOUTS, PROP_FALLBACK, STAGE_PROPS, failTipFor, propSprite, propsFor,
+  type AttackPropId, type OfficePropId,
+} from './props';
 
-type KindProps = Readonly<Record<BossAttackKind, readonly OfficePropId[]>>;
-
-/** BossAttackKind: lane = guard/drop/chaser, beam = beam or high (jump or slide), ceiling = slide, floor = jump, drone = stay low */
-const GENERIC: KindProps = { lane: ['cart'], floor: ['papers'], beam: ['clipboard'], ceiling: ['pointer'], drone: ['paper-plane'] };
-
-/** spec §5 per superior (v8 slot) and attack kind */
-export const ATTACK_PROPS: Readonly<Partial<Record<BossId, KindProps>>> = {
-  warden: { lane: ['postit'], floor: ['papers'], beam: ['papers', 'coffee-tray'], ceiling: ['coffee-tray'], drone: ['postit', 'paper-plane'] },
-  'sewer-eye': { lane: ['paper-jam'], floor: ['papers', 'clipboard'], beam: ['clipboard', 'paper-plane'], ceiling: ['paper-plane'], drone: ['paper-plane'] },
-  'lab-ai': { lane: ['door'], floor: ['whiteboard'], beam: ['whiteboard', 'pointer'], ceiling: ['pointer'], drone: ['pointer'] },
-  core: { lane: ['elevator'], floor: ['golf'], beam: ['golf', 'latte-bubble'], ceiling: ['latte-bubble'], drone: ['latte-bubble', 'golf'] },
-  jailer: { lane: ['doc-tornado'], floor: ['papers', 'doc-tornado'], beam: ['doc-tornado', 'clipboard'], ceiling: ['doc-tornado'], drone: ['doc-tornado'] },
-  apc: { lane: ['corp-card'], floor: ['necktie'], beam: ['necktie', 'corp-card'], ceiling: ['necktie'], drone: ['corp-card', 'necktie'] },
-  chimera: { lane: ['revolving-door'], floor: ['envelope'], beam: ['envelope', 'ceo-screen'], ceiling: ['ceo-screen'], drone: ['envelope'] },
-};
+/** part 2 (stage index ≥ 5) is outdoors: the way home */
+const PART2_FROM = 5;
+const isPart2 = (stageIndex: number): boolean => stageIndex >= PART2_FROM;
 
 /** one deterministic draw in [0, 1) per (seed, beat, salt) */
 const draw = (seed: number, beatIndex: number, salt: number): number =>
@@ -46,14 +36,25 @@ const draw = (seed: number, beatIndex: number, salt: number): number =>
 
 const pick = <T>(xs: readonly T[], r: number): T => xs[Math.min(xs.length - 1, Math.floor(r * xs.length))];
 
-export function attackVariant(slot: BossId, kind: BossAttackKind, seed: number, beatIndex: number): string {
-  const props = ATTACK_PROPS[slot]?.[kind] ?? GENERIC[kind];
-  return pick(props, draw(seed, beatIndex, hashString(`${slot}/${kind}`)));
+/** the prop a superior throws for this beat; `stage` (1-based) picks a part-2 rematch's own row */
+export function attackVariant(slot: BossId, kind: BossAttackKind, seed: number, beatIndex: number, stage?: number): string {
+  return pick(propsFor(slot, kind, stage), draw(seed, beatIndex, hashString(`${slot}/${kind}`)));
 }
 
-/** a cart event rides a delivery cart or the cleaning robot */
-export function cartProp(seed: number, beatIndex: number): OfficePropId {
+/** a cart event rides a delivery cart or the cleaning robot (indoors only: part 2 has the cart alone) */
+export function cartProp(seed: number, beatIndex: number, stageIndex = 0): OfficePropId {
+  if (isPart2(stageIndex)) return 'cart';
   return pick(['cart', 'robot'] as const, draw(seed, beatIndex, hashString('cart')));
+}
+
+export interface EventCopy { readonly broadcast: string; readonly fireDrill: string; readonly highFive: string }
+
+const INDOOR_COPY: EventCopy = { broadcast: '사내방송: 사장님 깜짝 순시 중', fireDrill: '소방훈련! 뒤에서 와요', highFive: '하이파이브! 같이 퇴근하자!' };
+const COMMUTE_COPY: EventCopy = { broadcast: '단톡방 공지: 회장님 등장!', fireDrill: '퇴근 인파! 뒤에서 와요', highFive: '하이파이브! 같이 퇴근하자!' };
+
+/** the surprise banners of stage `stageIndex` (0-based): the office in part 1, the commute in part 2 */
+export function eventCopy(stageIndex: number): EventCopy {
+  return isPart2(stageIndex) ? COMMUTE_COPY : INDOOR_COPY;
 }
 
 const BLACKOUT = 1.5;
@@ -101,11 +102,11 @@ function shuffled<T>(xs: readonly T[], rng: () => number): T[] {
 
 const KINDS: readonly OfficeEventKind[] = ['cart', 'highfive', 'blackout', 'fire-drill', 'broadcast'];
 
-/** stage 1 (tutorial): 1 event and no blackout; later stages: 2 events of different kinds */
+/** stage 1 (tutorial): 1 event and no blackout; later stages: 2 events of different kinds (part 2: no blackout outdoors) */
 export function planEvents(beats: readonly Beat[], seed: number, stageIndex: number): OfficeEvent[] {
   const rng = mulberry32((seed ^ Math.imul(stageIndex + 1, 0x85ebca6b)) >>> 0);
   const count = stageIndex === 0 ? 1 : 2;
-  const kinds = shuffled(stageIndex === 0 ? KINDS.filter((k) => k !== 'blackout') : KINDS, rng);
+  const kinds = shuffled(stageIndex === 0 || isPart2(stageIndex) ? KINDS.filter((k) => k !== 'blackout') : KINDS, rng);
   const chosen = kinds.reduce<OfficeEvent[]>((acc, kind) => {
     if (acc.length >= count) return acc;
     const fit = shuffled(candidates(kind, beats, rng), rng).find((e) => !acc.some((a) => overlaps(a, e)));
