@@ -518,3 +518,18 @@ blank, with no text (`sign-stand` shows only a checkbox icon, and the `taxi` roo
   sparkles) read as a coin pickup, so it was regenerated as a navy/red enamel shield lapel pin with a silver pin-back:
   nano_banana_flash, `$PROP a big shield-shaped company lapel pin badge seen at an angle, deep navy enamel face with a thick red enamel ring border and a polished silver metal rim, a simple white abstract leaf emblem in the middle, and the silver pin-back clasp clearly visible sticking out behind it. Not round, not gold, no coin, no star, no sparkles. It flies toward the LEFT, with a few short grey speed swooshes trailing on its right side.`. The detached sparkles on `prop-magnifier` were removed locally by keeping only
   the largest connected part and re-containing it in 512×512 with an 8 px margin.
+
+
+## Round-2 prop fixes (2026-11-05, 9 credits; part-2 total **149 cr**, balance 1203.83)
+
+Hazards must never look like pickups, so this round uses no sparkles, no glow and no gift/coin shapes. All are nano_banana_flash
+1k, cut out as props (512×512, 8 px margin), `cwebp -q 82`.
+`$PROP2` = `$STYLE (without manga speed lines). Single game obstacle prop icon, one object only, centered, large and bold with a very thick dark outline, solid flat colors, on a pure flat white background, no shadow, no ground, no people, no hands, absolutely no writing, no letters, no numbers, no sparkles, no glow, no shine stars, no motion lines. `
+
+| file | why | prompt (after `$PROP2 The object:`) |
+|---|---|---|
+| `prop-rice-cake.webp` | the pink ribboned box read as the gift-box pickup | a low wide wooden serving tray holding a stacked block of Korean layered rice cake (sirutteok): thick layers of white rice cake and reddish-brown red-bean powder, cut into big square slices, seen slightly from above. No box, no ribbon, no gift wrapping. |
+| `prop-call-bubble.webp` | new: "진짜 5분" (core id `call-bubble`, was latte-bubble, a round blue glowing disc) | a big rectangular comic speech bubble with slightly rounded corners and a short pointed tail at the bottom left, white fill with a very thick dark navy ink rim, inside it only a simple dark analog clock icon. Flat, no glow, not round. |
+| `prop-calculator.webp` | new: "계산기 탁탁" (was the gold corp-card) | a chunky old-fashioned desk calculator, dark grey body with black square buttons and one orange button, a plain blank dark-green display, slight three-quarter view. |
+| `prop-tambourine.webp` | new: "탬버린" (was the necktie); red wood, matte silver jingles, not gold | a round wooden tambourine with a red painted wooden frame, a cream drum skin, and several small dull silver metal jingles set in slots around the frame, slight three-quarter view, matte, not gold. |
+| `prop-magnifier.webp` | too thin, sat on the head like a headband; 1st retry looked like a mirror on a stand (rejected, 1.5 cr) | a giant chunky classic magnifying glass tilted diagonally, its very thick round black rim and wide pale-blue lens at the upper left, a very thick long brown wooden handle with a black metal collar going down to the lower right, one simple white curved reflection stroke on the lens, a big magnified cartoon eye with a raised eyebrow visible inside the lens. Bold, heavy, simple silhouette. |
