@@ -107,6 +107,20 @@ function inPart2(r: ResultInfo): boolean {
   return stage !== undefined && CHAPTERS[stage.chapter]?.part === 2;
 }
 
+/** the story line; the ending (with an end kicker in this flavour) is its own card: check icon, kicker, line */
+function storyLine(story: string): HTMLElement {
+  if (story !== COPY.resultStoryEnd || !COPY.resultStoryEndKicker) {
+    return h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]);
+  }
+  return h('div', { cls: 'report__story report__story--end' }, [
+    icons.check(),
+    h('span', { cls: 'report__story-body' }, [
+      h('b', { cls: 'report__story-kicker', text: COPY.resultStoryEndKicker }),
+      h('span', { text: story }),
+    ]),
+  ]);
+}
+
 /** Identity of a run's report: a second showResult with the same key only updates the online line. */
 export function resultKey(r: ResultInfo): string {
   const { online: _online, ...run } = r; // everything except the server status identifies the run
@@ -157,7 +171,7 @@ function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
     onPress: ctx.tap(() => ctx.cb.onRetry()),
   });
   const quit = button({
-    label: r.mode !== 'stage' ? '메뉴' : COPY.resultMap,
+    label: r.mode !== 'stage' ? '메뉴' : inPart2(r) ? COPY.resultMapPart2 : COPY.resultMap,
     variant: 'glass',
     icon: icons.grid(),
     onPress: ctx.tap(() => ctx.cb.onQuit()),
@@ -178,7 +192,7 @@ function stats(r: ResultInfo, tone: Headline['tone']): HTMLElement {
     statRow('MISS', formatNumber(r.misses), 'report__row--miss'),
     statRow('최대 연속', `x${formatNumber(r.maxCombo)}`),
     // pickups this run (replays and failed runs keep theirs); a dash only on a true zero
-    r.coinsEarned > 0 ? statRow('획득 자금', `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds') : statRow('획득 자금', '—', 'report__row--none'),
+    r.coinsEarned > 0 ? statRow(COPY.resultFunds, `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds') : statRow(COPY.resultFunds, '—', 'report__row--none'),
   ]);
   // a failed run leads with the tip; the numbers fold away (one tap to open)
   const box = h('details', { cls: 'report__more' }, [h('summary', { cls: 'report__more-sum', text: COPY.resultDetails }), list]);
@@ -206,10 +220,10 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     h('div', { cls: 'report__status mono', text: head.status }),
     r.testRun && COPY.resultTestRun ? h('div', { cls: 'report__test mono', text: COPY.resultTestRun }) : null,
     h('h2', { cls: 'report__title', text: head.title }),
-    story ? h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]) : null,
+    story ? storyLine(story) : null,
     missionResult(r),
     onlineLine(r),
-    !r.cleared && meta?.hitBy ? failTip(meta.hitBy) : null,
+    !r.cleared && meta?.hitBy ? failTip(meta.hitBy, r.stageId) : null,
     h('div', { cls: 'report__scorebox' }, [
       h('div', { cls: 'report__label mono', text: COPY.resultScore }),
       score,

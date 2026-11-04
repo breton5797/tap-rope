@@ -97,3 +97,38 @@ describe('HUD', () => {
     renderMission(layer, undefined, null, true, 0);
   });
 });
+
+describe('one overlay at a time (polish P1d)', () => {
+  /** the game's #ui: the HUD layer (mission chip / card) and the briefing layer (boss phase line) */
+  const ui = () => {
+    const root = document.createElement('div');
+    const hud = document.createElement('div');
+    const briefing = document.createElement('div');
+    root.append(hud, briefing);
+    document.body.appendChild(root);
+    return { hud, briefing };
+  };
+
+  it('the mission card waits while the section title (boss phase line) is up, then shows its full 1.6 s', async () => {
+    const { overlayState } = await import('../../src/office/ui/mission');
+    const { hud, briefing } = ui();
+    const line = document.createElement('div');
+    line.className = 'bossline';
+    briefing.appendChild(line);
+    const v = view();
+    renderMission(hud, v, stage1, true, 10);
+    expect(hud.querySelector('.mission-card')).toBeNull();
+    renderMission(hud, v, stage1, true, 11.5);
+    expect(hud.querySelector('.mission-card')).toBeNull();
+    expect(overlayState.card).toBe(false);
+    line.remove();
+    renderMission(hud, v, stage1, true, 12);
+    expect(hud.querySelector('.mission-card')).not.toBeNull();
+    expect(overlayState.card).toBe(true);
+    renderMission(hud, v, stage1, true, 13.5);
+    expect(hud.querySelector('.mission-card')).not.toBeNull();
+    renderMission(hud, v, stage1, true, 13.7);
+    expect(hud.querySelector('.mission-card')).toBeNull();
+    expect(overlayState.card).toBe(false);
+  });
+});

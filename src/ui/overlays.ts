@@ -160,7 +160,7 @@ export function showAchievementBanner(layer: HTMLElement, b: Banner): () => void
   const el = h('div', { cls: `ach-toast${b.count > 1 ? ' ach-toast--multi' : ''}`, attrs: { role: 'status' } }, [
     h('span', { cls: 'ach-toast__icon' }, [badge(b.id)]),
     h('div', { cls: 'ach-toast__body' }, [
-      h('div', { cls: 'ach-toast__kicker mono', text: 'ACHIEVEMENT UNLOCKED' }),
+      h('div', { cls: 'ach-toast__kicker mono', text: COPY.achToastKicker }),
       h('div', { cls: 'ach-toast__name', text: b.title }),
       h('div', { cls: 'ach-toast__desc', text: b.desc }),
     ]),

@@ -140,6 +140,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   archiveUnseen: '아직 못 본 장면',
   archiveKicker: '퇴근 앨범',
   achToastKicker: '업적 달성!',
+  resultStoryEndKicker: '완주!',
 };
 
 /** a fresh uniform uint32 for every run start (P3: chosen once, kept on the run, never steered by input) */

@@ -2,7 +2,7 @@
 // chest-height prop (paper planes, document tornado…) at the v8 drone position — thrown from the boss's hand
 // first (F5) and with idle motion (F6); pickups use the office sprites / the stage collectible (F7). Anything
 // whose sprite has not loaded keeps the v8 drawing.
-import type { Beat, VisibleObstacle } from '../../types';
+import type { Beat, ObstacleKind, VisibleObstacle } from '../../types';
 import { SCROLL_SPEED } from '../../types';
 import { fixedX, laneY, project } from '../../render/layout';
 import { drawGadgets as v8Gadgets } from '../../render/gadgets';
@@ -11,8 +11,8 @@ import type { Ctx } from '../../render/util';
 import { heldFade, joinTime, throwActive, throwArc, throwHand, throwStep } from './boss-throw';
 import { pickupSprite } from './collectibles';
 import { officeImage } from './images';
-import { PROP_SIZE, beatIdOf, drawFootprint, drawProp, laneSizeK, propIdFor, propImage, propMotion } from './props';
-import { glowDisc, pickupSize, pointerBeam, twinkle } from './readability';
+import { isPointerProp, PROP_SIZE, beatIdOf, drawFootprint, drawProp, laneSizeK, propIdFor, propImage, propMotion } from './props';
+import { comboBlocked, glowDisc, passFade, pickupSize, pointerBeam, twinkle } from './readability';
 
 export * from '../../render/gadgets';
 
@@ -27,6 +27,19 @@ export function setPickupFrame(beats: readonly Beat[], stageIndex: number): void
   run.stageIndex = stageIndex;
 }
 
+/** the collectible sprite a pickup on `beat` stands for (a collect mission's coin), else null */
+export function laneCollectibleName(kind: ObstacleKind, beat: Beat | undefined, stageIndex: number): string | null {
+  if (kind !== 'coin') return null;
+  const name = pickupSprite(kind, beat, stageIndex);
+  return name.startsWith('collect-') ? name : null;
+}
+
+/** rhythm-lane hook (render/lane.ts laneArt): collect-mission coins show their collectible, not ₵ */
+export function laneCollectibleArt(beatId: number, kind: ObstacleKind): HTMLImageElement | null {
+  const name = laneCollectibleName(kind, run.beats[beatId], run.stageIndex);
+  return name ? officeImage(name) : null;
+}
+
 function droneProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: number, t: number): void {
   const h = Math.max(o.height + 10, DRONE_Y);
   const join = joinTime(SCROLL_SPEED);
@@ -37,14 +50,16 @@ function droneProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: nu
   const x = at.x;
   const y = at.y;
   const m = propMotion(propIdFor(o), t + beatIdOf(o) * 0.61 + lane * 0.23);
-  drawFootprint(ctx, o.kind, x, laneY(lane) + 2, PROP_SIZE.drone * 0.8 * s, step === null ? 1 : step);
-  if (propIdFor(o) === 'pointer') {
+  const gone = passFade(o.timeUntil);
+  if (gone <= 0) return;
+  drawFootprint(ctx, o.kind, x, laneY(lane) + 2, PROP_SIZE.drone * 0.8 * s, (step === null ? 1 : step) * gone);
+  if (isPointerProp(o)) {
     // the laser pointer is a beam from the boss's hand to chest height (stay low), never a thrown sprite
-    if (step === null && throwActive()) pointerBeam(ctx, throwHand().x, throwHand().y, x, y, s, 1);
+    if (step === null && throwActive()) pointerBeam(ctx, throwHand().x, throwHand().y, x, y, s, 1, 'low');
     return;
   }
   if (step === null) {
-    drawProp(ctx, img, x, y, PROP_SIZE.drone * s, 0.5, false, 1, m, 'low');
+    drawProp(ctx, img, x, y, PROP_SIZE.drone * s, 0.5, false, gone, m, 'low');
     return;
   }
   LAND.x = x;
@@ -84,9 +99,11 @@ const REST: VisibleObstacle[] = [];
 /** v8 contract: the drones in lane `lane` and the pickups floating in that lane */
 export function drawGadgets(ctx: Ctx, obs: readonly VisibleObstacle[], t: number, sprites: SpriteCache, lane: number): void {
   REST.length = 0;
+  const blocked = comboBlocked(obs);
   for (const o of obs) {
     if (o.kind === 'drone') {
       const img = propImage(o);
+      if (img && blocked(o, lane)) continue; // a lane hazard of the same beat fills this column
       if (img) droneProp(ctx, img, o, lane, t);
       else REST.push(o);
     } else if (isPickup(o)) {

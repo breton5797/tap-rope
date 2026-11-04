@@ -48,6 +48,11 @@ export const FAIL_TIPS: Readonly<Record<MoveId, string>> = {
   lanejump: '이동 + 점프 → 레인 먼저 옮기고 바로 탭',
 };
 
+/** the result card's fail tip for the move that cost the run (skins may name the stage's own attack) */
+export function failTipText(id: MoveId, _stageId: string | null): string {
+  return FAIL_TIPS[id];
+}
+
 /** Display order for the guide sheet (= order of first appearance in the campaign). */
 export const MOVE_ORDER: readonly MoveId[] = [
   'jump', 'lane', 'beam', 'double', 'slide', 'drone', 'drop', 'triple', 'high', 'rear', 'chaser', 'gate', 'pulse', 'lanejump',

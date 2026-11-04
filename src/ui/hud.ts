@@ -53,7 +53,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     ctx.cb.onPause();
   });
   const refs: Refs = {
-    hearts: h('div', { cls: 'hud__hearts', attrs: { 'aria-label': '방탄', role: 'img' } }),
+    hearts: h('div', { cls: 'hud__hearts', attrs: { 'aria-label': COPY.hudArmor, role: 'img' } }),
     title: h('div', { cls: 'hud__title' }),
     score: h('div', { cls: 'hud__score', text: '0' }),
     coins: h('span', { cls: 'chip__value', text: '0' }),
@@ -67,7 +67,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     shield: statusChip('status--shield', icons.shield(), COPY.hudShield),
     slow: statusChip('status--slow', icons.clock(), COPY.hudSlow),
     slide: h('span', { cls: 'hud__slide', attrs: { 'aria-label': '슬라이딩' } }, [moveGlyph('slide'), h('span', { text: 'SLIDE' })]),
-    boss: h('div', { cls: 'boss', attrs: { role: 'meter', 'aria-label': '보스 내구도', 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: '' } }),
+    boss: h('div', { cls: 'boss', attrs: { role: 'meter', 'aria-label': COPY.hudBossAria, 'aria-valuemin': '0', 'aria-valuemax': '100', hidden: '' } }),
     bossCode: h('span', { cls: 'boss__code mono' }),
     bossName: h('span', { cls: 'boss__name' }),
     bossPhase: h('span', { cls: 'boss__phase mono' }),
@@ -121,7 +121,7 @@ function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduc
       : [{ background: '#ff2a3a', boxShadow: '0 0 10px #ff2a3a' }, { background: '#ff2a3a' }, {}];
     animate(node, frames, { duration: full ? 300 : 520, easing: 'ease-out' }, reduced);
   });
-  refs.hearts.setAttribute('aria-label', `방탄 ${hearts}/${max}`);
+  refs.hearts.setAttribute('aria-label', `${COPY.hudArmor} ${hearts}/${max}`);
   refs.hearts.classList.toggle('is-critical', hearts === 1 && max > 1);
 }
 

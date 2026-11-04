@@ -4,14 +4,14 @@ import { ACHIEVEMENTS } from '../core/achievements';
 import { CUTSCENES } from '../core/cutscenes';
 import { ACH_REWARD } from '../core/economy';
 import { achievementProgress } from '../core/goals';
-import { COPY } from '../flavor';
+import { COPY, fillCopy } from '../flavor';
 import type { AchievementMeta, Cutscene, SaveData } from '../types';
 import { h, header, type Ctx } from './dom';
 import { icons } from './icons';
 import { artImage } from './title';
 
 function archiveCard(ctx: Ctx, c: Cutscene, seen: boolean, i: number): HTMLElement {
-  const no = `REC ${String(i + 1).padStart(2, '0')}`;
+  const no = fillCopy(COPY.archiveRec, { n: String(i + 1).padStart(2, '0') });
   const thumb = h('div', { cls: 'arc__thumb' }, [
     // v8: locked records show a redacted dossier still instead of an empty box
     seen && c.shots[0] ? artImage(c.shots[0].image, 'art--cut') : artImage('./art/cut/locked.webp', 'art--cut art--locked'),
@@ -22,9 +22,9 @@ function archiveCard(ctx: Ctx, c: Cutscene, seen: boolean, i: number): HTMLEleme
     'button',
     {
       cls: `arc card${seen ? '' : ' is-locked'}`,
-      attrs: { type: 'button', 'aria-label': seen ? `${c.title} 재생` : `${no} 미확인 기록`, ...(seen ? {} : { 'aria-disabled': 'true' }) },
+      attrs: { type: 'button', 'aria-label': seen ? `${c.title} 재생` : `${no} ${COPY.archiveUnseen}`, ...(seen ? {} : { 'aria-disabled': 'true' }) },
     },
-    [thumb, h('span', { cls: 'arc__title', text: seen ? c.title : '미확인 기록' }), h('span', { cls: 'arc__len mono', text: seen ? `${c.shots.length} SHOTS` : 'LOCKED' })],
+    [thumb, h('span', { cls: 'arc__title', text: seen ? c.title : COPY.archiveUnseen }), h('span', { cls: 'arc__len mono', text: seen ? fillCopy(COPY.archiveShots, { n: c.shots.length }) : COPY.archiveLocked })],
   );
   if (seen) card.addEventListener('click', ctx.tap(() => ctx.cb.onPlayCutscene(c.id)));
   return card;
@@ -88,7 +88,7 @@ export function buildAchievements(ctx: Ctx, save: SaveData, onBack: () => void):
     header(ctx, '업적', onBack, [h('div', { cls: 'chip chip--sm mono', text: `${done.length}/${ACHIEVEMENTS.length}` })], icons.back()),
     h('div', { cls: 'scroll' }, [
       h('div', { cls: 'ach__summary' }, [
-        h('span', { cls: 'kicker', text: 'SERVICE RECORD' }),
+        h('span', { cls: 'kicker', text: COPY.archiveKicker }),
         h('div', { cls: 'ach__meter', attrs: { role: 'progressbar', 'aria-label': '업적 달성률', 'aria-valuenow': String(Math.round(pct * 100)), 'aria-valuemin': '0', 'aria-valuemax': '100' } }, [
           h('i', { style: { transform: `scaleX(${pct})` } }),
         ]),

@@ -63,13 +63,21 @@ function coalesce(pool: PopupPool): void {
   }
 }
 
-function drawOne(ctx: Ctx, p: PopupPool['items'][number]): void {
+/** judgement popups fade to this while an attack callout is on screen (they never compete with it) */
+const UNDER_CALLOUT = 0.35;
+
+/** the popups' opacity factor given the callout's bottom (−Infinity = no callout this frame) */
+export function calloutFade(callout: number): number {
+  return Number.isFinite(callout) ? UNDER_CALLOUT : 1;
+}
+
+function drawOne(ctx: Ctx, p: PopupPool['items'][number], fade: number): void {
   const st = STYLE[p.style] ?? STYLE.info;
   const k = Math.min(1, p.age / 0.12);
   const sc = 1.12 - 0.12 * k * (2 - k);
   const y = p.y0 - DRIFT * Math.min(1, p.age / p.life) - p.bump;
   ctx.save();
-  ctx.globalAlpha = popupAlpha(p.age, p.life);
+  ctx.globalAlpha = popupAlpha(p.age, p.life) * fade;
   ctx.translate(PLAYER_X, y);
   ctx.scale(sc, sc);
   ctx.font = fontOf(st.size);
@@ -115,6 +123,7 @@ export function drawPopups(ctx: Ctx, pool: PopupPool): void {
   ctx.translate(PLAYER_X + dx, anchor + shift);
   ctx.scale(POPUP_SCALE, POPUP_SCALE);
   ctx.translate(-PLAYER_X, -anchor);
-  for (const p of pool.items) if (p.active) drawOne(ctx, p);
+  const fade = calloutFade(band.callout);
+  for (const p of pool.items) if (p.active) drawOne(ctx, p, fade);
   ctx.restore();
 }

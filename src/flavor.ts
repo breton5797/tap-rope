@@ -153,6 +153,8 @@ export const V8_COPY = {
   archiveUnseen: '미확인 기록',
   archiveKicker: 'SERVICE RECORD',
   achToastKicker: 'ACHIEVEMENT UNLOCKED',
+  /** kicker of the final story line (the last stage's ending card); empty = the plain story line */
+  resultStoryEndKicker: '',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;

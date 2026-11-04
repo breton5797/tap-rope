@@ -6,6 +6,7 @@ import { LANE_HAZARD_KINDS } from '../../types';
 import { BEAM_H, HIGH_H, flyingX } from '../../render/layout';
 import type { View } from '../../render/view';
 import { attackVariant } from '../core/events';
+import { PROP_CALLOUTS, propSprite } from '../core/props';
 import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
 import { heightTicks } from './readability';
@@ -15,19 +16,22 @@ interface PropFrame {
   seed: number;
   /** beat id → prop for the cart event's beat */
   carts: ReadonlyMap<number, string>;
+  /** the run's stage (0-based; −1 = none): part-2 rematches throw their own row (core props.ts STAGE_PROPS) */
+  stage: number;
 }
 
 const NO_CARTS: ReadonlyMap<number, string> = new Map();
-const frame: PropFrame = { slot: 'warden', seed: 1, carts: NO_CARTS };
+const frame: PropFrame = { slot: 'warden', seed: 1, carts: NO_CARTS, stage: -1 };
 
 /** prop id per (beat, kind) for the current slot + seed (attackVariant hashes; draw calls repeat per frame) */
 const chosen = new Map<string, string>();
 
-export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<number, string> = NO_CARTS): void {
-  if (frame.slot !== slot || frame.seed !== seed || frame.carts !== carts) chosen.clear();
+export function setPropFrame(slot: BossId, seed: number, carts: ReadonlyMap<number, string> = NO_CARTS, stageIndex = -1): void {
+  if (frame.slot !== slot || frame.seed !== seed || frame.carts !== carts || frame.stage !== stageIndex) chosen.clear();
   frame.slot = slot;
   frame.seed = seed;
   frame.carts = carts;
+  frame.stage = stageIndex;
 }
 
 /** prop heights in logical px at depth scale 1: each fills its hazard's footprint, all ≤ 0.8× the hero (110) */
@@ -63,7 +67,7 @@ export function propIdFor(o: Pick<VisibleObstacle, 'id' | 'kind'>): string {
   const hit = chosen.get(key);
   if (hit !== undefined) return hit;
   const cart = LANE_HAZARD_KINDS.includes(o.kind) ? frame.carts.get(beat) : undefined;
-  const id = cart ?? attackVariant(frame.slot, attackKindOf(o), frame.seed, beat);
+  const id = cart ?? attackVariant(frame.slot, attackKindOf(o), frame.seed, beat, frame.stage >= 0 ? frame.stage + 1 : undefined);
   chosen.set(key, id);
   return id;
 }
@@ -71,18 +75,41 @@ export function propIdFor(o: Pick<VisibleObstacle, 'id' | 'kind'>): string {
 /** the prop sprite, or null (not loaded / missing: draw the v8 hazard) */
 export function propImage(o: Pick<VisibleObstacle, 'id' | 'kind'>): HTMLImageElement | null {
   const id = propIdFor(o);
-  let name = PROP_NAMES.get(id);
-  if (!name) {
-    name = `prop-${id}`;
-    PROP_NAMES.set(id, name);
+  for (const name of propSpriteNames(id)) {
+    const img = officeImage(name);
+    if (!img) continue;
+    if (UNOUTLINED.has(name)) NO_OUTLINE.add(img);
+    return img;
   }
-  const img = officeImage(name);
-  if (img && UNOUTLINED.has(id)) NO_OUTLINE.add(img);
-  return img;
+  return null;
+}
+
+/**
+ * the sprite files a prop id is drawn with, in order: its own (an alias's part-1 sprite), then — for a part-2
+ * prop whose art has not landed — its part-1 fallback (core props.ts propSprite). Built once per id.
+ */
+export function propSpriteNames(id: string): readonly string[] {
+  let names = PROP_NAMES.get(id);
+  if (!names) {
+    const s = propSprite(id);
+    names = s.fallback ? [`prop-${s.sprite}`, `prop-${s.fallback}`] : [`prop-${s.sprite}`];
+    PROP_NAMES.set(id, names);
+  }
+  return names;
+}
+
+/** the laser pointer (and its aliases) is drawn as a beam from the hand, never as a thrown sprite */
+export function isPointerProp(o: Pick<VisibleObstacle, 'id' | 'kind'>): boolean {
+  return propSpriteNames(propIdFor(o))[0] === 'prop-pointer';
+}
+
+/** what the superior shouts for a prop (core props.ts), the generic 기습! for an unknown one */
+export function propCallout(id: string): string {
+  return PROP_CALLOUTS[id] ?? '기습!';
 }
 
 /** sprite names per prop id, built once */
-const PROP_NAMES = new Map<string, string>();
+const PROP_NAMES = new Map<string, readonly string[]>();
 
 /** the move that beats a hazard (the rhythm-lane chip): jump, slide, change lane, or stay low (drone) */
 export type ActionCue = 'jump' | 'slide' | 'lane' | 'low';
@@ -118,11 +145,16 @@ export function drawFootprint(
   ctx.globalAlpha *= alpha;
   if (cue === 'lane') {
     // lane change: a crimson OUTLINE only (a filled red read like the amber jump mark on peach floors)
+    // a dark ink rim and a white under-stroke, then the 3 px crimson dash: reads on asphalt and paving alike
     ctx.beginPath();
     ctx.ellipse(x, floorY, rx, ry, 0, 0, Math.PI * 2);
     ctx.globalAlpha *= 0.85;
+    inkRim(ctx, 5.2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.setLineDash(LANE_DASH);
     ctx.stroke();
     ctx.setLineDash(NO_DASH);
@@ -136,18 +168,29 @@ export function drawFootprint(
   ctx.fill();
   ctx.globalAlpha /= 0.4;
   ctx.globalAlpha *= 0.9;
+  inkRim(ctx, 3.6);
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.4;
+  ctx.lineWidth = 1.8;
   ctx.stroke();
   ctx.restore();
   // jumps: 1–3 notches on the ring's front edge = the level to jump
   if (cue === 'jump' && level > 0) heightTicks(ctx, x, floorY + ry, level, Math.max(0.6, width / 50));
 }
 
+/** a translucent dark-ink stroke of the current path under a footprint's rim (every floor, light or dark) */
+function inkRim(ctx: CanvasRenderingContext2D, width: number): void {
+  const a = ctx.globalAlpha;
+  ctx.globalAlpha = a * 0.45;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = width;
+  ctx.stroke();
+  ctx.globalAlpha = a;
+}
+
 /** outline rings in logical px: white inside, the move's colour, dark comic ink outside (≈ 2 px dark at play size) */
 const OUTLINE_WHITE = 1.1;
-const OUTLINE_CUE = 2.3;
-const OUTLINE_INK = 3.4;
+const OUTLINE_CUE = 3.5; // polish P2: the move colour reads around the big props too (was 2.3)
+const OUTLINE_INK = 4.6;
 const INK = '#2E2433';
 const OUTLINE_DIRS: readonly (readonly [number, number])[] = [
   [1, 0], [-1, 0], [0, 1], [0, -1], [0.71, 0.71], [-0.71, 0.71], [0.71, -0.71], [-0.71, -0.71],
@@ -224,7 +267,7 @@ function ring(ctx: CanvasRenderingContext2D, sil: HTMLCanvasElement | null, x: n
 
 /** props drawn without the outline rings (thin art the rings would smear, e.g. the laser-pointer dot chain) */
 const NO_OUTLINE = new WeakSet<HTMLImageElement>();
-const UNOUTLINED: ReadonlySet<string> = new Set(['pointer']);
+const UNOUTLINED: ReadonlySet<string> = new Set(['prop-pointer']);
 
 /**
  * Draw a prop with a dark comic outline around a white one, its centre-bottom (ay = 1) or centre (ay = 0.5)

@@ -763,22 +763,24 @@ body {
 }
 
 .floors__teaser {
-  position: absolute;
-  top: 38%;
-  left: 50%;
+  position: relative;
   z-index: 2;
   display: grid;
   gap: 4px;
   justify-items: center;
-  width: min(80%, 300px);
-  padding: 16px 18px;
+  width: min(100% - 32px, 320px);
+  margin: 0 auto 10px;
+  padding: 12px 18px;
   color: var(--ink);
   text-align: center;
   background: var(--panel-solid);
   border: 2.5px solid var(--outline);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow);
-  transform: translate(-50%, -50%);
+}
+
+.floors__teaser[hidden] {
+  display: none;
 }
 
 .floors__teaser svg {
@@ -872,11 +874,12 @@ body {
   pointer-events: none;
 }
 
-/* bottom-left, level with the canvas clock (bottom-right), above the rhythm lane */
+/* bottom-left, level with the canvas clock (bottom-right), just above the rhythm lane — low enough that the
+   front lane's pickups (a collect mission's 사원증 …) stay visible above it (polish P1a) */
 .mission-chip {
   position: absolute;
   left: calc(var(--safe-l) + 14px);
-  bottom: calc(var(--safe-b) + 112px);
+  bottom: calc(var(--safe-b) + 92px);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -903,6 +906,9 @@ body {
 }
 
 .mission-chip__label {
+  /* never squeezed below two syllables ("추격", not "추") */
+  flex-shrink: 1;
+  min-width: 2.4em;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1282,4 +1288,56 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .heart.is-refilled { animation: none; }
+}
+
+/* during play the achievement banner is one compact line over the score (not under the boss bar, where the
+   section title, the mission card and the attack callouts live) — polish P1d */
+.layer--hud:not([hidden]) ~ .layer--toast .ach-stack,
+.layer--hud:not([hidden]):has(.boss:not([hidden])) ~ .layer--toast .ach-stack {
+  top: calc(var(--safe-t) + 6px);
+}
+
+.layer--hud:not([hidden]) ~ .layer--toast .ach-toast {
+  width: auto;
+  max-width: min(260px, 100% - 150px);
+  padding: 5px 12px 5px 6px;
+}
+
+.layer--hud:not([hidden]) ~ .layer--toast .ach-toast__desc {
+  display: none;
+}
+
+.layer--hud:not([hidden]) ~ .layer--toast .ach-toast__icon {
+  transform: scale(0.8);
+}
+
+/* Korean wraps between words, never inside one ("퇴/근", "5/분만", "2 / 부") — polish P3 */
+.report__story,
+.report__stamp,
+.mission-card,
+.mission-chip,
+.brief,
+.floors__tab,
+.floors__teaser {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* the last stage's ending: its own card (check, "완주!" kicker), not the "next stage opens" padlock line */
+.report__story--end {
+  align-items: flex-start;
+  padding: 10px 12px;
+  font-size: 15px;
+  background: var(--pastel-mint);
+}
+
+.report__story-body {
+  display: grid;
+  gap: 2px;
+}
+
+.report__story-kicker {
+  color: var(--teal);
+  font-size: 18px;
+  font-weight: 900;
 }

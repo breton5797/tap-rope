@@ -5,7 +5,7 @@ import { buildCutscene } from './cutscene';
 import { buildLeaderboard } from './leaderboard';
 import { buildNickname } from './nickname';
 import { buildPicker } from './picker';
-import { renderMission } from './mission';
+import { missionBusy, renderMission } from './mission';
 import { h, holdFocus, swallowInput, type Ctx } from './dom';
 import { createHud } from './hud';
 import { renderBriefing } from './briefing';
@@ -117,10 +117,10 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
   const hud = createHud(ctx);
   // v8 (A6): achievement banners one at a time, held while the countdown / briefing / a cutscene is up
   const banners = createToastQueue((b) => showAchievementBanner(layers.toast, b));
-  const busy = { countdown: false, briefing: false, cutscene: false };
+  const busy = { countdown: false, briefing: false, cutscene: false, mission: false };
   const setBusy = (key: keyof typeof busy, on: boolean): void => {
     busy[key] = on;
-    banners.setBlocked(busy.countdown || busy.briefing || busy.cutscene);
+    banners.setBlocked(busy.countdown || busy.briefing || busy.cutscene || busy.mission);
   };
   /** the mounted report, so a follow-up showResult for the same run can patch it in place */
   let lastResult: { readonly key: string; readonly el: HTMLElement } | null = null;
@@ -192,7 +192,12 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       layers.overlay.replaceChildren(card);
     },
     showLoading: (progress) => renderLoading(layers.loading, progress),
-    updateMission: (view, stage, time) => renderMission(layers.hud, view, stage, ctx.reducedMotion(), time),
+    updateMission: (view, stage, time) => {
+      renderMission(layers.hud, view, stage, ctx.reducedMotion(), time);
+      // office: the achievement banner waits while the section's mission card is up (one overlay at a time)
+      const m = missionBusy();
+      if (m !== busy.mission) setBusy('mission', m);
+    },
     showPicker: (save, onPick) => mount(buildPicker(ctx, save, onPick), 'picker'),
   };
 }

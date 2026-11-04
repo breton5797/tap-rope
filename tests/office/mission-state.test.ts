@@ -180,9 +180,9 @@ describe('mission card hit allowance (part-2 balance)', () => {
 
   it('a finale states its allowance only when it is above 2 (part-1 copy unchanged)', async () => {
     const { missionGoal } = await import('../../src/office/ui/mission');
-    expect(missionGoal(missionCardFor(stage(1), 2)!)).toBe('마지막엔 김대리 뛰어넘기!');
+    expect(missionGoal(missionCardFor(stage(1), 2)!)).toBe('끝에서 김대리 뛰어넘기!');
     const end = missionCardFor(stage(10), 2)!;
     expect(end.maxHits).toBeGreaterThan(2);
-    expect(missionGoal(end)).toBe(`마지막엔 회장님 뛰어넘기! · 피격 ${end.maxHits}번까지`);
+    expect(missionGoal(end)).toBe(`끝에서 회장님 뛰어넘기! · 피격 ${end.maxHits}번까지`);
   });
 });

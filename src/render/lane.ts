@@ -27,6 +27,26 @@ const ICON = 32;
 const KIND_INDEX: Readonly<Record<ObstacleKind, number>> = {
   floor: 0, beam: 1, high: 2, ceiling: 3, drone: 4, coin: 5, shield: 6, slow: 7, heart: 8, guard: 9, drop: 10, chaser: 11,
 };
+/**
+ * Skin seam: art for a pickup icon (e.g. the office's mission collectible instead of the coin), drawn on a light
+ * disc in the icon's place. v8 leaves it null (its icons only).
+ */
+export const laneArt: { pickup: ((beatId: number, kind: ObstacleKind) => CanvasImageSource | null) | null } = { pickup: null };
+const PICKUP_KINDS: ReadonlySet<ObstacleKind> = new Set(['coin', 'shield', 'slow', 'heart']);
+
+/** a skin's pickup art on a light disc, ICON px across at `scale` */
+function drawPickupArt(ctx: Ctx, img: CanvasImageSource, x: number, y: number, scale: number): void {
+  const r = (ICON / 2) * scale;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.strokeStyle = '#3FBF8F';
+  ctx.lineWidth = 2;
+  circle(ctx, x, y, r);
+  ctx.fill();
+  ctx.stroke();
+  const s = r * 1.6;
+  ctx.drawImage(img, x - s / 2, y - s / 2, s, s);
+}
+
 const ICON_KEYS: string[] = [];
 for (let i = 0; i < 48; i++) ICON_KEYS.push(`lane${i}`);
 
@@ -97,9 +117,10 @@ function drawItem(ctx: Ctx, it: LaneItem, tu: number, sprites: SpriteCache, t: n
     if (it.kinds.indexOf(kind) !== i) continue;
     const level = kind === 'beam' ? clamp(it.level, 1, 3) : 1;
     const arg = KIND_INDEX[kind] * 4 + level;
-    const sp = sprites.get(ICON_KEYS[arg], ICON + 6, ICON + 6, (ICON + 6) / 2, (ICON + 6) / 2, iconSprite, arg);
     const y = CY + (row - (n - 1) / 2) * gap * (n > 1 ? 1 : 0);
-    blitScaled(ctx, sp, x, y, scale, scale);
+    const art = laneArt.pickup && PICKUP_KINDS.has(kind) ? laneArt.pickup(it.beatId, kind) : null;
+    if (art) drawPickupArt(ctx, art, x, y, scale);
+    else blitScaled(ctx, sprites.get(ICON_KEYS[arg], ICON + 6, ICON + 6, (ICON + 6) / 2, (ICON + 6) / 2, iconSprite, arg), x, y, scale, scale);
     if (row === 0) {
       // lane beats: the 3-lane marker replaces the direction arrow (the icon shape implies it)
       if (it.blocked.length > 0) drawLaneMarker(ctx, it.blocked, x + 23 * scale, y + 3 * scale, Math.min(1.1, pop));
