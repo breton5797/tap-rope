@@ -485,3 +485,31 @@ of each wall is unchanged. Pillar colours by theme:
 - theme 3: peach elevator-hall pillar #F0D6C6
 
 Every join was checked by composing a|b|c|a at 512 px.
+
+
+## Part-2 boss props (2026-11-05, polish round, requested by core)
+
+Spend **22.5 credits** (15 × nano_banana_flash 1k); part-2 total **138.5 cr** (balance 1236.83 → 1214.33).
+Cut out like the other props: 512×512, contained and centred with an 8 px margin, `cwebp -q 82`. Flying props have their swooshes
+on the right, so they travel LEFT. `prop-cane` (purple/blue swing arc) and `prop-receipt` (pink/cyan edges) had those accents
+recoloured locally to light grey, keeping them clear of the stay-low purple and the magenta necktie. The signs and screens are
+blank, with no text (`sign-stand` shows only a checkbox icon, and the `taxi` roof light is blank).
+`$PROP` = `$STYLE. Single game obstacle prop icon, one object only, centered, large and bold with a thick dark outline and saturated neon accent colors so it reads clearly at small size against pastel backgrounds, slight three-quarter view, on a pure flat white background, no shadow, no ground, no people, no hands, absolutely no writing, no letters, no numbers. The object: `
+
+| file | model | cr | prompt |
+|---|---|---|---|
+| `prop-sign-stand.webp` | nano_banana_flash | 1.5 | $PROP a tall standing X-frame banner stand with a blank mint-green banner showing only one big checkbox with a check mark icon, metal X legs on the floor. |
+| `prop-survey.webp` | nano_banana_flash | 1.5 | $PROP a small fan of three white survey sheets with rows of empty checkbox squares and one check mark (no letters), slightly curled. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-magnifier.webp` | nano_banana_flash | 1.5 | $PROP a giant magnifying glass standing upright on a small round base like a floor stand, thick black handle, shiny light-blue glass lens with a glint. |
+| `prop-receipts.webp` | nano_banana_flash | 1.5 | $PROP a low wide pile of crumpled white paper receipts with faint grey lines (no letters) on the floor, wider than tall. |
+| `prop-receipt.webp` | nano_banana_flash | 1.5 | $PROP one single long curling white receipt paper strip with faint grey lines (no letters) twisting like a ribbon. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-cane.webp` | nano_banana_flash | 1.5 | $PROP a polished dark-brown wooden walking cane with a round shiny gold handle, lying diagonally, swinging with a curved swoosh arc. |
+| `prop-rice-cake.webp` | nano_banana_flash | 1.5 | $PROP a low wide traditional Korean rice cake gift box (tteok), open lid, colorful round pastel rice cakes inside, a red ribbon, wider than tall. |
+| `prop-gold-badge.webp` | nano_banana_flash | 1.5 | $PROP a big round shiny gold lapel pin badge with a simple star emblem and sparkles. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-megaphone.webp` | nano_banana_flash | 1.5 | $PROP a white and orange megaphone hanging upside down from a short ceiling chain, its wide mouth pointing down, sound wave arcs below it. |
+| `prop-taxi.webp` | nano_banana_flash | 1.5 | $PROP the front view of a cute chunky yellow taxi car with headlights glowing, a blank plain roof light box with no writing, blank license plate. |
+| `prop-laptop.webp` | nano_banana_flash | 1.5 | $PROP an open silver laptop with a glowing blank light-blue screen, sitting low and flat, seen from the front-side. |
+| `prop-mic-stand.webp` | nano_banana_flash | 1.5 | $PROP a karaoke microphone on a tall chrome mic stand with a round base, a glowing pink-and-gold microphone, small music note shapes. |
+| `prop-skewer.webp` | nano_banana_flash | 1.5 | $PROP one Korean grilled skewer (kkochi) with chunks of grilled chicken and green onion on a wooden stick, glossy sauce. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-video-call.webp` | nano_banana_flash | 1.5 | $PROP a giant upright smartphone standing on the floor like a sign, its screen showing a video call with one cheerful cartoon man's face in a suit and a green call button icon, no text. |
+| `prop-smartphone.webp` | nano_banana_flash | 1.5 | $PROP a small black smartphone with a glowing blank screen and a little ringing vibration mark. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
