@@ -123,7 +123,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   bossPhase: '{n}차 공격',
   bossPhaseAria: '{n}차 공격',
   // fixed labels (kid-friendly miss reasons, HUD / result / archive / toast wording)
-  missDrone: 'MISS · 숙이지 말고 한 번만 점프!',
+  missDrone: 'MISS · 한 번만 점프!',
   missLevel2: 'MISS · 두 번 점프!',
   missLevel3: 'MISS · 세 번 점프!',
   missLow: 'MISS · 점프!',
