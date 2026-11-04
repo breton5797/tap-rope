@@ -6,14 +6,14 @@
  * door in its middle, all on the stage's half-beat grid.
  * Per part: a collect part spreads out (density < 1) and every pickup becomes a 1단 coin on a lane the next
  * hazard leaves open, with at least target + 2 of them; a finale's last hazard becomes a jump (the leap over
- * the superior). Beats carry `part`. Stages without a mission script (menu demo, endless) use v8 unchanged.
+ * the superior); a part with a `warmup` opens with plain single jumps / slides for that many seconds. Beats carry `part`. Stages without a mission script (menu demo, endless) use v8 unchanged.
  */
 import type { Beat, Door, LaneId, Obstacle, PhysicsConfig, StageDef } from '../../types';
 import { HAZARD_KINDS, LANES } from '../../types';
 import { DOOR_BREAK, generateStage as v8GenerateStage } from '../../core/levels';
 import { mulberry32 } from '../../core/rng';
 import { airtimeForLevel } from '../../core/physics';
-import { beatShape, gapAfter, laneReach, SAFETY } from '../../core/spacing';
+import { beatShape, gapAfter, laneReach, minGap, SAFETY } from '../../core/spacing';
 import { missionPartStage, sceneFor, transitionFor } from './content';
 import { STAGE_MISSIONS, type MissionSpec } from './missions';
 
@@ -89,6 +89,38 @@ function collectPart(spec: MissionSpec, beats: Beat[], slots: number[], half: nu
   return { beats: out.map((x) => x.b), slots: out.map((x) => x.slot) };
 }
 
+/** a hazard as the plainest move of its kind: a slide stays a slide (under a ceiling), anything else a 1단 jump */
+function plainHazard(b: Beat): Beat {
+  const obstacles: Obstacle[] = b.needsSlide ? [{ kind: 'ceiling', level: 1 }] : [{ kind: 'floor', level: 1 }];
+  return { ...b, obstacles, requiredLevel: b.needsSlide ? 0 : 1, needsSlide: b.needsSlide, pulse: false, blockedLanes: [] };
+}
+
+/**
+ * warm-up: the hazards in the first `seconds` of a part become plain (plainHazard). A plain beat can need more
+ * room than the move it replaces (a 1단 jump's airtime vs a lane step), so where a changed beat sits closer to
+ * its neighbour than minGap allows, it and everything after it move later on the half-beat grid.
+ */
+function warmupPart(beats: readonly Beat[], slots: readonly number[], seconds: number, half: number, cfg: PhysicsConfig): { beats: Beat[]; slots: number[] } {
+  const limit = seconds / half;
+  const changed = beats.map((b, i) => isHazard(b) && slots[i] < limit - 1e-9);
+  const out = beats.map((b, i) => (changed[i] ? plainHazard(b) : b));
+  const placed: number[] = [];
+  let shift = 0;
+  out.forEach((b, i) => {
+    let slot = slots[i] + shift;
+    if (i > 0 && (changed[i] || changed[i - 1])) {
+      const need = Math.ceil(minGap(beatShape(out[i - 1]), beatShape(b), cfg) / half - 1e-9);
+      const room = slot - placed[i - 1];
+      if (room < need) {
+        shift += need - room;
+        slot += need - room;
+      }
+    }
+    placed.push(slot);
+  });
+  return { beats: out, slots: placed };
+}
+
 /** finale: the last hazard becomes a 1단 floor jump (its spacing to the previous beat only gets easier) */
 function finalePart(beats: Beat[]): Beat[] {
   const last = beats.map(isHazard).lastIndexOf(true);
@@ -114,6 +146,7 @@ function composeOffice(stage: StageDef, specs: readonly MissionSpec[], cfg: Phys
     const def = missionPartStage(stage, k, spec);
     const rng = mulberry32(def.seed ^ 0x5bd1e995);
     let { beats, slots } = partSlots(spec, def, cfg);
+    if (spec.warmup) ({ beats, slots } = warmupPart(beats, slots, spec.warmup, half, cfg));
     if (spec.kind === 'collect') ({ beats, slots } = collectPart(spec, beats, slots, half, cfg, rng));
     if (spec.kind === 'finale') beats = finalePart(beats);
     return { beats, slots };

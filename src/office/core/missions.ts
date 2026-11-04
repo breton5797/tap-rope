@@ -27,6 +27,11 @@ export interface MissionSpec {
   readonly collectible?: CollectibleId;
   /** the superior's line on the mission card */
   readonly line: string;
+  /**
+   * seconds from the part's start whose hazards are plain single jumps / slides (a gentle opening; the
+   * generator's mix takes over after it). Part 2's first two stages only.
+   */
+  readonly warmup?: number;
 }
 
 export interface MissionStats {
@@ -87,12 +92,12 @@ export const STAGE_MISSIONS: Readonly<Record<string, readonly [MissionSpec, Miss
   ],
   // ---- part 2: 퇴근길 (18:00 → 18:30) ----
   'w6-s10': [
-    m({ kind: 'dodge', title: '설문지 폭탄', target: 21, hazards: 21, moves: S5, focus: ['drone'], ...DODGE, line: '퇴근 전에 설문 하나만! 금방 끝나~' }),
-    m({ kind: 'collect', title: '사원증 찍고 나가기', target: 8, hazards: 18, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'badge', ...COLLECT, line: '출입 기록은 남기고 가야지~' }),
+    m({ kind: 'dodge', title: '설문지 폭탄', target: 21, hazards: 21, moves: S5, focus: ['drone'], ...DODGE, line: '퇴근 전에 설문 하나만! 금방 끝나~', warmup: 8 }),
+    m({ kind: 'collect', title: '출입 사원증', target: 8, hazards: 18, moves: ['jump', 'double', 'lane', 'slide', 'drop'], collectible: 'badge', ...COLLECT, line: '출입 기록은 남기고 가야지~' }),
     m({ kind: 'finale', title: '서명판 부메랑', target: 23, hazards: 23, moves: S5, focus: ['beam'], ...FINALE, line: '여기 서명 하나만! 진짜 하나만!' }),
   ],
   'w7-s10': [
-    m({ kind: 'dodge', title: '택시 잡기 대소동', target: 23, hazards: 23, moves: S7, focus: ['lanejump'], ...DODGE, line: '택시! 택시! 같이 타고 가자~' }),
+    m({ kind: 'dodge', title: '택시 잡기 대소동', target: 23, hazards: 23, moves: S7, focus: ['lanejump'], ...DODGE, line: '택시! 택시! 같이 타고 가자~', warmup: 8 }),
     m({ kind: 'chase', title: '같이 타자! 추격', target: 23, hazards: 23, moves: S7, focus: ['chaser'], ...CHASE, line: '가면서 엑셀 얘기 좀 하자니까!' }),
     m({ kind: 'finale', title: '버스 문 닫히기 직전', target: 25, hazards: 25, moves: S7, focus: ['lanejump'], ...FINALE, line: '최종_v4는 버스에서 보자~' }),
   ],

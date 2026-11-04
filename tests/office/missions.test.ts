@@ -22,6 +22,10 @@ describe('mission script', () => {
     ]);
   });
 
+  it('stage 6 collects 출입 사원증', () => {
+    expect(STAGE_MISSIONS['w6-s10'][1]).toMatchObject({ kind: 'collect', title: '출입 사원증', collectible: 'badge' });
+  });
+
   it('part 2: hazards keep rising past stage 5 (balance pass: 18 → 34), stage 7 drills lanejump, stage 10 ends on a bonus envelope', () => {
     const peak = (id: string) => Math.max(...STAGE_MISSIONS[id].map((m) => m.hazards));
     const peaks = STAGES.map((s) => peak(s.id));
