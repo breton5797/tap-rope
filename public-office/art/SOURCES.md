@@ -451,3 +451,26 @@ generated sources, and then the per-theme 64 px edge profile was recomputed, so 
 Afterwards I re-scanned every theme 4–6 and 4-night wall for saturated cyan/red/magenta runs at least 60 px wide and at most
 1/5 as tall as wide. The runs that remain are not glowing: the light-blue bench in `wall-5-a`, the orange tent and flat
 dark-red counter in `wall-6-b`, and a flat blue sign border in `wall-4-night-b`.
+
+
+## Polish round (2026-11-05, branch fix/office-part2-polish)
+
+Spend **3.5 credits** (part-2 total **116 cr**, balance 1240.33 → 1236.83).
+
+- **Wall joins** (`wall-0-night-*`, `wall-4-*`, `wall-4-night-*`, `wall-5-*`, `wall-6-*`): the 64 px per-row edge-profile blend
+  produced a horizontally smeared band at every tile join. Replaced by a drawn pole at the join (`poles.py`, job tmp dir): each
+  wall carries the right half of a pole at its left edge and the left half at its right edge, from one shared profile (dark
+  outline, highlight stripe, shadow side, bolt bands, soft contact shadow), so any two tiles meet in one complete pole. Part-2 walls
+  were re-cut from their generated sources with NO edge blend (neon repaint kept); `wall-0-night-*` (sources not in this job)
+  are painted over the shipped files, with a 64 px half so the old smear is fully covered. Half widths (px at 1024) and colours:
+  theme 4 utility pole 36 #B0A6BE, 4-night 36 #707492, theme 5 tiled pillar 40 #D6ECE4, theme 6 dark pole 36 #686074,
+  0-night mint pillar 64 #B2E4D4. Checked by composing a|b|c|a at in-game scale (512 px) and viewing every join.
+  Part-1 walls 0, 0-dawn, 1, 2, 3 have the same smear but are unchanged here.
+- `prop-doc-tornado`: purple → cool grey/white (local recolour: purple/cyan pixels to hue 215°, saturation 0.08, outline pixels to a
+  dark blue-grey). `prop-necktie`: magenta → navy (hue 222°, saturation 0.62). Silhouettes and canvases unchanged.
+
+| file | model | cr | prompt |
+|---|---|---|---|
+| `prop-paper-jam.webp` (cut out as props: 512×512, 8 px margin, centred) | nano_banana_flash | 1.5 | $STYLE. Single game obstacle prop icon, one object only, centered, large and bold with a thick dark outline and saturated neon accent colors so it reads clearly at small size against pastel backgrounds, slight three-quarter view, on a pure flat white background, no shadow, no ground, no people, no hands. The object: one chunky floor-standing office photocopier printer standing on the ground on its own base, simple boxy silhouette, light blue-grey body with a very thick dark outline, a single sheet of paper sticking out of its slot, a small glowing orange warning light on the front panel. Only the printer: no paper cloud, no crumpled paper pile, no flying papers, no motion lines, no smoke. |
+| `cut/locked.webp` (9:16 → 1080×1920; archive thumbnail for locked records) | nano_banana_flash | 1.5 | $STYLE. Vertical 9:16 still illustration with a fully drawn background, absolutely no lettering, no words, no numbers: a closed secret office dossier, a thick manila folder lying on a dark desk under a desk lamp, tied with a red string, a big plain round red ink stamp mark with no letters on the cover, a chunky golden padlock on the string, a few blank black redaction bars on a paper peeking out, soft dim mysterious lighting, calm and cute not scary. |
+| `ach/stamps-15.webp` (128×128, 1 px margin) | gpt_image_2_5 | 0.5 | Round achievement badge icon for a mobile game, a single circular medal filling the whole square frame edge to edge, thick bold dark outline, pastel circular face with a neon colored rim, one big simple centered symbol readable at 64 pixels, bright Korean webtoon comic style, bold clean outlines, flat cel shading, transparent background outside the circle, no text, no letters, no numbers, no digits, no logos. The symbol: a cute wooden Korean seal stamp with a red ink base pressing onto a little stamp card completely filled with small round red stamp marks (plain circles, no letters), sparkles, red rim. |
