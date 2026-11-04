@@ -44,6 +44,8 @@ describe('office copy', () => {
     expect(COPY.briefPart2).toBe('2부 · 퇴근길');
     expect(COPY.bossPhase).toBe('{n}차 공격');
     expect(COPY.resultMapPart2).toBe('퇴근길 지도');
+    // the achievements screen has its own kicker (the archive's 퇴근 앨범 is for cutscenes)
+    expect(COPY.achKicker).toBe('사원 평가');
     expect(COPY.missLane).toBe('MISS · 줄 바꾸기!');
     expect(COPY.missLevel2).toBe('MISS · 두 번 점프!');
     expect(COPY.missLevel3).toBe('MISS · 세 번 점프!');
@@ -58,6 +60,7 @@ describe('office copy', () => {
     expect([V8_COPY.missDrone, V8_COPY.missLevel2, V8_COPY.missLevel3, V8_COPY.missLow, V8_COPY.missSlide, V8_COPY.missStanding, V8_COPY.missLane])
       .toEqual(['DETECTED · 고도 낮춰', 'MISS · 고도 부족', 'MISS · 고도 부족', 'MISS · 점프', 'MISS · 점프 구간', 'MISS · 슬라이딩', 'MISS · 레인 이탈']);
     expect(V8_COPY.hitShielded).toBe('BLOCKED · 실드');
+    expect(V8_COPY.achKicker).toBe('SERVICE RECORD');
     expect(V8_COPY.hudBossAria).toBe('보스 내구도');
     expect(V8_COPY.resultFunds).toBe('획득 자금');
     expect(V8_COPY.resultMapPart2).toBe(V8_COPY.resultMap);

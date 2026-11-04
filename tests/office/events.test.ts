@@ -212,6 +212,7 @@ describe('attackVariant', () => {
     for (const [alias, sprite] of Object.entries(PROP_ALIASES)) expect(PART1_PROPS, alias).toContain(sprite);
     expect(propSprite('unknown-prop')).toEqual({ sprite: 'papers', fallback: null });
     // round 2: 계산기 / 탬버린 / "진짜 5분" get their own sprites (no longer the corp card, necktie or 라떼 bubble)
+    expect(PROP_CALLOUTS.magnifier).toBe('돋보기 "이건 뭐지?!"');
     expect(propSprite('calculator')).toEqual({ sprite: 'calculator', fallback: 'corp-card' });
     expect(propSprite('tambourine')).toEqual({ sprite: 'tambourine', fallback: 'necktie' });
     expect(propSprite('call-bubble')).toEqual({ sprite: 'call-bubble', fallback: 'latte-bubble' });

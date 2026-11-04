@@ -57,7 +57,7 @@ export const PROP_CALLOUTS: Readonly<Record<string, string>> = {
   // 강차장 (인사팀 설문)
   'sign-stand': '서명 부스!', survey: '설문지 폭탄!', 'survey-box': '설문 응모함!', 'sign-board': '서명판 휘두르기!', pen: '볼펜 휙!',
   // 문상무 (감사팀)
-  magnifier: '돋보기 "이건 뭐지?"', receipts: '영수증 뭉치!', receipt: '영수증 날리기!', 'audit-board': '감사 서류판!', calculator: '계산기 탁탁!',
+  magnifier: '돋보기 "이건 뭐지?!"', receipts: '영수증 뭉치!', receipt: '영수증 날리기!', 'audit-board': '감사 서류판!', calculator: '계산기 탁탁!',
   // 회장님
   cane: '지팡이 휘두르기!', 'rice-cake': '창립기념 떡!', 'gold-badge': '금배지 휙!', megaphone: '훈화 말씀!',
   // rematches: 박과장 (택시), 윤이사 (먹자골목 2차), 최팀장 (영상통화), 한전무 (집 앞 결재)

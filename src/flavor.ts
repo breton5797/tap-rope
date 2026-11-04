@@ -155,6 +155,8 @@ export const V8_COPY = {
   achToastKicker: 'ACHIEVEMENT UNLOCKED',
   /** kicker of the final story line (the last stage's ending card); empty = the plain story line */
   resultStoryEndKicker: '',
+  /** kicker on the achievements screen (ui/archive.ts buildAchievements) */
+  achKicker: 'SERVICE RECORD',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;

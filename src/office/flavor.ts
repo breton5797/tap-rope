@@ -141,6 +141,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   archiveKicker: '퇴근 앨범',
   achToastKicker: '업적 달성!',
   resultStoryEndKicker: '완주!',
+  achKicker: '사원 평가',
 };
 
 /** a fresh uniform uint32 for every run start (P3: chosen once, kept on the run, never steered by input) */
