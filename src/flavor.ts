@@ -157,6 +157,9 @@ export const V8_COPY = {
   resultStoryEndKicker: '',
   /** kicker on the achievements screen (ui/archive.ts buildAchievements) */
   achKicker: 'SERVICE RECORD',
+  /** the result headline after clearing the last stage (v8: the same as any clear) */
+  resultFinalStatus: 'MISSION COMPLETE',
+  resultFinalTitle: '임무 완료',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;
