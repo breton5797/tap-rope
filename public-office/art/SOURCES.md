@@ -451,3 +451,85 @@ generated sources, and then the per-theme 64 px edge profile was recomputed, so 
 Afterwards I re-scanned every theme 4–6 and 4-night wall for saturated cyan/red/magenta runs at least 60 px wide and at most
 1/5 as tall as wide. The runs that remain are not glowing: the light-blue bench in `wall-5-a`, the orange tent and flat
 dark-red counter in `wall-6-b`, and a flat blue sign border in `wall-4-night-b`.
+
+
+## Polish round (2026-11-05, branch fix/office-part2-polish)
+
+Spend **3.5 credits** (part-2 total **116 cr**, balance 1240.33 → 1236.83).
+
+- **Wall joins** (`wall-0-night-*`, `wall-4-*`, `wall-4-night-*`, `wall-5-*`, `wall-6-*`): the 64 px per-row edge-profile blend
+  produced a horizontally smeared band at every tile join. Replaced by a drawn pole at the join (`poles.py`, job tmp dir): each
+  wall carries the right half of a pole at its left edge and the left half at its right edge, from one shared profile (dark
+  outline, highlight stripe, shadow side, bolt bands, soft contact shadow), so any two tiles meet in one complete pole. Part-2 walls
+  were re-cut from their generated sources with NO edge blend (neon repaint kept); `wall-0-night-*` (sources not in this job)
+  are painted over the shipped files, with a 64 px half so the old smear is fully covered. Half widths (px at 1024) and colours:
+  theme 4 utility pole 36 #B0A6BE, 4-night 36 #707492, theme 5 tiled pillar 40 #D6ECE4, theme 6 dark pole 36 #686074,
+  0-night mint pillar 64 #B2E4D4. Checked by composing a|b|c|a at in-game scale (512 px) and viewing every join.
+  Part-1 walls 0, 0-dawn, 1, 2, 3 have the same smear but are unchanged here.
+- `prop-doc-tornado`: purple → cool grey/white (local recolour: purple/cyan pixels to hue 215°, saturation 0.08, outline pixels to a
+  dark blue-grey). `prop-necktie`: magenta → navy (hue 222°, saturation 0.62). Silhouettes and canvases unchanged.
+
+| file | model | cr | prompt |
+|---|---|---|---|
+| `prop-paper-jam.webp` (cut out as props: 512×512, 8 px margin, centred) | nano_banana_flash | 1.5 | $STYLE. Single game obstacle prop icon, one object only, centered, large and bold with a thick dark outline and saturated neon accent colors so it reads clearly at small size against pastel backgrounds, slight three-quarter view, on a pure flat white background, no shadow, no ground, no people, no hands. The object: one chunky floor-standing office photocopier printer standing on the ground on its own base, simple boxy silhouette, light blue-grey body with a very thick dark outline, a single sheet of paper sticking out of its slot, a small glowing orange warning light on the front panel. Only the printer: no paper cloud, no crumpled paper pile, no flying papers, no motion lines, no smoke. |
+| `cut/locked.webp` (9:16 → 1080×1920; archive thumbnail for locked records) | nano_banana_flash | 1.5 | $STYLE. Vertical 9:16 still illustration with a fully drawn background, absolutely no lettering, no words, no numbers: a closed secret office dossier, a thick manila folder lying on a dark desk under a desk lamp, tied with a red string, a big plain round red ink stamp mark with no letters on the cover, a chunky golden padlock on the string, a few blank black redaction bars on a paper peeking out, soft dim mysterious lighting, calm and cute not scary. |
+| `ach/stamps-15.webp` (128×128, 1 px margin) | gpt_image_2_5 | 0.5 | Round achievement badge icon for a mobile game, a single circular medal filling the whole square frame edge to edge, thick bold dark outline, pastel circular face with a neon colored rim, one big simple centered symbol readable at 64 pixels, bright Korean webtoon comic style, bold clean outlines, flat cel shading, transparent background outside the circle, no text, no letters, no numbers, no digits, no logos. The symbol: a cute wooden Korean seal stamp with a red ink base pressing onto a little stamp card completely filled with small round red stamp marks (plain circles, no letters), sparkles, red rim. |
+
+Part-1 walls (2026-11-05, 0 credits): the same pole pass was applied to `wall-0-*`, `wall-0-dawn-*`, `wall-1-*`, `wall-2-*` and
+`wall-3-*`. The poles are painted over the shipped files with a 64 px half, which covers the old smeared blend completely; the rest
+of each wall is unchanged. Pillar colours by theme:
+- theme 0: cream office column #EEE4D2
+- theme 0-dawn: lobby pillar #E2D6DE
+- theme 1: mint corridor pillar #D6ECE2
+- theme 2: lilac mullion pillar #D4C8E8
+- theme 3: peach elevator-hall pillar #F0D6C6
+
+Every join was checked by composing a|b|c|a at 512 px.
+
+
+## Part-2 boss props (2026-11-05, polish round, requested by core)
+
+Spend **22.5 credits** (15 × nano_banana_flash 1k); part-2 total **138.5 cr** (balance 1236.83 → 1214.33).
+Cut out like the other props: 512×512, contained and centred with an 8 px margin, `cwebp -q 82`. Flying props have their swooshes
+on the right, so they travel LEFT. `prop-cane` (purple/blue swing arc) and `prop-receipt` (pink/cyan edges) had those accents
+recoloured locally to light grey, keeping them clear of the stay-low purple and the magenta necktie. The signs and screens are
+blank, with no text (`sign-stand` shows only a checkbox icon, and the `taxi` roof light is blank).
+`$PROP` = `$STYLE. Single game obstacle prop icon, one object only, centered, large and bold with a thick dark outline and saturated neon accent colors so it reads clearly at small size against pastel backgrounds, slight three-quarter view, on a pure flat white background, no shadow, no ground, no people, no hands, absolutely no writing, no letters, no numbers. The object: `
+
+| file | model | cr | prompt |
+|---|---|---|---|
+| `prop-sign-stand.webp` | nano_banana_flash | 1.5 | $PROP a tall standing X-frame banner stand with a blank mint-green banner showing only one big checkbox with a check mark icon, metal X legs on the floor. |
+| `prop-survey.webp` | nano_banana_flash | 1.5 | $PROP a small fan of three white survey sheets with rows of empty checkbox squares and one check mark (no letters), slightly curled. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-magnifier.webp` | nano_banana_flash | 1.5 | $PROP a giant magnifying glass standing upright on a small round base like a floor stand, thick black handle, shiny light-blue glass lens with a glint. |
+| `prop-receipts.webp` | nano_banana_flash | 1.5 | $PROP a low wide pile of crumpled white paper receipts with faint grey lines (no letters) on the floor, wider than tall. |
+| `prop-receipt.webp` | nano_banana_flash | 1.5 | $PROP one single long curling white receipt paper strip with faint grey lines (no letters) twisting like a ribbon. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-cane.webp` | nano_banana_flash | 1.5 | $PROP a polished dark-brown wooden walking cane with a round shiny gold handle, lying diagonally, swinging with a curved swoosh arc. |
+| `prop-rice-cake.webp` | nano_banana_flash | 1.5 | $PROP a low wide traditional Korean rice cake gift box (tteok), open lid, colorful round pastel rice cakes inside, a red ribbon, wider than tall. |
+| `prop-gold-badge.webp` | nano_banana_flash | 1.5 | $PROP a big round shiny gold lapel pin badge with a simple star emblem and sparkles. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-megaphone.webp` | nano_banana_flash | 1.5 | $PROP a white and orange megaphone hanging upside down from a short ceiling chain, its wide mouth pointing down, sound wave arcs below it. |
+| `prop-taxi.webp` | nano_banana_flash | 1.5 | $PROP the front view of a cute chunky yellow taxi car with headlights glowing, a blank plain roof light box with no writing, blank license plate. |
+| `prop-laptop.webp` | nano_banana_flash | 1.5 | $PROP an open silver laptop with a glowing blank light-blue screen, sitting low and flat, seen from the front-side. |
+| `prop-mic-stand.webp` | nano_banana_flash | 1.5 | $PROP a karaoke microphone on a tall chrome mic stand with a round base, a glowing pink-and-gold microphone, small music note shapes. |
+| `prop-skewer.webp` | nano_banana_flash | 1.5 | $PROP one Korean grilled skewer (kkochi) with chunks of grilled chicken and green onion on a wooden stick, glossy sauce. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+| `prop-video-call.webp` | nano_banana_flash | 1.5 | $PROP a giant upright smartphone standing on the floor like a sign, its screen showing a video call with one cheerful cartoon man's face in a suit and a green call button icon, no text. |
+| `prop-smartphone.webp` | nano_banana_flash | 1.5 | $PROP a small black smartphone with a glowing blank screen and a little ringing vibration mark. It flies toward the LEFT, with a few short speed swooshes trailing on its right side. |
+
+- 2026-11-05 follow-up (1.5 cr; part-2 total **140 cr**, balance 1212.83): the first `prop-gold-badge` (a gold star disc with
+  sparkles) read as a coin pickup, so it was regenerated as a navy/red enamel shield lapel pin with a silver pin-back:
+  nano_banana_flash, `$PROP a big shield-shaped company lapel pin badge seen at an angle, deep navy enamel face with a thick red enamel ring border and a polished silver metal rim, a simple white abstract leaf emblem in the middle, and the silver pin-back clasp clearly visible sticking out behind it. Not round, not gold, no coin, no star, no sparkles. It flies toward the LEFT, with a few short grey speed swooshes trailing on its right side.`. The detached sparkles on `prop-magnifier` were removed locally by keeping only
+  the largest connected part and re-containing it in 512×512 with an 8 px margin.
+
+
+## Round-2 prop fixes (2026-11-05, 9 credits; part-2 total **149 cr**, balance 1203.83)
+
+Hazards must never look like pickups, so this round uses no sparkles, no glow and no gift/coin shapes. All are nano_banana_flash
+1k, cut out as props (512×512, 8 px margin), `cwebp -q 82`.
+`$PROP2` = `$STYLE (without manga speed lines). Single game obstacle prop icon, one object only, centered, large and bold with a very thick dark outline, solid flat colors, on a pure flat white background, no shadow, no ground, no people, no hands, absolutely no writing, no letters, no numbers, no sparkles, no glow, no shine stars, no motion lines. `
+
+| file | why | prompt (after `$PROP2 The object:`) |
+|---|---|---|
+| `prop-rice-cake.webp` | the pink ribboned box read as the gift-box pickup | a low wide wooden serving tray holding a stacked block of Korean layered rice cake (sirutteok): thick layers of white rice cake and reddish-brown red-bean powder, cut into big square slices, seen slightly from above. No box, no ribbon, no gift wrapping. |
+| `prop-call-bubble.webp` | new: "진짜 5분" (core id `call-bubble`, was latte-bubble, a round blue glowing disc) | a big rectangular comic speech bubble with slightly rounded corners and a short pointed tail at the bottom left, white fill with a very thick dark navy ink rim, inside it only a simple dark analog clock icon. Flat, no glow, not round. |
+| `prop-calculator.webp` | new: "계산기 탁탁" (was the gold corp-card) | a chunky old-fashioned desk calculator, dark grey body with black square buttons and one orange button, a plain blank dark-green display, slight three-quarter view. |
+| `prop-tambourine.webp` | new: "탬버린" (was the necktie); red wood, matte silver jingles, not gold | a round wooden tambourine with a red painted wooden frame, a cream drum skin, and several small dull silver metal jingles set in slots around the frame, slight three-quarter view, matte, not gold. |
+| `prop-magnifier.webp` | too thin, sat on the head like a headband; 1st retry looked like a mirror on a stand (rejected, 1.5 cr) | a giant chunky classic magnifying glass tilted diagonally, its very thick round black rim and wide pale-blue lens at the upper left, a very thick long brown wooden handle with a black metal collar going down to the lower right, one simple white curved reflection stroke on the lens, a big magnified cartoon eye with a raised eyebrow visible inside the lens. Bold, heavy, simple silhouette. |

@@ -27,6 +27,12 @@ function codeOf(input: LoggedInput): RunInput[1] | null {
   return input === 'down' ? 'D' : null; // other swipes have no effect in the session
 }
 
+/** the section of the beat that ended a failed run (office stages 5 / 10: one superior per section), else null */
+export function hitSection(end: Session): number | null {
+  const beat = end.status === 'failed' ? end.beats[end.cursor - 1] : undefined;
+  return beat ? beat.section : null;
+}
+
 /** v8 fail tip: the move that would have dodged the beat that took the last heart (the beat before the cursor). */
 export function hitBy(end: Session): MoveId | null {
   const beat = end.status === 'failed' ? end.beats[end.cursor - 1] : undefined;
@@ -65,7 +71,7 @@ export function createRunLog(mode: GameMode, seed: number, date: string, skin: S
       return {
         mode, stageId, cleared: end.status === 'cleared', hitsTaken: end.hitsTaken,
         perfects: sc.perfects, greats: sc.greats, goods: sc.goods, misses: sc.misses, maxCombo: sc.maxCombo,
-        fevers, seconds: end.time, score: sc.score, date, hitBy: hitBy(end),
+        fevers, seconds: end.time, score: sc.score, date, hitBy: hitBy(end), hitSection: hitSection(end),
       };
     },
     record(end) {

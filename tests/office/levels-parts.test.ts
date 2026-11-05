@@ -108,6 +108,47 @@ describe('office stage composer', () => {
     }
   });
 
+  it('part 2 opens gently: the first ~8 s of stages 6 and 7 are plain single jumps / slides, then the mix ramps in', () => {
+    const plain = (b: Beat): boolean => {
+      if (b.obstacles.length !== 1 || b.blockedLanes.length > 0 || b.pulse) return false;
+      const [o] = b.obstacles;
+      const jump = o.kind === 'floor' && o.level === 1 && b.requiredLevel === 1 && !b.needsSlide;
+      const slide = o.kind === 'ceiling' && b.needsSlide && b.requiredLevel === 0;
+      return jump || slide;
+    };
+    for (const id of ['w6-s10', 'w7-s10']) {
+      const stage = STAGES.find((s) => s.id === id)!;
+      expect(STAGE_MISSIONS[id][0].warmup, id).toBe(8);
+      for (const seed of SEEDS) {
+        const { beats } = generateStage({ ...stage, seed }, cfg, 2);
+        const hz = beats.filter((b) => b.part === 0 && isHazard(b));
+        const early = hz.filter((b) => b.time < 2 + 8);
+        expect(early.length, `${id}#${seed}`).toBeGreaterThanOrEqual(3);
+        for (const b of early) expect(plain(b), `${id}#${seed} beat ${b.id} @${b.time.toFixed(2)}`).toBe(true);
+        // after the warm-up the section's own mix comes back
+        expect(hz.filter((b) => b.time >= 2 + 8).some((b) => !plain(b)), `${id}#${seed}`).toBe(true);
+        expect(hz.length).toBe(STAGE_MISSIONS[id][0].hazards);
+      }
+    }
+    // part 1 and the other part-2 stages keep their openings
+    for (const s of STAGES.filter((x) => !['w6-s10', 'w7-s10'].includes(x.id))) {
+      for (const m of STAGE_MISSIONS[s.id]) expect(m.warmup, s.id).toBeUndefined();
+    }
+  });
+
+  it('mission items are flagged: every coin of a collect part or of a part with a bonus collectible, and no other coin', () => {
+    for (const r of runs) {
+      STAGE_MISSIONS[r.stage.id].forEach((m, k) => {
+        const coins = r.beats.filter((b) => b.part === k).flatMap((b) => b.obstacles.filter((o) => o.kind === 'coin'));
+        const itemPart = m.kind === 'collect' || m.collectible !== undefined;
+        for (const o of coins) expect(o.item === true, `${r.stage.id}#${r.seed} part ${k}`).toBe(itemPart);
+        for (const b of r.beats.filter((x) => x.part === k)) {
+          for (const o of b.obstacles.filter((x) => x.kind !== 'coin')) expect(o.item, `${r.stage.id} ${o.kind}`).toBeUndefined();
+        }
+      });
+    }
+  });
+
   it("the finale's last hazard is a jump (floor / beam): the leap over the superior", () => {
     for (const r of runs) {
       STAGE_MISSIONS[r.stage.id].forEach((m, k) => {

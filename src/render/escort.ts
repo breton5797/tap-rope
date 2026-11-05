@@ -12,6 +12,9 @@ const CAP = 64;
 const GAP_RESET = 0.5;
 const ESCORT_SCALE = 0.97;
 
+/** skin seam: the escort's opacity this frame (the office fades it while attacks come from behind it); v8: 1 */
+export const escortLook = { alpha: 1 };
+
 export class EscortPainter {
   private readonly painter = new AgentPainter();
   private readonly times = new Float64Array(CAP);
@@ -63,6 +66,7 @@ export class EscortPainter {
     const depth = depthScale(d);
     const x = projX(PLAYER_X + ESCORT_DX, d);
     const floorY = laneY(d);
+    ctx.globalAlpha = escortLook.alpha;
     this.painter.shadow(ctx, x, floorY, q.height, q.sliding, ESCORT_SCALE * depth);
     this.painter.draw(ctx, {
       x, id: 'prisoner', p: q, mood: hurt ? 'hurt' : running ? 'happy' : 'idle', t: realTime + 0.37, scroll: scroll - 23, running,

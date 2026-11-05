@@ -53,13 +53,14 @@ function build(layer: HTMLElement): MissionDom {
 function clear(): void {
   dom?.root.remove();
   dom = null;
+  overlayState.card = false;
 }
 
 /** the card's goal line (a chase states its hit allowance; a finale only when a long part-2 part raises it above 2) */
 export function missionGoal(card: MissionCard): string {
   return card.kind === 'collect' ? `${card.title} ${card.target}개 모으기`
     : card.kind === 'chase' ? `${card.superior} 따돌리기 · 피격 ${card.maxHits}번까지`
-      : card.kind === 'finale' ? `마지막엔 ${card.superior} 뛰어넘기!${card.maxHits > 2 ? ` · 피격 ${card.maxHits}번까지` : ''}`
+      : card.kind === 'finale' ? `끝에서 ${card.superior} 뛰어넘기!${card.maxHits > 2 ? ` · 피격 ${card.maxHits}번까지` : ''}`
         : `장애물 ${card.target}개 돌파`;
 }
 
@@ -140,7 +141,40 @@ export function renderMission(layer: HTMLElement, view: MissionView | undefined,
     }
   }
   d.stamp = show(d.root, d.stamp, time);
-  d.card = show(d.root, d.card, time);
+  d.card = show(d.root, waitForTitle(d.card, layer, time), time);
+  overlayState.card = d.card !== null && d.card.el.isConnected;
+}
+
+/** what the office renderer needs to know about the DOM overlays (one overlay at a time) */
+export const overlayState = { card: false };
+
+/** the mission card is on screen: the achievement banner waits (ui/index.ts) */
+export function missionBusy(): boolean {
+  return overlayState.card;
+}
+
+/** the boss phase line ("2차 공격 — …", the section title) is on screen */
+function titleUp(layer: HTMLElement): boolean {
+  return layer.parentElement?.querySelector('.bossline') != null;
+}
+
+/**
+ * polish P1d: the mission card never shares the screen with the section title. A card that has not shown yet
+ * waits for the title to clear (then gets its full CARD_S); a card already on screen ends when the title
+ * arrives — one card per section, never a second one mid-hazards (round 2, stage 6).
+ */
+function waitForTitle(card: Timed | null, layer: HTMLElement, time: number): Timed | null {
+  if (!card) return null;
+  const waiting = card.from === Number.POSITIVE_INFINITY;
+  if (!waiting && time < card.from) return card;
+  if (titleUp(layer)) {
+    if (card.el.isConnected) {
+      card.el.remove();
+      return null;
+    }
+    return waiting ? card : { ...card, from: Number.POSITIVE_INFINITY, until: Number.POSITIVE_INFINITY };
+  }
+  return waiting ? { ...card, from: time, until: time + CARD_S } : card;
 }
 
 /** the result card's row: one stamp per mission and the stage grade */

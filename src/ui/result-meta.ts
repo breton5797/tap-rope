@@ -9,15 +9,15 @@ import { COPY, fillCopy } from '../flavor';
 import type { MoveId, ResultInfo, ResultMeta } from '../types';
 import { button, formatNumber, h, type Ctx } from './dom';
 import { icons } from './icons';
-import { FAIL_TIPS, moveGlyph } from './moves';
+import { FAIL_TIPS, failTipText, moveGlyph } from './moves';
 import { artImage } from './title';
 
 export { FAIL_TIPS };
 
-export function failTip(id: MoveId): HTMLElement {
+export function failTip(id: MoveId, stageId: string | null = null, section: number | null = null): HTMLElement {
   return h('div', { cls: 'report__tip', attrs: { role: 'note' } }, [
     h('span', { cls: 'report__tip-glyph' }, [moveGlyph(id)]),
-    h('span', { cls: 'report__tip-text', text: FAIL_TIPS[id] }),
+    h('span', { cls: 'report__tip-text', text: failTipText(id, stageId, section) }),
   ]);
 }
 

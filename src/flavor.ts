@@ -134,6 +134,32 @@ export const V8_COPY = {
   zoneTag: 'ZONE {zone}',
   bossPhase: 'PHASE {n}/3',
   bossPhaseAria: '페이즈 {n}/3',
+  // fixed labels the screens used to inline (game/feedback.ts, ui/hud.ts, ui/result.ts, ui/archive.ts, ui/overlays.ts)
+  missDrone: 'DETECTED · 고도 낮춰',
+  missLevel2: 'MISS · 고도 부족',
+  missLevel3: 'MISS · 고도 부족',
+  missLow: 'MISS · 점프',
+  missSlide: 'MISS · 점프 구간',
+  missStanding: 'MISS · 슬라이딩',
+  missLane: 'MISS · 레인 이탈',
+  hitShielded: 'BLOCKED · 실드',
+  hudBossAria: '보스 내구도',
+  resultFunds: '획득 자금',
+  /** the map button / title for a part-2 stage's result (v8 reads the same in both parts) */
+  resultMapPart2: '작전 지도',
+  archiveRec: 'REC {n}',
+  archiveShots: '{n} SHOTS',
+  archiveLocked: 'LOCKED',
+  archiveUnseen: '미확인 기록',
+  archiveKicker: 'SERVICE RECORD',
+  achToastKicker: 'ACHIEVEMENT UNLOCKED',
+  /** kicker of the final story line (the last stage's ending card); empty = the plain story line */
+  resultStoryEndKicker: '',
+  /** kicker on the achievements screen (ui/archive.ts buildAchievements) */
+  achKicker: 'SERVICE RECORD',
+  /** the result headline after clearing the last stage (v8: the same as any clear) */
+  resultFinalStatus: 'MISSION COMPLETE',
+  resultFinalTitle: '임무 완료',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;

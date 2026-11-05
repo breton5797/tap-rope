@@ -64,14 +64,19 @@ export function resetFeedback(d: FeedbackDeps): void {
 
 const findBeat = (v: FeedbackView, id: number): Beat | undefined => (v.beats[id]?.id === id ? v.beats[id] : v.beats.find((b) => b.id === id));
 
-const MISS_TEXT: Record<string, string> = {
-  drone: 'DETECTED · 고도 낮춰',
-  level: 'MISS · 고도 부족',
-  low: 'MISS · 점프',
-  slide: 'MISS · 점프 구간',
-  standing: 'MISS · 슬라이딩',
-  lane: 'MISS · 레인 이탈',
+const MISS_TEXT: Readonly<Record<string, string>> = {
+  drone: COPY.missDrone,
+  low: COPY.missLow,
+  slide: COPY.missSlide,
+  standing: COPY.missStanding,
+  lane: COPY.missLane,
 };
+
+/** the miss popup for a judge `reason`; a jump-level miss names the level the beat needed (2단 / 3단) */
+export function missText(reason: string | null | undefined, requiredLevel: number): string {
+  if (reason === 'level') return requiredLevel >= 3 ? COPY.missLevel3 : COPY.missLevel2;
+  return MISS_TEXT[reason ?? ''] ?? 'MISS';
+}
 
 const PICKUP_TEXT: Partial<Record<ObstacleKind, string>> = {
   shield: COPY.pickupShield,
@@ -150,10 +155,12 @@ function onJudge(d: FeedbackDeps, e: Extract<GameEvent, { type: 'judge' }>): voi
     d.fx.popup('GREAT', 'great');
     d.audio.sfx('good');
   } else if (g === 'good') {
-    d.fx.popup(e.shielded ? 'BLOCKED · 실드' : 'GOOD', e.shielded ? 'info' : 'good');
+    d.fx.popup(e.shielded ? COPY.hitShielded : 'GOOD', e.shielded ? 'info' : 'good');
     d.audio.sfx('good');
   } else if (g === 'miss') {
-    d.fx.popup(MISS_TEXT[e.result.reason ?? ''] ?? 'MISS', 'miss');
+    const v = d.view?.();
+    const b = v ? findBeat(v, e.result.beatId) : undefined;
+    d.fx.popup(missText(e.result.reason, b?.requiredLevel ?? 2), 'miss');
   }
 }
 

@@ -88,6 +88,12 @@ describe('run log: what ended a failed run (v8 fail tip)', () => {
     expect(failedOn(beat([{ kind: 'guard', level: 1, lanes: [0] }, { kind: 'floor', level: 1 }]), 1)).toBe('jump');
   });
 
+  it('records the section of the killing beat (stages 5 / 10 name that section\'s superior)', () => {
+    const summary = (b: Beat) => createRunLog('stage', 0, 'd').summary({ ...base, status: 'failed', beats: [b], cursor: 1 }, 'w1-s1');
+    expect(summary(beat([{ kind: 'floor', level: 1 }], { section: 2 })).hitSection).toBe(2);
+    expect(createRunLog('stage', 0, 'd').summary({ ...base, status: 'cleared' }, 'w1-s1').hitSection).toBeNull();
+  });
+
   it('null for cleared / unfinished runs', () => {
     const log = createRunLog('stage', 0, 'd');
     expect(log.summary({ ...base, status: 'cleared' }, 'w1-s1').hitBy).toBeNull();

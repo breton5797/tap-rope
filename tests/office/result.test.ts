@@ -66,3 +66,48 @@ describe('part-aware next-stage copy', () => {
     }
   });
 });
+
+describe('stage-10 ending card and part-2 map button (polish P3)', () => {
+  it('stage 10 shows a 완주! ending card (check, not the unlock padlock), no next-stage button', () => {
+    const el = buildResult(ctx(), result({ stageId: 'w10-s10', title: '10단계', cleared: true, stars: 3, hasNext: false }));
+    const story = el.querySelector('.report__story');
+    expect(story?.classList.contains('report__story--end')).toBe(true);
+    expect(story?.querySelector('.report__story-kicker')?.textContent).toBe('완주!');
+    expect(story?.textContent).toContain('18:30');
+    expect(el.textContent).not.toContain('다음');
+  });
+
+  it('a part-2 result names the 퇴근길 지도, part 1 the 층별 안내도', () => {
+    const map = (n: number) => buildResult(ctx(), result({ stageId: `w${n}-s10`, title: `${n}단계`, cleared: true, stars: 1, hasNext: true })).textContent ?? '';
+    expect(map(7)).toContain('퇴근길 지도');
+    expect(map(2)).toContain('층별 안내도');
+  });
+});
+
+describe('fail tip names the stage superior\'s prop (core failTipFor)', () => {
+  it('a failed office stage shows failTipFor(stage, move)', async () => {
+    const { failTipFor } = await import('../../src/office/core/events');
+    const el = buildResult(ctx(), result({ stageId: 'w8-s10', title: '8단계', cleared: false, meta: meta({ hitBy: 'lane' }) }));
+    expect(el.querySelector('.report__tip-text')?.textContent).toBe(failTipFor(8, 'lane'));
+  });
+});
+
+describe('final-stage headline (core resultFinalStatus / resultFinalTitle)', () => {
+  it('a cleared last stage says 18:30 귀가 완료!, other clears 퇴근 성공!', () => {
+    const last = buildResult(ctx(), result({ stageId: 'w10-s10', title: '10단계', cleared: true, stars: 3, hasNext: false }));
+    expect(last.querySelector('.report__status')?.textContent).toBe('18:30 귀가 완료!');
+    expect(last.querySelector('.report__title')?.textContent).toBe('오늘도 무사 퇴근!');
+    const mid = buildResult(ctx(), result({ stageId: 'w7-s10', title: '7단계', cleared: true, stars: 1, hasNext: true }));
+    expect(mid.querySelector('.report__status')?.textContent).toBe('퇴근 성공!');
+  });
+});
+
+describe('fail tip on the multi-superior stages (code review)', () => {
+  it('names the prop of the section the run failed in', async () => {
+    const { failTipFor } = await import('../../src/office/core/events');
+    for (const section of [0, 1, 2]) {
+      const el = buildResult(ctx(), result({ stageId: 'w10-s10', title: '10단계', cleared: false, meta: meta({ hitBy: 'jump', hitSection: section }) }));
+      expect(el.querySelector('.report__tip-text')?.textContent).toBe(failTipFor(10, 'jump', section));
+    }
+  });
+});

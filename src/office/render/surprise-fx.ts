@@ -2,13 +2,14 @@
 // props.ts), fire-drill red flash, high-five popup, broadcast banner and the superiors' speech bubbles. Drawn
 // over the finished v8 frame in logical coordinates; hit boxes and "!" warnings are the v8 ones.
 import { FLOOR_BACK, depthScale, laneY, projX } from '../../render/layout';
-import { ACTION_COLORS, type ActionCue } from './props';
+import { ACTION_COLORS, propCallout, type ActionCue } from './props';
 import { roundRect, type Ctx } from '../../render/util';
 import { PLAYER_X } from '../../types';
 import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
 import { hintSegments } from './readability';
+import { eventCopy, type EventCopy } from '../core/events';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
 import type { View } from '../../render/view';
 
@@ -24,14 +25,19 @@ export function drawBlackout(ctx: Ctx, v: View, scene: number): void {
 }
 
 /** fire drill: pulsing red edge wash + "소방훈련!" banner (the rear hazard keeps its v8 "!") */
-export function drawFireDrill(ctx: Ctx, v: View, age: number, reduced: boolean): void {
+/** a surprise banner's text on stage `stageIndex` (0-based): core events.ts eventCopy (office / commute) */
+export function eventText(stageIndex: number, which: keyof EventCopy): string {
+  return eventCopy(Math.max(0, stageIndex))[which];
+}
+
+export function drawFireDrill(ctx: Ctx, v: View, age: number, reduced: boolean, stageIndex = 0): void {
   const pulse = reduced ? 0.6 : 0.5 + 0.5 * Math.sin(age * Math.PI * 6);
   const g = ctx.createRadialGradient(v.x0 + v.w / 2, v.y0 + v.h / 2, Math.min(v.w, v.h) * 0.3, v.x0 + v.w / 2, v.y0 + v.h / 2, Math.max(v.w, v.h) * 0.7);
   g.addColorStop(0, 'rgba(255,40,60,0)');
   g.addColorStop(1, `rgba(255,40,60,${0.35 * pulse})`);
   ctx.fillStyle = g;
   ctx.fillRect(v.x0, v.y0, v.w, v.h);
-  banner(ctx, v, '소방훈련! 뒤에서 와요', '#FF4D6A', bannerY(v));
+  banner(ctx, v, eventText(stageIndex, 'fireDrill'), '#FF4D6A', bannerY(v));
 }
 
 /** surprise banners sit in the free band just above the clock (below every DOM HUD row) */
@@ -40,8 +46,8 @@ export function bannerY(v: View): number {
 }
 
 /** high five: "같이 퇴근하자!" popup over the hero, kept inside the view and under the DOM HUD rows */
-export function drawHighFive(ctx: Ctx, v: View, x: number, y: number, age: number, below: number): void {
-  const text = '하이파이브! 같이 퇴근하자!';
+export function drawHighFive(ctx: Ctx, v: View, x: number, y: number, age: number, below: number, stageIndex = 0): void {
+  const text = eventText(stageIndex, 'highFive');
   ctx.font = BUBBLE_FONT;
   const half = Math.min(230, ctx.measureText(text).width + 22) / 2;
   const k = Math.min(1, age / 0.15);
@@ -53,8 +59,8 @@ export function drawHighFive(ctx: Ctx, v: View, x: number, y: number, age: numbe
 }
 
 /** company broadcast: banner across the top */
-export function drawBroadcast(ctx: Ctx, v: View): void {
-  banner(ctx, v, '사내방송: 사장님 깜짝 순시 중', '#5CC8FF', bannerY(v));
+export function drawBroadcast(ctx: Ctx, v: View, stageIndex = 0): void {
+  banner(ctx, v, eventText(stageIndex, 'broadcast'), '#5CC8FF', bannerY(v));
 }
 
 /** a superior's speech bubble beside the figure's face, kept under the DOM HUD rows and the phase line; returns its bottom (popups stay below it) */
@@ -138,19 +144,16 @@ export function drawConfetti(ctx: Ctx, v: View, age: number, top: number): void 
 }
 
 /** F10 callout copy per prop (the superior shouts its attack) */
-const PROP_NAMES: Readonly<Record<string, string>> = {
-  postit: '포스트잇 폭풍!', papers: '서류 더미!', 'coffee-tray': '커피 쟁반!', 'paper-plane': '종이비행기!',
-  clipboard: '결재판 부메랑!', 'paper-jam': '용지 걸림!', door: '회의실 문 벌컥!', whiteboard: '화이트보드 돌진!',
-  pointer: '레이저 포인터!', golf: '나이스 샷!', 'latte-bubble': '라떼는 말이야!', elevator: '엘리베이터 띵!',
-  'doc-tornado': '서류 회오리!', necktie: '넥타이 채찍!', 'corp-card': '법인카드!', 'ceo-screen': '화상회의!',
-  'revolving-door': '회전문 가속!', envelope: '금일봉 비!', cart: '카트 질주!', robot: '청소 로봇!',
-};
+/** the callout's attack name for a prop id (core props.ts PROP_CALLOUTS; 기습! when unknown) */
+export function calloutName(propId: string): string {
+  return propCallout(propId);
+}
 
 /** the attack telegraph as a boss-bubble-sized callout: prop icon, attack name, action hint in its colour; returns its bottom y */
 export function drawAttackCallout(
   ctx: Ctx, v: View, icon: HTMLImageElement | null, propId: string, cue: ActionCue, hint: string, below: number, avoid: Rect | null,
 ): number {
-  const name = PROP_NAMES[propId] ?? '기습!';
+  const name = calloutName(propId);
   const color = ACTION_COLORS[cue];
   ctx.font = CALLOUT_FONT;
   const textW = ctx.measureText(name).width;

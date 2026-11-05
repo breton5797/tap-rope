@@ -125,3 +125,24 @@ describe('map scroll', () => {
     }
   });
 });
+
+describe('map polish (P3)', () => {
+  it('the locked 2부 teaser is a banner above the map, never over a stage node', () => {
+    const el = buildStageSelect(ctx(), defaultSave(), () => undefined);
+    const teaser = el.querySelector<HTMLElement>('.floors__teaser')!;
+    expect(teaser).not.toBeNull();
+    expect(teaser.closest('.floors')).toBeNull();
+    expect(teaser.hidden).toBe(true);
+    el.querySelector<HTMLElement>('.floors__tab[data-part="2"]')?.click();
+    expect(teaser.hidden).toBe(false);
+    el.querySelector<HTMLElement>('.floors__tab[data-part="1"]')?.click();
+    expect(teaser.hidden).toBe(true);
+    expect(buildStageSelect(ctx(), cleared(5), () => undefined).querySelector('.floors__teaser')).toBeNull();
+  });
+
+  it('nodes name their superior instead of the generic 상사', () => {
+    const el = buildStageSelect(ctx(), defaultSave(), () => undefined);
+    const kinds = Array.from(el.querySelectorAll('.floors__node .node__kind')).map((k) => k.textContent);
+    expect(kinds).toEqual(['김대리', '박과장', '최팀장', '오부장', '상사 3명', '강차장', '박과장', '문상무', '윤이사', '상사 3명']);
+  });
+});

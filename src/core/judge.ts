@@ -32,8 +32,18 @@ const isSlideLaser = (k: ObstacleKind) => k === 'high' || k === 'ceiling';
 const inLane = (o: Obstacle, p: PlayerState) => o.lanes === undefined || o.lanes.includes(p.lane);
 
 function collect(beat: Beat, p: PlayerState): readonly ObstacleKind[] {
+  return picked(beat, p).map((o) => o.kind);
+}
+
+function picked(beat: Beat, p: PlayerState): readonly Obstacle[] {
   if (p.grounded) return [];
-  return beat.obstacles.filter((o) => PICKUPS.includes(o.kind) && p.level >= o.level && inLane(o, p)).map((o) => o.kind);
+  return beat.obstacles.filter((o) => PICKUPS.includes(o.kind) && p.level >= o.level && inLane(o, p));
+}
+
+/** office mission items among the pickups (Obstacle.item): `{ items }` when any, else nothing (v8 shape) */
+function itemsOf(beat: Beat, p: PlayerState): { readonly items?: number } {
+  const n = picked(beat, p).filter((o) => o.item === true).length;
+  return n > 0 ? { items: n } : {};
 }
 
 function missReason(beat: Beat, p: PlayerState): MissReason | null {
@@ -74,8 +84,9 @@ export function judgeBeat(beat: Beat, p: PlayerState, cfg: PhysicsConfig = DEFAU
   if (reason) return { beatId: beat.id, grade: 'miss', hit: true, reason, collected: [] };
   const kinds = beat.obstacles.map((o) => o.kind);
   const collected = collect(beat, p);
+  const items = itemsOf(beat, p);
   const offset = inputOffset(beat, p, cfg);
-  if (offset !== null) return { beatId: beat.id, grade: gradeFor(offset), hit: false, reason: null, collected, offset };
+  if (offset !== null) return { beatId: beat.id, grade: gradeFor(offset), hit: false, reason: null, collected, offset, ...items };
   const grade: Grade = kinds.includes('drone') ? 'perfect' : 'none';
-  return { beatId: beat.id, grade, hit: false, reason: null, collected };
+  return { beatId: beat.id, grade, hit: false, reason: null, collected, ...items };
 }

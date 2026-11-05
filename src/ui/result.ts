@@ -88,7 +88,11 @@ function headline(r: ResultInfo): Headline {
     return { status: r.newRecord ? 'NEW RECORD' : 'DAILY CLEAR', title: days ? `작전 완료 · 연속 ${days}일` : '작전 완료', tone: 'win' };
   }
   if (r.mode !== 'stage') return { status: r.newRecord ? 'NEW RECORD' : 'OPERATION ENDED', title: r.newRecord ? '최고 기록 갱신' : '작전 종료', tone: r.newRecord ? 'win' : 'lose' };
-  return r.cleared ? { status: COPY.resultWinStatus, title: COPY.resultWinTitle, tone: 'win' } : { status: COPY.resultFailStatus, title: COPY.resultFailTitle, tone: 'lose' };
+  if (!r.cleared) return { status: COPY.resultFailStatus, title: COPY.resultFailTitle, tone: 'lose' };
+  // the last stage (no next one) has its own headline above the ending card; v8 reads the same as any clear
+  return r.hasNext === false
+    ? { status: COPY.resultFinalStatus, title: COPY.resultFinalTitle, tone: 'win' }
+    : { status: COPY.resultWinStatus, title: COPY.resultWinTitle, tone: 'win' };
 }
 
 /** Story line after a boss: rescue (zone 5), final escape (zone 10), or the next zone opening. */
@@ -105,6 +109,20 @@ function storyBeat(r: ResultInfo): string | null {
 function inPart2(r: ResultInfo): boolean {
   const stage = STAGES.find((s) => s.id === r.stageId);
   return stage !== undefined && CHAPTERS[stage.chapter]?.part === 2;
+}
+
+/** the story line; the ending (with an end kicker in this flavour) is its own card: check icon, kicker, line */
+function storyLine(story: string): HTMLElement {
+  if (story !== COPY.resultStoryEnd || !COPY.resultStoryEndKicker) {
+    return h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]);
+  }
+  return h('div', { cls: 'report__story report__story--end' }, [
+    icons.check(),
+    h('span', { cls: 'report__story-body' }, [
+      h('b', { cls: 'report__story-kicker', text: COPY.resultStoryEndKicker }),
+      h('span', { text: story }),
+    ]),
+  ]);
 }
 
 /** Identity of a run's report: a second showResult with the same key only updates the online line. */
@@ -157,12 +175,14 @@ function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
     onPress: ctx.tap(() => ctx.cb.onRetry()),
   });
   const quit = button({
-    label: r.mode !== 'stage' ? '메뉴' : COPY.resultMap,
+    label: r.mode !== 'stage' ? '메뉴' : inPart2(r) ? COPY.resultMapPart2 : COPY.resultMap,
     variant: 'glass',
     icon: icons.grid(),
     onPress: ctx.tap(() => ctx.cb.onQuit()),
   });
   const more = extras(ctx, r, tone);
+  // focus starts on the primary action (next stage / retry), never on the hero card's 사원 선택 above it
+  (next ?? retry).dataset.autofocus = '';
   return next
     ? h('div', { cls: 'stack' }, [next, h('div', { cls: 'row' }, [retry, quit]), more])
     : h('div', { cls: 'stack' }, [retry, quit, more]);
@@ -178,7 +198,7 @@ function stats(r: ResultInfo, tone: Headline['tone']): HTMLElement {
     statRow('MISS', formatNumber(r.misses), 'report__row--miss'),
     statRow('최대 연속', `x${formatNumber(r.maxCombo)}`),
     // pickups this run (replays and failed runs keep theirs); a dash only on a true zero
-    r.coinsEarned > 0 ? statRow('획득 자금', `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds') : statRow('획득 자금', '—', 'report__row--none'),
+    r.coinsEarned > 0 ? statRow(COPY.resultFunds, `₵ ${formatNumber(r.coinsEarned)}`, 'report__row--funds') : statRow(COPY.resultFunds, '—', 'report__row--none'),
   ]);
   // a failed run leads with the tip; the numbers fold away (one tap to open)
   const box = h('details', { cls: 'report__more' }, [h('summary', { cls: 'report__more-sum', text: COPY.resultDetails }), list]);
@@ -206,10 +226,10 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     h('div', { cls: 'report__status mono', text: head.status }),
     r.testRun && COPY.resultTestRun ? h('div', { cls: 'report__test mono', text: COPY.resultTestRun }) : null,
     h('h2', { cls: 'report__title', text: head.title }),
-    story ? h('div', { cls: 'report__story' }, [icons.unlock(), h('span', { text: story })]) : null,
+    story ? storyLine(story) : null,
     missionResult(r),
     onlineLine(r),
-    !r.cleared && meta?.hitBy ? failTip(meta.hitBy) : null,
+    !r.cleared && meta?.hitBy ? failTip(meta.hitBy, r.stageId, meta.hitSection ?? null) : null,
     h('div', { cls: 'report__scorebox' }, [
       h('div', { cls: 'report__label mono', text: COPY.resultScore }),
       score,
@@ -235,5 +255,22 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     stats(r, head.tone),
     actions(ctx, r, head.tone),
   ]);
-  return h('section', { cls: `screen screen--modal screen--result is-${head.tone}`, attrs: { 'aria-label': COPY.resultAria } }, [card]);
+  const screen = h('section', { cls: `screen screen--modal screen--result is-${head.tone}`, attrs: { 'aria-label': COPY.resultAria } }, [card]);
+  guardActivationKeys(screen);
+  return screen;
+}
+
+/** Space / Enter are ignored this long after the card appears (a jump key held as the run ends) */
+export const RESULT_KEY_GUARD_MS = 600;
+const ACTIVATION_KEYS: ReadonlySet<string> = new Set([' ', 'Enter', 'Spacebar']);
+
+function guardActivationKeys(el: HTMLElement): void {
+  const shown = performance.now();
+  const block = (e: KeyboardEvent): void => {
+    if (!ACTIVATION_KEYS.has(e.key) || performance.now() - shown > RESULT_KEY_GUARD_MS) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  el.addEventListener('keydown', block, true);
+  el.addEventListener('keyup', block, true);
 }

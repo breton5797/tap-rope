@@ -1,6 +1,7 @@
 // Office move catalogue (칼퇴근 대작전), swapped in for src/ui/moves.ts: the same moves and gestures, named
 // after the office props that stand in for each hazard (spec §5). Glyphs come from the v8 module.
 import type { MoveId } from '../../types';
+import { failTipFor } from '../core/events';
 import type { MoveInfo } from '../../ui/moves';
 
 export * from '../../ui/moves';
@@ -39,6 +40,12 @@ export const FAIL_TIPS: Readonly<Record<MoveId, string>> = {
   chaser: '따라오는 상사 → 표식 레인에서 옆으로 이동',
   lanejump: '이동 + 점프 → 레인 먼저 옮기고 바로 탭',
 };
+
+/** office stages: "<the stage superior's prop> → <what to do>" (core failTipFor); else the generic tip */
+export function failTipText(id: MoveId, stageId: string | null, section: number | null = null): string {
+  const n = /^w(\d+)-s10$/.exec(stageId ?? '');
+  return n ? failTipFor(Number(n[1]), id, section ?? 0) : FAIL_TIPS[id];
+}
 
 /** guide sheet order = the order the five office stages teach them (spec §13) */
 export const MOVE_ORDER: readonly MoveId[] = [

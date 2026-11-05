@@ -40,8 +40,9 @@ export interface ScoreMods {
 
 const NO_MODS: ScoreMods = { feverGain: 1, coinMul: 1 };
 
+/** ₵ for the beat's coins; office mission items (r.items) count for the mission, never as ₵ */
 function coinsFor(r: JudgeResult, fever: boolean): number {
-  const n = r.collected.filter((k) => k === 'coin').length;
+  const n = r.collected.filter((k) => k === 'coin').length - (r.items ?? 0);
   return n * (fever ? 2 : 1);
 }
 

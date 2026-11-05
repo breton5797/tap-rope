@@ -14,11 +14,13 @@ import { drawWarnings } from '../../render/warnings';
 import { OFFICE_CLOCK } from '../core/content';
 import { OFFICE_BOSSES } from '../core/boss';
 import { cartProp, planEvents, type OfficeEvent } from '../core/events';
-import { BROADCAST_LINE } from '../game/boss-lines';
+import { broadcastLine } from '../game/boss-lines';
 import { clockUrgent, drawClock, laneTopY } from './clock';
+import { CalloutHold } from './callout-hold';
 import { superiorOnStage } from './superior';
-import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeLanes, scanSigns, stayLowBand } from './readability';
-import { hudBand, setCalloutBottom } from './hud-band';
+import { overlayState } from '../ui/mission';
+import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeArrowX, safeLanes, scanSigns, stayLowBand } from './readability';
+import { hudBand, lastHudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import {
   actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, recordOverflowed, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord,
@@ -33,7 +35,12 @@ import { RELEASE, bossThrowFrame, launchFor, propVisibleFrom, setThrowFrame } fr
 import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
 import { setHeroShield, setHeroStageProgress } from './agent';
 import { frameLaneSwitch } from './hero-style';
-import { setPickupFrame } from './gadgets';
+import { laneCollectibleArt, setPickupFrame } from './gadgets';
+import { laneArt } from '../../render/lane';
+import { escortLook } from '../../render/escort';
+
+/** the escort's opacity while a rear attack is on its way */
+const ESCORT_FADE = 0.4;
 import { JuiceFx } from './juice-fx';
 
 export * from '../../render/index';
@@ -49,8 +56,6 @@ function beatOf(snap: RenderSnapshot, id: number): readonly VisibleObstacle[] {
   return BEAT;
 }
 
-/** the attack callout hides this close to arrival (the "!" and the prop take over) */
-const CALLOUT_END = 0.35;
 
 /** the boss shows its -attack frame until the thrown prop is this close (s) */
 const THROW_POSE_END = 0.5;
@@ -71,7 +76,7 @@ interface Plan {
 function planFor(run: RenderRun): Plan {
   prepareBosses(OFFICE_BOSSES.filter((b) => b.stage === run.stageIndex + 1).map((b) => b.slot));
   const events = planEvents(run.beats, run.seed, run.stageIndex);
-  const carts = new Map(events.filter((e) => e.kind === 'cart').map((e) => [e.beatIndex, cartProp(run.seed, e.beatIndex)]));
+  const carts = new Map(events.filter((e) => e.kind === 'cart').map((e) => [e.beatIndex, cartProp(run.seed, e.beatIndex, run.stageIndex)]));
   return { beats: run.beats, seed: run.seed, events, carts };
 }
 
@@ -132,6 +137,7 @@ class OfficeRenderer implements Renderer {
   /** realTime the gauge of superior `exitId` ran out (its exit line shows for EXIT_LINE_TIME) */
   private exitAt = Number.NEGATIVE_INFINITY;
   private exitId: BossView['id'] | null = null;
+  private readonly calloutHold = new CalloutHold();
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.inner = createV8Renderer(canvas);
@@ -168,13 +174,17 @@ class OfficeRenderer implements Renderer {
     if (run && (!this.plan || this.plan.beats !== run.beats || this.plan.seed !== run.seed)) this.plan = planFor(run);
     const plan = run ? this.plan : null;
     const fallback = OFFICE_BOSSES.find((b) => b.stage === (run?.stageIndex ?? 0) + 1)?.slot ?? 'warden';
-    setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts);
+    setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts, run?.stageIndex ?? -1);
     this.feelFrame(snap, run);
     setHeroStageProgress(run?.progress ?? 0);
     setHeroShield(snap.shield);
     setLaneSwitchTime(frameLaneSwitch(snap.skin, snap.running));
     // the sign scan runs before the v8 frame so its "!" pass knows which rear hazards get the arrow instead
     this.scan = scanSigns(snap.obstacles);
+    // round 2 #9: the judgement popups (drawn inside the v8 frame) clear a callout that starts this frame too
+    this.predictCallout(snap);
+    // polish P2: the colleague running behind fades while an attack comes from behind (it hid rear props on iPad)
+    escortLook.alpha = this.scan.rearHeights.length > 0 ? ESCORT_FADE : 1;
     // during a blackout, record every prop the v8 frame draws (replayed as silhouettes over the darkness)
     const dark = this.blackoutOn(snap, plan);
     if (dark) startPropRecord();
@@ -252,14 +262,15 @@ class OfficeRenderer implements Renderer {
       }
     }
     const drill = activeAt(events, 'fire-drill', t);
-    if (drill) drawFireDrill(ctx, v, t - drill.time, snap.reducedMotion);
+    const stage = run?.stageIndex ?? 0;
+    if (drill) drawFireDrill(ctx, v, t - drill.time, snap.reducedMotion, stage);
     const five = activeAt(events, 'highfive', t);
     if (five) {
       drawColleague(ctx, lane, t - five.time);
-      drawHighFive(ctx, v, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time, band.top);
+      drawHighFive(ctx, v, PLAYER_X, laneY(lane) - snap.player.height * depthScale(lane) - 120, t - five.time, band.top, stage);
     }
     const broadcast = activeAt(events, 'broadcast', t);
-    if (broadcast) drawBroadcast(ctx, v);
+    if (broadcast) drawBroadcast(ctx, v, stage);
     setCalloutBottom(Number.NEGATIVE_INFINITY);
     // one callout at a time: the fire-drill banner already says where the attack comes from
     this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown, drill !== null);
@@ -308,9 +319,15 @@ class OfficeRenderer implements Renderer {
     for (const o of scan.laneBeats) {
       const beat = beatIdOf(o);
       BLOCKED.length = 0;
-      for (const x of snap.obstacles) if (beatIdOf(x) === beat && x.lanes && HAZARD_KINDS.includes(x.kind)) for (const l of x.lanes) BLOCKED.push(l);
-      // beside the lane attack itself (its own x on the open lanes), so they never read as a drone / jump sign
-      const x = o.kind === 'chaser' ? PLAYER_X + 40 : Math.max(PLAYER_X + 30, fixedX(o.timeUntil));
+      let combo = false;
+      for (const x of snap.obstacles) {
+        if (beatIdOf(x) !== beat || !HAZARD_KINDS.includes(x.kind)) continue;
+        if (x.lanes) for (const l of x.lanes) BLOCKED.push(l);
+        else combo = true;
+      }
+      // beside the lane attack itself (its own x on the open lanes), so they never read as a drone / jump sign;
+      // a combo beat's full-width prop stands on the open lanes there, so the chevron moves past it
+      const x = safeArrowX(o.kind === 'chaser' ? PLAYER_X + 40 : Math.max(PLAYER_X + 30, fixedX(o.timeUntil)), combo);
       for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3));
     }
   }
@@ -319,6 +336,22 @@ class OfficeRenderer implements Renderer {
 
 
   /** catchphrase while the superior walks in, exit line once its gauge runs out */
+  /** the callout's bottom last time one was drawn (it sits at a near-constant height) */
+  private lastCallout = Number.NEGATIVE_INFINITY;
+
+  /** before the v8 frame: a callout about to appear this frame lends the popups its last known bottom */
+  private predictCallout(snap: RenderSnapshot): void {
+    const band = lastHudBand();
+    if (Number.isFinite(band.callout)) {
+      this.lastCallout = band.callout;
+      return;
+    }
+    const b = snap.boss;
+    if (!b || !snap.running || !b.attack || b.state !== 'fight' || !Number.isFinite(this.lastCallout)) return;
+    const o = attackObstacle(snap, isHazard);
+    if (o && this.calloutHold.peek(beatIdOf(o), o.timeUntil, snap.realTime)) setCalloutBottom(this.lastCallout);
+  }
+
   private bubble(
     ctx: CanvasRenderingContext2D, v: View, snap: RenderSnapshot, broadcast: boolean, below: number, avoid: Rect | null, noCallout = false,
   ): void {
@@ -329,18 +362,20 @@ class OfficeRenderer implements Renderer {
     // (exitId / exitAt are tracked in feelFrame)
     let text: string | null = null;
     if (this.exitId === b.id && snap.realTime - this.exitAt < EXIT_LINE_TIME) text = who.exitLine;
-    else if (b.state === 'intro') text = who.catchphrase;
-    else if (broadcast) text = BROADCAST_LINE;
-    if (text && broadcast && text !== who.exitLine) text = BROADCAST_LINE;
+    // the mission card already quotes the superior's line: no second copy in a bubble meanwhile
+    else if (b.state === 'intro' && !overlayState.card) text = who.catchphrase;
+    else if (broadcast) text = broadcastLine(snap.run?.stageIndex ?? 0);
+    if (text && broadcast && text !== who.exitLine) text = broadcastLine(snap.run?.stageIndex ?? 0);
     if (text) {
       setCalloutBottom(drawBossBubble(ctx, v, text, below, avoid));
       return;
     }
     // F10: the attack telegraph as a callout — prop icon, action colour, attack name
     const a = b.attack;
-    if (noCallout || !a || b.state !== 'fight' || a.timeUntil < CALLOUT_END) return;
+    if (noCallout || !a || b.state !== 'fight') return;
     const o = attackObstacle(snap, isHazard);
-    if (!o) return;
+    // starts ≥ CALLOUT_END before its beat, then holds ≥ CALLOUT_MIN (dense stages no longer flash it)
+    if (!o || !this.calloutHold.show(beatIdOf(o), o.timeUntil, snap.realTime)) return;
     // the whole beat's moves: 「뒤에서! 옆으로! + 숙여!」 for a lane + rear head-height combo
     const hint = beatHint(beatOf(snap, beatIdOf(o)));
     setCalloutBottom(drawAttackCallout(ctx, v, propImage(o), propIdFor(o), actionCue(o.kind), hint, below, avoid));
@@ -348,5 +383,6 @@ class OfficeRenderer implements Renderer {
 }
 
 export function createRenderer(canvas: HTMLCanvasElement): Renderer {
+  laneArt.pickup = laneCollectibleArt;
   return new OfficeRenderer(canvas);
 }

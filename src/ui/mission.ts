@@ -12,6 +12,11 @@ export function missionResult(_r: ResultInfo): HTMLElement | null {
   return null;
 }
 
+/** a mission overlay (the section's card) is on screen: other banners wait */
+export function missionBusy(): boolean {
+  return false;
+}
+
 /** stage map: a stage's best stamps */
 export function stampDots(_stageId: string): HTMLElement | null {
   return null;

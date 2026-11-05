@@ -117,3 +117,189 @@ describe('callout hint colour chips (art review: combo moves)', () => {
     expect(hintSegments('낮게!')).toEqual([{ text: '낮게!', color: ACTION_COLORS.low }]);
   });
 });
+
+describe('collectibles on the rhythm lane (polish P1a)', () => {
+  it('a collect-mission coin is named by its collectible, other pickups get no lane art', async () => {
+    const { laneCollectibleName } = await import('../../src/office/render/gadgets');
+    const { STAGES } = await import('../../src/core/content');
+    const { generateStage } = await import('../../src/core/levels');
+    const { DEFAULT_PHYSICS } = await import('../../src/core/physics');
+    // stage 8: part 1 is "흩날린 영수증" (collect docs)
+    const { beats } = generateStage({ ...STAGES[7], seed: 3 }, DEFAULT_PHYSICS, 2);
+    const coin = beats.find((b) => b.part === 1 && b.obstacles.some((o) => o.kind === 'coin'))!;
+    expect(laneCollectibleName('coin', coin, 7)).toBe('collect-docs');
+    const other = beats.find((b) => b.part === 0 && b.obstacles.some((o) => o.kind === 'coin'));
+    if (other) expect(laneCollectibleName('coin', other, 7)).toBeNull();
+    expect(laneCollectibleName('heart', coin, 7)).toBeNull();
+  });
+
+  it('the v8 lane has no pickup art hook set by default', async () => {
+    const { laneArt } = await import('../../src/render/lane');
+    expect(typeof laneArt).toBe('object');
+  });
+});
+
+describe('lane-combo layout (polish P1c)', () => {
+  const ob = (id: string, kind: string, lanes: number[] | null = null, timeUntil = 1) =>
+    ({ id, kind, lanes, timeUntil, level: 1, from: null, height: 0 }) as unknown as import('../../src/types').VisibleObstacle;
+
+  it('a full-width prop is not drawn on a lane its own beat already blocks (no two props in one column)', async () => {
+    const { comboBlocked } = await import('../../src/office/render/readability');
+    const obs = [ob('7', 'guard', [0, 1]), ob('7', 'floor'), ob('8', 'floor'), ob('9', 'chaser', [2])];
+    const blocked = comboBlocked(obs);
+    expect(blocked(obs[1], 0)).toBe(true);
+    expect(blocked(obs[1], 1)).toBe(true);
+    expect(blocked(obs[1], 2)).toBe(false);
+    expect(blocked(obs[2], 0)).toBe(false); // another beat
+    expect(blocked(obs[0], 0)).toBe(false); // the lane hazard itself always draws
+  });
+
+  it('the safe-lane chevron moves off a combo beat\'s full-width prop', async () => {
+    const { safeArrowX, COMBO_ARROW_SHIFT } = await import('../../src/office/render/readability');
+    expect(safeArrowX(400, false)).toBe(400);
+    expect(safeArrowX(400, true)).toBe(400 + COMBO_ARROW_SHIFT);
+  });
+});
+
+describe('judge popups vs the attack callout (polish P1d)', () => {
+  it('fade while a callout is up, full otherwise', async () => {
+    const { calloutFade } = await import('../../src/office/render/popups');
+    expect(calloutFade(Number.NEGATIVE_INFINITY)).toBe(1);
+    expect(calloutFade(320)).toBeLessThan(0.5);
+  });
+});
+
+describe('sudden-hazard signs (polish P2)', () => {
+  it('the v8 amber ⚠ is dropped where the office prop and its move-coloured footprint are drawn', async () => {
+    const { keepV8Sign } = await import('../../src/office/render/warnings');
+    expect(keepV8Sign(true)).toBe(false);
+    expect(keepV8Sign(false)).toBe(true);
+  });
+});
+
+describe('props after they pass the hero (polish P2)', () => {
+  it('fade out within PASS_FADE s instead of piling up at the left edge', async () => {
+    const { passFade, PASS_FADE } = await import('../../src/office/render/readability');
+    expect(passFade(0.3)).toBe(1);
+    expect(passFade(0)).toBe(1);
+    expect(passFade(-PASS_FADE / 2)).toBeCloseTo(0.5);
+    expect(passFade(-PASS_FADE)).toBe(0);
+    expect(passFade(-1)).toBe(0);
+    expect(PASS_FADE).toBeLessThanOrEqual(0.25);
+  });
+});
+
+describe('part-2 props in the renderer (core props.ts)', () => {
+  it('the prop id follows the stage (rematch rows) and the sprite resolves aliases / missing part-2 art', async () => {
+    const { propIdFor, setPropFrame, propSpriteNames } = await import('../../src/office/render/props');
+    const { attackVariant } = await import('../../src/office/core/events');
+    setPropFrame('sewer-eye', 5, undefined, 6);
+    const o = { id: '3-0', kind: 'guard' as const };
+    expect(propIdFor(o)).toBe(attackVariant('sewer-eye', 'lane', 5, 3, 7));
+    expect(propSpriteNames('survey-box')).toEqual(['prop-papers']);
+    expect(propSpriteNames('taxi')).toEqual(['prop-taxi', 'prop-cart']);
+    expect(propSpriteNames('postit')).toEqual(['prop-postit']);
+  });
+
+  it('callouts use the core callout names (no generic 기습! for part-2 props)', async () => {
+    const { calloutName } = await import('../../src/office/render/surprise-fx');
+    expect(calloutName('survey-box')).toBe('설문 응모함!');
+    expect(calloutName('postit')).toBe('포스트잇 폭풍!');
+    expect(calloutName('nope')).toBe('기습!');
+  });
+});
+
+describe('office miss text', () => {
+  it('uses the kid-friendly office copy, picking the jump count by the beat level', async () => {
+    const { missText } = await import('../../src/game/feedback');
+    expect(missText('level', 2)).toBe('MISS · 두 번 점프!');
+    expect(missText('level', 3)).toBe('MISS · 세 번 점프!');
+    expect(missText('lane', 1)).toBe('MISS · 줄 바꾸기!');
+  });
+});
+
+describe('surprise event copy by stage (core eventCopy)', () => {
+  it('banners take the stage copy: office in part 1, the commute in part 2', async () => {
+    const { eventText } = await import('../../src/office/render/surprise-fx');
+    const { eventCopy } = await import('../../src/office/core/events');
+    for (const i of [0, 4, 5, 9]) {
+      expect(eventText(i, 'broadcast')).toBe(eventCopy(i).broadcast);
+      expect(eventText(i, 'fireDrill')).toBe(eventCopy(i).fireDrill);
+      expect(eventText(i, 'highFive')).toBe(eventCopy(i).highFive);
+    }
+    expect(eventText(7, 'broadcast')).not.toContain('사내방송');
+  });
+});
+
+describe('judgement popups never intersect the callout box (round 2 #9)', () => {
+  it('the scaled text box of every stacked popup ends up below the callout bottom', async () => {
+    const { popupBoxes } = await import('../../src/office/render/popups');
+    // a CHAIN popup stacked above a PERFECT, both freshly popped (scale 1.12) or fully drifted
+    for (const age of [0, 0.05, 0.4]) {
+      const items = [
+        { y0: 300, bump: 30, age, life: 0.6, size: 16 }, // x80 CHAIN
+        { y0: 300, bump: 0, age, life: 0.6, size: 26 }, // PERFECT
+      ];
+      for (const callout of [250, 290, 330]) {
+        const boxes = popupBoxes(items, callout, Number.NEGATIVE_INFINITY);
+        for (const b of boxes) expect(b.top).toBeGreaterThanOrEqual(callout);
+      }
+      // no callout and no HUD line: no shift (same as a callout far above every popup)
+      expect(popupBoxes(items, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY)).toEqual(popupBoxes(items, 0, Number.NEGATIVE_INFINITY));
+    }
+  });
+});
+
+describe('take-off rings are neutral (round 2 #14)', () => {
+  it('every jump ring colour is a grey (no hue that reads as a lane / move footprint)', async () => {
+    const { JUMP_RING_COLORS } = await import('../../src/office/render/juice');
+    for (const c of JUMP_RING_COLORS) {
+      const n = Number.parseInt(c.slice(1), 16);
+      const ch = [n >> 16, (n >> 8) & 255, n & 255];
+      expect(Math.max(...ch) - Math.min(...ch), c).toBeLessThanOrEqual(24);
+    }
+  });
+});
+
+describe('footprint rings on dark floors (round 2 #7)', () => {
+  /** a fake 2D context recording each stroke's style and width */
+  const recorder = () => {
+    const strokes: { style: string; width: number }[] = [];
+    const ctx = {
+      globalAlpha: 1, strokeStyle: '', fillStyle: '', lineWidth: 1,
+      save() {}, restore() {}, beginPath() {}, ellipse() {}, fill() {}, setLineDash() {}, moveTo() {}, lineTo() {}, closePath() {},
+      stroke() { strokes.push({ style: String(this.strokeStyle), width: this.lineWidth }); },
+    };
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, strokes };
+  };
+
+  it('every footprint (jump amber, slide blue, lane red) gets a white under-stroke wider than its colour ring', async () => {
+    const { drawFootprint, ACTION_COLORS } = await import('../../src/office/render/props');
+    for (const [kind, cue] of [['floor', 'jump'], ['ceiling', 'slide'], ['guard', 'lane']] as const) {
+      const { ctx, strokes } = recorder();
+      drawFootprint(ctx, kind, 100, 200, 60);
+      const white = strokes.findIndex((s) => /^(#fff(fff)?|rgba\(255, ?255, ?255)/i.test(s.style));
+      const colour = strokes.findIndex((s) => s.style === ACTION_COLORS[cue]);
+      expect(white, kind).toBeGreaterThanOrEqual(0);
+      expect(colour, kind).toBeGreaterThan(white);
+      expect(strokes[white].width).toBeGreaterThan(strokes[colour].width);
+      expect(strokes[colour].width, kind).toBeGreaterThanOrEqual(2.4);
+    }
+  });
+});
+
+describe('lane art while a collectible sprite is loading (code review)', () => {
+  it('a mission item never falls back to the ₵ icon: a neutral item glyph instead', async () => {
+    const { laneCollectibleArt, setPickupFrame } = await import('../../src/office/render/gadgets');
+    const { STAGES } = await import('../../src/core/content');
+    const { generateStage } = await import('../../src/core/levels');
+    const { DEFAULT_PHYSICS } = await import('../../src/core/physics');
+    const { beats } = generateStage({ ...STAGES[7], seed: 3 }, DEFAULT_PHYSICS, 2);
+    setPickupFrame(beats, 7);
+    const coin = beats.find((b) => b.part === 1 && b.obstacles.some((o) => o.kind === 'coin'))!;
+    // node: no Image → the sprite is "missing"; the hook still returns art (the neutral glyph), not null
+    expect(laneCollectibleArt(coin.id, 'coin')).not.toBeNull();
+    const plain = beats.find((b) => b.part === 0 && b.obstacles.some((o) => o.kind === 'coin'));
+    if (plain) expect(laneCollectibleArt(plain.id, 'coin')).toBeNull();
+  });
+});

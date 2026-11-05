@@ -79,7 +79,8 @@ function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, curr
   const section = Math.min(run.beatPart.get(result.beatId) ?? current, run.specs.length - 1);
   const hit = result.hit && !shielded;
   const part = run.hazardPart.get(result.beatId);
-  const coins = result.collected.filter((k) => k === 'coin').length;
+  // mission items are the flagged coins (Obstacle.item → result.items); plain coins are only ₵
+  const coins = result.items ?? 0;
   let stats = run.stats;
   let chase = run.chase;
   let items = run.items;

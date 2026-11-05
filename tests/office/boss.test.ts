@@ -3,7 +3,7 @@
 // "퇴근 게이지" that restarts for each superior of those multi-superior stages.
 import { describe, expect, it } from 'vitest';
 import { BOSSES, OFFICE_BOSSES, bossFor, bossForSection, bossView, superiorAt } from '../../src/office/core/boss';
-import { BOSS_ATTACKS, BROADCAST_LINE, phaseLineDue } from '../../src/office/game/boss-lines';
+import { BOSS_ATTACKS, BROADCAST_LINE, broadcastLine, phaseLineDue } from '../../src/office/game/boss-lines';
 import { STAGES, stageById } from '../../src/core/content';
 import { generateStage } from '../../src/core/levels';
 import { DEFAULT_PHYSICS } from '../../src/core/physics';
@@ -222,5 +222,8 @@ describe('office boss lines', () => {
     expect(phaseLineDue(0, v)?.text).toBe(BOSS_ATTACKS.apc[1]);
     expect(phaseLineDue(0, v)?.kicker).not.toMatch(/PHASE/);
     expect(BROADCAST_LINE).toBe('네 사장님!');
+    // part 2's broadcast is the 단톡방 notice of 회장님: everyone answers him
+    expect([0, 4].map(broadcastLine)).toEqual(['네 사장님!', '네 사장님!']);
+    expect([5, 9].map(broadcastLine)).toEqual(['네 회장님!', '네 회장님!']);
   });
 });

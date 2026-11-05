@@ -51,8 +51,8 @@ export function takeoffRing(level: number): { radius: number; width: number; lif
   return { radius: 6 + l * 10, width: 1 + l * 0.7, life: 0.22 + l * 0.05 };
 }
 
-/** ring colours per jump level (1단 white, 2단 + cyan, 3단 + gold) — one more ring per level */
-export const JUMP_RING_COLORS: readonly string[] = ['#FFFFFF', '#7FE8FF', '#FFD54A'];
+/** ring colours per jump level, all neutral greys (a hue read as a lane footprint — round 2 #14); one more ring per level */
+export const JUMP_RING_COLORS: readonly string[] = ['#FFFFFF', '#E4E0E6', '#C9C3CC'];
 
 interface Pt { x: number; y: number }
 

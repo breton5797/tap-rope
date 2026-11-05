@@ -41,5 +41,5 @@ export function nextGoal(save: SaveData, _today: string): Goal {
     .filter((x): x is { a: typeof x.a; p: { cur: number; max: number } } => x.p !== null && x.p.cur < x.p.max)
     .sort((x, y) => y.p.cur / y.p.max - x.p.cur / x.p.max)[0];
   if (closest) return { kind: 'achievement', text: `업적 ${closest.a.name} ${closest.p.cur}/${closest.p.max} · ₵${ACH_REWARD[closest.a.id]}` };
-  return { kind: 'achievement', text: '18:30 귀가 완료! 별 3개로 우수 사원에 도전' };
+  return { kind: 'achievement', text: '18:30 귀가 완료! 내일 출근 09:00 — 도장·업적 다시 도전' };
 }

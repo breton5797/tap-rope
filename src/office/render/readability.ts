@@ -59,6 +59,42 @@ export function beatHint(obs: readonly Pick<VisibleObstacle, 'kind' | 'level' | 
   return `${rear ? '뒤에서! ' : ''}${moves.join(' + ')}`;
 }
 
+/** the safe-lane chevron moves this far past a combo beat's full-width prop (logical px) so it never sits in it */
+export const COMBO_ARROW_SHIFT = 70;
+
+/** x of the safe-lane chevron for a lane attack at `x`; `combo` = its beat also has a full-width hazard */
+export function safeArrowX(x: number, combo: boolean): number {
+  return combo ? x + COMBO_ARROW_SHIFT : x;
+}
+
+const COMBO_LANES = new Map<number, number[]>();
+
+/**
+ * Per frame: a predicate "is this full-width hazard's lane already blocked by a lane hazard of its own beat" —
+ * a lane-combo beat (lanejump, pointer + cart) then draws one prop per column, not two stacked ones.
+ * The returned predicate reads a shared map: use it before the next call.
+ */
+export function comboBlocked(obs: readonly Pick<VisibleObstacle, 'id' | 'kind' | 'lanes'>[]): (o: Pick<VisibleObstacle, 'id' | 'lanes'>, lane: number) => boolean {
+  if (COMBO_LANES.size > 64) COMBO_LANES.clear(); // old beats' empty lists
+  for (const v of COMBO_LANES.values()) v.length = 0;
+  for (const o of obs) {
+    if (!o.lanes || !HAZARD_KINDS.includes(o.kind)) continue;
+    const beat = Number.parseInt(o.id, 10);
+    const list = COMBO_LANES.get(beat) ?? [];
+    if (!COMBO_LANES.has(beat)) COMBO_LANES.set(beat, list);
+    for (const l of o.lanes) list.push(l);
+  }
+  return (o, lane) => !o.lanes && (COMBO_LANES.get(Number.parseInt(o.id, 10))?.includes(lane) ?? false);
+}
+
+/** a hazard prop that has passed the hero fades out over this long (s): no debris piling up at the left edge */
+export const PASS_FADE = 0.2;
+
+/** opacity factor of a prop `timeUntil` s from the hero (negative = already passed) */
+export function passFade(timeUntil: number): number {
+  return timeUntil >= 0 ? 1 : Math.max(0, 1 + timeUntil / PASS_FADE);
+}
+
 export interface HintSegment {
   readonly text: string;
   readonly color: string;
@@ -171,7 +207,8 @@ function arrow(ctx: Ctx, x: number, y: number, size: number, dir: number, color:
 export function glowDisc(ctx: Ctx, x: number, y: number, r: number, collectible: boolean, t: number): void {
   ctx.save();
   ctx.globalAlpha *= 0.55 + 0.15 * Math.sin(t * 4);
-  ctx.fillStyle = collectible ? '#9FF5D6' : '#FFE38A';
+  // polish P2: power-ups glow sky, not gold — gold reads as the 법인카드 hazard
+  ctx.fillStyle = collectible ? '#9FF5D6' : '#BFE6FF';
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
@@ -208,7 +245,7 @@ export function twinkle(ctx: Ctx, x: number, y: number, r: number, t: number): v
  * there — head (slide), knee / ankle (jump) — instead of a prop sprite. Dark outline, red body and a white core
  * so it reads on the pastel dusk skies too (art review), plus a halo ring around the dot.
  */
-export function pointerBeam(ctx: Ctx, hx: number, hy: number, x: number, y: number, s: number, alpha: number): void {
+export function pointerBeam(ctx: Ctx, hx: number, hy: number, x: number, y: number, s: number, alpha: number, cue: ActionCue = 'jump'): void {
   ctx.save();
   ctx.globalAlpha *= alpha;
   ctx.lineCap = 'round';
@@ -219,7 +256,8 @@ export function pointerBeam(ctx: Ctx, hx: number, hy: number, x: number, y: numb
     ctx.strokeStyle = 'rgba(46,36,51,0.55)';
     ctx.lineWidth = 6;
     ctx.stroke();
-    ctx.strokeStyle = '#FF2A55';
+    // the beam's body in the move's colour (jump amber / slide blue / stay-low purple), the dot stays red
+    ctx.strokeStyle = ACTION_COLORS[cue];
     ctx.lineWidth = 3.4;
     ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';

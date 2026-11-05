@@ -63,13 +63,21 @@ function coalesce(pool: PopupPool): void {
   }
 }
 
-function drawOne(ctx: Ctx, p: PopupPool['items'][number]): void {
+/** judgement popups fade to this while an attack callout is on screen (they never compete with it) */
+const UNDER_CALLOUT = 0.35;
+
+/** the popups' opacity factor given the callout's bottom (−Infinity = no callout this frame) */
+export function calloutFade(callout: number): number {
+  return Number.isFinite(callout) ? UNDER_CALLOUT : 1;
+}
+
+function drawOne(ctx: Ctx, p: PopupPool['items'][number], fade: number): void {
   const st = STYLE[p.style] ?? STYLE.info;
   const k = Math.min(1, p.age / 0.12);
   const sc = 1.12 - 0.12 * k * (2 - k);
   const y = p.y0 - DRIFT * Math.min(1, p.age / p.life) - p.bump;
   ctx.save();
-  ctx.globalAlpha = popupAlpha(p.age, p.life);
+  ctx.globalAlpha = popupAlpha(p.age, p.life) * fade;
   ctx.translate(PLAYER_X, y);
   ctx.scale(sc, sc);
   ctx.font = fontOf(st.size);
@@ -101,20 +109,85 @@ export function popupRise(line: number, highest: number): number {
   return Math.max(0, line + GAP - highest - DRIFT + DRIFT * POPUP_SCALE);
 }
 
+/** room between the attack callout's bottom and the top of the highest judgement text (logical px) */
+const CALLOUT_MARGIN = 6;
+
+interface PopupGeom {
+  readonly y0: number;
+  readonly bump: number;
+  readonly age: number;
+  readonly life: number;
+  readonly size: number;
+}
+
+/** the settle-in pop: 1.12× on spawn easing to 1× within 0.12 s */
+const popScale = (age: number): number => {
+  const k = Math.min(1, age / 0.12);
+  return 1.12 - 0.12 * k * (2 - k);
+};
+const restY = (p: PopupGeom): number => p.y0 - DRIFT * Math.min(1, p.age / p.life) - p.bump;
+
+/** the resting anchor the stack scales around (v8 drift, office 1.35×) */
+function anchorOf(items: readonly PopupGeom[]): number {
+  let highest = Number.POSITIVE_INFINITY;
+  for (const p of items) highest = Math.min(highest, p.y0 - p.bump - DRIFT);
+  return highest + DRIFT;
+}
+
+/**
+ * The stack's vertical shift: below the HUD rows (popupRise) and, while a callout shows, far enough that the
+ * scaled text box of every popup (its pop included) starts below the callout's bottom — never intersecting it.
+ */
+function stackShift(items: readonly PopupGeom[], callout: number, hudLine: number): number {
+  const anchor = anchorOf(items);
+  let shift = popupRise(hudLine, anchor - DRIFT);
+  if (Number.isFinite(callout)) {
+    let top = Number.POSITIVE_INFINITY;
+    for (const p of items) top = Math.min(top, anchor + POPUP_SCALE * (restY(p) - anchor) - (p.size / 2) * popScale(p.age) * POPUP_SCALE);
+    shift = Math.max(shift, callout + CALLOUT_MARGIN - top);
+  }
+  return shift;
+}
+
+/** test seam: each popup's drawn text centre and top after the stack shift (logical px) */
+export function popupBoxes(items: readonly PopupGeom[], callout: number, hudLine: number): { centre: number; top: number }[] {
+  const anchor = anchorOf(items);
+  const shift = stackShift(items, callout, hudLine);
+  return items.map((p) => {
+    const centre = anchor + shift + POPUP_SCALE * (restY(p) - anchor);
+    return { centre, top: centre - (p.size / 2) * popScale(p.age) * POPUP_SCALE };
+  });
+}
+
+/** reused per frame: the active popups' geometry (no per-frame allocation once warm) */
+const GEOM: { y0: number; bump: number; age: number; life: number; size: number }[] = [];
+
 export function drawPopups(ctx: Ctx, pool: PopupPool): void {
   coalesce(pool);
   const band = lastHudBand();
-  let highest = Number.POSITIVE_INFINITY;
-  for (const p of pool.items) if (p.active) highest = Math.min(highest, p.y0 - p.bump - DRIFT);
-  if (!Number.isFinite(highest)) return;
-  // below the HUD rows and below the attack callout while it shows
-  const shift = popupRise(Math.max(band.top, band.callout), highest);
+  let n = 0;
+  for (const p of pool.items) {
+    if (!p.active) continue;
+    const g = GEOM[n] ?? (GEOM[n] = { y0: 0, bump: 0, age: 0, life: 1, size: 16 });
+    g.y0 = p.y0;
+    g.bump = p.bump;
+    g.age = p.age;
+    g.life = p.life;
+    g.size = STYLE[p.style]?.size ?? 16;
+    n++;
+  }
+  if (n === 0) return;
+  const items = n === GEOM.length ? GEOM : GEOM.slice(0, n);
+  const highest = anchorOf(items) - DRIFT;
+  // below the HUD rows, and entirely below the attack callout while it shows (round 2 #9)
+  const shift = stackShift(items, band.callout, band.top);
   const dx = Number.isFinite(band.left) ? popupShift(PLAYER_X, band.left, band.right, halfWidest(ctx, pool)) : 0;
   const anchor = highest + DRIFT;
   ctx.save();
   ctx.translate(PLAYER_X + dx, anchor + shift);
   ctx.scale(POPUP_SCALE, POPUP_SCALE);
   ctx.translate(-PLAYER_X, -anchor);
-  for (const p of pool.items) if (p.active) drawOne(ctx, p);
+  const fade = calloutFade(band.callout);
+  for (const p of pool.items) if (p.active) drawOne(ctx, p, fade);
   ctx.restore();
 }

@@ -12,6 +12,7 @@ import { icons } from '../../ui/icons';
 import { firstIntroductions, stageNode } from '../../ui/stage-node';
 import { stampDots } from '../../ui/mission';
 import { accountState } from '../../platform/account';
+import { OFFICE_BOSSES } from '../core/boss';
 
 export { chapterSkin } from '../../ui/stages';
 
@@ -27,7 +28,7 @@ interface MapSheet {
 
 export const MAP_SHEETS: readonly MapSheet[] = [
   { part: 1, label: '1부 사무실', title: COPY.resultMap, src: './art/map-bg.webp' },
-  { part: 2, label: '2부 퇴근길', title: '퇴근길 지도', src: './art/map-bg-2.webp' },
+  { part: 2, label: '2부 퇴근길', title: COPY.resultMapPart2, src: './art/map-bg-2.webp' },
 ];
 
 /** each stage's landmark centre in its map art (percent of its width / height), stage 1 first */
@@ -91,14 +92,26 @@ function partTabs(ctx: Ctx, save: SaveData, openAll: boolean, active: MapPart, o
 function mapSheet(m: MapSheet, nodes: readonly HTMLElement[], open: boolean): HTMLElement {
   const img = h('img', { cls: 'floors__img', attrs: { src: m.src, alt: '', decoding: 'async', draggable: 'false' } });
   img.addEventListener('error', () => img.remove());
-  const teaser = open
-    ? null
-    : h('div', { cls: 'floors__teaser' }, [icons.lock(), h('strong', { text: '18:00 칼퇴 후 퇴근길' }), h('span', { text: '1부 5단계를 클리어하면 열려요' })]);
   return h('div', { cls: `floors floors--part${m.part}${open ? '' : ' is-teaser'}`, attrs: { 'data-part': String(m.part), role: 'tabpanel', 'aria-label': m.label } }, [
     img,
     ...nodes,
-    teaser,
   ]);
+}
+
+/** the locked 2부's "coming next" banner, above the map (polish P3: over the map it hid stage 7) */
+function teaserBanner(): HTMLElement {
+  return h('div', { cls: 'floors__teaser', attrs: { hidden: '' } }, [
+    icons.lock(),
+    h('strong', { text: '18:00 칼퇴 후 퇴근길' }),
+    h('span', { text: '1부 5단계를 클리어하면 열려요' }),
+  ]);
+}
+
+/** a node's tag: its superior's name (stages 5 and 10 bring three: 상사 3명) instead of the generic 상사 */
+export function superiorTag(stageIndex: number): string | null {
+  const own = OFFICE_BOSSES.filter((b) => b.stage === stageIndex + 1);
+  if (own.length === 0) return null;
+  return own.length > 1 ? `상사 ${own.length}명` : own[0].name;
 }
 
 export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): HTMLElement {
@@ -112,6 +125,9 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
     el.style.left = `${x}%`;
     el.style.top = `calc(${y}% - ${DISC_CENTER}px)`;
     el.classList.add('floors__node');
+    const tag = superiorTag(i);
+    const kind = el.querySelector('.node__kind');
+    if (tag && kind) kind.textContent = tag;
     // v2: the stage's best mission stamps under its name
     const dots = stampDots(s.id);
     if (dots) el.appendChild(dots);
@@ -119,7 +135,8 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
   });
   let active = initialPart(save, openAll);
   const sheets = MAP_SHEETS.map((m) => mapSheet(m, nodes.filter((_, i) => partOf(i) === m.part), partOpen(save, m.part, openAll)));
-  const scroll = h('div', { cls: 'scroll floors__scroll' }, sheets);
+  const teaser = partOpen(save, 2, openAll) ? null : teaserBanner();
+  const scroll = h('div', { cls: 'scroll floors__scroll' }, [teaser, ...sheets]);
   const nextIndex = next ? STAGES.indexOf(next) : -1;
   /** the next stage to play into view when it is on this map (past its first stage), else the map's top */
   const focusNext = (part: MapPart): void => {
@@ -131,6 +148,7 @@ export function buildStageSelect(ctx: Ctx, save: SaveData, onBack: () => void): 
   const show = (part: MapPart): void => {
     active = part;
     sheets.forEach((el, i) => (el.hidden = MAP_SHEETS[i].part !== part));
+    if (teaser) teaser.hidden = part !== 2;
     tabs.forEach((t, i) => {
       const on = MAP_SHEETS[i].part === part;
       t.classList.toggle('is-active', on);

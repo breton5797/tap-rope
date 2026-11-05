@@ -12,8 +12,8 @@ import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import type { View } from '../../render/view';
 import { heldFade, joinTime, throwActive, throwArc, throwHand, throwStep } from './boss-throw';
-import { pointerBeam } from './readability';
-import {
+import { comboBlocked, passFade, pointerBeam } from './readability';
+import { isPointerProp,
   PROP_SIZE, actionCue, beatIdOf, drawFootprint, drawProp, drawStack, flyingPropCenter, flyingSpan, laneSizeK, propIdFor, propImage,
   heldLane, propMotion, stackItems, type StackItem,
 } from './props';
@@ -86,7 +86,7 @@ function fixedProp(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, d: numbe
   const step = throwStep(o.kind, o.from, tu, join);
   if (step === -1) return;
   // the laser pointer is a beam from the hand, never a held / thrown sprite
-  if (step !== null && propIdFor(o) === 'pointer') return;
+  if (step !== null && isPointerProp(o)) return;
   if (step !== null) {
     thrown(ctx, img, o, d, a, step, projX(fixedX(join), d), floor ? projY(d, 0) : hangY(d, join), size, 1, false, t);
     return;
@@ -144,7 +144,7 @@ function flyingProp(ctx: Ctx, v: View, img: HTMLImageElement, o: VisibleObstacle
     const top = floorY - (bottom + h) * depthScale(d);
     hangLine(ctx, x, projY(d, CEIL_H), top, depthScale(d), a);
   }
-  if (step !== null && propIdFor(o) === 'pointer') return; // the pointer is a beam, never thrown
+  if (step !== null && isPointerProp(o)) return; // the pointer is a beam, never thrown
   const depth = depthScale(d);
   // a bundle is drawn opaque in every lane (dimmed copies read as one washed-out smear)
   const cue = actionCue(o.kind);
@@ -156,14 +156,14 @@ const NO_STACK: readonly StackItem[] = [];
 
 /** the laser pointer drawn as a beam from the boss's hand to `y` (head / knee / ankle); false for other props */
 function pointerAt(ctx: Ctx, o: VisibleObstacle, x: number, y: number, s: number, a: number): boolean {
-  if (propIdFor(o) !== 'pointer') return false;
+  if (!isPointerProp(o)) return false;
   // from behind: the boss's hand is on the other side — just the dot
   if (!throwActive() || o.from === 'back') {
-    pointerBeam(ctx, x, y, x, y, s, a);
+    pointerBeam(ctx, x, y, x, y, s, a, actionCue(o.kind));
     return true;
   }
   const hand = throwHand();
-  pointerBeam(ctx, hand.x, hand.y, x, y, s, a);
+  pointerBeam(ctx, hand.x, hand.y, x, y, s, a, actionCue(o.kind));
   return true;
 }
 
@@ -195,6 +195,7 @@ export function drawLaserSeg(
   const a0 = Math.max(d0, SPAN_D0);
   const b0 = Math.min(d1, SPAN_D1);
   FALLBACK.length = 0;
+  const blocked = comboBlocked(obs);
   for (const o of obs) {
     const img = isSheet(o) ? propImage(o) : null;
     if (!img) {
@@ -202,8 +203,10 @@ export function drawLaserSeg(
       continue;
     }
     for (const d of LANES) {
-      if (d < a0 || d >= b0) continue;
-      const a = emphasis(d, focus);
+      // a lane-combo beat: its lane hazard already fills this column (one prop per column)
+      if (d < a0 || d >= b0 || blocked(o, d)) continue;
+      const a = emphasis(d, focus) * passFade(o.timeUntil);
+      if (a <= 0) continue;
       if (o.kind === 'floor' || o.kind === 'ceiling') fixedProp(ctx, img, o, d, a, t);
       else flyingProp(ctx, v, img, o, d, a, t);
     }
