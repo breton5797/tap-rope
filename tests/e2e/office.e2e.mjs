@@ -27,7 +27,9 @@ const OFFICE_KEY = 'officeescape.save.v2';
 const V8_KEY = 'laserescape.save.v2';
 const PHONE = { width: 390, height: 844 };
 const IPAD = { width: 1024, height: 1366 };
-const RESULT = /퇴근 성공|야근 확정|CLOCK OUT|OVERTIME/;
+// the last stage's clear reads 18:30 귀가 완료! (resultFinalStatus)
+const RESULT = /퇴근 성공|귀가 완료|야근 확정|CLOCK OUT|OVERTIME/;
+const CLEARED = /퇴근 성공|귀가 완료|CLOCK OUT/;
 
 // ---------- static server (Pages layout) ----------
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
@@ -246,7 +248,7 @@ if (['all', 'sw', 'campaign'].includes(which)) {
       const txt = await playToResult(page, `s${n}`);
       await checkMissions(page, n, 'phone');
       console.log(`stage ${n}:`, txt);
-      check(/퇴근 성공|CLOCK OUT/.test(txt), `stage ${n} cleared by autoplay`);
+      check(CLEARED.test(txt), `stage ${n} cleared by autoplay`);
       if (n === 5) check(/18:00:00/.test(await page.locator('#ui').innerText()), 'stage 5 result reads 칼퇴 성공! 18:00:00');
       if (n < STAGE_COUNT) await click(page.getByRole('button', { name: /다음 층으로|다음 장소로/ }));
     }
@@ -338,7 +340,7 @@ if (['all', 'ipad'].includes(which)) {
     await openStage(page, n);
     const txt = await playToResult(page, `s${n}`, 'ipad');
     await checkMissions(page, n, 'iPad');
-    check(/퇴근 성공|CLOCK OUT/.test(txt), `iPad stage ${n} cleared by autoplay`);
+    check(CLEARED.test(txt), `iPad stage ${n} cleared by autoplay`);
     await ctx.close();
   }
 }
@@ -420,7 +422,7 @@ if (['all', 'heroes'].includes(which)) {
     if (sliding) await shot(page, `h-${id}-slide`);
     check(sliding, `${name}: slide frames drawn (mid-slide capture h-${id}-slide)`);
     const txt = await playToResult(page, `h-${id}`);
-    check(/퇴근 성공|CLOCK OUT/.test(txt), `${name}: stage 1 cleared by autoplay`);
+    check(CLEARED.test(txt), `${name}: stage 1 cleared by autoplay`);
     check((await page.locator('.report__hero').innerText().catch(() => '')).includes(name), `${name}: result card shows the hire`);
     const saved = await readSave(page, OFFICE_KEY);
     check(saved?.skin === id && ['kid', 'cat', 'bunny', 'robot'].every((k) => saved.ownedSkins.includes(k)), `${name}: save skin=${saved?.skin}, owns all four`);
