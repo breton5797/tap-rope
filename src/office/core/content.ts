@@ -145,6 +145,25 @@ export const STAGES: readonly StageDef[] = CHAPTERS.map((c, i) => {
  * v2: the StageDef one mission part is generated from — the stage's look and tempo (one bpm per stage), the
  * mission's moves and focus, its hazards and pickup rate, one section, and a seed derived from the run seed.
  */
+/**
+ * 3차 balance patch (one human playtest 2026-11-07 + bot estimates, docs/balance/after.md): per stage, the share of the
+ * hardest moves in a mission part, × HARD_MIX — rear / chaser / lanejump (laneCombo) / high shares and the 삼단 weight
+ * (moved to 1단). A mission's own focus moves keep their full share, so each stage's signature attack stays. 1 = as v2.
+ */
+const HARD_MIX: readonly number[] = [1, 1, 1, 1, 1, 1, 0.6, 0.8, 0.8, 0.8];
+const HARD_KEYS: readonly (readonly [MoveId, keyof StageDef['mix']])[] = [
+  ['rear', 'rear'], ['chaser', 'chaser'], ['lanejump', 'laneCombo'], ['high', 'high'],
+];
+
+function easeHardMoves(def: StageDef, k: number, focus: readonly MoveId[]): StageDef {
+  if (k >= 1) return def;
+  const scale = (m: MoveId, v: number): number => (focus.includes(m) ? v : Math.round(v * k * 100) / 100);
+  const mix = HARD_KEYS.reduce((acc, [m, key]) => ({ ...acc, [key]: scale(m, acc[key]) }), def.mix);
+  const [w1, w2, w3] = def.levelWeights;
+  const w3e = scale('triple', w3);
+  return { ...def, mix, levelWeights: [Math.round((w1 + w3 - w3e) * 100) / 100, w2, w3e] };
+}
+
 export function missionPartStage(stage: StageDef, k: number, spec: MissionSpec): StageDef {
   const i = Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
   const def = designCustomStage(
@@ -155,7 +174,7 @@ export function missionPartStage(stage: StageDef, k: number, spec: MissionSpec):
     spec.moves,
     spec.focus ?? [],
   );
-  return { ...def, bpm: stage.bpm, hazardBeats: spec.hazards, pickupRate: spec.pickupRate, sections: 1 };
+  return { ...easeHardMoves(def, HARD_MIX[i], spec.focus ?? []), bpm: stage.bpm, hazardBeats: spec.hazards, pickupRate: spec.pickupRate, sections: 1 };
 }
 
 const BY_ID: ReadonlyMap<string, number> = new Map(STAGES.map((s, i) => [s.id, i]));
