@@ -205,3 +205,26 @@ describe('rear / drone signs across beats (re-review)', () => {
     expect(markedThisFrame().has('1-0')).toBe(false);
   });
 });
+
+describe('signs lead and stacking (difficulty ease: SIGN_LEAD 1.4 s)', () => {
+  it('signs show 1.4 s ahead', async () => {
+    const { SIGN_LEAD } = await import('../../src/office/render/readability');
+    expect(SIGN_LEAD).toBe(1.4);
+  });
+
+  it('chevrons: the nearest lane beat at full strength, later ones faded and never within CHEVRON_GAP of a drawn one', async () => {
+    const { chevronPlan, CHEVRON_GAP } = await import('../../src/office/render/readability');
+    // three lane beats (x ascending = later), the second too close to the first, plus two chasers at one fixed x
+    const plan = chevronPlan([
+      { x: 300, tu: 0.4 }, { x: 330, tu: 0.5 }, { x: 520, tu: 1.2 },
+    ]);
+    expect(plan).toEqual([{ index: 0, alpha: 1 }, { index: 2, alpha: 0.45 }]);
+    const xs = plan.map((q) => [300, 330, 520][q.index]);
+    for (let i = 1; i < xs.length; i++) expect(Math.abs(xs[i] - xs[i - 1])).toBeGreaterThanOrEqual(CHEVRON_GAP);
+    // (a shared result: read before the next call)
+    const chasers = chevronPlan([{ x: 200, tu: 0.6 }, { x: 200, tu: 1.1 }]);
+    expect(chasers).toEqual([{ index: 0, alpha: 1 }]);
+    // unsorted input: still nearest first
+    expect(chevronPlan([{ x: 600, tu: 1.3 }, { x: 260, tu: 0.3 }])[0]).toEqual({ index: 1, alpha: 1 });
+  });
+});

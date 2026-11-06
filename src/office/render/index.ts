@@ -19,7 +19,7 @@ import { clockUrgent, drawClock, laneTopY } from './clock';
 import { CalloutHold } from './callout-hold';
 import { superiorOnStage } from './superior';
 import { overlayState } from '../ui/mission';
-import { SIGN_LEAD, beatHint, rearArrow, safeArrow, safeArrowX, safeLanes, scanSigns, stayLowBand } from './readability';
+import { SIGN_LEAD, beatHint, chevronPlan, rearArrow, safeArrow, safeArrowX, safeLanes, scanSigns, stayLowBand } from './readability';
 import { hudBand, lastHudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import {
@@ -47,6 +47,8 @@ export * from '../../render/index';
 
 const NO_BEATS: readonly Beat[] = [];
 const BLOCKED: number[] = [];
+/** per-frame chevron positions of the lane beats ahead (reused) */
+const CHEVRONS: { x: number; tu: number }[] = [];
 const BEAT: VisibleObstacle[] = [];
 
 /** the hazards of beat `id` on screen (a shared array: read it before the next call) */
@@ -315,20 +317,25 @@ class OfficeRenderer implements Renderer {
       const x = projX(PLAYER_X + Math.max(40, scan.droneTu * 160), lane);
       stayLowBand(ctx, x, projY(lane, BEAM_H[1]), 70 * depthScale(lane), depthScale(lane));
     }
-    // safe-lane chevrons for each lane-change beat ahead
+    // safe-lane chevrons for the lane-change beats ahead: where each set goes, then the plan (nearest beat full,
+    // later ones faded and never stacked on another set)
+    CHEVRONS.length = 0;
     for (const o of scan.laneBeats) {
       const beat = beatIdOf(o);
-      BLOCKED.length = 0;
       let combo = false;
-      for (const x of snap.obstacles) {
-        if (beatIdOf(x) !== beat || !HAZARD_KINDS.includes(x.kind)) continue;
-        if (x.lanes) for (const l of x.lanes) BLOCKED.push(l);
-        else combo = true;
-      }
+      for (const x of snap.obstacles) if (beatIdOf(x) === beat && HAZARD_KINDS.includes(x.kind) && !x.lanes) combo = true;
       // beside the lane attack itself (its own x on the open lanes), so they never read as a drone / jump sign;
       // a combo beat's full-width prop stands on the open lanes there, so the chevron moves past it
-      const x = safeArrowX(o.kind === 'chaser' ? PLAYER_X + 40 : Math.max(PLAYER_X + 30, fixedX(o.timeUntil)), combo);
-      for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3));
+      CHEVRONS.push({ x: safeArrowX(o.kind === 'chaser' ? PLAYER_X + 40 : Math.max(PLAYER_X + 30, fixedX(o.timeUntil)), combo), tu: o.timeUntil });
+    }
+    for (const p of chevronPlan(CHEVRONS)) {
+      const o = scan.laneBeats[p.index];
+      const beat = beatIdOf(o);
+      BLOCKED.length = 0;
+      for (const x of snap.obstacles) if (beatIdOf(x) === beat && x.lanes && HAZARD_KINDS.includes(x.kind)) for (const l of x.lanes) BLOCKED.push(l);
+      const x = CHEVRONS[p.index].x;
+      const a = p.alpha * Math.min(1, (SIGN_LEAD - o.timeUntil) / 0.3);
+      for (const l of safeLanes(BLOCKED)) safeArrow(ctx, projX(x, l), laneY(l), depthScale(l), a);
     }
   }
 

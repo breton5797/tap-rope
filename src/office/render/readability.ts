@@ -281,8 +281,39 @@ export function pointerBeam(ctx: Ctx, hx: number, hy: number, x: number, y: numb
 
 // ---------- per-frame sign scan (every hazard ahead, not just the nearest beat) ----------
 
-/** signs (rear arrow, stay-low band, safe-lane chevrons) show this long before an attack arrives (≥ WARN_LEAD) */
-export const SIGN_LEAD = 1.2;
+/**
+ * signs (rear arrow, stay-low band, safe-lane chevrons) show this long before an attack arrives (≥ WARN_LEAD);
+ * 1.2 → 1.4 s after the first human playtest (difficulty ease): more time to read each sign
+ */
+export const SIGN_LEAD = 1.4;
+
+/** later lane beats' chevrons are drawn only this far (logical px) from the last drawn set, and faded */
+export const CHEVRON_GAP = 80;
+const LATER_CHEVRON_ALPHA = 0.45;
+
+interface ChevronPlanItem {
+  readonly index: number;
+  readonly alpha: number;
+}
+const PLAN: ChevronPlanItem[] = [];
+const ORDER: number[] = [];
+
+/**
+ * With the longer lead more lane beats are signed at once on dense stages: the nearest beat's chevrons draw at
+ * full strength, a later beat's only when CHEVRON_GAP clear of every set already drawn (faded) — never stacked.
+ * Returns a shared array (read it before the next call).
+ */
+export function chevronPlan(beats: readonly { readonly x: number; readonly tu: number }[]): readonly ChevronPlanItem[] {
+  PLAN.length = 0;
+  ORDER.length = 0;
+  for (let i = 0; i < beats.length; i++) ORDER.push(i);
+  ORDER.sort((a, b) => beats[a].tu - beats[b].tu);
+  for (const i of ORDER) {
+    if (PLAN.some((p) => Math.abs(beats[p.index].x - beats[i].x) < CHEVRON_GAP)) continue;
+    PLAN.push({ index: i, alpha: PLAN.length === 0 ? 1 : LATER_CHEVRON_ALPHA });
+  }
+  return PLAN;
+}
 const REAR_CHASER_H = 34;
 
 /** a rear attack the office marks with its arrow this frame (its v8 "!" is then suppressed) */
