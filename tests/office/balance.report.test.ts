@@ -2,13 +2,13 @@
 // Off by default (normal `npm test` stays fast):
 //   BALANCE_REPORT=1 npx vitest run --project office tests/office/balance.report.test.ts
 // BALANCE_SEEDS=n (default 200), BALANCE_PROFILES=casual,normal (default all), BALANCE_OUT=path (also writes the
-// tables to that file), BALANCE_ASSERT=1 (fail unless the spec §4 targets hold with no slack: casual curve, expert ≥ 90%,
+// tables to that file), BALANCE_ASSERT=1 (fail unless the spec §4 targets hold with no slack: casual curve, expert ≥ 95%,
 // normal character spread ≤ 10 pp on every stage). Runs in the office module graph, like bot.test.ts.
 import { writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PROFILE_IDS, type ProfileId } from '../../src/game/bot-profiles';
 import { formatReport, measureCell, runSeeds, SKINS, stageCount, type Cell } from './balance.harness';
-import { casualFailures, curve, NO_SLACK, SPREAD_GATE_PP, SPREAD_GATE_STAGES } from './balance.targets';
+import { casualFailures, curve, EXPERT_MIN, NO_SLACK, SPREAD_GATE_PP, SPREAD_GATE_STAGES } from './balance.targets';
 
 const env = process.env;
 const enabled = env.BALANCE_REPORT === '1';
@@ -35,7 +35,7 @@ describe.runIf(enabled)('balance report', () => {
     if (env.BALANCE_ASSERT === '1') {
       const fails = [
         ...(profiles.includes('casual') ? casualFailures(curve(cells, 'casual').clear, NO_SLACK) : []),
-        ...(profiles.includes('expert') ? curve(cells, 'expert').clear.flatMap((c, i) => (c < 90 ? [`expert stage ${i + 1} ${c.toFixed(1)}%`] : [])) : []),
+        ...(profiles.includes('expert') ? curve(cells, 'expert').clear.flatMap((c, i) => (c < EXPERT_MIN ? [`expert stage ${i + 1} ${c.toFixed(1)}%`] : [])) : []),
         ...(profiles.includes('normal') ? curve(cells, 'normal').spread.slice(0, SPREAD_GATE_STAGES)
           .flatMap((s, i) => (s > SPREAD_GATE_PP ? [`normal spread stage ${i + 1} ${s.toFixed(1)} pp`] : [])) : []),
       ];
