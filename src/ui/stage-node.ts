@@ -142,7 +142,7 @@ export function stageNode(ctx: Ctx, save: SaveData, stage: StageDef, isNext: boo
     'div',
     { cls: `node node--${kind}`, style: { left: `${TRAIL_X[stage.index] ?? 50}%`, top: `${nodeTop(stage)}px` } },
     [
-      isNext ? h('span', { cls: 'node__flag mono', text: 'NEXT' }) : null,
+      isNext ? h('span', { cls: 'node__flag mono', text: COPY.nodeNextFlag }) : null,
       stageDisc(ctx, stage, unlocked, isNext),
       h('div', { cls: 'node__meta' }, [starRow(unlocked ? save.stars[stage.id] ?? 0 : 0), unlocked ? difficultyMeter(stage) : null]),
       h('div', { cls: 'node__name' }, [kindLabel ? h('span', { cls: `node__kind node__kind--${kind}`, text: kindLabel }) : null, displayName(stage)]),

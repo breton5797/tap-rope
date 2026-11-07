@@ -79,7 +79,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     h('div', { cls: 'boss__bar' }, refs.bossCells),
   );
   refs.feverBar.append(refs.feverFill, icons.fire());
-  refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'CHAIN' }));
+  refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: COPY.comboLabel }));
   const el = h('div', { cls: 'hud' }, [
     h('div', { cls: 'hud__top' }, [
       pause,

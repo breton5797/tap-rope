@@ -1329,7 +1329,10 @@ body {
 .mission-chip,
 .brief,
 .floors__tab,
-.floors__teaser {
+.floors__teaser,
+.picker,
+.skin,
+.shop {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
@@ -1357,4 +1360,9 @@ body {
 .tstop__pad {
   place-content: end center;
   padding-bottom: 36px;
+}
+
+/* the controls card's 확인 sat on the panels' bottom border */
+.screen--controls .ctl__ok {
+  margin-top: 14px;
 }

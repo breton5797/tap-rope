@@ -5,6 +5,7 @@
  * - office tester runs (invincible) record nothing either and say so on the result card.
  */
 import type { GameMode, ResultInfo } from '../types';
+import { COPY } from '../flavor';
 
 export interface SeedChallenge {
   readonly seed: number;
@@ -25,7 +26,7 @@ export function withoutChallenge(search: string): string {
   return rest ? `?${rest}` : '';
 }
 
-export const AUTOPLAY_NOTE = 'AUTOPLAY · 보상 없음';
+export const AUTOPLAY_NOTE = COPY.autoplayNote;
 
 /** the result card of a bot run: nothing earned, no record, flagged in the title */
 export function autoplayResult(base: ResultInfo, prevBest: number): ResultInfo {

@@ -113,7 +113,7 @@ export function renderTutorialStop(layer: HTMLElement, stop: { readonly step: St
   const copy = STOP_COPY[stop.step];
   const side = stop.step === 'lane' ? 'left' : 'right';
   const dir: 0 | LaneDir = stop.step === 'jump' ? 0 : stop.step === 'slide' ? 1 : (stop.dir ?? 1);
-  const label = stop.step === 'jump' ? 'TAP' : dir > 0 ? '↓' : '↑';
+  const label = stop.step === 'jump' ? COPY.tutTapLabel : dir > 0 ? '↓' : '↑';
   layer.replaceChildren(
     h('div', { cls: `tstop tstop--${side}`, attrs: { role: 'status' } }, [
       h('div', { cls: 'tstop__pad' }, [

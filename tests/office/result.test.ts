@@ -111,3 +111,12 @@ describe('fail tip on the multi-superior stages (code review)', () => {
     }
   });
 });
+
+describe('stage 5 → part 2 next button', () => {
+  it('reads 퇴근길로! after stage 5, 다음 층으로 inside part 1, 다음 장소로 inside part 2', () => {
+    const next = (n: number) => buildResult(ctx(), result({ stageId: `w${n}-s10`, title: `${n}단계`, cleared: true, stars: 1, hasNext: true })).querySelector('[data-autofocus]')?.textContent ?? '';
+    expect(next(5)).toContain('퇴근길로!');
+    expect(next(4)).toContain('다음 층으로');
+    expect(next(7)).toContain('다음 장소로');
+  });
+});

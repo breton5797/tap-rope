@@ -76,7 +76,7 @@ function modeButtons(ctx: Ctx, save: SaveData, today: string): HTMLElement | nul
 function goalStrip(save: SaveData, today: string): HTMLElement {
   const goal = nextGoal(save, today);
   return h('div', { cls: `title__goal is-${goal.kind}`, attrs: { role: 'note' } }, [
-    h('span', { cls: 'title__goal-label mono', text: 'NEXT' }),
+    h('span', { cls: 'title__goal-label mono', text: COPY.titleGoalLabel }),
     h('span', { cls: 'title__goal-text', text: goal.text }),
   ]);
 }

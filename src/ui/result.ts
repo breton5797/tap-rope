@@ -125,6 +125,14 @@ function storyLine(story: string): HTMLElement {
   ]);
 }
 
+/** the next-stage button: part 2's own wording, and the step from part 1 into part 2 (stage 5 → 6) */
+function nextLabel(r: ResultInfo): string {
+  if (inPart2(r)) return COPY.resultNextPart2;
+  const i = STAGES.findIndex((s) => s.id === r.stageId);
+  const next = i >= 0 ? STAGES[i + 1] : undefined;
+  return next && CHAPTERS[next.chapter]?.part === 2 ? COPY.resultNextToPart2 : COPY.resultNext;
+}
+
 /** Identity of a run's report: a second showResult with the same key only updates the online line. */
 export function resultKey(r: ResultInfo): string {
   const { online: _online, ...run } = r; // everything except the server status identifies the run
@@ -165,7 +173,7 @@ function extras(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement | 
 function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
   const next =
     r.mode === 'stage' && r.cleared && r.hasNext
-      ? button({ label: inPart2(r) ? COPY.resultNextPart2 : COPY.resultNext, variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
+      ? button({ label: nextLabel(r), variant: 'sun', size: 'lg', icon: icons.next(), onPress: ctx.tap(() => ctx.cb.onNextStage()) })
       : null;
   const retry = button({
     label: r.cleared ? COPY.resultReplay : COPY.resultRetry,
