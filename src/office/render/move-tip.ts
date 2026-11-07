@@ -47,11 +47,20 @@ const beatOf = (o: Pick<VisibleObstacle, 'id'>): number => Number.parseInt(o.id,
 /** the tip due for the obstacles ahead on stage `stageIndex` (0-based), given the tips already seen */
 export function pickTip(stageIndex: number, obs: readonly VisibleObstacle[], seen: readonly TipId[]): Tip | null {
   if (stageIndex < PART2) return null;
+  // only the next hazard beat (the one the callout names): a tip for a later beat would contradict it
+  let next = -1;
+  let nextTu = Number.POSITIVE_INFINITY;
+  for (const o of obs) {
+    if (!HAZARD_KINDS.includes(o.kind) || o.timeUntil <= 0 || o.timeUntil >= nextTu) continue;
+    nextTu = o.timeUntil;
+    next = beatOf(o);
+  }
   let best: Tip | null = null;
   let bestTu = Number.POSITIVE_INFINITY;
   for (const o of obs) {
     if (!o.lanes || !HAZARD_KINDS.includes(o.kind) || o.timeUntil > TIP_LEAD || o.timeUntil < TIP_LATEST) continue;
     const beat = beatOf(o);
+    if (beat !== next) continue;
     const combo = obs.some((x) => beatOf(x) === beat && !x.lanes && HAZARD_KINDS.includes(x.kind));
     const id: TipId | null = combo && stageIndex === LANEJUMP_STAGE && !seen.includes('lanejump') ? 'lanejump' : !seen.includes('lane2') ? 'lane2' : null;
     if (!id) continue;

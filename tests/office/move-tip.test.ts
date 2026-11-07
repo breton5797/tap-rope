@@ -39,6 +39,12 @@ describe('pickTip', () => {
     expect(pickTip(6, combo, [])).toMatchObject({ id: 'lanejump', beat: 9 });
     expect(pickTip(6, combo, ['lanejump'])).toMatchObject({ id: 'lane2' });
   });
+  it('only for the NEXT hazard beat: a jump arriving first means no lane tip yet (never contradicts the callout)', () => {
+    const obs = [ob('3-0', 'floor', 0.9), ob('4-0', 'guard', 1.4, [1])];
+    expect(pickTip(5, obs, [])).toBeNull();
+    expect(pickTip(5, [ob('4-0', 'guard', 1.0, [1])], [])).toMatchObject({ beat: 4 });
+  });
+
   it('only inside the lead window (not too early, not too late to read)', () => {
     expect(pickTip(5, [ob('4-0', 'guard', TIP_LEAD + 0.2, [1])], [])).toBeNull();
     expect(pickTip(5, [ob('4-0', 'guard', 0.3, [1])], [])).toBeNull();

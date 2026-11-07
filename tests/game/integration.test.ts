@@ -57,8 +57,17 @@ describe('hints', () => {
     };
     const any = new Set(['double', 'drone'] as const);
     expect(upcomingHint(s, new Set(), any)).toBe('double');
-    expect(upcomingHint(s, new Set(['double'] as const), any)).toBe('drone');
+    // P1-2: only the NEXT hazard beat's move — a strip for a later beat would contradict the one coming first
+    expect(upcomingHint(s, new Set(['double'] as const), any)).toBeNull();
+    expect(upcomingHint({ ...s, cursor: 1, time: 0.9 }, new Set(['double'] as const), any)).toBe('drone');
     expect(upcomingHint(s, new Set(['double', 'drone'] as const), any)).toBeNull();
+  });
+
+  it('a plain jump coming first blocks a later beat\'s strip (the strip never names another move than the next)', () => {
+    const base = createSession('stage', STAGES[0]);
+    const s: Session = { ...base, beats: [beat(1, [{ kind: 'floor', level: 1 }]), beat(1.6, [{ kind: 'drone', level: 1 }])] };
+    expect(upcomingHint(s, new Set(), new Set(['drone'] as const))).toBeNull();
+    expect(upcomingHint({ ...s, cursor: 1, time: 1.1 }, new Set(), new Set(['drone'] as const))).toBe('drone');
   });
 });
 

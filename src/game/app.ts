@@ -29,7 +29,7 @@ import { bossCues } from './boss-cues';
 import { createProgress } from './progress';
 import { playFeedback, resetFeedback, type FeedbackDeps } from './feedback';
 import { resetCues } from '../render/cues';
-import { HINT_DURATION, introducedMoves, upcomingHint } from './hints';
+import { HINT_DURATION, introducedMoves, nextHazardIndex, upcomingHint } from './hints';
 import { bindInput } from './input';
 import { hitStop, slowMo, stepWarp, WARP0, type Warp } from './timewarp';
 import { TutorialRun, tutorialStops, type TutorialStep } from './tutorial';
@@ -125,6 +125,8 @@ export function startApp(): void {
   let countdown = 0;
   let endTimer = -1;
   let hintTimer = 0;
+  /** the beat index the shown move card is about (−1 = none / the opening jump card) */
+  let hintBeat = -1;
   /** touches since the last frame, in order: a tap, optionally followed by its swipe */
   let pendingInput: Input[] = [];
   let hintsSkipped = false;
@@ -321,6 +323,7 @@ export function startApp(): void {
     jumpCardPending = false;
     ui.showTutorial('jump');
     hintTimer = HINT_DURATION + 1.8;
+    hintBeat = -1;
   };
 
   /** `steps` = the first number shown (3, or 2 for a quick retry) */
@@ -525,6 +528,8 @@ export function startApp(): void {
   const tickHints = (dt: number): void => {
     if (hintTimer > 0) {
       hintTimer -= dt;
+      // P1-2: a move card leaves with its beat (it would contradict the next hazard's callout)
+      if (hintBeat >= 0 && session.cursor > hintBeat) hintTimer = 0;
       if (hintTimer <= 0) ui.showTutorial(null);
       return;
     }
@@ -534,6 +539,7 @@ export function startApp(): void {
     seenHints.add(h);
     ui.showTutorial(h);
     hintTimer = HINT_DURATION;
+    hintBeat = nextHazardIndex(session);
   };
 
   const tickPlay = (dt: number): void => {
