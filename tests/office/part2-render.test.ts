@@ -369,3 +369,11 @@ describe('callout text warm-up', () => {
     expect(ids.every((id) => propCallout(id) !== '기습!')).toBe(true);
   });
 });
+
+describe('tutorial stop vs the superior (P3)', () => {
+  it('the office stop hand sits low in its half, below the superior figure', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('src/office/styles/office.css', 'utf8');
+    expect(css).toMatch(/\.tstop__pad\s*\{[^}]*place-content:\s*end center/);
+  });
+});

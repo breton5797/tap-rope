@@ -60,6 +60,9 @@ const KICK_STEPS = 12;
 const WARM_PER_FRAME = 2;
 const WARM_UNTIL = 0.03;
 
+/** a tutorial stop (the frozen world's hand prompt, DOM) is on screen */
+const stopUp = (): boolean => typeof document !== 'undefined' && document.querySelector('.tstop') !== null;
+
 /** a transparent canvas laid over the game canvas (same box, no input), or null without a DOM */
 function overlayCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement | null {
   if (typeof document === 'undefined' || !canvas.parentElement) return null;
@@ -455,8 +458,9 @@ class OfficeRenderer implements Renderer {
     // (exitId / exitAt are tracked in feelFrame)
     let text: string | null = null;
     if (this.exitId === b.id && snap.realTime - this.exitAt < EXIT_LINE_TIME) text = who.exitLine;
-    // the mission card already quotes the superior's line: no second copy in a bubble meanwhile
-    else if (b.state === 'intro' && !overlayState.card) text = who.catchphrase;
+    // the mission card already quotes the superior's line, and a tutorial stop's prompt owns the screen:
+    // no catchphrase bubble meanwhile
+    else if (b.state === 'intro' && !overlayState.card && !stopUp()) text = who.catchphrase;
     else if (broadcast) text = broadcastLine(snap.run?.stageIndex ?? 0);
     if (text && broadcast && text !== who.exitLine) text = broadcastLine(snap.run?.stageIndex ?? 0);
     if (text) {

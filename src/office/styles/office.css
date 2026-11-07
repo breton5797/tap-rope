@@ -1352,3 +1352,9 @@ body {
   font-size: 18px;
   font-weight: 900;
 }
+
+/* P3: the tutorial stop's hand sits low in its half (over the floor), not over the superior's face */
+.tstop__pad {
+  place-content: end center;
+  padding-bottom: 36px;
+}

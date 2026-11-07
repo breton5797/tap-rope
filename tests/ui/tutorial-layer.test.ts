@@ -29,3 +29,17 @@ describe('tutorial layer', () => {
     expect(layer.querySelector('.tut')).not.toBeNull();
   });
 });
+
+describe('a tutorial stop owns the screen (P3)', () => {
+  it('clears a stale section title (boss phase line) when the stop appears', async () => {
+    const { createUi } = await import('../../src/ui/index');
+    const root = document.createElement('div');
+    const ui = createUi(root, new Proxy({}, { get: () => () => undefined }) as UiCallbacks);
+    ui.showHud();
+    ui.showBossLine('1차 공격', '포스트잇 폭풍');
+    expect(root.querySelector('.bossline')).not.toBeNull();
+    ui.showTutorialStop({ step: 'jump', dir: null });
+    expect(root.querySelector('.bossline')).toBeNull();
+    expect(root.querySelector('.tstop')).not.toBeNull();
+  });
+});

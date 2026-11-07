@@ -178,7 +178,11 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
     },
     toast: (msg) => showToast(layers.toast, msg),
     toastAchievement: (a) => banners.push(a),
-    showTutorialStop: (stop) => renderTutorialStop(layers.tutorial, stop),
+    showTutorialStop: (stop) => {
+      // the frozen world's prompt is the only overlay: a section title still fading out would sit behind it
+      if (stop) layers.briefing.querySelector('.bossline')?.remove();
+      renderTutorialStop(layers.tutorial, stop);
+    },
     showBossLine: (kicker, text) => renderBossLine(layers.briefing, kicker, text),
     showCutscene(c, onDone) {
       setBusy('cutscene', true);
