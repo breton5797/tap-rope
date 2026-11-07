@@ -49,7 +49,7 @@ describe('office copy', () => {
     // the last stage's result headline is the 18:30 homecoming, not the generic 퇴근 성공
     expect(COPY.resultFinalStatus).toBe('18:30 귀가 완료!');
     expect(COPY.resultFinalTitle).toBe('오늘도 무사 퇴근!');
-    expect(COPY.missLane).toBe('MISS · 줄 바꾸기!');
+    expect(COPY.missLane).toBe('MISS · 옆으로!');
     expect(COPY.missLevel2).toBe('MISS · 두 번 점프!');
     expect(COPY.missLevel3).toBe('MISS · 세 번 점프!');
     for (const k of ['missDrone', 'missLow', 'missSlide', 'missStanding'] as const) expect(COPY[k], k).toMatch(/^MISS · [가-힣 ]+!$/);
@@ -70,6 +70,44 @@ describe('office copy', () => {
     expect(V8_COPY.resultMapPart2).toBe(V8_COPY.resultMap);
     expect([V8_COPY.archiveRec, V8_COPY.archiveShots, V8_COPY.archiveLocked, V8_COPY.archiveUnseen, V8_COPY.archiveKicker, V8_COPY.achToastKicker])
       .toEqual(['REC {n}', '{n} SHOTS', 'LOCKED', '미확인 기록', 'SERVICE RECORD', 'ACHIEVEMENT UNLOCKED']);
+  });
+
+  it('part-1 playtest: office screens read in Korean (judgement words PERFECT/GREAT/GOOD/MISS stay as game-feel words)', () => {
+    expect(COPY.titleGoalLabel).toBe('다음');
+    expect(COPY.nodeNextFlag).toBe('다음');
+    expect(COPY.comboLabel).toBe('연속');
+    expect(COPY.comboPopup).toBe('{n} 연속!');
+    expect(COPY.tutTapLabel).toBe('탭!');
+    expect(COPY.autoplayNote).toBe('자동 플레이 · 보상 없음');
+    expect(COPY.ctlKicker).toBe('조작 방법');
+    const text = Object.values(COPY).join(' ');
+    expect(text).not.toMatch(/CLOCK|CHAIN|NEXT|\bTAP\b|AUTOPLAY|CONTROL SCHEME|COFFEE BREAK/);
+    // the only all-caps English left is the judgement word MISS on the miss reasons
+    expect(Object.values(COPY).filter((v) => /[A-Z]{3,}/.test(v)).every((v) => v.startsWith('MISS · '))).toBe(true);
+  });
+
+  it('one word per move: 점프 / 숙이기 / 옆으로 (no 슬라이딩, 레인, 줄 바꾸기 in office copy)', () => {
+    const text = Object.values(COPY).join(' ');
+    expect(text).not.toMatch(/슬라이딩|레인|줄 바꾸/);
+    expect(COPY.ctlLeftMove).toBe('옆으로 비키기');
+    expect(COPY.ctlRightSlide).toBe('숙이기');
+    expect(COPY.ctlLeftAria).toContain('옆으로');
+    expect(COPY.ctlRightAria).toContain('숙이기');
+    expect(COPY.ctlKeysAria).toMatch(/옆으로.*점프.*숙이기/);
+    expect([COPY.ctlKeyLane, COPY.ctlKeySlide]).toEqual([' 옆으로', ' 숙이기']);
+  });
+
+  it('stage 5 leads into the street: the next button reads 퇴근길로!', () => {
+    expect(COPY.resultNextToPart2).toBe('퇴근길로!');
+    expect(V8_COPY.resultNextToPart2).toBe(V8_COPY.resultNext);
+  });
+
+  it('v8 keeps its inline strings for the new part-1 keys', () => {
+    expect([V8_COPY.titleGoalLabel, V8_COPY.nodeNextFlag, V8_COPY.comboLabel, V8_COPY.comboPopup, V8_COPY.tutTapLabel, V8_COPY.autoplayNote, V8_COPY.ctlKicker])
+      .toEqual(['NEXT', 'NEXT', 'CHAIN', 'x{n} CHAIN', 'TAP', 'AUTOPLAY · 보상 없음', 'CONTROL SCHEME']);
+    expect([V8_COPY.ctlLeftMove, V8_COPY.ctlLeftAria, V8_COPY.ctlRightSlide, V8_COPY.ctlRightAria, V8_COPY.ctlKeysAria, V8_COPY.ctlKeyLane, V8_COPY.ctlKeySlide])
+      .toEqual(['레인 이동', '화면 왼쪽: 위나 아래로 밀어 레인 이동', '슬라이딩', '화면 오른쪽: 탭하면 점프, 아래로 밀면 슬라이딩',
+        '키보드: 위아래 화살표 레인, 스페이스 점프, 시프트 또는 S 슬라이딩', ' 레인', ' 슬라이딩']);
   });
 
   it('the store / home-screen description tells both parts (18:00 칼퇴, then home by 18:30)', () => {

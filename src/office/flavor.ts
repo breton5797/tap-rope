@@ -19,18 +19,18 @@ export const SAVE_PREFIX = 'officeescape';
 /** comic office voice (spec §4, §7): no spy words; `{zone}` is the next stage number */
 export const COPY: Readonly<Record<CopyKey, string>> = {
   // title
-  titleLogoAria: '칼퇴근 대작전 CLOCK OUT',
+  titleLogoAria: '칼퇴근 대작전',
   titleLogoCode: '야근상사 12F · 17:30',
-  // big Korean headline, CLOCK OUT as the small sub-line
+  // big Korean headline, a short Korean sub-line
   titleLogoWord1: '칼퇴근',
   titleLogoWord2: '대작전',
-  titleLogoKo: 'CLOCK OUT',
+  titleLogoKo: '오늘도 칼퇴!',
   titleGuide: '퇴근 요령',
   titleStart: '퇴근 시작!',
   titleShop: '사원 선택',
   // loading
-  loadKicker: 'CLOCK-IN · 야근상사',
-  loadLogo: 'CLOCK OUT',
+  loadKicker: '출근 도장 · 야근상사',
+  loadLogo: '칼퇴근',
   loadSub: '칼퇴근 대작전',
   loadStep0: '출입증 찍는 중',
   loadStep1: '층별 안내도 펼치는 중',
@@ -52,7 +52,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   pickupSlow: '아이스 아메리카노 · 각성!',
   pickupHeart: '삼각김밥 · 체력 +1',
   // overlays: pause + first-run tutorial cards (김대리 explains, deadpan)
-  pauseKicker: 'COFFEE BREAK',
+  pauseKicker: '커피 타임',
   pauseTitle: '잠깐 숨 고르기',
   pauseText: '상사 시선 피하는 중. 준비되면 다시 달린다.',
   pauseResume: '다시 달리기',
@@ -101,15 +101,15 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   stageAriaPrefix: '퇴근길',
   stagesLocked: '윗층 상사를 따돌리면 열림',
   guideKicker: '신입 사원 매뉴얼',
-  guideLead: '왼손: 레인 이동. 오른손: 점프·숙이기. 칼퇴 기술 {n}가지.',
+  guideLead: '왼손: 옆으로 비키기. 오른손: 점프·숙이기. 칼퇴 기술 {n}가지.',
   guideStagePrefix: '단계',
   archiveLead: '본 장면만 다시 볼 수 있어요. 나머지는 퇴근길에 하나씩 열려요.',
   settingsMusicDesc: '퇴근 박자에 맞춘 경쾌한 사무실 펑크',
-  creditsLogo: 'CLOCK OUT · 칼퇴근 대작전',
+  creditsLogo: '칼퇴근 대작전',
   creditsLine: '야근상사는 가상의 회사입니다. 소리는 전부 절차 합성, 그림은 생성 이미지 기반.',
   creditsSmall: '오늘도 수고하셨습니다. 내일 출근 09:00.',
   shareName: '칼퇴근 대작전',
-  shareCardKicker: 'CLOCK OUT · 퇴근 보고서',
+  shareCardKicker: '칼퇴근 대작전 · 퇴근 보고서',
   resultBossBanner: '상사 따돌림!',
   resultBossCode: '“{code}”',
   rewardBossClear: '상사 따돌림',
@@ -129,7 +129,7 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   missLow: 'MISS · 점프!',
   missSlide: 'MISS · 숙이지 말고 점프!',
   missStanding: 'MISS · 아래로 쓱 숙이기!',
-  missLane: 'MISS · 줄 바꾸기!',
+  missLane: 'MISS · 옆으로!',
   hitShielded: '막았다! 노캔 이어폰',
   hudBossAria: '퇴근 게이지',
   resultFunds: '받은 칼퇴 포인트',
@@ -144,6 +144,22 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   achKicker: '사원 평가',
   resultFinalStatus: '18:30 귀가 완료!',
   resultFinalTitle: '오늘도 무사 퇴근!',
+  // part-1 playtest: Korean labels, one word per move (점프 / 숙이기 / 옆으로)
+  titleGoalLabel: '다음',
+  nodeNextFlag: '다음',
+  comboLabel: '연속',
+  comboPopup: '{n} 연속!',
+  tutTapLabel: '탭!',
+  autoplayNote: '자동 플레이 · 보상 없음',
+  ctlKicker: '조작 방법',
+  ctlLeftMove: '옆으로 비키기',
+  ctlLeftAria: '화면 왼쪽: 위나 아래로 밀어 옆으로 비키기',
+  ctlRightSlide: '숙이기',
+  ctlRightAria: '화면 오른쪽: 탭하면 점프, 아래로 밀면 숙이기',
+  ctlKeysAria: '키보드: 위아래 화살표 옆으로, 스페이스 점프, 시프트 또는 S 숙이기',
+  ctlKeyLane: ' 옆으로',
+  ctlKeySlide: ' 숙이기',
+  resultNextToPart2: '퇴근길로!',
 };
 
 /** a fresh uniform uint32 for every run start (P3: chosen once, kept on the run, never steered by input) */

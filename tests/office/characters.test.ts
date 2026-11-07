@@ -67,6 +67,8 @@ describe('characters', () => {
     const cat = CHARACTERS[1];
     expect(cat.blurb).toContain('숙이기가 길고');
     expect(cat.blurb).not.toMatch(/레인 이동이 빠르/);
+    // one word per move (part-1 playtest): 점프 / 숙이기 / 옆으로
+    for (const c of CHARACTERS) expect(`${c.blurb} ${c.catchphrase}`, c.id).not.toMatch(/슬라이딩|레인|줄 바꾸/);
     // 2026-11-03: cat has the default 3 hearts, so the card no longer claims fewer
     expect(cat.blurb).not.toMatch(/체력이 적/);
   });

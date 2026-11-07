@@ -215,7 +215,7 @@ describe('office miss text', () => {
     const { missText } = await import('../../src/game/feedback');
     expect(missText('level', 2)).toBe('MISS · 두 번 점프!');
     expect(missText('level', 3)).toBe('MISS · 세 번 점프!');
-    expect(missText('lane', 1)).toBe('MISS · 줄 바꾸기!');
+    expect(missText('lane', 1)).toBe('MISS · 옆으로!');
   });
 });
 
@@ -302,5 +302,19 @@ describe('lane art while a collectible sprite is loading (code review)', () => {
     expect(laneCollectibleArt(coin.id, 'coin')).not.toBeNull();
     const plain = beats.find((b) => b.part === 0 && b.obstacles.some((o) => o.kind === 'coin'));
     if (plain) expect(laneCollectibleArt(plain.id, 'coin')).toBeNull();
+  });
+});
+
+describe('popup bitmaps (perf r4)', () => {
+  it('render scale buckets round up (the bitmap is only ever downscaled: crisp) and stay few per text', async () => {
+    const { popupBucket } = await import('../../src/office/render/popups');
+    for (const m of [2.1, 2.7, 2.999, 3.0, 3.36]) {
+      const b = popupBucket(m);
+      expect(b).toBeGreaterThanOrEqual(m);
+      expect(b - m).toBeLessThan(0.25);
+    }
+    // one popup's whole pop (1.12 → 1 at 1.35× on a 2× screen): at most 3 bitmaps
+    const set = new Set([1, 1.03, 1.06, 1.09, 1.12].map((sc) => popupBucket(2 * 1.35 * sc)));
+    expect(set.size).toBeLessThanOrEqual(3);
   });
 });

@@ -127,10 +127,10 @@ const MOVE_ACTION: Readonly<Record<MoveId, string>> = {
   gate: '1단 점프만 (탭 한 번)',
   rear: '뒤 경고 표식을 보고 박자에 탭',
   pulse: '박자마다 짧게 연속 탭',
-  lane: '왼쪽 위·아래로 밀어 줄 바꾸기',
-  drop: '경고등 줄에서 미리 비키기',
-  chaser: '표식 줄에서 옆으로 비키기',
-  lanejump: '줄 먼저 바꾸고 바로 탭',
+  lane: '왼쪽 위·아래로 밀어 옆으로 비키기',
+  drop: '경고등 자리에서 미리 옆으로 비키기',
+  chaser: '표식 자리에서 옆으로 비키기',
+  lanejump: '옆으로 먼저 비키고 바로 탭',
 };
 
 /** "<the stage superior's prop> → <what to do>" for the move that cost the heart (1-based stage, section 0..2) */
