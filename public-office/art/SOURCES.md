@@ -537,7 +537,7 @@ Hazards must never look like pickups, so this round uses no sparkles, no glow an
 
 ## Own sprites for the 9 part-2 alias props (2026-11-07, branch feat/office-quality-r4)
 
-Spend **13.5 credits** (9 × nano_banana_flash 1k); part-2 total **162.5 cr** (balance 1203.83 → 1190.33). Prompt header `$PROP2`
+Spend **13.5 credits** (9 × nano_banana_flash 1k); part-2 total **162.5 cr** per the job ledger (the account balance read 910.11 afterwards; other sessions share this account, so the balance no longer tracks this job). Prompt header `$PROP2`
 (round-2 section above). Silhouettes follow each id's attack kind in `src/office/core/props.ts`:
 - floor props are low and wide;
 - ceiling props hang from ropes or a chain;
