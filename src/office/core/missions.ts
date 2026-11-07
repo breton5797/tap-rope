@@ -32,6 +32,8 @@ export interface MissionSpec {
    * generator's mix takes over after it). Part 2's first two stages only.
    */
   readonly warmup?: number;
+  /** stage 1 (the tutorial stage): after the first plain beat of each move it teaches, the next hazard waits ≥ TEACH_ROOM s */
+  readonly teach?: boolean;
 }
 
 export interface MissionStats {
@@ -72,9 +74,9 @@ const m = (spec: MissionSpec): MissionSpec => spec;
  */
 export const STAGE_MISSIONS: Readonly<Record<string, readonly [MissionSpec, MissionSpec, MissionSpec]>> = {
   'w1-s10': [
-    m({ kind: 'dodge', title: '포스트잇 폭풍', target: 6, hazards: 6, moves: S1, focus: ['lane'], ...DODGE, line: '잠깐만~ 이것만 좀 봐줄래?' }),
-    m({ kind: 'collect', title: '커피 쿠폰', target: 5, hazards: 6, moves: S1, collectible: 'coupon', ...COLLECT, line: '커피 좀 사 와~ 쿠폰은 알아서 모으고!' }),
-    m({ kind: 'finale', title: '잠깐만~ 뛰어넘기', target: 6, hazards: 6, moves: S1, focus: ['slide'], ...FINALE, line: '어디 가? 아직 6시 안 됐잖아~' }),
+    m({ kind: 'dodge', title: '포스트잇 폭풍', target: 6, hazards: 6, moves: S1, focus: ['lane'], ...DODGE, line: '잠깐만~ 이것만 좀 봐줄래?', teach: true }),
+    m({ kind: 'collect', title: '커피 쿠폰', target: 5, hazards: 6, moves: S1, collectible: 'coupon', ...COLLECT, line: '커피 좀 사 와~ 쿠폰은 알아서 모으고!', teach: true }),
+    m({ kind: 'finale', title: '잠깐만~ 뛰어넘기', target: 6, hazards: 6, moves: S1, focus: ['slide'], ...FINALE, line: '어디 가? 아직 6시 안 됐잖아~', teach: true }),
   ],
   'w2-s10': [
     m({ kind: 'collect', title: '최종_v3 서류', target: 6, hazards: 11, moves: ['jump', 'double', 'lane', 'drop'], collectible: 'docs', ...COLLECT, line: '최종_진짜최종_v3 어디 갔어?' }),
