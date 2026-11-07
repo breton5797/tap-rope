@@ -67,10 +67,21 @@ describe('characters', () => {
     const cat = CHARACTERS[1];
     expect(cat.blurb).toContain('숙이기가 길고');
     expect(cat.blurb).not.toMatch(/레인 이동이 빠르/);
-    // one word per move (part-1 playtest): 점프 / 숙이기 / 옆으로
-    for (const c of CHARACTERS) expect(`${c.blurb} ${c.catchphrase}`, c.id).not.toMatch(/슬라이딩|레인|줄 바꾸/);
+    // one word per move (part-1 playtest): 점프 / 숙이기 / 줄 바꾸기
+    for (const c of CHARACTERS) expect(`${c.blurb} ${c.catchphrase}`, c.id).not.toMatch(/슬라이딩|레인|옆으로 비키/);
+    expect(cat.blurb).toContain('줄 바꾸기가 가벼워요');
     // 2026-11-03: cat has the default 3 hearts, so the card no longer claims fewer
     expect(cat.blurb).not.toMatch(/체력이 적/);
+  });
+
+  it('every name takes 으로 (ends in a batchim that is not ㄹ): the picker says "{name}으로 출근!"', () => {
+    for (const c of CHARACTERS) {
+      const code = c.name.charCodeAt(c.name.length - 1) - 0xac00;
+      const jong = code % 28;
+      expect(code >= 0 && code < 11172, c.name).toBe(true);
+      expect(jong, `${c.name}: has a final consonant`).toBeGreaterThan(0);
+      expect(jong, `${c.name}: the final consonant is not ㄹ (which would take 로)`).not.toBe(8);
+    }
   });
 
   it('fall back to the balanced hire for an unknown skin', () => {

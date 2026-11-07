@@ -48,6 +48,8 @@ describe('office stages', () => {
       '18:00 → 18:06', '18:06 → 18:12', '18:12 → 18:18', '18:18 → 18:24', '18:24 → 18:30',
     ]);
     for (const c of CHAPTERS) expect(c.briefing).toMatch(/[가-힣]/);
+    // stage 5 opens with its first superior, 한전무 (윤이사 comes second)
+    expect(CHAPTERS[4].briefing.startsWith('이 결재 서류, 오늘 안에 되겠지?')).toBe(true);
   });
 
   it('each stage has every move taught so far and none taught later', () => {

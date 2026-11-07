@@ -17,10 +17,10 @@ export const MOVES: Readonly<Record<MoveId, MoveInfo>> = {
   rear: { id: 'rear', name: '뒤에서 날아오는 서류', hint: '뒤에서 접근! 경고 표식 확인 후 점프.', gesture: '경고 후 탭', tone: 'pink', warn: true },
   gate: { id: 'gate', name: '서류 + 편대', hint: '바닥 서류와 종이비행기: 1단 점프만.', gesture: '탭 1회', tone: 'sun', warn: true },
   pulse: { id: 'pulse', name: '서류 연타', hint: '줄줄이 쌓인 서류. 박자에 맞춰 연속 점프.', gesture: '박자 탭', tone: 'sky' },
-  lane: { id: 'lane', name: '레인 이동', hint: '왼쪽 위·아래로 밀기: 레인 이동. 포스트잇 폭풍 피하기.', gesture: '왼쪽 ↑↓', tone: 'mint' },
-  drop: { id: 'drop', name: '용지 걸림', hint: '경고등 켜진 레인에서 미리 비키기.', gesture: '왼쪽 ↑↓', tone: 'sun', warn: true },
-  chaser: { id: 'chaser', name: '따라오는 상사', hint: '뒤에서 상사가 쫓아온다! 표식 레인에서 비키기.', gesture: '왼쪽 ↑↓', tone: 'pink', warn: true },
-  lanejump: { id: 'lanejump', name: '이동 + 점프', hint: '레인 이동과 점프를 동시에.', gesture: '↑↓ + 탭', tone: 'violet' },
+  lane: { id: 'lane', name: '줄 바꾸기', hint: '왼쪽 위·아래로 밀기: 줄 바꾸기. 포스트잇 폭풍 피하기.', gesture: '왼쪽 ↑↓', tone: 'mint' },
+  drop: { id: 'drop', name: '용지 걸림', hint: '경고등 켜진 줄에서 미리 줄 바꾸기.', gesture: '왼쪽 ↑↓', tone: 'sun', warn: true },
+  chaser: { id: 'chaser', name: '따라오는 상사', hint: '뒤에서 상사가 쫓아온다! 표식 줄에서 줄 바꾸기.', gesture: '왼쪽 ↑↓', tone: 'pink', warn: true },
+  lanejump: { id: 'lanejump', name: '줄 바꾸기 + 점프', hint: '줄 바꾸기와 점프를 동시에.', gesture: '↑↓ + 탭', tone: 'violet' },
 };
 
 /** result card tip: what the prop is → what to do (one line) */
@@ -35,10 +35,10 @@ export const FAIL_TIPS: Readonly<Record<MoveId, string>> = {
   gate: '서류 + 편대 → 1단 점프만 (탭 한 번)',
   rear: '뒤에서 오는 서류 → 경고 표식을 보고 박자에 탭',
   pulse: '서류 연타 → 박자마다 짧게 연속 탭',
-  lane: '포스트잇 폭풍 → 왼쪽 위·아래로 밀어 레인 이동',
-  drop: '용지 걸림 → 경고등 레인에서 미리 비키기',
-  chaser: '따라오는 상사 → 표식 레인에서 옆으로 이동',
-  lanejump: '이동 + 점프 → 레인 먼저 옮기고 바로 탭',
+  lane: '포스트잇 폭풍 → 왼쪽 위·아래로 밀어 줄 바꾸기',
+  drop: '용지 걸림 → 경고등 줄에서 미리 줄 바꾸기',
+  chaser: '따라오는 상사 → 표식 줄에서 줄 바꾸기',
+  lanejump: '줄 바꾸기 + 점프 → 줄 먼저 바꾸고 바로 탭',
 };
 
 /** office stages: "<the stage superior's prop> → <what to do>" (core failTipFor); else the generic tip */
@@ -47,7 +47,7 @@ export function failTipText(id: MoveId, stageId: string | null, section: number 
   return n ? failTipFor(Number(n[1]), id, section ?? 0) : FAIL_TIPS[id];
 }
 
-/** guide sheet order = the order the five office stages teach them (spec §13) */
+/** guide sheet order = the order the ten office stages teach them (spec §13; stage 7 adds lanejump) */
 export const MOVE_ORDER: readonly MoveId[] = [
-  'jump', 'slide', 'lane', 'double', 'beam', 'drone', 'drop', 'chaser', 'high', 'triple', 'rear',
+  'jump', 'slide', 'lane', 'double', 'beam', 'drone', 'drop', 'chaser', 'high', 'triple', 'rear', 'lanejump',
 ];

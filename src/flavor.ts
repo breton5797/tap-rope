@@ -168,6 +168,9 @@ export const V8_COPY = {
   tutTapLabel: 'TAP',
   autoplayNote: 'AUTOPLAY · 보상 없음',
   ctlKicker: 'CONTROL SCHEME',
+  ctlTitle: '양손 조작 체계',
+  /** ui/shop.ts character count: {n} owned of {total} */
+  shopRoster: 'ROSTER {n}/{total}',
   ctlLeftMove: '레인 이동',
   ctlLeftAria: '화면 왼쪽: 위나 아래로 밀어 레인 이동',
   ctlRightSlide: '슬라이딩',

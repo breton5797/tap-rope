@@ -238,8 +238,8 @@ describe('attackVariant', () => {
         expect(tip).not.toMatch(/[!"]/);
       }
     }
-    expect(failTipFor(7, 'lane')).toContain('옆으로');
-    for (const m of moves) expect(failTipFor(3, m)).not.toMatch(/슬라이딩|레인|줄 바꾸/);
+    expect(failTipFor(7, 'lane')).toContain('줄 바꾸기');
+    for (const m of moves) expect(failTipFor(3, m)).not.toMatch(/슬라이딩|레인|옆으로 비키/);
   });
 
   it('cart events ride a cart or the cleaning robot indoors, only the delivery cart outdoors (part 2)', () => {

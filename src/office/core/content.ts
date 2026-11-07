@@ -50,7 +50,7 @@ export const CHAPTERS: readonly ChapterMeta[] = [
   { id: 3, part: 1, name: '엘리베이터홀·비상계단', subtitle: '17:48 → 17:54', theme: 3, variant: 'base',
     briefing: '라떼는 말이야, 9시 퇴근이 기본이었어. 오부장을 지나 계단으로.' },
   { id: 4, part: 1, name: '1층 로비·회전문', subtitle: '17:54 → 18:00', theme: 0, variant: 'dawn',
-    briefing: '다들 저녁 먹고 가지? 내가 쏜다! 전무·이사·사장님을 뚫고 18:00 정각에 나간다.' },
+    briefing: '이 결재 서류, 오늘 안에 되겠지? 전무·이사·사장님을 뚫고 18:00 정각에 나간다.' },
   { id: 5, part: 2, name: '회사 정문·광장', subtitle: '18:00 → 18:06', theme: 0, variant: 'night',
     briefing: '퇴근 전에 설문 하나만! 인사팀 강차장이 서명판을 들고 정문을 막아섰다.' },
   { id: 6, part: 2, name: '퇴근길 버스정류장', subtitle: '18:06 → 18:12', theme: 4, variant: 'base',

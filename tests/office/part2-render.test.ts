@@ -215,7 +215,7 @@ describe('office miss text', () => {
     const { missText } = await import('../../src/game/feedback');
     expect(missText('level', 2)).toBe('MISS · 두 번 점프!');
     expect(missText('level', 3)).toBe('MISS · 세 번 점프!');
-    expect(missText('lane', 1)).toBe('MISS · 옆으로!');
+    expect(missText('lane', 1)).toBe('MISS · 줄 바꾸기!');
   });
 });
 
@@ -316,5 +316,17 @@ describe('popup bitmaps (perf r4)', () => {
     // one popup's whole pop (1.12 → 1 at 1.35× on a 2× screen): at most 3 bitmaps
     const set = new Set([1, 1.03, 1.06, 1.09, 1.12].map((sc) => popupBucket(2 * 1.35 * sc)));
     expect(set.size).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('prop outline warm-up queue (perf r4: no first-appearance bake spikes)', () => {
+  it('lists every sprite + move-colour pair the stage superiors can throw, each once', async () => {
+    const { warmList } = await import('../../src/office/render/props');
+    const list = warmList(9); // stage 10: 최팀장, 한전무, 회장님
+    const keys = list.map((w) => `${w.name}|${w.cue}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(list.length).toBeGreaterThan(5);
+    expect(list.every((w) => w.name.startsWith('prop-'))).toBe(true);
+    expect(new Set(list.map((w) => w.cue))).toEqual(new Set(['lane', 'jump', 'slide', 'low']));
   });
 });
