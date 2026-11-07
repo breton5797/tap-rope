@@ -196,7 +196,8 @@ describe('part-2 props in the renderer (core props.ts)', () => {
     setPropFrame('sewer-eye', 5, undefined, 6);
     const o = { id: '3-0', kind: 'guard' as const };
     expect(propIdFor(o)).toBe(attackVariant('sewer-eye', 'lane', 5, 3, 7));
-    expect(propSpriteNames('survey-box')).toEqual(['prop-papers']);
+    // round 4: survey-box has its own sprite (the old alias look is its fallback)
+    expect(propSpriteNames('survey-box')).toEqual(['prop-survey-box', 'prop-papers']);
     expect(propSpriteNames('taxi')).toEqual(['prop-taxi', 'prop-cart']);
     expect(propSpriteNames('postit')).toEqual(['prop-postit']);
   });
