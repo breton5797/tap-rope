@@ -259,6 +259,8 @@ export function createHud(ctx: Ctx): Hud {
     reset(): void {
       prev = {};
       refs.combo.classList.remove('is-visible');
+      // P3: the last run's chain (e.g. x47) never fades out over the next run's opening
+      refs.comboNum.textContent = '';
       refs.boss.hidden = true;
       refs.boss.classList.remove('is-hit', 'is-hit-b');
       el.classList.remove('hud--boss');

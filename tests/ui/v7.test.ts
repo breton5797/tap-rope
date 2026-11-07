@@ -247,3 +247,21 @@ describe('heart refill cue', () => {
     }
   });
 });
+
+describe('combo per run', () => {
+  it('a new run (showHud) starts with no combo text from the previous run', () => {
+    const root = document.createElement('div');
+    const ui = createUi(root, callbacks());
+    const hud: HudState = {
+      hearts: 3, maxHearts: 3, score: 0, combo: 47, progress: 0, feverGauge: 0, fever: false, shield: false, slowMo: false,
+      title: '5-10 · t', coins: 0, sliding: false, section: 0, sections: 3, boss: null,
+    };
+    ui.showHud();
+    ui.updateHud(hud);
+    expect(root.querySelector('.combo__num')?.textContent).toBe('x47');
+    ui.showHud();
+    ui.updateHud({ ...hud, combo: 0 });
+    expect(root.querySelector('.combo__num')?.textContent).toBe('');
+    expect(root.querySelector('.combo')?.classList.contains('is-visible')).toBe(false);
+  });
+});
