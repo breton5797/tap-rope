@@ -557,3 +557,23 @@ locally to deep red and navy. Cut out as props (512×512, 8 px margin), `cwebp -
 | `prop-skewer-tray.webp` | floor | a low wide oval steel plate holding four grilled meat skewers with green onion on wooden sticks, glossy brown sauce, wider than tall, sitting low. |
 | `prop-mic.webp` | drone | one handheld karaoke microphone with a silver mesh head and a pink handle, horizontal, its head pointing to the LEFT, a short cable trailing. It flies toward the LEFT, with three short grey speed streaks trailing on its right side. |
 | `prop-home-clipboard.webp` | beam | an open navy-blue leather document approval folder (Korean gyeoljaepan) with a blank white sheet inside and a small silver clip, tilted. It flies toward the LEFT, with three short grey speed streaks trailing on its right side. |
+
+
+## Part-1 pickup look-alikes (2026-11-07, branch feat/office-quality-r4)
+
+Spend **4.5 credits** (3 × nano_banana_flash 1k, `$PROP2` header); part-2 job total **167 cr** per the job ledger.
+Hazards must not look like pickups. Three props were redrawn under the same file names:
+
+| file | was | prompt (after `$PROP2 The object:`) |
+|---|---|---|
+| `prop-latte-bubble.webp` | a huge round blue glowing bubble (looked like the headphone pickup) | a big jagged spiky comic shout speech bubble with sharp zigzag edges and a short pointed tail at the bottom left, cream-white fill with a very thick dark brown ink rim, inside it only a simple dark-brown coffee mug icon with a small steam curl. Flat, no glow, not round, not blue. |
+| `prop-envelope.webp` | gold cash envelopes with sparkles (looked like a collectible) | a tumbling cluster of three plain brown kraft-paper envelopes, each closed with a round dark-red wax seal, matte paper, no gold, no shine. It flies toward the LEFT, with three short grey speed streaks trailing on its right side. |
+| `prop-corp-card.webp` | a gold sparkling card; it is also the fallback for mic-stand and calculator | one matte black corporate credit card with a deep dark-red diagonal stripe and a small dull silver chip, tilted at an angle, no numbers, no gold, no shine. |
+
+Background look-alikes were toned down by a local edit (0 cr): colour saturation × 0.6 and brightness × 0.86, inside tight
+object rectangles with a 2 px feather. On `wall-1-b` only pixels with saturation below 0.13 were changed, so the pink wall behind
+the copier is untouched. The pillar joins are untouched in every case.
+- `wall-0-dawn-b`: revolving door
+- `wall-1-b`: copier
+- `wall-2-b`: whiteboard on an easel
+- `wall-3-a` and `wall-3-c`: elevator doors
