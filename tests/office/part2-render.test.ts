@@ -377,3 +377,18 @@ describe('tutorial stop vs the superior (P3)', () => {
     expect(css).toMatch(/\.tstop__pad\s*\{[^}]*place-content:\s*end center/);
   });
 });
+
+describe('judgement box includes its white rim (part-1 audit b)', () => {
+  it('the drawn top of a popup (text + half the 7 px rim, scaled) clears the callout', async () => {
+    const { popupBoxes, POPUP_RIM } = await import('../../src/office/render/popups');
+    expect(POPUP_RIM).toBeGreaterThanOrEqual(3.5);
+    const items = [{ y0: 300, bump: 30, age: 0, life: 0.6, size: 16 }, { y0: 300, bump: 0, age: 0, life: 0.6, size: 26 }];
+    for (const callout of [250, 300]) {
+      const boxes = popupBoxes(items, callout, Number.NEGATIVE_INFINITY);
+      // top includes the rim: the glyph box is at least rim px below the reported top
+      for (const b of boxes) expect(b.top).toBeGreaterThanOrEqual(callout);
+      const glyphTop = (b: { centre: number }, size: number) => b.centre - (size / 2 + POPUP_RIM) * 1.12 * 1.35;
+      expect(glyphTop(boxes[0], 16)).toBeGreaterThanOrEqual(callout - 1e-9);
+    }
+  });
+});

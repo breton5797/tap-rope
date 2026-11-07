@@ -170,6 +170,9 @@ export function popupRise(line: number, highest: number): number {
   return Math.max(0, line + GAP - highest - DRIFT + DRIFT * POPUP_SCALE);
 }
 
+/** half the white outer rim's stroke (7 px) around the judgement text: part of its drawn box */
+export const POPUP_RIM = 3.5;
+
 /** room between the attack callout's bottom and the top of the highest judgement text (logical px) */
 const CALLOUT_MARGIN = 6;
 
@@ -204,7 +207,7 @@ function stackShift(items: readonly PopupGeom[], callout: number, hudLine: numbe
   let shift = popupRise(hudLine, anchor - DRIFT);
   if (Number.isFinite(callout)) {
     let top = Number.POSITIVE_INFINITY;
-    for (const p of items) top = Math.min(top, anchor + POPUP_SCALE * (restY(p) - anchor) - (p.size / 2) * popScale(p.age) * POPUP_SCALE);
+    for (const p of items) top = Math.min(top, anchor + POPUP_SCALE * (restY(p) - anchor) - (p.size / 2 + POPUP_RIM) * popScale(p.age) * POPUP_SCALE);
     shift = Math.max(shift, callout + CALLOUT_MARGIN - top);
   }
   return shift;
@@ -216,7 +219,7 @@ export function popupBoxes(items: readonly PopupGeom[], callout: number, hudLine
   const shift = stackShift(items, callout, hudLine);
   return items.map((p) => {
     const centre = anchor + shift + POPUP_SCALE * (restY(p) - anchor);
-    return { centre, top: centre - (p.size / 2) * popScale(p.age) * POPUP_SCALE };
+    return { centre, top: centre - (p.size / 2 + POPUP_RIM) * popScale(p.age) * POPUP_SCALE };
   });
 }
 

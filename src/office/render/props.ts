@@ -185,7 +185,8 @@ export function drawFootprint(
 /** a translucent dark-ink stroke of the current path under a footprint's rim (every floor, light or dark) */
 function inkRim(ctx: CanvasRenderingContext2D, width: number): void {
   const a = ctx.globalAlpha;
-  ctx.globalAlpha = a * 0.45;
+  // part-1 audit: strong enough to frame the amber ring on peach / cream floors too
+  ctx.globalAlpha = a * 0.7;
   ctx.strokeStyle = INK;
   ctx.lineWidth = width;
   ctx.stroke();
