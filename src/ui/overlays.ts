@@ -48,6 +48,9 @@ export function renderCountdown(layer: HTMLElement, n: number | null): void {
 // ---------- tutorial ----------
 
 export function renderTutorial(layer: HTMLElement, ctx: Ctx, move: MoveId | null): void {
+  // a tutorial stop (the frozen world's hand prompt) owns the layer: a hint strip never replaces or clears it
+  // (P1: a strip due on the freeze frame wiped the prompt and the world stayed frozen with no instruction)
+  if (layer.querySelector('.tstop')) return;
   if (move === null) {
     layer.replaceChildren();
     return;

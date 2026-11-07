@@ -560,6 +560,11 @@ export function startApp(): void {
     playFeedback(deps, out.events);
     for (const e of out.events) if (e.type === 'fever') runLog.fever();
     tutorial.afterStep(session.time, session.player);
+    // the world froze on this step: its stop prompt is up — no hint strip, boss line or HUD change may follow it
+    if (tutorial.frozen) {
+      ui.updateHud(toHud(session));
+      return;
+    }
     const boss = sessionBoss(session);
     for (const cue of bossCues(prevBoss, boss)) audio.sfx(cue);
     tickBossShow(boss);
