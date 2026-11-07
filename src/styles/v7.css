@@ -864,12 +864,31 @@
   animation: boss-shake 0.28s ease-out;
 }
 
+/* the same flash under twin names: alternating the classes restarts it without a forced reflow */
+.boss.is-hit-b .boss__fill {
+  animation: boss-hit-b 0.28s ease-out;
+}
+
+.boss.is-hit-b {
+  animation: boss-shake-b 0.28s ease-out;
+}
+
 @keyframes boss-hit {
   0% { background: #fff; }
   100% { background: var(--red); }
 }
 
 @keyframes boss-shake {
+  0% { border-color: #fff; }
+  100% { border-color: rgba(255, 42, 58, 0.45); }
+}
+
+@keyframes boss-hit-b {
+  0% { background: #fff; }
+  100% { background: var(--red); }
+}
+
+@keyframes boss-shake-b {
   0% { border-color: #fff; }
   100% { border-color: rgba(255, 42, 58, 0.45); }
 }

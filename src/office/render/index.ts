@@ -18,22 +18,26 @@ import { broadcastLine } from '../game/boss-lines';
 import { clockUrgent, drawClock, laneTopY } from './clock';
 import { CalloutHold } from './callout-hold';
 import { superiorOnStage } from './superior';
+import { TipRunner } from './move-tip';
+import { COPY } from '../../flavor';
 import { overlayState } from '../ui/mission';
 import { SIGN_LEAD, beatHint, chevronPlan, rearArrow, safeArrow, safeArrowX, safeLanes, scanSigns, stayLowBand } from './readability';
 import { hudBand, lastHudBand, setCalloutBottom } from './hud-band';
 import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
 import {
-  actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, recordOverflowed, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord,
+  actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, recordOverflowed, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord, stagePropIds, warmStep,
 } from './props';
-import { blackoutAlpha, surpriseKick, type Rect } from './surprise';
+import { KICK_TIME, blackoutAlpha, kickKeyframes, surpriseKick, type Rect } from './surprise';
 import {
-  drawAttackCallout, drawBlackout, drawColleague, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive,
+  drawAttackCallout, drawBlackout, drawMoveTip, warmCallouts, drawColleague, drawBossBubble, drawBroadcast, drawConfetti, drawFireDrill, drawHighFive,
 } from './surprise-fx';
 import { prepareBosses, setBossPose, type BossPose } from './boss-art';
 import { STEP_HZ, bossExit } from './boss-rigs';
 import { RELEASE, bossThrowFrame, launchFor, propVisibleFrom, setThrowFrame } from './boss-throw';
 import { drawApronFlow, drawSpeedLines, speedLineCount } from './floor-flow';
 import { setHeroShield, setHeroStageProgress } from './agent';
+import { warmHeroSets } from './hero-scale';
+import { warmPopups } from './popups';
 import { frameLaneSwitch } from './hero-style';
 import { laneCollectibleArt, setPickupFrame } from './gadgets';
 import { laneArt } from '../../render/lane';
@@ -46,6 +50,28 @@ import { JuiceFx } from './juice-fx';
 export * from '../../render/index';
 
 const NO_BEATS: readonly Beat[] = [];
+const REST_KICK = { zoom: 1, shake: 0 } as const;
+/** bot runs (?autoplay=1, QA / e2e) never show the one-time tips (they would be used up) — unless ?tips=1 asks */
+const QUERY = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+const AUTOPLAY = QUERY !== null && QUERY.has('autoplay') && !QUERY.has('tips');
+/** keyframes per kick animation (~1 per 12 ms of its 150 ms) */
+const KICK_STEPS = 12;
+/** prop outline bakes per frame while warming, and the run progress until which warming continues */
+const WARM_PER_FRAME = 2;
+const WARM_UNTIL = 0.03;
+
+/** a transparent canvas laid over the game canvas (same box, no input), or null without a DOM */
+function overlayCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement | null {
+  if (typeof document === 'undefined' || !canvas.parentElement) return null;
+  const top = document.createElement('canvas');
+  top.className = 'game-overlay';
+  top.setAttribute('aria-hidden', 'true');
+  Object.assign(top.style, { position: 'absolute', inset: '0', pointerEvents: 'none', display: 'block' });
+  canvas.after(top);
+  // the kick changes the game canvas's transform every frame: keep it on its own compositor layer
+  canvas.style.willChange = 'transform';
+  return top;
+}
 const BLOCKED: number[] = [];
 /** per-frame chevron positions of the lane beats ahead (reused) */
 const CHEVRONS: { x: number; tu: number }[] = [];
@@ -140,10 +166,25 @@ class OfficeRenderer implements Renderer {
   private exitAt = Number.NEGATIVE_INFINITY;
   private exitId: BossView['id'] | null = null;
   private readonly calloutHold = new CalloutHold();
+  /** R4 one-time move tips (a new runner per run) */
+  private tips = new TipRunner();
+
+  /**
+   * perf r4: the overlay layer (callouts, signs, banners, clock, juice) on its own transparent canvas above the
+   * game canvas, so the attack kick zooms the game canvas on the compositor (CSS transform) instead of copying
+   * the whole frame onto itself — the overlay stays unzoomed exactly as before. Null without a DOM: then the
+   * overlay draws on the game canvas and the kick falls back to the self-copy.
+   */
+  private readonly top: HTMLCanvasElement | null;
+  private readonly topCtx: CanvasRenderingContext2D | null;
+  /** the running kick animation on the game canvas (one Web Animation per kick) */
+  private kickAnim: Animation | null = null;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.inner = createV8Renderer(canvas);
     this.ctx = canvas.getContext('2d');
+    this.top = overlayCanvas(canvas);
+    this.topCtx = this.top?.getContext('2d') ?? null;
     this.view = computeView(canvas.clientWidth || LOGICAL_W, canvas.clientHeight || LOGICAL_H, 1);
     this.sprites.setScale(this.view.k);
     preloadImages(OFFICE_ART);
@@ -169,15 +210,32 @@ class OfficeRenderer implements Renderer {
     this.inner.resize(cssWidth, cssHeight, dpr, safeBottom);
     this.view = computeView(cssWidth, cssHeight, dpr, safeBottom);
     this.sprites.setScale(this.view.k);
+    if (this.top) {
+      this.top.width = this.canvas.width;
+      this.top.height = this.canvas.height;
+      this.top.style.width = this.canvas.style.width;
+      this.top.style.height = this.canvas.style.height;
+    }
   }
 
   render(snap: RenderSnapshot): void {
     const run = snap.run;
-    if (run && (!this.plan || this.plan.beats !== run.beats || this.plan.seed !== run.seed)) this.plan = planFor(run);
+    if (run && (!this.plan || this.plan.beats !== run.beats || this.plan.seed !== run.seed)) {
+      this.plan = planFor(run);
+      this.tips = new TipRunner();
+    }
     const plan = run ? this.plan : null;
     const fallback = OFFICE_BOSSES.find((b) => b.stage === (run?.stageIndex ?? 0) + 1)?.slot ?? 'warden';
     setPropFrame(snap.boss?.id ?? fallback, run?.seed ?? 1, plan?.carts, run?.stageIndex ?? -1);
     this.feelFrame(snap, run);
+    // perf r4: bake the stage's prop outlines during the countdown / intro, not on each prop's first frame
+    if (run && (!snap.running || run.progress < WARM_UNTIL || snap.boss?.state === 'intro')) {
+      // one hero frame set per frame first (its scans are the biggest), then the prop outlines
+      if (!warmHeroSets(snap.skin) && !(this.ctx && warmPopups(this.ctx, this.view.k))) {
+        if (this.ctx) warmCallouts(this.ctx, stagePropIds(run.stageIndex));
+        warmStep(run.stageIndex, WARM_PER_FRAME);
+      }
+    }
     setHeroStageProgress(run?.progress ?? 0);
     setHeroShield(snap.shield);
     setLaneSwitchTime(frameLaneSwitch(snap.skin, snap.running));
@@ -194,6 +252,10 @@ class OfficeRenderer implements Renderer {
     if (dark) stopPropRecord();
     const ctx = this.ctx;
     if (!ctx) return;
+    if (this.topCtx && this.top) {
+      this.topCtx.setTransform(1, 0, 0, 1, 0, 0);
+      this.topCtx.clearRect(0, 0, this.top.width, this.top.height);
+    }
     try {
       this.overlay(ctx, snap, plan, run);
     } catch (e) {
@@ -231,10 +293,12 @@ class OfficeRenderer implements Renderer {
     setBossPose(bossPoseFor(b, snap));
   }
 
-  private overlay(ctx: CanvasRenderingContext2D, snap: RenderSnapshot, plan: Plan | null, run: RenderRun | undefined): void {
+  private overlay(world: CanvasRenderingContext2D, snap: RenderSnapshot, plan: Plan | null, run: RenderRun | undefined): void {
     const v = this.view;
     const t = snap.time;
-    const band = hudBand(this.canvas, v, snap.realTime);
+    // the untransformed layer: the game canvas's rect moves while it is kicked
+    const band = hudBand(this.top ?? this.canvas, v, snap.realTime);
+    let ctx = world;
     ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
     // F1: the apron flows with the floor; fever speed lines
     if (snap.running) {
@@ -247,6 +311,8 @@ class OfficeRenderer implements Renderer {
       drawSpeedLines(ctx, v, snap.realTime, speedLineCount(snap.fever, snap.reducedMotion));
     }
     this.kick(ctx, snap);
+    // everything after the kick is the overlay layer (unzoomed by the kick, as before)
+    ctx = this.topCtx ?? world;
     ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
     const events = snap.running && plan ? plan.events : [];
     const lane = visualLane(snap.player);
@@ -279,6 +345,11 @@ class OfficeRenderer implements Renderer {
     const stampAt = snap.mission?.stampAt;
     if (snap.running) this.juice.frame(ctx, v, snap, band);
     if (snap.running) this.signs(ctx, v, snap);
+    // R4: the one-time move tip (part 2's first lane hazard, stage 7's first lanejump) — real stage runs only
+    if (snap.running && run && snap.mission && !AUTOPLAY) {
+      const tip = this.tips.frame(run.stageIndex, snap.obstacles, snap.realTime, overlayState.card || drill !== null || broadcast !== null);
+      if (tip) drawMoveTip(ctx, v, tip.id === 'lanejump' ? COPY.tipLanejump : COPY.tipLane2, tip.id === 'lanejump', snap.realTime - this.tips.since, snap.reducedMotion);
+    }
     if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
     if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), clockUrgent(run.stageIndex, run.progress));
     ctx.globalAlpha = 1;
@@ -288,10 +359,25 @@ class OfficeRenderer implements Renderer {
   private kick(ctx: CanvasRenderingContext2D, snap: RenderSnapshot): void {
     const a = snap.boss?.attack ?? null;
     const p = this.prevAttack;
-    if (a && (!p || a.timeUntil > p.timeUntil + 1e-6)) this.kickAt = snap.realTime;
+    const started = a !== null && (!p || a.timeUntil > p.timeUntil + 1e-6);
+    if (started) this.kickAt = snap.realTime;
     this.prevAttack = a;
-    if (snap.reducedMotion || !snap.running) return;
-    const k = surpriseKick(snap.realTime, this.kickAt);
+    const still = snap.reducedMotion || !snap.running;
+    if (this.top && typeof this.canvas.animate === 'function') {
+      // the compositor zooms / shakes the game canvas (one animation per kick, no per-frame style write);
+      // the overlay canvas above it stays put
+      if (still && this.kickAnim) {
+        this.kickAnim.cancel();
+        this.kickAnim = null;
+      }
+      if (started && !still) {
+        this.kickAnim?.cancel();
+        const v = this.view;
+        this.kickAnim = this.canvas.animate(kickKeyframes(snap.realTime, v.cssW, v.cssH, v.s, KICK_STEPS), { duration: KICK_TIME * 1000, easing: 'linear' });
+      }
+      return;
+    }
+    const k = still ? REST_KICK : surpriseKick(snap.realTime, this.kickAt);
     if (k.zoom === 1 && k.shake === 0) return;
     const c = this.canvas;
     const sx = Math.sin(snap.realTime * 90) * k.shake * this.view.k;

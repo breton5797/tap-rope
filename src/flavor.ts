@@ -160,6 +160,9 @@ export const V8_COPY = {
   /** the result headline after clearing the last stage (v8: the same as any clear) */
   resultFinalStatus: 'MISSION COMPLETE',
   resultFinalTitle: '임무 완료',
+  /** one-time move tips (office part 2); empty = never shown */
+  tipLane2: '',
+  tipLanejump: '',
   // fixed labels (ui/title.ts, ui/stage-node.ts, ui/hud.ts, game/feedback.ts, ui/overlays.ts, game/run-policy.ts, ui/controls.ts)
   titleGoalLabel: 'NEXT',
   nodeNextFlag: 'NEXT',

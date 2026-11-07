@@ -330,3 +330,42 @@ describe('prop outline warm-up queue (perf r4: no first-appearance bake spikes)'
     expect(new Set(list.map((w) => w.cue))).toEqual(new Set(['lane', 'jump', 'slide', 'low']));
   });
 });
+
+describe('perf r4 warm-up details', () => {
+  it('popup bitmaps only for fixed words (a combo count changes every beat: painted, never baked per number)', async () => {
+    const { bitmapWorthy } = await import('../../src/office/render/popups');
+    expect(bitmapWorthy('PERFECT')).toBe(true);
+    expect(bitmapWorthy('MISS · 줄 바꾸기!')).toBe(true);
+    expect(bitmapWorthy('x23 CHAIN')).toBe(false);
+    expect(bitmapWorthy('+₵1350')).toBe(false);
+  });
+
+  it('hero set scales are warmed one set per call, then nothing is left', async () => {
+    const { warmHeroSets } = await import('../../src/office/render/hero-scale');
+    const seen: string[] = [];
+    const left = [warmHeroSets('kid', (s) => seen.push(s)), warmHeroSets('kid', (s) => seen.push(s)), warmHeroSets('kid', (s) => seen.push(s)), warmHeroSets('kid', (s) => seen.push(s))];
+    expect(seen).toEqual(['jump', 'slide', 'hit']);
+    expect(left).toEqual([true, true, true, false]);
+  });
+});
+
+describe('popup bitmap warm-up', () => {
+  it('names the fixed judgement words and the scale buckets of their whole pop', async () => {
+    const { warmPopupPlan } = await import('../../src/office/render/popups');
+    const plan = warmPopupPlan(2);
+    expect(plan.texts).toEqual(expect.arrayContaining(['PERFECT', 'GREAT', 'GOOD']));
+    expect(plan.buckets.length).toBeGreaterThan(0);
+    expect(plan.buckets.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('callout text warm-up', () => {
+  it('stagePropIds lists the ids the stage superiors throw (callout names to measure ahead)', async () => {
+    const { stagePropIds } = await import('../../src/office/render/props');
+    const { propCallout } = await import('../../src/office/render/props');
+    const ids = stagePropIds(5); // stage 6: 강차장
+    expect(ids.length).toBeGreaterThan(3);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.every((id) => propCallout(id) !== '기습!')).toBe(true);
+  });
+});

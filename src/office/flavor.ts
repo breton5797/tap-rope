@@ -144,6 +144,8 @@ export const COPY: Readonly<Record<CopyKey, string>> = {
   achKicker: '사원 평가',
   resultFinalStatus: '18:30 귀가 완료!',
   resultFinalTitle: '오늘도 무사 퇴근!',
+  tipLane2: '왼쪽을 위·아래로 밀어 줄 바꾸기!',
+  tipLanejump: '옆으로 밀고 + 탭!',
   // part-1 playtest: Korean labels, one word per move (점프 / 숙이기 / 줄 바꾸기)
   titleGoalLabel: '다음',
   nodeNextFlag: '다음',

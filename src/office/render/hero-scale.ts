@@ -74,3 +74,18 @@ export function blinkAlpha(t: number, shielded: boolean): number {
   const lo = shielded ? 0.6 : 0.55;
   return lo + (1 - lo) * Math.abs(Math.sin(t * Math.PI * 10));
 }
+
+const WARM_SETS: readonly FrameSet[] = ['jump', 'slide', 'hit'];
+const warmed = new Map<string, number>();
+
+/**
+ * perf r4: settle one frame set's scale for `skin` per call (its opaque scans read every frame of the set — a
+ * ~50 ms spike on the hero's first jump otherwise); true while a set was handled, false once all are.
+ */
+export function warmHeroSets(skin: string, warm: (set: FrameSet) => void = (set) => heroSetScale(skin, `${set}1`)): boolean {
+  const i = warmed.get(skin) ?? 0;
+  if (i >= WARM_SETS.length) return false;
+  warm(WARM_SETS[i]);
+  warmed.set(skin, i + 1);
+  return true;
+}

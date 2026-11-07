@@ -8,7 +8,8 @@ import { PLAYER_X } from '../../types';
 import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
-import { hintSegments } from './readability';
+import { hintSegments, type HintSegment } from './readability';
+import { textWidth } from './text-width';
 import { eventCopy, type EventCopy } from '../core/events';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
 import type { View } from '../../render/view';
@@ -155,13 +156,11 @@ export function drawAttackCallout(
 ): number {
   const name = calloutName(propId);
   const color = ACTION_COLORS[cue];
-  ctx.font = CALLOUT_FONT;
-  const textW = ctx.measureText(name).width;
-  ctx.font = HINT_FONT;
+  const textW = textWidth(ctx, CALLOUT_FONT, name);
   // a combo beat (lane + jump / slide) gets one colour chip per move, so each half reads in its hazard colour
   const segs = hintSegments(hint);
   const combo = segs.length > 1;
-  const segW = segs.map((g) => ctx.measureText(g.text).width + (combo ? CHIP_PAD * 2 : 0));
+  const segW = segs.map((g) => textWidth(ctx, HINT_FONT, g.text) + (combo ? CHIP_PAD * 2 : 0));
   const hintW = segW.reduce((a, b) => a + b, 0) + (segs.length - 1) * CHIP_GAP;
   const w = Math.min(v.w - 16, 44 + textW + 10 + hintW + 14);
   const h = 34;
@@ -169,6 +168,15 @@ export function drawAttackCallout(
   const faceY = FLOOR_BACK - (bw / PERSON_ASPECT) * 0.8;
   const cx = Math.min(v.x0 + v.w - w / 2 - 6, Math.max(v.x0 + w / 2 + 6, v.x0 + v.w * PERSON_FX - bw * 0.3 - w / 2 + 20));
   const cy = placeBubble({ x: cx, y: Math.max(faceY, below + 22), w, h }, avoid, below + 4);
+  paintCallout(ctx, cx, cy, w, h, color, icon, name, textW, segs, segW, combo);
+  return cy + h / 2;
+}
+
+/** the callout box centred on (cx, cy): fill, move-colour outline, prop icon, attack name, move hint / chips */
+function paintCallout(
+  ctx: Ctx, cx: number, cy: number, w: number, h: number, color: string, icon: HTMLImageElement | null, name: string, textW: number,
+  segs: readonly HintSegment[], segW: readonly number[], combo: boolean,
+): void {
   ctx.save();
   ctx.fillStyle = '#FFFBF3';
   ctx.strokeStyle = color;
@@ -202,7 +210,6 @@ export function drawAttackCallout(
     x += segW[i] + CHIP_GAP;
   });
   ctx.restore();
-  return cy + h / 2;
 }
 
 /** combo hint chips: inner padding and the gap between chips (css px) */
@@ -229,5 +236,70 @@ export function drawColleague(ctx: Ctx, lane: number, age: number): void {
   ctx.save();
   ctx.globalAlpha *= inK * (1 - out);
   ctx.drawImage(img, projX(PLAYER_X + 34 - 40 * (1 - inK), d) - w / 2, laneY(d) - h, w, h);
+  ctx.restore();
+}
+
+/** the move hints a callout can show, measured ahead with the callout names */
+const HINT_WORDS: readonly string[] = ['옆으로!', '숙여!', '점프!', '점프 2단!', '점프 3단!', '낮게!', '뒤에서! 옆으로!', '뒤에서! 점프!', '뒤에서! 숙여!'];
+
+/** perf r4: measure the stage's callout names and hints ahead (first-frame measureText spikes); false when done */
+export function warmCallouts(ctx: Ctx, ids: readonly string[]): boolean {
+  let n = 0;
+  for (const id of ids) n += textWidth(ctx, CALLOUT_FONT, calloutName(id)) > 0 ? 0 : 1;
+  for (const w of HINT_WORDS) n += textWidth(ctx, HINT_FONT, w) > 0 ? 0 : 1;
+  return n > 0;
+}
+
+const TIP_FONT = '800 14px ui-rounded, system-ui, sans-serif';
+/** css px the tip sits above the banner band */
+const TIP_RAISE = 22;
+
+/**
+ * R4 one-time move tip: a white pill with a teal rim in the banner band above the clock — a small gesture glyph
+ * (the left thumb's up / down swipe, plus a tap dot for lanejump) and the text; a gentle pulse unless reduced.
+ */
+export function drawMoveTip(ctx: Ctx, v: View, text: string, tap: boolean, age: number, reduced: boolean): void {
+  if (!text) return;
+  // just above the banner band: clear of the mission chip row below it
+  const y = bannerY(v) - TIP_RAISE / v.s;
+  const w = Math.min(v.w - 16, textWidth(ctx, TIP_FONT, text) + 62);
+  const x = v.x0 + v.w / 2;
+  const k = reduced ? 1 : 1 + 0.04 * Math.max(0, Math.sin(age * Math.PI * 3));
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, age / 0.15);
+  ctx.translate(x, y);
+  ctx.scale(k, k);
+  ctx.fillStyle = '#FFFBF3';
+  ctx.strokeStyle = '#13806F';
+  ctx.lineWidth = 2.5;
+  roundRect(ctx, -w / 2, -15, w, 30, 15);
+  ctx.fill();
+  ctx.stroke();
+  // gesture glyph: ↕ (swipe) and a dot (tap)
+  const gx = -w / 2 + 18;
+  ctx.strokeStyle = '#13806F';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(gx, -8);
+  ctx.lineTo(gx, 8);
+  ctx.moveTo(gx - 4, -4);
+  ctx.lineTo(gx, -8);
+  ctx.lineTo(gx + 4, -4);
+  ctx.moveTo(gx - 4, 4);
+  ctx.lineTo(gx, 8);
+  ctx.lineTo(gx + 4, 4);
+  ctx.stroke();
+  if (tap) {
+    ctx.fillStyle = '#FF9F1C';
+    ctx.beginPath();
+    ctx.arc(gx + 13, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#2E2433';
+  ctx.font = TIP_FONT;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 14, 1, w - 54);
   ctx.restore();
 }
