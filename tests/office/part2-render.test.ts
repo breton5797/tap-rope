@@ -392,3 +392,12 @@ describe('judgement box includes its white rim (part-1 audit b)', () => {
     }
   });
 });
+
+describe('callout icon (perf r4)', () => {
+  it('pre-scaled icon size: 26 logical px tall at the device scale, aspect kept, at least 1 px', async () => {
+    const { iconPixels } = await import('../../src/office/render/surprise-fx');
+    expect(iconPixels(512, 640, 2)).toEqual({ w: 42, h: 52 });
+    expect(iconPixels(640, 512, 3)).toEqual({ w: 98, h: 78 });
+    expect(iconPixels(1, 1, 0.01)).toEqual({ w: 1, h: 1 });
+  });
+});

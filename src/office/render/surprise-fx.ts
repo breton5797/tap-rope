@@ -3,7 +3,7 @@
 // over the finished v8 frame in logical coordinates; hit boxes and "!" warnings are the v8 ones.
 import { FLOOR_BACK, depthScale, laneY, projX } from '../../render/layout';
 import { ACTION_COLORS, propCallout, type ActionCue } from './props';
-import { roundRect, type Ctx } from '../../render/util';
+import { makeCanvas, roundRect, type Ctx } from '../../render/util';
 import { PLAYER_X } from '../../types';
 import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
@@ -172,6 +172,38 @@ export function drawAttackCallout(
   return cy + h / 2;
 }
 
+/** the callout's prop icon height (logical px) */
+const CALLOUT_ICON_H = 26;
+
+/** device px of a callout icon from a `nw` × `nh` sprite at `k` device px per logical px */
+export function iconPixels(nw: number, nh: number, k: number): { w: number; h: number } {
+  const h = Math.max(1, Math.round(CALLOUT_ICON_H * k));
+  return { w: Math.max(1, Math.round((h * nw) / nh)), h };
+}
+
+const ICONS = new WeakMap<HTMLImageElement, { k: number; canvas: CanvasImageSource }>();
+
+/**
+ * perf r4: the prop sprite pre-scaled once to the icon's device size — downscaling a 512 px sprite to 26 px every
+ * frame was ~20% of a slow frame's callout cost. Falls back to the sprite itself where no canvas can be made.
+ */
+function smallIcon(img: HTMLImageElement, k: number): CanvasImageSource {
+  const hit = ICONS.get(img);
+  if (hit && Math.abs(hit.k - k) < 1e-3) return hit.canvas;
+  let canvas: CanvasImageSource = img;
+  try {
+    const px = iconPixels(img.naturalWidth, img.naturalHeight, k);
+    const c = makeCanvas(px.w, px.h);
+    c.ctx.imageSmoothingQuality = 'high';
+    c.ctx.drawImage(img, 0, 0, px.w, px.h);
+    canvas = c.canvas;
+  } catch {
+    canvas = img;
+  }
+  ICONS.set(img, { k, canvas });
+  return canvas;
+}
+
 /** the callout box centred on (cx, cy): fill, move-colour outline, prop icon, attack name, move hint / chips */
 function paintCallout(
   ctx: Ctx, cx: number, cy: number, w: number, h: number, color: string, icon: HTMLImageElement | null, name: string, textW: number,
@@ -185,9 +217,10 @@ function paintCallout(
   ctx.fill();
   ctx.stroke();
   if (icon) {
-    const ih = 26;
+    const ih = CALLOUT_ICON_H;
     const iw = (ih * icon.naturalWidth) / icon.naturalHeight;
-    ctx.drawImage(icon, cx - w / 2 + 8, cy - ih / 2, iw, ih);
+    const m = ctx.getTransform();
+    ctx.drawImage(smallIcon(icon, Math.hypot(m.a, m.b)), cx - w / 2 + 8, cy - ih / 2, iw, ih);
   }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
@@ -242,10 +275,44 @@ export function drawColleague(ctx: Ctx, lane: number, age: number): void {
 /** the move hints a callout can show, measured ahead with the callout names */
 const HINT_WORDS: readonly string[] = ['옆으로!', '숙여!', '점프!', '점프 2단!', '점프 3단!', '낮게!', '뒤에서! 옆으로!', '뒤에서! 점프!', '뒤에서! 숙여!'];
 
+const glyphsWarmed = new Set<string>();
+
+/**
+ * perf r4: the first fillText of a Korean string rasterises its glyphs (slow-frame profiles: ~20% in the
+ * callout's first frame) — paint the stage's callout names and hints once off screen at the device scale.
+ */
+function warmGlyphs(ids: readonly string[], k: number): void {
+  const key = `${k.toFixed(3)}|${ids.join(',')}`;
+  if (glyphsWarmed.has(key)) return;
+  glyphsWarmed.add(key);
+  try {
+    const { ctx } = makeCanvas(320 * k, 40 * k);
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.textBaseline = 'middle';
+    ctx.font = CALLOUT_FONT;
+    ctx.fillStyle = '#2E2433';
+    for (const id of ids) ctx.fillText(calloutName(id), 4, 20);
+    ctx.font = HINT_FONT;
+    for (const w of HINT_WORDS) for (const g of w.split(' ')) {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(g, 4, 20);
+      ctx.fillStyle = '#C2103A';
+      ctx.fillText(g, 4, 20);
+    }
+  } catch {
+    // no canvas: nothing to warm
+  }
+}
+
 /** perf r4: measure the stage's callout names and hints ahead (first-frame measureText spikes); false when done */
-export function warmCallouts(ctx: Ctx, ids: readonly string[]): boolean {
+export function warmCallouts(ctx: Ctx, ids: readonly string[], icon?: (id: string) => HTMLImageElement | null, k = 1): boolean {
   let n = 0;
-  for (const id of ids) n += textWidth(ctx, CALLOUT_FONT, calloutName(id)) > 0 ? 0 : 1;
+  for (const id of ids) {
+    n += textWidth(ctx, CALLOUT_FONT, calloutName(id)) > 0 ? 0 : 1;
+    const img = icon?.(id);
+    if (img) smallIcon(img, k);
+  }
+  warmGlyphs(ids, k);
   for (const w of HINT_WORDS) n += textWidth(ctx, HINT_FONT, w) > 0 ? 0 : 1;
   return n > 0;
 }

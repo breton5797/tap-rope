@@ -23,9 +23,9 @@ import { COPY } from '../../flavor';
 import { overlayState } from '../ui/mission';
 import { SIGN_LEAD, beatHint, chevronPlan, rearArrow, safeArrow, safeArrowX, safeLanes, scanSigns, stayLowBand } from './readability';
 import { hudBand, lastHudBand, setCalloutBottom } from './hud-band';
-import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, preloadImages } from './images';
+import { OFFICE_ART, OFFICE_EXTRA_ART, loadImages, officeImage, preloadImages } from './images';
 import {
-  actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, recordOverflowed, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord, stagePropIds, warmStep,
+  actionCue, beatIdOf, drawRecordedSilhouettes, propIdFor, recordOverflowed, propImage, setFocusLane, setPropFrame, startPropRecord, stopPropRecord, stagePropIds, propSpriteNames, warmStep,
 } from './props';
 import { KICK_TIME, blackoutAlpha, kickKeyframes, surpriseKick, type Rect } from './surprise';
 import {
@@ -59,6 +59,15 @@ const KICK_STEPS = 12;
 /** prop outline bakes per frame while warming, and the run progress until which warming continues */
 const WARM_PER_FRAME = 2;
 const WARM_UNTIL = 0.03;
+
+/** the callout icon sprite of a prop id (its first loaded sprite) */
+function propIconFor(id: string): HTMLImageElement | null {
+  for (const name of propSpriteNames(id)) {
+    const img = officeImage(name);
+    if (img) return img;
+  }
+  return null;
+}
 
 /** a tutorial stop (the frozen world's hand prompt, DOM) is on screen */
 const stopUp = (): boolean => typeof document !== 'undefined' && document.querySelector('.tstop') !== null;
@@ -235,7 +244,7 @@ class OfficeRenderer implements Renderer {
     if (run && (!snap.running || run.progress < WARM_UNTIL || snap.boss?.state === 'intro')) {
       // one hero frame set per frame first (its scans are the biggest), then the prop outlines
       if (!warmHeroSets(snap.skin) && !(this.ctx && warmPopups(this.ctx, this.view.k))) {
-        if (this.ctx) warmCallouts(this.ctx, stagePropIds(run.stageIndex));
+        if (this.ctx) warmCallouts(this.ctx, stagePropIds(run.stageIndex), propIconFor, this.view.k);
         warmStep(run.stageIndex, WARM_PER_FRAME);
       }
     }
