@@ -43,3 +43,23 @@ describe('a tutorial stop owns the screen (P3)', () => {
     expect(root.querySelector('.tstop')).not.toBeNull();
   });
 });
+
+describe('leaving a run clears its tutorial stop', () => {
+  // quit / retry from the pause menu during a freeze, or the result card: hideAll used to clear the whole layer,
+  // but the strip guard above made renderTutorial(null) keep the stop — a stale "TAP" hand on the menu / next run
+  const mk = async () => {
+    const { createUi } = await import('../../src/ui/index');
+    const root = document.createElement('div');
+    return { root, ui: createUi(root, new Proxy({}, { get: () => () => undefined }) as UiCallbacks) };
+  };
+
+  it('hideAll removes an active stop prompt', async () => {
+    const { root, ui } = await mk();
+    ui.showHud();
+    ui.showTutorialStop({ step: 'jump', dir: null });
+    ui.hideAll();
+    expect(root.querySelector('.tstop')).toBeNull();
+    ui.showTutorial('slide'); // and strips work again on the next run
+    expect(root.querySelector('.tut')).not.toBeNull();
+  });
+});
