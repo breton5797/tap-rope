@@ -162,3 +162,18 @@ export function holdFocus(el: HTMLElement): void {
   if (typeof requestAnimationFrame === 'function') requestAnimationFrame(go);
   else go();
 }
+
+/**
+ * Start (or replay) a class-driven CSS animation without a forced reflow (perf r4: `void el.offsetWidth` ran a
+ * full layout mid-frame on every boss hit): alternate `cls` and its `cls-b` twin — the stylesheet gives the twin
+ * an identically keyframed animation under another name, and a new animation-name restarts the animation.
+ */
+export function restartAnimation(el: Element, cls: string): void {
+  const twin = `${cls}-b`;
+  if (el.classList.contains(cls)) {
+    el.classList.replace(cls, twin);
+    return;
+  }
+  el.classList.remove(twin);
+  el.classList.add(cls);
+}

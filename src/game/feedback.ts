@@ -1,7 +1,7 @@
 /** Translates GameEvents into juice: particles, popups, sound and haptics. */
 import type { AudioApi, Beat, EffectsApi, ImpactOpts, ObstacleKind, PickupCue, StageDef } from '../types';
 import type { GameEvent, Session } from './session';
-import { COPY } from '../flavor';
+import { COPY, fillCopy } from '../flavor';
 
 export interface Haptics {
   vibrate(p: number | number[]): void;
@@ -249,7 +249,7 @@ export function playFeedback(d: FeedbackDeps, events: readonly GameEvent[], quie
         d.audio.setFever(true);
         d.haptics.vibrate([20, 40, 20]);
         break;
-      case 'combo': d.fx.popup(`x${e.combo} CHAIN`, 'combo'); d.audio.sfx('combo'); break;
+      case 'combo': d.fx.popup(fillCopy(COPY.comboPopup, { n: e.combo }), 'combo'); d.audio.sfx('combo'); break;
       case 'end':
         if (e.cleared) {
           d.fx.burst('confetti');

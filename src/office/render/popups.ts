@@ -8,6 +8,8 @@ import type { Ctx } from '../../render/util';
 import { lastHudBand } from './hud-band';
 
 export * from '../../render/popups';
+import { textWidth } from './text-width';
+import { makeCanvas } from '../../render/util';
 
 /** room kept between the HUD and the highest popup's text centre */
 const GAP = 16;
@@ -48,8 +50,7 @@ function halfWidest(ctx: Ctx, pool: PopupPool): number {
   let w = 0;
   for (const p of pool.items) {
     if (!p.active) continue;
-    ctx.font = fontOf(STYLE[p.style]?.size ?? 16);
-    w = Math.max(w, ctx.measureText(p.text).width);
+    w = Math.max(w, textWidth(ctx, fontOf(STYLE[p.style]?.size ?? 16), p.text));
   }
   // the settle-in pop (×1.12) and the stroke both widen the drawn text
   return (w * POPUP_SCALE * 1.12) / 2 + 3;
@@ -71,6 +72,75 @@ export function calloutFade(callout: number): number {
   return Number.isFinite(callout) ? UNDER_CALLOUT : 1;
 }
 
+/** bitmap render scales (device px per text unit) are rounded up to this step: a few bitmaps per text */
+const BUCKET = 0.25;
+
+/** the bitmap scale for a draw at `m` device px per text unit (never below it: bitmaps are only downscaled) */
+export function popupBucket(m: number): number {
+  return Math.ceil(m / BUCKET - 1e-9) * BUCKET;
+}
+
+/** the popup text painted as before: white outer rim, dark ink, the style colour (centre at 0, 0) */
+function paintText(ctx: Ctx, text: string, size: number, color: string): void {
+  ctx.font = fontOf(size);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  // white outer rim, then dark ink: the teal PERFECT reads on pastel walls too (art review)
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeText(text, 0, 0);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(46,36,51,0.85)';
+  ctx.strokeText(text, 0, 0);
+  ctx.fillStyle = color;
+  ctx.fillText(text, 0, 0);
+}
+
+interface TextBitmap {
+  readonly canvas: HTMLCanvasElement;
+  /** text units from the bitmap's centre to its edges */
+  readonly halfW: number;
+  readonly halfH: number;
+}
+
+/**
+ * perf r4: each (text, style, scale bucket) is painted once into a bitmap and blitted — three text passes
+ * per popup per frame were ~4% of a dense frame. Null where no canvas can be made (tests): paint directly.
+ */
+const BITMAPS = new Map<string, TextBitmap | null>();
+
+function textBitmap(ctx: Ctx, text: string, size: number, color: string, scale: number): TextBitmap | null {
+  const key = `${size}|${color}|${scale}|${text}`;
+  const hit = BITMAPS.get(key);
+  if (hit !== undefined) return hit;
+  if (BITMAPS.size > 96) BITMAPS.clear();
+  let out: TextBitmap | null = null;
+  try {
+    const halfW = textWidth(ctx, fontOf(size), text) / 2 + 6;
+    const halfH = size * 0.8 + 4;
+    if (halfW > 6) {
+      const { canvas, ctx: b } = makeCanvas(2 * halfW * scale, 2 * halfH * scale);
+      b.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height / 2);
+      paintText(b, text, size, color);
+      out = { canvas, halfW: canvas.width / scale / 2, halfH: canvas.height / scale / 2 };
+    }
+  } catch {
+    out = null;
+  }
+  // a missing width (fonts not ready) is not cached as a failure
+  if (out || textWidth(ctx, fontOf(size), text) > 0) BITMAPS.set(key, out);
+  return out;
+}
+
+// a web font that finishes loading changes the glyphs: paint again
+if (typeof document !== 'undefined') document.fonts?.addEventListener?.('loadingdone', () => BITMAPS.clear());
+
+/** a fixed word is baked once; a text with a number (combo counts, ₵ amounts) changes every time: painted */
+export function bitmapWorthy(text: string): boolean {
+  return !/\d/.test(text);
+}
+
 function drawOne(ctx: Ctx, p: PopupPool['items'][number], fade: number): void {
   const st = STYLE[p.style] ?? STYLE.info;
   const k = Math.min(1, p.age / 0.12);
@@ -80,19 +150,10 @@ function drawOne(ctx: Ctx, p: PopupPool['items'][number], fade: number): void {
   ctx.globalAlpha = popupAlpha(p.age, p.life) * fade;
   ctx.translate(PLAYER_X, y);
   ctx.scale(sc, sc);
-  ctx.font = fontOf(st.size);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineJoin = 'round';
-  // white outer rim, then dark ink: the teal PERFECT reads on pastel walls too (art review)
-  ctx.lineWidth = 7;
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.strokeText(p.text, 0, 0);
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(46,36,51,0.85)';
-  ctx.strokeText(p.text, 0, 0);
-  ctx.fillStyle = st.color;
-  ctx.fillText(p.text, 0, 0);
+  const m = ctx.getTransform();
+  const bmp = bitmapWorthy(p.text) ? textBitmap(ctx, p.text, st.size, st.color, popupBucket(Math.hypot(m.a, m.b))) : null;
+  if (bmp) ctx.drawImage(bmp.canvas, -bmp.halfW, -bmp.halfH, 2 * bmp.halfW, 2 * bmp.halfH);
+  else paintText(ctx, p.text, st.size, st.color);
   ctx.restore();
 }
 
@@ -108,6 +169,9 @@ export function popupRise(line: number, highest: number): number {
   if (!Number.isFinite(line)) return 0;
   return Math.max(0, line + GAP - highest - DRIFT + DRIFT * POPUP_SCALE);
 }
+
+/** half the white outer rim's stroke (7 px) around the judgement text: part of its drawn box */
+export const POPUP_RIM = 3.5;
 
 /** room between the attack callout's bottom and the top of the highest judgement text (logical px) */
 const CALLOUT_MARGIN = 6;
@@ -143,7 +207,7 @@ function stackShift(items: readonly PopupGeom[], callout: number, hudLine: numbe
   let shift = popupRise(hudLine, anchor - DRIFT);
   if (Number.isFinite(callout)) {
     let top = Number.POSITIVE_INFINITY;
-    for (const p of items) top = Math.min(top, anchor + POPUP_SCALE * (restY(p) - anchor) - (p.size / 2) * popScale(p.age) * POPUP_SCALE);
+    for (const p of items) top = Math.min(top, anchor + POPUP_SCALE * (restY(p) - anchor) - (p.size / 2 + POPUP_RIM) * popScale(p.age) * POPUP_SCALE);
     shift = Math.max(shift, callout + CALLOUT_MARGIN - top);
   }
   return shift;
@@ -155,7 +219,7 @@ export function popupBoxes(items: readonly PopupGeom[], callout: number, hudLine
   const shift = stackShift(items, callout, hudLine);
   return items.map((p) => {
     const centre = anchor + shift + POPUP_SCALE * (restY(p) - anchor);
-    return { centre, top: centre - (p.size / 2) * popScale(p.age) * POPUP_SCALE };
+    return { centre, top: centre - (p.size / 2 + POPUP_RIM) * popScale(p.age) * POPUP_SCALE };
   });
 }
 
@@ -190,4 +254,27 @@ export function drawPopups(ctx: Ctx, pool: PopupPool): void {
   const fade = calloutFade(band.callout);
   for (const p of pool.items) if (p.active) drawOne(ctx, p, fade);
   ctx.restore();
+}
+
+/** the fixed popup words with their styles, baked ahead (the run's first PERFECT no longer pays for its bitmap) */
+const WARM_WORDS: readonly (readonly [string, string])[] = [['PERFECT', 'perfect'], ['GREAT', 'great'], ['GOOD', 'good'], ['OVERDRIVE', 'combo']];
+
+/** what warmPopups bakes for a view of `k` device px per logical px: the words and the pop's scale buckets */
+export function warmPopupPlan(k: number): { texts: string[]; buckets: number[] } {
+  const buckets = [...new Set([1, 1.04, 1.08, 1.12].map((sc) => popupBucket(k * POPUP_SCALE * sc)))];
+  return { texts: WARM_WORDS.map(([t]) => t), buckets };
+}
+
+/** bake one pending warm-up bitmap; false once all are baked (call while idle) */
+export function warmPopups(ctx: Ctx, k: number): boolean {
+  const { buckets } = warmPopupPlan(k);
+  for (const [text, style] of WARM_WORDS) {
+    const st = STYLE[style] ?? STYLE.info;
+    for (const b of buckets) {
+      if (BITMAPS.has(`${st.size}|${st.color}|${b}|${text}`)) continue;
+      textBitmap(ctx, text, st.size, st.color, b);
+      return true;
+    }
+  }
+  return false;
 }

@@ -72,6 +72,49 @@ describe('office copy', () => {
       .toEqual(['REC {n}', '{n} SHOTS', 'LOCKED', '미확인 기록', 'SERVICE RECORD', 'ACHIEVEMENT UNLOCKED']);
   });
 
+  it('part-1 playtest: office screens read in Korean (judgement words PERFECT/GREAT/GOOD/MISS stay as game-feel words)', () => {
+    expect(COPY.titleGoalLabel).toBe('다음');
+    expect(COPY.nodeNextFlag).toBe('다음');
+    expect(COPY.comboLabel).toBe('연속');
+    expect(COPY.comboPopup).toBe('{n} 연속!');
+    expect(COPY.tutTapLabel).toBe('탭!');
+    expect(COPY.autoplayNote).toBe('자동 플레이 · 보상 없음');
+    expect(COPY.ctlKicker).toBe('조작법');
+    expect(COPY.ctlTitle).toBe('양손으로 퇴근하기');
+    expect(COPY.shopRoster).toBe('사원 {n}/{total}');
+    const text = Object.values(COPY).join(' ');
+    expect(text).not.toMatch(/CLOCK|CHAIN|NEXT|\bTAP\b|AUTOPLAY|CONTROL SCHEME|ROSTER|조작 체계/);
+    // all-caps English left on purpose: the judgement word MISS and the pause kicker COFFEE BREAK
+    expect(Object.values(COPY).filter((v) => /[A-Z]{3,}/.test(v)).every((v) => v.startsWith('MISS · ') || v === 'COFFEE BREAK')).toBe(true);
+    expect(COPY.pauseKicker).toBe('COFFEE BREAK');
+  });
+
+  it('one word per move: 점프 / 숙이기 / 줄 바꾸기 (no 슬라이딩, 레인, 옆으로 비키기 in office copy)', () => {
+    const text = Object.values(COPY).join(' ');
+    expect(text).not.toMatch(/슬라이딩|레인|옆으로 비키/);
+    expect(COPY.ctlLeftMove).toBe('줄 바꾸기');
+    expect(COPY.ctlRightSlide).toBe('숙이기');
+    expect(COPY.ctlLeftAria).toContain('줄 바꾸기');
+    expect(COPY.ctlRightAria).toContain('숙이기');
+    expect(COPY.ctlKeysAria).toMatch(/줄 바꾸기.*점프.*숙이기/);
+    expect([COPY.ctlKeyLane, COPY.ctlKeySlide]).toEqual([' 줄 바꾸기', ' 숙이기']);
+    expect(COPY.guideLead).toContain('줄 바꾸기');
+  });
+
+  it('stage 5 leads into the street: the next button reads 퇴근길로!', () => {
+    expect(COPY.resultNextToPart2).toBe('퇴근길로!');
+    expect(V8_COPY.resultNextToPart2).toBe(V8_COPY.resultNext);
+  });
+
+  it('v8 keeps its inline strings for the new part-1 keys', () => {
+    expect([V8_COPY.ctlTitle, V8_COPY.shopRoster]).toEqual(['양손 조작 체계', 'ROSTER {n}/{total}']);
+    expect([V8_COPY.titleGoalLabel, V8_COPY.nodeNextFlag, V8_COPY.comboLabel, V8_COPY.comboPopup, V8_COPY.tutTapLabel, V8_COPY.autoplayNote, V8_COPY.ctlKicker])
+      .toEqual(['NEXT', 'NEXT', 'CHAIN', 'x{n} CHAIN', 'TAP', 'AUTOPLAY · 보상 없음', 'CONTROL SCHEME']);
+    expect([V8_COPY.ctlLeftMove, V8_COPY.ctlLeftAria, V8_COPY.ctlRightSlide, V8_COPY.ctlRightAria, V8_COPY.ctlKeysAria, V8_COPY.ctlKeyLane, V8_COPY.ctlKeySlide])
+      .toEqual(['레인 이동', '화면 왼쪽: 위나 아래로 밀어 레인 이동', '슬라이딩', '화면 오른쪽: 탭하면 점프, 아래로 밀면 슬라이딩',
+        '키보드: 위아래 화살표 레인, 스페이스 점프, 시프트 또는 S 슬라이딩', ' 레인', ' 슬라이딩']);
+  });
+
   it('the store / home-screen description tells both parts (18:00 칼퇴, then home by 18:30)', () => {
     const html = readFileSync(new URL('../../office.html', import.meta.url), 'utf8');
     const meta = /<meta name="description" content="([^"]+)"/.exec(html)?.[1] ?? '';

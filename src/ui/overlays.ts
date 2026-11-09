@@ -48,6 +48,9 @@ export function renderCountdown(layer: HTMLElement, n: number | null): void {
 // ---------- tutorial ----------
 
 export function renderTutorial(layer: HTMLElement, ctx: Ctx, move: MoveId | null): void {
+  // a tutorial stop (the frozen world's hand prompt) owns the layer: a hint strip never replaces or clears it
+  // (P1: a strip due on the freeze frame wiped the prompt and the world stayed frozen with no instruction)
+  if (layer.querySelector('.tstop')) return;
   if (move === null) {
     layer.replaceChildren();
     return;
@@ -110,7 +113,7 @@ export function renderTutorialStop(layer: HTMLElement, stop: { readonly step: St
   const copy = STOP_COPY[stop.step];
   const side = stop.step === 'lane' ? 'left' : 'right';
   const dir: 0 | LaneDir = stop.step === 'jump' ? 0 : stop.step === 'slide' ? 1 : (stop.dir ?? 1);
-  const label = stop.step === 'jump' ? 'TAP' : dir > 0 ? '↓' : '↑';
+  const label = stop.step === 'jump' ? COPY.tutTapLabel : dir > 0 ? '↓' : '↑';
   layer.replaceChildren(
     h('div', { cls: `tstop tstop--${side}`, attrs: { role: 'status' } }, [
       h('div', { cls: 'tstop__pad' }, [

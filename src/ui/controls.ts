@@ -2,6 +2,7 @@
 // Shown as a blocking card on first play and reused (compact) at the top of the guide sheet.
 import { button, h, svg, type Child, type Ctx } from './dom';
 import { icons } from './icons';
+import { COPY } from '../flavor';
 
 const FINGER = '#3fe0d0';
 const LINE = { fill: 'none', stroke: FINGER, 'stroke-width': 2, 'stroke-linecap': 'square', 'stroke-linejoin': 'miter' } as const;
@@ -43,14 +44,14 @@ function half(side: 'left' | 'right', hand: string, art: SVGElement, label: read
 /** The split illustration (left = lanes, right = jump/slide). */
 export function controlsDiagram(compact = false): HTMLElement {
   return h('div', { cls: `ctl__split${compact ? ' ctl__split--compact' : ''}` }, [
-    half('left', '왼쪽', laneThumbArt(), [h('b', { text: '위·아래로 밀기' }), h('br'), '레인 이동'], '화면 왼쪽: 위나 아래로 밀어 레인 이동'),
+    half('left', '왼쪽', laneThumbArt(), [h('b', { text: '위·아래로 밀기' }), h('br'), COPY.ctlLeftMove], COPY.ctlLeftAria),
     h('i', { cls: 'ctl__divider', attrs: { 'aria-hidden': 'true' } }),
     half(
       'right',
       '오른쪽',
       actionThumbArt(),
-      [h('b', { text: '탭' }), ' 점프', h('br'), h('b', { text: '아래로 밀기' }), h('br'), '슬라이딩'],
-      '화면 오른쪽: 탭하면 점프, 아래로 밀면 슬라이딩',
+      [h('b', { text: '탭' }), ' 점프', h('br'), h('b', { text: '아래로 밀기' }), h('br'), COPY.ctlRightSlide],
+      COPY.ctlRightAria,
     ),
   ]);
 }
@@ -58,8 +59,8 @@ export function controlsDiagram(compact = false): HTMLElement {
 function keyLine(): HTMLElement {
   const key = (k: string): HTMLElement => h('kbd', { cls: 'ctl__kbd', text: k });
   const group = (parts: readonly Child[]): HTMLElement => h('span', { cls: 'ctl__keygroup' }, parts);
-  return h('p', { cls: 'ctl__keys', attrs: { 'aria-label': '키보드: 위아래 화살표 레인, 스페이스 점프, 시프트 또는 S 슬라이딩' } }, [
-    group([key('↑↓'), ' 레인']), ' · ', group([key('Space'), ' 점프']), ' · ', group([key('Shift'), '/', key('S'), ' 슬라이딩']),
+  return h('p', { cls: 'ctl__keys', attrs: { 'aria-label': COPY.ctlKeysAria } }, [
+    group([key('↑↓'), COPY.ctlKeyLane]), ' · ', group([key('Space'), ' 점프']), ' · ', group([key('Shift'), '/', key('S'), COPY.ctlKeySlide]),
   ]);
 }
 
@@ -102,8 +103,8 @@ export function buildControls(ctx: Ctx, onDone: () => void): HTMLElement {
   const ok = button({ label: '확인', variant: 'sun', size: 'lg', icon: icons.play(), cls: 'ctl__ok', onPress: close });
   const screen = h('section', { cls: 'screen screen--modal screen--controls', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'ctl-title' } }, [
     h('div', { cls: 'ctl card pop-in' }, [
-      h('div', { cls: 'kicker', text: 'CONTROL SCHEME' }),
-      h('h2', { cls: 'ctl__title', text: '양손 조작 체계', attrs: { id: 'ctl-title' } }),
+      h('div', { cls: 'kicker', text: COPY.ctlKicker }),
+      h('h2', { cls: 'ctl__title', text: COPY.ctlTitle, attrs: { id: 'ctl-title' } }),
       controlsDiagram(),
       keyLine(),
       ok,

@@ -23,6 +23,8 @@ export const PART2_PROPS = [
   'taxi', 'laptop', 'mic-stand', 'skewer', 'video-call', 'smartphone',
   // playtest round 2: own shapes for 문상무's 계산기, 윤이사's 탬버린 and 최팀장's "진짜 5분" bubble
   'calculator', 'tambourine', 'call-bubble',
+  // quality round 4: the former callout-only aliases get their own shapes
+  'survey-box', 'sign-board', 'pen', 'audit-board', 'taxi-receipt', 'excel-sheet', 'skewer-tray', 'mic', 'home-clipboard',
 ] as const;
 
 /** every prop sprite (public-office/art/prop-<id>.webp) */
@@ -31,12 +33,8 @@ export type OfficePropId = (typeof OFFICE_PROPS)[number];
 type Part1Prop = (typeof PART1_PROPS)[number];
 type Part2Prop = (typeof PART2_PROPS)[number];
 
-/** callout-only props: their own name, a part-1 sprite */
-export const PROP_ALIASES = {
-  'survey-box': 'papers', 'sign-board': 'clipboard', pen: 'pointer', 'audit-board': 'clipboard',
-  'taxi-receipt': 'paper-plane', 'excel-sheet': 'paper-jam', 'skewer-tray': 'coffee-tray', mic: 'pointer',
-  'home-clipboard': 'clipboard',
-} as const satisfies Readonly<Record<string, Part1Prop>>;
+/** callout-only props: their own name, a part-1 sprite (none left since round 4; kept for the lookup) */
+export const PROP_ALIASES = {} as const satisfies Readonly<Record<string, Part1Prop>>;
 export type AttackPropId = OfficePropId | keyof typeof PROP_ALIASES;
 
 /** the part-1 sprite drawn for a part-2 sprite that has not landed yet (same attack footprint) */
@@ -45,6 +43,8 @@ export const PROP_FALLBACK: Readonly<Record<Part2Prop, Part1Prop>> = {
   cane: 'revolving-door', 'rice-cake': 'envelope', 'gold-badge': 'envelope', megaphone: 'ceo-screen',
   taxi: 'cart', laptop: 'papers', 'mic-stand': 'corp-card', skewer: 'necktie', 'video-call': 'ceo-screen', smartphone: 'pointer',
   calculator: 'corp-card', tambourine: 'necktie', 'call-bubble': 'latte-bubble',
+  'survey-box': 'papers', 'sign-board': 'clipboard', pen: 'pointer', 'audit-board': 'clipboard', 'taxi-receipt': 'paper-plane',
+  'excel-sheet': 'paper-jam', 'skewer-tray': 'coffee-tray', mic: 'pointer', 'home-clipboard': 'clipboard',
 };
 
 /** what the superior shouts as the prop flies (the attack callout) */
@@ -128,8 +128,8 @@ const MOVE_ACTION: Readonly<Record<MoveId, string>> = {
   rear: '뒤 경고 표식을 보고 박자에 탭',
   pulse: '박자마다 짧게 연속 탭',
   lane: '왼쪽 위·아래로 밀어 줄 바꾸기',
-  drop: '경고등 줄에서 미리 비키기',
-  chaser: '표식 줄에서 옆으로 비키기',
+  drop: '경고등 줄에서 미리 줄 바꾸기',
+  chaser: '표식 줄에서 줄 바꾸기',
   lanejump: '줄 먼저 바꾸고 바로 탭',
 };
 

@@ -1,7 +1,7 @@
 // In-game HUD. updateHud runs every frame, so every write is diffed first.
 import { COPY, fillCopy } from '../flavor';
 import type { HudState } from '../types';
-import { animate, formatNumber, h, swallowInput, type Ctx } from './dom';
+import { animate, formatNumber, h, restartAnimation, swallowInput, type Ctx } from './dom';
 import { icons } from './icons';
 import { moveGlyph } from './moves';
 
@@ -79,7 +79,7 @@ function buildDom(ctx: Ctx): { el: HTMLElement; refs: Refs } {
     h('div', { cls: 'boss__bar' }, refs.bossCells),
   );
   refs.feverBar.append(refs.feverFill, icons.fire());
-  refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: 'CHAIN' }));
+  refs.combo.append(refs.comboNum, h('span', { cls: 'combo__label', text: COPY.comboLabel }));
   const el = h('div', { cls: 'hud' }, [
     h('div', { cls: 'hud__top' }, [
       pause,
@@ -111,11 +111,7 @@ function renderHearts(refs: Refs, hearts: number, max: number, prev: Prev, reduc
     node.classList.toggle('is-empty', !full);
     if (wasFull === full || prev.hearts === undefined) return;
     // a refill is tagged for skins that want a bigger cue (office: green pop on section-door heals)
-    if (full) {
-      node.classList.remove('is-refilled');
-      void (node as HTMLElement).offsetWidth; // restart the CSS animation on a second refill
-      node.classList.add('is-refilled');
-    }
+    if (full) restartAnimation(node, 'is-refilled');
     const frames = full
       ? [{ opacity: 0.3 }, { opacity: 1 }]
       : [{ background: '#ff2a3a', boxShadow: '0 0 10px #ff2a3a' }, { background: '#ff2a3a' }, {}];
@@ -203,10 +199,8 @@ function renderBoss(refs: Refs, b: HudState['boss'], prev: HudState['boss'] | un
   refs.boss.setAttribute('aria-valuenow', String(Math.round(hp * 100)));
   refs.boss.setAttribute('aria-valuetext', `${b.codename} ${Math.round(hp * 100)}%, ${fillCopy(COPY.bossPhaseAria, { n: phase + 1 })}`);
   if (prev && hp < prev.hp - 1e-4) {
-    refs.boss.classList.remove('is-hit');
-    void refs.boss.offsetWidth; // restart the flash
-    refs.boss.classList.add('is-hit');
-    if (reduced) refs.boss.classList.remove('is-hit');
+    if (reduced) refs.boss.classList.remove('is-hit', 'is-hit-b');
+    else restartAnimation(refs.boss, 'is-hit'); // restart the flash
   }
 }
 
@@ -265,8 +259,10 @@ export function createHud(ctx: Ctx): Hud {
     reset(): void {
       prev = {};
       refs.combo.classList.remove('is-visible');
+      // P3: the last run's chain (e.g. x47) never fades out over the next run's opening
+      refs.comboNum.textContent = '';
       refs.boss.hidden = true;
-      refs.boss.classList.remove('is-hit');
+      refs.boss.classList.remove('is-hit', 'is-hit-b');
       el.classList.remove('hud--boss');
     },
   };

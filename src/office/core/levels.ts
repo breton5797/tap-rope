@@ -146,6 +146,42 @@ function doorShield(next: readonly Beat[]): Obstacle {
   return { kind: 'shield', level: 1, lanes: [free.includes(1) ? 1 : free[0]] };
 }
 
+/** seconds a tutorial stop leaves before the next hazard (stage 1, MissionSpec.teach) */
+export const TEACH_ROOM = 1.5;
+
+/** the tutorial step a beat teaches (the same rule as game/tutorial.ts stepOf), or null */
+function teachStep(b: Beat): 'lane' | 'slide' | 'jump' | null {
+  const kinds = b.obstacles.map((o) => o.kind);
+  const jump = kinds.some((k) => k === 'floor' || k === 'beam');
+  const slide = kinds.some((k) => k === 'high' || k === 'ceiling');
+  if (b.blockedLanes.length > 0) return jump || slide ? null : 'lane';
+  if (slide) return jump ? null : 'slide';
+  return jump && b.requiredLevel === 1 ? 'jump' : null;
+}
+
+/**
+ * teach: after the first plain beat of each step (where a fresh save's tutorial freezes), everything later —
+ * beats, shields, doors — moves later on the half-beat grid until the next hazard is TEACH_ROOM after that beat
+ * (≥ TEACH_ROOM after the stop, which sits before the beat). Gaps only grow.
+ */
+function teachRoom(stage: Stage, teaching: (b: Beat) => boolean, half: number): Stage {
+  let { beats, doors } = stage;
+  const seen = new Set<string>();
+  for (let i = 0; i < beats.length; i += 1) {
+    const b = beats[i];
+    const step = teaching(b) ? teachStep(b) : null;
+    if (step === null || seen.has(step)) continue;
+    seen.add(step);
+    const next = beats.slice(i + 1).find(isHazard);
+    const short = next ? b.time + TEACH_ROOM - next.time : 0;
+    if (short <= 1e-9) continue;
+    const shift = Math.ceil(short / half - 1e-9) * half;
+    beats = beats.map((x, k) => (k > i ? { ...x, time: x.time + shift } : x));
+    doors = doors.map((d) => (d.time > b.time ? { ...d, time: d.time + shift } : d));
+  }
+  return { beats, doors };
+}
+
 function composeOffice(stage: StageDef, specs: readonly MissionSpec[], cfg: PhysicsConfig, startTime: number): Stage {
   const half = 30 / stage.bpm;
   const breakSlots = Math.ceil(DOOR_BREAK / half - 1e-9);
@@ -182,7 +218,8 @@ function composeOffice(stage: StageDef, specs: readonly MissionSpec[], cfg: Phys
     const placed = p.beats.map((b, i): Beat => ({ ...b, time: startTime + (base + p.slots[i]) * half, section: k, part: k }));
     beats = [...beats, ...placed];
   });
-  return { beats: beats.map((b, id) => ({ ...b, id })), doors };
+  const stitched = { beats: beats.map((b, id) => ({ ...b, id })), doors };
+  return specs.some((s) => s.teach) ? teachRoom(stitched, (b) => specs[b.part ?? 0]?.teach === true, half) : stitched;
 }
 
 /** Office stages: three stitched mission parts; anything else: the v8 generator. */

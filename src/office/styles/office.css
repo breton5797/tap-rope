@@ -1016,9 +1016,9 @@ body {
 /* the stamp as a section ends */
 .mission-stamp {
   position: absolute;
-  left: 50%;
-  /* below the canvas boss-phase banner */
-  top: 42%;
+  /* above the hero's side, over the wall: clear of the superior's throws and the lanes (part-1 audit) */
+  left: 30%;
+  top: 33%;
   display: grid;
   justify-items: center;
   gap: 6px;
@@ -1281,13 +1281,24 @@ body {
   animation: heart-refill 480ms ease-out;
 }
 
+/* the twin (restartAnimation alternates the classes: a new name restarts it) */
+.heart.is-refilled-b {
+  animation: heart-refill-b 480ms ease-out;
+}
+
 @keyframes heart-refill {
   0% { transform: scale(1.7); box-shadow: 0 0 12px #3ddc84; }
   100% { transform: scale(1); box-shadow: none; }
 }
 
+@keyframes heart-refill-b {
+  0% { transform: scale(1.7); box-shadow: 0 0 12px #3ddc84; }
+  100% { transform: scale(1); box-shadow: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .heart.is-refilled { animation: none; }
+  .heart.is-refilled,
+  .heart.is-refilled-b { animation: none; }
 }
 
 /* during play the achievement banner is one compact line over the score (not under the boss bar, where the
@@ -1318,7 +1329,10 @@ body {
 .mission-chip,
 .brief,
 .floors__tab,
-.floors__teaser {
+.floors__teaser,
+.picker,
+.skin,
+.shop {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
@@ -1340,4 +1354,15 @@ body {
   color: var(--teal);
   font-size: 18px;
   font-weight: 900;
+}
+
+/* P3: the tutorial stop's hand sits low in its half (over the floor), not over the superior's face */
+.tstop__pad {
+  place-content: end center;
+  padding-bottom: 36px;
+}
+
+/* the controls card's 확인 sat on the panels' bottom border */
+.screen--controls .ctl__ok {
+  margin-top: 14px;
 }

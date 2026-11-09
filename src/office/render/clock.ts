@@ -2,6 +2,7 @@
 // (the DOM HUD covers the corridor's top band on phones).
 import { roundRect, type Ctx } from '../../render/util';
 import { LANE_TOP, type View } from '../../render/view';
+import { textWidth } from './text-width';
 
 /** css px between the clock's centre and the rhythm lane's top edge */
 const ABOVE_LANE = 26;
@@ -26,12 +27,14 @@ export function clockUrgent(stageIndex: number, progress01: number): boolean {
   return DEADLINE_STAGES.has(stageIndex) && progress01 > URGENT_FROM;
 }
 
+const CLOCK_FONT = '800 17px ui-rounded, system-ui, sans-serif';
+
 export function drawClock(ctx: Ctx, v: View, text: string, urgent: boolean): void {
   const Y = clockY(v);
-  ctx.font = '800 17px ui-rounded, system-ui, sans-serif';
+  ctx.font = CLOCK_FONT;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const w = ctx.measureText(text).width + 34;
+  const w = textWidth(ctx, CLOCK_FONT, text) + 34;
   const x = v.x0 + v.w - w / 2 - 10;
   ctx.fillStyle = 'rgba(20,24,44,0.78)';
   roundRect(ctx, x - w / 2, Y - 14, w, 28, 14);

@@ -106,3 +106,32 @@ describe('placeBubble', () => {
     expect(low - 13).toBeGreaterThanOrEqual(300);
   });
 });
+
+describe('kickTransform (perf r4: the kick on the compositor, not a canvas self-copy)', () => {
+  it('keeps the kick zoom and shake, and always covers the screen edges (no background strip)', async () => {
+    const { kickTransform } = await import('../../src/office/render/surprise');
+    for (const age of [0, 0.03, 0.075, 0.12, 0.149]) {
+      const k = surpriseKick(age, 0);
+      for (const t of [0.01, 0.37, 1.9]) {
+        const x = kickTransform(k, t, 390, 844, 1);
+        expect(x.scale).toBeGreaterThanOrEqual(k.zoom);
+        expect(((x.scale - 1) * 390) / 2).toBeGreaterThanOrEqual(Math.abs(x.tx) - 1e-9);
+        expect(((x.scale - 1) * 844) / 2).toBeGreaterThanOrEqual(Math.abs(x.ty) - 1e-9);
+      }
+    }
+    expect(kickTransform(surpriseKick(1, 0), 0.5, 390, 844, 1)).toEqual({ scale: 1, tx: 0, ty: 0 });
+  });
+});
+
+describe('kickKeyframes (perf r4: one compositor animation per kick, no per-frame style writes)', () => {
+  it('samples kickTransform over KICK_TIME, starting and ending at rest-equivalent', async () => {
+    const { kickKeyframes, kickTransform, KICK_TIME } = await import('../../src/office/render/surprise');
+    const frames = kickKeyframes(10, 390, 844, 1.2, 12);
+    expect(frames).toHaveLength(13);
+    expect(frames[0].offset).toBe(0);
+    expect(frames[12].offset).toBe(1);
+    expect(frames[12].transform).toBe('none');
+    const mid = kickTransform(surpriseKick(10 + KICK_TIME / 2, 10), 10 + KICK_TIME / 2, 390, 844, 1.2);
+    expect(frames[6].transform).toBe(`translate(${mid.tx.toFixed(2)}px, ${mid.ty.toFixed(2)}px) scale(${mid.scale.toFixed(4)})`);
+  });
+});

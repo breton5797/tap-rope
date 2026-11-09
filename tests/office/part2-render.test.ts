@@ -196,7 +196,8 @@ describe('part-2 props in the renderer (core props.ts)', () => {
     setPropFrame('sewer-eye', 5, undefined, 6);
     const o = { id: '3-0', kind: 'guard' as const };
     expect(propIdFor(o)).toBe(attackVariant('sewer-eye', 'lane', 5, 3, 7));
-    expect(propSpriteNames('survey-box')).toEqual(['prop-papers']);
+    // round 4: survey-box has its own sprite (the old alias look is its fallback)
+    expect(propSpriteNames('survey-box')).toEqual(['prop-survey-box', 'prop-papers']);
     expect(propSpriteNames('taxi')).toEqual(['prop-taxi', 'prop-cart']);
     expect(propSpriteNames('postit')).toEqual(['prop-postit']);
   });
@@ -301,5 +302,102 @@ describe('lane art while a collectible sprite is loading (code review)', () => {
     expect(laneCollectibleArt(coin.id, 'coin')).not.toBeNull();
     const plain = beats.find((b) => b.part === 0 && b.obstacles.some((o) => o.kind === 'coin'));
     if (plain) expect(laneCollectibleArt(plain.id, 'coin')).toBeNull();
+  });
+});
+
+describe('popup bitmaps (perf r4)', () => {
+  it('render scale buckets round up (the bitmap is only ever downscaled: crisp) and stay few per text', async () => {
+    const { popupBucket } = await import('../../src/office/render/popups');
+    for (const m of [2.1, 2.7, 2.999, 3.0, 3.36]) {
+      const b = popupBucket(m);
+      expect(b).toBeGreaterThanOrEqual(m);
+      expect(b - m).toBeLessThan(0.25);
+    }
+    // one popup's whole pop (1.12 → 1 at 1.35× on a 2× screen): at most 3 bitmaps
+    const set = new Set([1, 1.03, 1.06, 1.09, 1.12].map((sc) => popupBucket(2 * 1.35 * sc)));
+    expect(set.size).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('prop outline warm-up queue (perf r4: no first-appearance bake spikes)', () => {
+  it('lists every sprite + move-colour pair the stage superiors can throw, each once', async () => {
+    const { warmList } = await import('../../src/office/render/props');
+    const list = warmList(9); // stage 10: 최팀장, 한전무, 회장님
+    const keys = list.map((w) => `${w.name}|${w.cue}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(list.length).toBeGreaterThan(5);
+    expect(list.every((w) => w.name.startsWith('prop-'))).toBe(true);
+    expect(new Set(list.map((w) => w.cue))).toEqual(new Set(['lane', 'jump', 'slide', 'low']));
+  });
+});
+
+describe('perf r4 warm-up details', () => {
+  it('popup bitmaps only for fixed words (a combo count changes every beat: painted, never baked per number)', async () => {
+    const { bitmapWorthy } = await import('../../src/office/render/popups');
+    expect(bitmapWorthy('PERFECT')).toBe(true);
+    expect(bitmapWorthy('MISS · 줄 바꾸기!')).toBe(true);
+    expect(bitmapWorthy('x23 CHAIN')).toBe(false);
+    expect(bitmapWorthy('+₵1350')).toBe(false);
+  });
+
+  it('hero set scales are warmed one set per call, then nothing is left', async () => {
+    const { warmHeroSets } = await import('../../src/office/render/hero-scale');
+    const seen: string[] = [];
+    const left = [warmHeroSets('kid', (s) => seen.push(s)), warmHeroSets('kid', (s) => seen.push(s)), warmHeroSets('kid', (s) => seen.push(s)), warmHeroSets('kid', (s) => seen.push(s))];
+    expect(seen).toEqual(['jump', 'slide', 'hit']);
+    expect(left).toEqual([true, true, true, false]);
+  });
+});
+
+describe('popup bitmap warm-up', () => {
+  it('names the fixed judgement words and the scale buckets of their whole pop', async () => {
+    const { warmPopupPlan } = await import('../../src/office/render/popups');
+    const plan = warmPopupPlan(2);
+    expect(plan.texts).toEqual(expect.arrayContaining(['PERFECT', 'GREAT', 'GOOD']));
+    expect(plan.buckets.length).toBeGreaterThan(0);
+    expect(plan.buckets.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('callout text warm-up', () => {
+  it('stagePropIds lists the ids the stage superiors throw (callout names to measure ahead)', async () => {
+    const { stagePropIds } = await import('../../src/office/render/props');
+    const { propCallout } = await import('../../src/office/render/props');
+    const ids = stagePropIds(5); // stage 6: 강차장
+    expect(ids.length).toBeGreaterThan(3);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.every((id) => propCallout(id) !== '기습!')).toBe(true);
+  });
+});
+
+describe('tutorial stop vs the superior (P3)', () => {
+  it('the office stop hand sits low in its half, below the superior figure', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('src/office/styles/office.css', 'utf8');
+    expect(css).toMatch(/\.tstop__pad\s*\{[^}]*place-content:\s*end center/);
+  });
+});
+
+describe('judgement box includes its white rim (part-1 audit b)', () => {
+  it('the drawn top of a popup (text + half the 7 px rim, scaled) clears the callout', async () => {
+    const { popupBoxes, POPUP_RIM } = await import('../../src/office/render/popups');
+    expect(POPUP_RIM).toBeGreaterThanOrEqual(3.5);
+    const items = [{ y0: 300, bump: 30, age: 0, life: 0.6, size: 16 }, { y0: 300, bump: 0, age: 0, life: 0.6, size: 26 }];
+    for (const callout of [250, 300]) {
+      const boxes = popupBoxes(items, callout, Number.NEGATIVE_INFINITY);
+      // top includes the rim: the glyph box is at least rim px below the reported top
+      for (const b of boxes) expect(b.top).toBeGreaterThanOrEqual(callout);
+      const glyphTop = (b: { centre: number }, size: number) => b.centre - (size / 2 + POPUP_RIM) * 1.12 * 1.35;
+      expect(glyphTop(boxes[0], 16)).toBeGreaterThanOrEqual(callout - 1e-9);
+    }
+  });
+});
+
+describe('callout icon (perf r4)', () => {
+  it('pre-scaled icon size: 26 logical px tall at the device scale, aspect kept, at least 1 px', async () => {
+    const { iconPixels } = await import('../../src/office/render/surprise-fx');
+    expect(iconPixels(512, 640, 2)).toEqual({ w: 42, h: 52 });
+    expect(iconPixels(640, 512, 3)).toEqual({ w: 98, h: 78 });
+    expect(iconPixels(1, 1, 0.01)).toEqual({ w: 1, h: 1 });
   });
 });

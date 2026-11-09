@@ -51,7 +51,8 @@ describe('office picker', () => {
     expect(cards[3].querySelectorAll('canvas.picker__run')).toHaveLength(1);
     expect(el.querySelectorAll('canvas.picker__run')).toHaveLength(1);
     const confirm = el.querySelector<HTMLButtonElement>('.picker__confirm');
-    expect(confirm?.textContent).toContain('유행운');
+    expect(confirm?.textContent).toContain('유행운으로 출근!');
+    expect(confirm?.textContent).not.toContain('(으)');
     confirm?.click();
     expect(onPick).toHaveBeenCalledWith('robot');
   });

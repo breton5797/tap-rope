@@ -6,7 +6,8 @@ import { LANE_HAZARD_KINDS } from '../../types';
 import { BEAM_H, HIGH_H, flyingX } from '../../render/layout';
 import type { View } from '../../render/view';
 import { attackVariant } from '../core/events';
-import { PROP_CALLOUTS, propSprite } from '../core/props';
+import { PROP_CALLOUTS, propSprite, propsFor } from '../core/props';
+import { OFFICE_BOSSES } from '../core/boss';
 import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
 import { heightTicks } from './readability';
@@ -184,7 +185,8 @@ export function drawFootprint(
 /** a translucent dark-ink stroke of the current path under a footprint's rim (every floor, light or dark) */
 function inkRim(ctx: CanvasRenderingContext2D, width: number): void {
   const a = ctx.globalAlpha;
-  ctx.globalAlpha = a * 0.45;
+  // part-1 audit: strong enough to frame the amber ring on peach / cream floors too
+  ctx.globalAlpha = a * 0.7;
   ctx.strokeStyle = INK;
   ctx.lineWidth = width;
   ctx.stroke();
@@ -483,4 +485,73 @@ export function drawRecordedSilhouettes(ctx: CanvasRenderingContext2D, alpha: nu
     ctx.drawImage(sil ?? r.img, -r.w / 2, -r.h / 2, r.w, r.h);
   }
   ctx.restore();
+}
+
+/** the move colour each attack kind's props are outlined in (beam props: jump, their head-height twins: slide) */
+const KIND_CUES: Readonly<Record<BossAttackKind, readonly ActionCue[]>> = {
+  lane: ['lane'], floor: ['jump'], beam: ['jump', 'slide'], ceiling: ['slide'], drone: ['low'],
+};
+const KINDS: readonly BossAttackKind[] = ['lane', 'floor', 'beam', 'ceiling', 'drone'];
+
+export interface WarmItem {
+  readonly name: string;
+  readonly cue: ActionCue;
+}
+
+/**
+ * perf r4: every (sprite, move colour) pair the stage's superiors can throw (stageIndex 0-based), so their
+ * outline rings can be baked ahead (warmStep) instead of on the prop's first frame on screen.
+ */
+export function warmList(stageIndex: number): WarmItem[] {
+  const out: WarmItem[] = [];
+  const seen = new Set<string>();
+  for (const b of OFFICE_BOSSES) {
+    if (b.stage !== stageIndex + 1) continue;
+    for (const kind of KINDS) {
+      for (const id of propsFor(b.slot, kind, stageIndex + 1)) {
+        if (UNOUTLINED.has(propSpriteNames(id)[0])) continue;
+        for (const name of propSpriteNames(id)) {
+          for (const cue of KIND_CUES[kind]) {
+            const key = `${name}|${cue}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push({ name, cue });
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+const warm = { stage: -2, queue: [] as WarmItem[] };
+
+/** bake up to `budget` queued outline rings for stage `stageIndex` whose sprite has loaded (call while idle) */
+export function warmStep(stageIndex: number, budget: number): void {
+  if (warm.stage !== stageIndex) {
+    warm.stage = stageIndex;
+    warm.queue = stageIndex >= 0 ? warmList(stageIndex) : [];
+  }
+  let n = 0;
+  for (let i = 0; i < warm.queue.length && n < budget; ) {
+    const w = warm.queue[i];
+    const img = officeImage(w.name);
+    if (!img) {
+      i++;
+      continue;
+    }
+    bakedRings(img, w.cue);
+    warm.queue.splice(i, 1);
+    n++;
+  }
+}
+
+/** every prop id the stage's superiors can throw (stageIndex 0-based), each once */
+export function stagePropIds(stageIndex: number): string[] {
+  const out = new Set<string>();
+  for (const b of OFFICE_BOSSES) {
+    if (b.stage !== stageIndex + 1) continue;
+    for (const kind of KINDS) for (const id of propsFor(b.slot, kind, stageIndex + 1)) out.add(id);
+  }
+  return [...out];
 }

@@ -4,7 +4,7 @@
 import { SKINS } from '../core/content';
 import { watchSave } from '../core/storage';
 import { COSMETICS, buyCosmetic, equipCosmetic, type Cosmetic, type CosmeticKind } from '../core/economy';
-import { COPY, FEATURES } from '../flavor';
+import { COPY, FEATURES, fillCopy } from '../flavor';
 import type { SaveData, SkinMeta } from '../types';
 import { button, formatNumber, h, header, type Ctx } from './dom';
 import { avatar } from './avatar';
@@ -138,7 +138,7 @@ export function buildShop(ctx: Ctx, initial: SaveData, onBack: () => void, onLoc
         h('div', { cls: 'shop__info' }, [
           h('div', { cls: 'kicker', text: COPY.shopKicker }),
           h('div', { cls: 'shop__name', text: current.name }),
-          h('div', { cls: 'shop__count mono', text: `ROSTER ${owned}/${SKINS.length}` }),
+          h('div', { cls: 'shop__count mono', text: fillCopy(COPY.shopRoster, { n: owned, total: SKINS.length }) }),
         ]),
       ]),
       h('div', { cls: 'shop__grid' }, SKINS.map((s) => skinCard(ctx, save, s))),

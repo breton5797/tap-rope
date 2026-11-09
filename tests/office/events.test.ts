@@ -216,6 +216,13 @@ describe('attackVariant', () => {
     expect(propSprite('calculator')).toEqual({ sprite: 'calculator', fallback: 'corp-card' });
     expect(propSprite('tambourine')).toEqual({ sprite: 'tambourine', fallback: 'necktie' });
     expect(propSprite('call-bubble')).toEqual({ sprite: 'call-bubble', fallback: 'latte-bubble' });
+    // quality round 4: the nine former aliases have their own sprites, the old part-1 look as fallback
+    const own: Readonly<Record<string, string>> = {
+      'survey-box': 'papers', 'sign-board': 'clipboard', pen: 'pointer', 'audit-board': 'clipboard', 'taxi-receipt': 'paper-plane',
+      'excel-sheet': 'paper-jam', 'skewer-tray': 'coffee-tray', mic: 'pointer', 'home-clipboard': 'clipboard',
+    };
+    for (const [id, fallback] of Object.entries(own)) expect(propSprite(id), id).toEqual({ sprite: id, fallback });
+    expect(Object.keys(PROP_ALIASES)).toEqual([]);
   });
 
   it('fail tips name the stage superior\'s own prop for the move that cost the heart', () => {
@@ -231,7 +238,8 @@ describe('attackVariant', () => {
         expect(tip).not.toMatch(/[!"]/);
       }
     }
-    expect(failTipFor(7, 'lane')).toContain('줄');
+    expect(failTipFor(7, 'lane')).toContain('줄 바꾸기');
+    for (const m of moves) expect(failTipFor(3, m)).not.toMatch(/슬라이딩|레인|옆으로 비키/);
   });
 
   it('cart events ride a cart or the cleaning robot indoors, only the delivery cart outdoors (part 2)', () => {

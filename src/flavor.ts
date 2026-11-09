@@ -160,6 +160,29 @@ export const V8_COPY = {
   /** the result headline after clearing the last stage (v8: the same as any clear) */
   resultFinalStatus: 'MISSION COMPLETE',
   resultFinalTitle: '임무 완료',
+  /** one-time move tips (office part 2); empty = never shown */
+  tipLane2: '',
+  tipLanejump: '',
+  // fixed labels (ui/title.ts, ui/stage-node.ts, ui/hud.ts, game/feedback.ts, ui/overlays.ts, game/run-policy.ts, ui/controls.ts)
+  titleGoalLabel: 'NEXT',
+  nodeNextFlag: 'NEXT',
+  comboLabel: 'CHAIN',
+  comboPopup: 'x{n} CHAIN',
+  tutTapLabel: 'TAP',
+  autoplayNote: 'AUTOPLAY · 보상 없음',
+  ctlKicker: 'CONTROL SCHEME',
+  ctlTitle: '양손 조작 체계',
+  /** ui/shop.ts character count: {n} owned of {total} */
+  shopRoster: 'ROSTER {n}/{total}',
+  ctlLeftMove: '레인 이동',
+  ctlLeftAria: '화면 왼쪽: 위나 아래로 밀어 레인 이동',
+  ctlRightSlide: '슬라이딩',
+  ctlRightAria: '화면 오른쪽: 탭하면 점프, 아래로 밀면 슬라이딩',
+  ctlKeysAria: '키보드: 위아래 화살표 레인, 스페이스 점프, 시프트 또는 S 슬라이딩',
+  ctlKeyLane: ' 레인',
+  ctlKeySlide: ' 슬라이딩',
+  /** the next button when the next stage starts part 2 (v8: the same as any next) */
+  resultNextToPart2: '다음 작전',
 } as const;
 
 export type CopyKey = keyof typeof V8_COPY;

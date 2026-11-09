@@ -11,7 +11,8 @@ import { characterFor } from '../core/characters';
 import { heroDetails } from './hero-card';
 import { createRunPreview } from './run-preview';
 
-const confirmLabel = (id: SkinId): string => `${characterFor(id).name}(으)로 출근!`;
+/** every hire's name ends in a non-ㄹ final consonant (tests/office/characters.test.ts), so it is always 으로 */
+const confirmLabel = (id: SkinId): string => `${characterFor(id).name}으로 출근!`;
 
 export function buildPicker(ctx: Ctx, save: SaveData, onPick: (id: SkinId) => void): HTMLElement {
   const hires = SKINS.filter((s) => save.ownedSkins.includes(s.id));

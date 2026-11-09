@@ -140,6 +140,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
         return;
       }
       setHud(false);
+      renderTutorialStop(layers.tutorial, null);
       renderTutorial(layers.tutorial, ctx, null);
       renderBriefing(layers.briefing, null, true);
       setBusy('briefing', false);
@@ -170,6 +171,7 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
       renderMission(layers.hud, undefined, null, true, 0);
       mount(null, 'none');
       renderCountdown(layers.fx, null);
+      renderTutorialStop(layers.tutorial, null); // a stop never outlives its run (the strip guard keeps it otherwise)
       renderTutorial(layers.tutorial, ctx, null);
       renderBriefing(layers.briefing, null, true);
       setBusy('countdown', false);
@@ -178,7 +180,11 @@ function gameScreens({ layers, ctx, mount, setHud }: Shared): GameUi {
     },
     toast: (msg) => showToast(layers.toast, msg),
     toastAchievement: (a) => banners.push(a),
-    showTutorialStop: (stop) => renderTutorialStop(layers.tutorial, stop),
+    showTutorialStop: (stop) => {
+      // the frozen world's prompt is the only overlay: a section title still fading out would sit behind it
+      if (stop) layers.briefing.querySelector('.bossline')?.remove();
+      renderTutorialStop(layers.tutorial, stop);
+    },
     showBossLine: (kicker, text) => renderBossLine(layers.briefing, kicker, text),
     showCutscene(c, onDone) {
       setBusy('cutscene', true);

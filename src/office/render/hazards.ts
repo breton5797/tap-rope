@@ -17,6 +17,7 @@ const CHASER_Y = 34;
 /** elevator doors read on the back wall (art review): one per attack, the nearest ones only, 64 px, 0.6 alpha */
 const ELEVATOR_H = 64;
 const ELEVATOR_AHEAD = 1.3;
+const ELEVATOR_ALPHA = 0.9;
 
 function elevator(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: number): void {
   const tu = o.timeUntil;
@@ -24,7 +25,8 @@ function elevator(ctx: Ctx, img: HTMLImageElement, o: VisibleObstacle, lane: num
   const first = o.lanes && o.lanes.length > 1 ? Math.min(o.lanes[0], o.lanes[1]) : lane;
   if (lane !== first || tu > ELEVATOR_AHEAD || tu < -0.2) return;
   const s = depthScale(WALL_DEPTH);
-  drawProp(ctx, img, projX(fixedX(tu), WALL_DEPTH), laneY(WALL_DEPTH), ELEVATOR_H * s, 1, false, 0.6);
+  // in its move colour from the start (part-1 audit: a grey, half-faded door read as background)
+  drawProp(ctx, img, projX(fixedX(tu), WALL_DEPTH), laneY(WALL_DEPTH), ELEVATOR_H * s, 1, false, ELEVATOR_ALPHA, undefined, 'lane');
 }
 
 /** the floor width of lane `l` on screen */
