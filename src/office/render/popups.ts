@@ -265,13 +265,20 @@ export function warmPopupPlan(k: number): { texts: string[]; buckets: number[] }
   return { texts: WARM_WORDS.map(([t]) => t), buckets };
 }
 
-/** bake one pending warm-up bitmap; false once all are baked (call while idle) */
+/** a warm-up item that cannot be made yet (fonts loading: no width) is retried this many times, then skipped */
+export const WARM_ATTEMPTS = 5;
+const ATTEMPTS = new Map<string, number>();
+
+/** bake one pending warm-up bitmap; false once all are baked or given up (call while idle) */
 export function warmPopups(ctx: Ctx, k: number): boolean {
   const { buckets } = warmPopupPlan(k);
   for (const [text, style] of WARM_WORDS) {
     const st = STYLE[style] ?? STYLE.info;
     for (const b of buckets) {
-      if (BITMAPS.has(`${st.size}|${st.color}|${b}|${text}`)) continue;
+      const key = `${st.size}|${st.color}|${b}|${text}`;
+      const tries = ATTEMPTS.get(key) ?? 0;
+      if (BITMAPS.has(key) || tries >= WARM_ATTEMPTS) continue;
+      ATTEMPTS.set(key, tries + 1);
       textBitmap(ctx, text, st.size, st.color, b);
       return true;
     }
