@@ -129,6 +129,11 @@ export class TutorialRun {
     return this.active !== null;
   }
 
+  /** the step of the stop the world is frozen at, else null */
+  get step(): TutorialStep | null {
+    return this.active?.stop.step ?? null;
+  }
+
   /** the step a frame may take so the session lands exactly on the next freeze point */
   clampDt(time: number, dt: number): number {
     const next = this.stops[0];

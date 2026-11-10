@@ -635,6 +635,8 @@ export function startApp(): void {
   };
 
   bindInput(canvas, {
+    // R5: at a slide tutorial stop a slow ↓ drag still counts (normal play keeps the swipe window)
+    relaxSlide: () => screen === 'play' && tutorial.step === 'slide',
     onTap: () => {
       audio.unlock();
       if (screen === 'play' && pendingInput.length < 6) pendingInput = [...pendingInput, 'tap'];

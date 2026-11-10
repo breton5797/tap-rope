@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { keyAction, laneSwipe, sideOf, swipeDirection } from '../../src/game/input';
+import { keyAction, laneSwipe, sideOf, swipeDirection, actionSwipe } from '../../src/game/input';
 
 describe('swipeDirection', () => {
   it('ignores short movements (still a plain tap)', () => {
@@ -44,5 +44,19 @@ describe('v5 split controls', () => {
     expect(keyAction('s')).toBe('slide');
     expect(keyAction('Escape')).toBe('pause');
     expect(keyAction('w')).toBeNull();
+  });
+});
+
+describe('actionSwipe (R5: slow ↓ drag at a slide tutorial stop)', () => {
+  it('normal play keeps the 240 ms window (gameplay / replay unchanged)', () => {
+    expect(actionSwipe(0, 40, 200, false)).toBe('down');
+    expect(actionSwipe(0, 120, 1000, false)).toBeNull();
+  });
+  it('while a slide stop is up a slow net ↓ of 26 px counts, with no time limit; other directions keep the window', () => {
+    expect(actionSwipe(0, 120, 1000, true)).toBe('down');
+    expect(actionSwipe(0, 26, 3000, true)).toBe('down');
+    expect(actionSwipe(0, 20, 3000, true)).toBeNull();
+    expect(actionSwipe(0, -120, 1000, true)).toBeNull();
+    expect(actionSwipe(0, -40, 100, true)).toBe('up');
   });
 });
