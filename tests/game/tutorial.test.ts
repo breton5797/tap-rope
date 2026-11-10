@@ -66,13 +66,20 @@ describe('tutorialInput', () => {
     expect(tutorialInput('slide', 'slideKey', false, null)).toBe('pass');
     expect(tutorialInput('slide', 'tap', false, null)).toBe('hold');
     expect(tutorialInput('slide', 'down', true, null)).toBe('pass');
-    expect(tutorialInput('slide', 'down', false, null)).toBe('ignore');
+    // R5 leniency: a ↓ swipe on its own also teaches the slide (its tap may have expired or never come)
+    expect(tutorialInput('slide', 'down', false, null)).toBe('pass');
     expect(tutorialInput('slide', 'up', true, null)).toBe('ignore');
   });
-  it('lane passes only toward the free lane', () => {
+  it('lane passes only toward a free lane', () => {
     expect(tutorialInput('lane', { lane: -1 }, false, -1)).toBe('pass');
     expect(tutorialInput('lane', { lane: 1 }, false, -1)).toBe('ignore');
     expect(tutorialInput('lane', 'tap', false, -1)).toBe('ignore');
+  });
+
+  it('R5: lane passes toward ANY lane that dodges (both sides free: either swipe)', () => {
+    expect(tutorialInput('lane', { lane: 1 }, false, -1, [-1, 1])).toBe('pass');
+    expect(tutorialInput('lane', { lane: -1 }, false, -1, [-1, 1])).toBe('pass');
+    expect(tutorialInput('lane', { lane: 1 }, false, -1, [-1])).toBe('ignore');
   });
 });
 
@@ -123,14 +130,42 @@ describe('TutorialRun', () => {
     expect(run.frozen).toBe(false);
   });
 
-  it('a touch slide (tap, then ↓) passes as the pair; a lone tap expires', () => {
+  it('a touch slide (tap, then ↓) passes as the pair within the generous window', () => {
     const { run } = make();
     run.reset(tutorialStops([beat(1, 2, ['high'])], [], cfg));
     run.afterStep(5, grounded);
     expect(run.filter(['tap'], 0)).toEqual([]);
-    expect(run.filter(['down'], 1000)).toEqual([]);
-    expect(run.filter(['tap'], 1100)).toEqual([]);
-    expect(run.filter(['down'], 1200)).toEqual(['tap', 'down']);
+    // R5: a slow drag — the ↓ arrives 1 s after the finger went down — still counts with its tap
+    expect(run.filter(['down'], 1000)).toEqual(['tap', 'down']);
     expect(run.frozen).toBe(false);
+  });
+
+  it('R5: a ↓ long after an expired tap teaches the slide on its own', () => {
+    const { run } = make();
+    run.reset(tutorialStops([beat(1, 2, ['high'])], [], cfg));
+    run.afterStep(5, grounded);
+    expect(run.filter(['tap'], 0)).toEqual([]);
+    expect(run.filter(['down'], 5000)).toEqual(['down']);
+    expect(run.frozen).toBe(false);
+  });
+
+  it('R5: a lane stop with both neighbours free resumes on either swipe (the hand still points one way)', () => {
+    const { run, log } = make();
+    const mid = tutorialStops([beat(2, 4, ['guard'], 0, [1])], [], cfg);
+    run.reset(mid);
+    run.afterStep(mid[0].at, grounded);
+    expect(log).toEqual(['show:lane:-1', 'frozen']);
+    expect(run.filter([{ lane: 1 }], 0)).toEqual([{ lane: 1 }]);
+    expect(run.frozen).toBe(false);
+  });
+
+  it('R5: a lane stop at the edge only resumes toward the free side', () => {
+    const { run } = make();
+    const edge = tutorialStops([beat(2, 4, ['guard'], 0, [0, 1])], [], cfg);
+    run.reset(edge);
+    run.afterStep(edge[0].at, { ...grounded, lane: 0 });
+    expect(run.filter([{ lane: -1 }], 0)).toEqual([]);
+    expect(run.frozen).toBe(true);
+    expect(run.filter([{ lane: 1 }], 10)).toEqual([{ lane: 1 }]);
   });
 });

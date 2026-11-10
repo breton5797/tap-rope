@@ -62,20 +62,39 @@ export function laneEscape(blocked: readonly LaneId[], lane: LaneId): LaneDir | 
   return free(lane + 2 * toMiddle) ? toMiddle : null;
 }
 
+/** every swipe direction that leads to a free lane from `lane` (R5: any dodge resumes a lane stop) */
+export function laneEscapes(blocked: readonly LaneId[], lane: LaneId): LaneDir[] {
+  const free = (l: number): boolean => l >= 0 && l < LANE_COUNT && !blocked.includes(l as LaneId);
+  const out: LaneDir[] = [];
+  for (const d of [-1, 1] as const) {
+    for (let l = lane + d; l >= 0 && l < LANE_COUNT; l += d) {
+      if (free(l)) {
+        out.push(d);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 export type TutorialVerdict = 'pass' | 'hold' | 'ignore';
 
 /**
  * What a frozen tutorial does with an input. A touch slide arrives as a tap followed by a ↓ swipe:
  * the tap is held (`held` = a tap is waiting) and the pair passes when the swipe follows.
  */
-export function tutorialInput(step: TutorialStep, input: TutorialInput, held: boolean, dir: LaneDir | null): TutorialVerdict {
+export function tutorialInput(
+  step: TutorialStep, input: TutorialInput, _held: boolean, dir: LaneDir | null, escapes: readonly LaneDir[] = dir === null ? [] : [dir],
+): TutorialVerdict {
   if (step === 'jump') return input === 'tap' ? 'pass' : 'ignore';
   if (step === 'slide') {
     if (input === 'slideKey') return 'pass';
     if (input === 'tap') return 'hold';
-    return input === 'down' && held ? 'pass' : 'ignore';
+    // R5: a ↓ teaches the slide with or without its tap (a slow drag outlived the tap's hold window)
+    return input === 'down' ? 'pass' : 'ignore';
   }
-  return typeof input === 'object' && (dir === null || input.lane === dir) ? 'pass' : 'ignore';
+  // R5: any swipe toward a free lane dodges (the hand points to the nearest one)
+  return typeof input === 'object' && (dir === null || escapes.includes(input.lane)) ? 'pass' : 'ignore';
 }
 
 export interface TutorialHooks {
@@ -87,13 +106,13 @@ export interface TutorialHooks {
   learnt(step: TutorialStep): void;
 }
 
-/** a touch slide's tap waits this long (ms) for its ↓ swipe */
-const HOLD_MS = 350;
+/** a touch slide's tap waits this long (ms) for its ↓ swipe (R5: generous — a slow hold-and-drag counts) */
+const HOLD_MS = 1200;
 
 /** Stateful freeze driver for one run (app.ts): clampDt → step → afterStep, and filter() while frozen. */
 export class TutorialRun {
   private stops: readonly TutorialStop[] = [];
-  private active: { readonly stop: TutorialStop; readonly dir: LaneDir | null } | null = null;
+  private active: { readonly stop: TutorialStop; readonly dir: LaneDir | null; readonly escapes: readonly LaneDir[] } | null = null;
   private held: TutorialInput | null = null;
   private heldAt = 0;
 
@@ -124,7 +143,7 @@ export class TutorialRun {
     const dir = next.step === 'lane' ? laneEscape(next.blocked, player.lane) : null;
     const done = next.step === 'jump' ? !player.grounded : next.step === 'slide' ? player.sliding : dir === null;
     if (done) return;
-    this.active = { stop: next, dir };
+    this.active = { stop: next, dir, escapes: next.step === 'lane' ? laneEscapes(next.blocked, player.lane) : [] };
     this.hooks.show({ step: next.step, dir });
     this.hooks.frozen();
   }
@@ -141,7 +160,7 @@ export class TutorialRun {
     if (this.held && nowMs - this.heldAt > HOLD_MS) this.held = null;
     for (let i = 0; i < inputs.length; i++) {
       const input = inputs[i];
-      const v = tutorialInput(a.stop.step, input, this.held !== null, a.dir);
+      const v = tutorialInput(a.stop.step, input, this.held !== null, a.dir, a.escapes);
       if (v === 'hold') {
         this.held = input;
         this.heldAt = nowMs;
