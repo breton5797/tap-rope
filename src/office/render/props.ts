@@ -10,7 +10,7 @@ import { PROP_CALLOUTS, propSprite, propsFor } from '../core/props';
 import { OFFICE_BOSSES } from '../core/boss';
 import { makeCanvas } from '../../render/util';
 import { officeImage } from './images';
-import { heightTicks } from './readability';
+import { drawCueMark, heightTicks } from './readability';
 
 interface PropFrame {
   slot: BossId;
@@ -177,6 +177,16 @@ export function drawFootprint(
   ctx.strokeStyle = color;
   ctx.lineWidth = 2.4;
   ctx.stroke();
+  // R5 colour-blind: a shape per move inside the ring — slide ▼, stay low a second (inner) ring
+  if (cue === 'slide') drawCueMark(ctx, 'slide', x, floorY, Math.max(4, ry * 1.15), '#FFFFFF');
+  else if (cue === 'low') {
+    ctx.beginPath();
+    ctx.ellipse(x, floorY, rx * 0.55, ry * 0.55, 0, 0, Math.PI * 2);
+    inkRim(ctx, 4.4);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+  }
   ctx.restore();
   // jumps: 1–3 notches on the ring's front edge = the level to jump
   if (cue === 'jump' && level > 0) heightTicks(ctx, x, floorY + ry, level, Math.max(0.6, width / 50));
@@ -290,7 +300,7 @@ export function drawProp(
   ctx.translate(x + (m?.dx ?? 0), y - h * ay + h / 2 + (m?.dy ?? 0));
   if (m && m.rot !== 0) ctx.rotate(m.rot);
   if (flip) ctx.scale(-1, 1);
-  if (recording) record(ctx, img, w, h);
+  if (recording) record(ctx, img, w, h, cue);
   if (!NO_OUTLINE.has(img)) {
     // dark ink outermost (reads on every floor — stage 5's lavender, the part-2 streets at dusk — too), the move's colour, then white
     const r = bakedRings(img, cue);
@@ -427,15 +437,16 @@ interface PropRec {
   alpha: number;
   w: number;
   h: number;
+  /** the move the prop asks for (its silhouette colour), null = unknown */
+  cue: ActionCue | null;
 }
 
 const RECS: PropRec[] = Array.from({ length: PROP_RECORD_CAPACITY }, () => ({
-  img: null, a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, alpha: 1, w: 0, h: 0,
+  img: null, a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, alpha: 1, w: 0, h: 0, cue: null,
 }));
 let recCount = 0;
 let recording = false;
 let overflowed = false;
-const SIL_COLOR = '#7CFFEA';
 
 /** start recording the props drawn from now on (the office renderer: around the v8 frame during a blackout) */
 export function startPropRecord(): void {
@@ -453,7 +464,7 @@ export const recordedProps = (): number => recCount;
 /** more props were drawn than recorded: the renderer skips the darkness that frame (never hide a hazard) */
 export const recordOverflowed = (): boolean => overflowed;
 
-function record(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number): void {
+function record(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number, h: number, cue: ActionCue | null): void {
   if (recCount >= RECS.length) {
     overflowed = true;
     return;
@@ -470,16 +481,25 @@ function record(ctx: CanvasRenderingContext2D, img: HTMLImageElement, w: number,
   r.alpha = ctx.globalAlpha;
   r.w = w;
   r.h = h;
+  r.cue = cue;
 }
 
-/** each recorded prop as a cyan silhouette at its own position, size and opacity (held, thrown or on its path) */
+/**
+ * R5 P3: a blackout silhouette glows in its move's colour (white when the move is unknown) — the single teal
+ * read like the headphone pickup's glow and hid which move each prop asked for.
+ */
+export function silhouetteColor(cue: ActionCue | null): string {
+  return cue ? ACTION_COLORS[cue] : '#FFFFFF';
+}
+
+/** each recorded prop as a silhouette in its move colour at its own position, size and opacity (held, thrown or on its path) */
 export function drawRecordedSilhouettes(ctx: CanvasRenderingContext2D, alpha: number): void {
   ctx.save();
   for (let i = 0; i < recCount; i++) {
     const r = RECS[i];
     if (!r.img) continue;
     // the tinted silhouette; without one (no canvas to tint on) the prop itself — never an empty box
-    const sil = silhouette(r.img, SIL_COLOR);
+    const sil = silhouette(r.img, silhouetteColor(r.cue));
     ctx.setTransform(r.a, r.b, r.c, r.d, r.e, r.f);
     ctx.globalAlpha = alpha * r.alpha;
     ctx.drawImage(sil ?? r.img, -r.w / 2, -r.h / 2, r.w, r.h);
