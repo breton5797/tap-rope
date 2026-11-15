@@ -555,6 +555,8 @@ export interface RenderSnapshot {
 export interface RenderRun {
   readonly seed: number; // the stage's run seed
   readonly stageIndex: number; // chapter
+  /** office: the run's stage id (a daily mission has its own missions / collectibles, missionsOf); v8 never reads it */
+  readonly stageId?: string;
   readonly progress: number; // 0..1 of the stage
   readonly beats: readonly Beat[];
 }
