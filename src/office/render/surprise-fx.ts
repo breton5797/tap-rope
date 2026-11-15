@@ -9,6 +9,7 @@ import { officeImage } from './images';
 import { clockY, laneTopY } from './clock';
 import { placeBubble, type Rect } from './surprise';
 import { hintSegments, type HintSegment } from './readability';
+import { WARM_ATTEMPTS } from './popups';
 import { textWidth } from './text-width';
 import { eventCopy, type EventCopy } from '../core/events';
 import { PERSON_ASPECT, PERSON_FX, personWidth } from './boss-rigs';
@@ -305,7 +306,13 @@ function warmGlyphs(ids: readonly string[], k: number): void {
 }
 
 /** perf r4: measure the stage's callout names and hints ahead (first-frame measureText spikes); false when done */
+const calloutsWarm = new Map<string, number>();
+
 export function warmCallouts(ctx: Ctx, ids: readonly string[], icon?: (id: string) => HTMLImageElement | null, k = 1): boolean {
+  // done (or given up after WARM_ATTEMPTS while fonts load): no more work every frame
+  const done = `${k.toFixed(3)}|${ids.join(',')}`;
+  const tries = calloutsWarm.get(done) ?? 0;
+  if (tries < 0 || tries >= WARM_ATTEMPTS) return false;
   let n = 0;
   for (const id of ids) {
     n += textWidth(ctx, CALLOUT_FONT, calloutName(id)) > 0 ? 0 : 1;
@@ -314,6 +321,7 @@ export function warmCallouts(ctx: Ctx, ids: readonly string[], icon?: (id: strin
   }
   warmGlyphs(ids, k);
   for (const w of HINT_WORDS) n += textWidth(ctx, HINT_FONT, w) > 0 ? 0 : 1;
+  calloutsWarm.set(done, n > 0 ? tries + 1 : -1);
   return n > 0;
 }
 

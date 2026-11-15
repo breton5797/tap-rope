@@ -16,6 +16,8 @@ export interface InputHandlers {
   /** keyboard Shift / S: slide without a tap */
   onSlideKey(): void;
   onPauseKey(): void;
+  /** true while a slide tutorial stop is up: a slow ↓ drag on the right half still counts */
+  relaxSlide?(): boolean;
 }
 
 const SWIPE_MIN_PX = 26;
@@ -45,6 +47,17 @@ export function swipeDirection(dx: number, dy: number, minPx = SWIPE_MIN_PX): Sw
   if (Math.hypot(dx, dy) < minPx) return null;
   if (Math.abs(dx) > Math.abs(dy)) return dx < 0 ? 'left' : 'right';
   return dy < 0 ? 'up' : 'down';
+}
+
+/**
+ * The right pad's swipe for a movement of (dx, dy) css px `elapsedMs` after its pointerdown. Normal play: within
+ * SWIPE_MAX_MS only. `relaxed` (a slide tutorial stop is up): a net ↓ counts at any speed — a slow 1 s drag
+ * teaches the slide too; other directions keep the window.
+ */
+export function actionSwipe(dx: number, dy: number, elapsedMs: number, relaxed: boolean): Swipe | null {
+  const dir = swipeDirection(dx, dy);
+  if (elapsedMs <= SWIPE_MAX_MS) return dir;
+  return relaxed && dir === 'down' ? dir : null;
 }
 
 /** which pad a touch at css x belongs to */
@@ -79,8 +92,8 @@ function bindPointer(canvas: HTMLCanvasElement, h: InputHandlers): void {
       h.onLane(dir);
       return;
     }
-    if (now - tr.t > SWIPE_MAX_MS || id !== lastTapPointer) return;
-    const dir = swipeDirection(x - tr.x, y - tr.y);
+    if (id !== lastTapPointer) return;
+    const dir = actionSwipe(x - tr.x, y - tr.y, now - tr.t, h.relaxSlide?.() ?? false);
     if (!dir) return;
     tracks.set(id, { ...tr, fired: true });
     h.onSwipe(dir);

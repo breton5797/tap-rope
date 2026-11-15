@@ -141,6 +141,13 @@ export function heightTicks(ctx: Ctx, x: number, edgeY: number, level: number, s
 /** stay low: a dashed purple band at 2단 height across the lane with a "↓" under it */
 export function stayLowBand(ctx: Ctx, x: number, bandY: number, width: number, s: number): void {
   ctx.save();
+  // R5 tritan: a dark under-stroke so the band reads by brightness where purple fades into peach floors
+  ctx.strokeStyle = 'rgba(46,36,51,0.75)';
+  ctx.lineWidth = 4.2 * s;
+  ctx.beginPath();
+  ctx.moveTo(x - width / 2, bandY);
+  ctx.lineTo(x + width / 2, bandY);
+  ctx.stroke();
   ctx.strokeStyle = ACTION_COLORS.low;
   ctx.lineWidth = 2.2 * s;
   ctx.setLineDash(DASH);
@@ -276,7 +283,43 @@ export function pointerBeam(ctx: Ctx, hx: number, hy: number, x: number, y: numb
   ctx.arc(x, y, 5.5 * s, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+  // R5 colour-blind: the move's shape on the dot too (slide ▼, stay low ◎)
+  drawCueMark(ctx, cue, x, y, 3.4 * s, '#FFFFFF');
   ctx.restore();
+}
+
+export type CueGlyph = 'notches' | 'dash' | 'chevron' | 'double';
+const GLYPHS: Readonly<Record<ActionCue, CueGlyph>> = { jump: 'notches', lane: 'dash', slide: 'chevron', low: 'double' };
+
+/**
+ * R5 colour-blind audit: each move's non-colour shape — jump ▽ notches, lane dashed ring, slide ▼ duck
+ * chevron, stay low double ring — so slide blue and stay-low purple never rely on hue alone.
+ */
+export function cueGlyph(cue: ActionCue): CueGlyph {
+  return GLYPHS[cue];
+}
+
+/** the shape mark of slide (▼) / stay low (inner ring) centred on (x, y), radius r; nothing for jump / lane */
+export function drawCueMark(ctx: Ctx, cue: ActionCue, x: number, y: number, r: number, fill: string): void {
+  const g = GLYPHS[cue];
+  if (g === 'chevron') {
+    ctx.beginPath();
+    ctx.moveTo(x - r, y - r * 0.55);
+    ctx.lineTo(x + r, y - r * 0.55);
+    ctx.lineTo(x, y + r * 0.65);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = '#2E2433';
+    ctx.lineWidth = Math.max(0.8, r * 0.18);
+    ctx.stroke();
+  } else if (g === 'double') {
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.75, 0, Math.PI * 2);
+    ctx.strokeStyle = fill;
+    ctx.lineWidth = Math.max(1, r * 0.35);
+    ctx.stroke();
+  }
 }
 
 // ---------- per-frame sign scan (every hazard ahead, not just the nearest beat) ----------

@@ -69,6 +69,11 @@ function propIconFor(id: string): HTMLImageElement | null {
   return null;
 }
 
+/** the overlay canvas backing (device px): the game canvas's size while a run is running, else none */
+export function overlayBacking(running: boolean, w: number, h: number): { w: number; h: number } {
+  return running ? { w, h } : { w: 0, h: 0 };
+}
+
 /** a tutorial stop (the frozen world's hand prompt, DOM) is on screen */
 const stopUp = (): boolean => typeof document !== 'undefined' && document.querySelector('.tstop') !== null;
 
@@ -189,6 +194,25 @@ class OfficeRenderer implements Renderer {
    */
   private readonly top: HTMLCanvasElement | null;
   private readonly topCtx: CanvasRenderingContext2D | null;
+  /** whether the overlay canvas is backed (a run is running) */
+  private topRunning = false;
+  /** the game canvas was resized: the backing must follow */
+  private topStale = true;
+
+  /** R5: back the overlay canvas only while a run is running (menus, pause, results: ~18 MB freed on iPad) */
+  private backOverlay(running: boolean): void {
+    if (!this.top || (running === this.topRunning && !this.topStale)) return;
+    this.topRunning = running;
+    this.topStale = false;
+    const size = overlayBacking(running, this.canvas.width, this.canvas.height);
+    this.top.width = size.w;
+    this.top.height = size.h;
+    if (!running && this.kickAnim) {
+      this.kickAnim.cancel();
+      this.kickAnim = null;
+    }
+  }
+
   /** the running kick animation on the game canvas (one Web Animation per kick) */
   private kickAnim: Animation | null = null;
 
@@ -223,10 +247,9 @@ class OfficeRenderer implements Renderer {
     this.view = computeView(cssWidth, cssHeight, dpr, safeBottom);
     this.sprites.setScale(this.view.k);
     if (this.top) {
-      this.top.width = this.canvas.width;
-      this.top.height = this.canvas.height;
       this.top.style.width = this.canvas.style.width;
       this.top.style.height = this.canvas.style.height;
+      this.topStale = true; // re-size the backing on the next frame
     }
   }
 
@@ -264,7 +287,8 @@ class OfficeRenderer implements Renderer {
     if (dark) stopPropRecord();
     const ctx = this.ctx;
     if (!ctx) return;
-    if (this.topCtx && this.top) {
+    this.backOverlay(snap.running && run !== undefined);
+    if (this.topCtx && this.top && this.top.width > 0) {
       this.topCtx.setTransform(1, 0, 0, 1, 0, 0);
       this.topCtx.clearRect(0, 0, this.top.width, this.top.height);
     }
@@ -324,7 +348,7 @@ class OfficeRenderer implements Renderer {
     }
     this.kick(ctx, snap);
     // everything after the kick is the overlay layer (unzoomed by the kick, as before)
-    ctx = this.topCtx ?? world;
+    ctx = this.topCtx && this.top && this.top.width > 0 ? this.topCtx : world;
     ctx.setTransform(v.k, 0, 0, v.k, v.ox * v.dpr, v.oy * v.dpr);
     const events = snap.running && plan ? plan.events : [];
     const lane = visualLane(snap.player);
@@ -375,7 +399,7 @@ class OfficeRenderer implements Renderer {
     if (started) this.kickAt = snap.realTime;
     this.prevAttack = a;
     const still = snap.reducedMotion || !snap.running;
-    if (this.top && typeof this.canvas.animate === 'function') {
+    if (this.top && this.top.width > 0 && typeof this.canvas.animate === 'function') {
       // the compositor zooms / shakes the game canvas (one animation per kick, no per-frame style write);
       // the overlay canvas above it stays put
       if (still && this.kickAnim) {

@@ -182,7 +182,9 @@ export function missionResult(r: ResultInfo): HTMLElement | null {
   const m = r.missions;
   const specs = r.stageId ? STAGE_MISSIONS[r.stageId] : undefined;
   if (!m || !specs) return null;
-  return h('div', { cls: 'report__missions', attrs: { role: 'group', 'aria-label': `미션 도장 ${m.stamps.filter((s) => s === true).length}/${specs.length}, 등급 ${m.grade}` } }, [
+  // R5: a failed run shows its stamps but no letter grade (야근 확정 + "B" was a mixed message for kids)
+  const grade = r.cleared ? `, 등급 ${m.grade}` : '';
+  return h('div', { cls: 'report__missions', attrs: { role: 'group', 'aria-label': `미션 도장 ${m.stamps.filter((s) => s === true).length}/${specs.length}${grade}` } }, [
     h('div', { cls: 'report__stamps' }, specs.map((spec, k) => {
       const s = m.stamps[k];
       return h('div', { cls: `report__stamp${s === true ? ' is-ok' : s === false ? ' is-miss' : ' is-none'}` }, [
@@ -190,17 +192,17 @@ export function missionResult(r: ResultInfo): HTMLElement | null {
         h('span', { cls: 'report__stamp-name', text: spec.title }),
       ]);
     })),
-    h('div', { cls: `report__grade grade--${m.grade}` }, [h('span', { cls: 'report__grade-label', text: '등급' }), h('b', { text: m.grade })]),
+    r.cleared ? h('div', { cls: `report__grade grade--${m.grade}` }, [h('span', { cls: 'report__grade-label', text: '등급' }), h('b', { text: m.grade })]) : null,
     bonusLine(r),
   ]);
 }
 
-/** 「도장 보너스 +₵N」 (a failed run: 「딴 도장 보너스」, paid at the doors) and 「금일봉 ×N」 */
+/** 「도장 보너스 +₵N」 (a failed run: the neutral 「도장 보상」, paid at the doors) and 「금일봉 ×N」 */
 function bonusLine(r: ResultInfo): HTMLElement | null {
   const m = r.missions;
   if (!m || (m.stampBonus <= 0 && m.items <= 0)) return null;
   const parts = [
-    m.stampBonus > 0 ? `${r.cleared ? '도장 보너스' : '딴 도장 보너스'} +₵${m.stampBonus}` : null,
+    m.stampBonus > 0 ? `${r.cleared ? '도장 보너스' : '도장 보상'} +₵${m.stampBonus}` : null,
     m.items > 0 ? `금일봉 ×${m.items} +₵${m.bonus - m.stampBonus}` : null,
   ].filter((x): x is string => x !== null);
   return h('div', { cls: 'report__mission-bonus', text: parts.join(' · ') });

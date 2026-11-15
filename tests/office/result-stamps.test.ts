@@ -38,10 +38,15 @@ describe('result card', () => {
 
   it('a failed run shows the door stamps it still earned, and 금일봉', () => {
     const el = buildResult(ctx(), result({ cleared: false, stars: 0, missions: { stamps: [true, null, null], grade: 'B', stars: 1, bonus: 210, stampBonus: 150, items: 3 } }));
-    expect(el.querySelector('.report__mission-bonus')?.textContent).toContain('딴 도장 보너스 +₵150');
+    // R5: a fail never mixes 야근 확정 with a letter grade or a "bonus" — the payout is labelled neutrally
+    expect(el.querySelector('.report__mission-bonus')?.textContent).toContain('도장 보상 +₵150');
+    expect(el.querySelector('.report__mission-bonus')?.textContent).not.toContain('보너스');
+    expect(el.querySelector('.report__grade')).toBeNull();
+    expect(el.querySelector('.report__missions')?.getAttribute('aria-label')).not.toContain('등급');
     expect(el.querySelector('.report__mission-bonus')?.textContent).toContain('금일봉 ×3');
     const won = buildResult(ctx(), result());
     expect(won.querySelector('.report__mission-bonus')?.textContent).toContain('도장 보너스 +₵300');
+    expect(won.querySelector('.report__grade b')?.textContent).toBe('B');
   });
 
   it('no row without mission data', () => {
