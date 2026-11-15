@@ -200,7 +200,8 @@ export class JuiceFx {
     }
     if (m.index === pm.index && m.kind === 'collect' && m.value > pm.value) {
       // a collect mission always flies its collectible (never the clock coin)
-      const id = collectibleFor(snap.run?.stageIndex ?? 0, m.index) ?? stageCollectible(snap.run?.stageIndex ?? 0);
+      const stage = snap.run?.stageId ?? snap.run?.stageIndex ?? 0;
+      const id = collectibleFor(stage, m.index) ?? stageCollectible(stage);
       this.juice.burst('coin', x, y - 40, reduced, undefined, this.accent);
       if (Number.isFinite(hud.chip.x)) this.juice.fly(id ? `collect-${id}` : 'pickup-coin', { x, y: y - 40 }, hud.chip, 'chip', this.onChip);
       this.plus.text = '+1';

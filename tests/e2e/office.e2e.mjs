@@ -3,7 +3,7 @@
 // both service workers). supabase.co is blocked and every attempt is counted (must be 0 for the office).
 //
 // Usage (from the worktree, after `npm run build && npm run build:office`):
-//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes|login|map|live|perf] [DIST]
+//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes|login|map|live|liveart|perf] [DIST]
 // `playwright` is not a repo dependency and ESM ignores NODE_PATH: install it next to the repo first
 // (`npm i --no-save playwright && npx playwright install chromium`).
 // DIST defaults to <cwd>/dist. Screenshots: $E2E_SHOTS (default <tmp>/office-e2e-shots/). Exit code 1 on any failed check.
@@ -842,6 +842,59 @@ if (['all', 'live'].includes(which)) {
     await page.waitForTimeout(9000);
     await shot(page, '58-live-trail-run');
     check(asked.has('trail-sparkle') && asked.has('jump-petal'), `live: the run draws the equipped trail + jump art (${[...asked].join(',')})`);
+    await ctx.close();
+  }
+}
+
+// ---------- 10c. liveart (not in `all`): every cosmetic drawn from its art, one screenshot each (art review) ----------
+// cards + stamps on the week card screen (has-art = the sprite loaded, not the CSS placeholder); trails + jump
+// effects mid-run (the renderer requested their sprite). Shots: 60-art-<id>.png
+if (which === 'liveart') {
+  const LIVE_KEY = 'officeescape.live.v1';
+  const seen = ['op-start', 'rescue', ...Array.from({ length: STAGE_COUNT }, (_, i) => `boss-${i + 1}`)];
+  const seed = (equipped, owned) => JSON.stringify({
+    v: 1, maxDate: null, daily: {}, card: { week: '2026-11-16', stamps: [true, true, true, false, false, false, false] },
+    history: [{ week: '2026-11-09', stamps: 7 }, { week: '2026-11-02', stamps: 3 }], goal: null, owned, equipped, badges: [], themeSeen: {}, ledger: [],
+  });
+  const cardIds = ['card-kraft', 'card-pastel', 'card-sky', 'card-dinner'];
+  const stampIds = ['stamp-gold', 'stamp-heart', 'stamp-cat', 'stamp-coffee', 'stamp-star', 'stamp-clock'];
+  for (const [i, id] of [...cardIds, ...stampIds].entries()) {
+    const equipped = id.startsWith('card') ? { cardTheme: id, stamp: stampIds[i % stampIds.length] } : { stamp: id, cardTheme: cardIds[i % cardIds.length] };
+    const ctx = await newContext();
+    await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [OFFICE_KEY, officeSave({ stars: { 'w1-s10': 1 }, seenCutscenes: seen })]);
+    await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [LIVE_KEY, seed(equipped, Object.values(equipped))]);
+    const page = await newPage(ctx);
+    await page.clock.install({ time: new Date(2026, 10, 18, 10, 0, 0) });
+    await page.goto(OFFICE);
+    await waitTitle(page);
+    await click(page.locator('.live-cardchip'));
+    await waitScreen(page, 'live-card');
+    await page.waitForTimeout(800);
+    if (id.startsWith('card')) {
+      const bg = await page.locator('.wcard').first().evaluate((e) => getComputedStyle(e).backgroundImage);
+      check(bg.includes(`${id}.webp`), `liveart: ${id} drawn from its art`);
+    } else check(await page.locator(`.live-stamp--${id}.has-art`).count() === 3, `liveart: ${id} drawn from its art on 3 stamps`);
+    await shot(page, `60-art-${id}`);
+    await ctx.close();
+  }
+  const runs = [['trail-sparkle', 'jump-dust'], ['trail-confetti', 'jump-petal'], ['trail-highlighter', 'jump-papers'], ['trail-coffee', 'jump-medal'], ['trail-paper', 'jump-dust'], ['trail-rain', 'jump-petal']];
+  for (const [trail, jump] of runs) {
+    const ctx = await newContext();
+    await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [OFFICE_KEY, officeSave({ stars: { 'w1-s10': 1, 'w2-s10': 1 }, seenCutscenes: seen })]);
+    await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [LIVE_KEY, seed({ trail, jump }, [trail, jump])]);
+    const page = await newPage(ctx);
+    const asked = new Set();
+    page.on('request', (r) => { const m = /\/art\/cosmetic\/([\w-]+)\.webp/.exec(r.url()); if (m) asked.add(m[1]); });
+    await page.goto(`${OFFICE}?autoplay=1`);
+    await waitTitle(page);
+    await openStage(page, 2);
+    await skipCutscenes(page, 2500);
+    await page.waitForTimeout(8000);
+    check(asked.has(trail) && asked.has(jump), `liveart: ${trail} + ${jump} drawn in a run (${[...asked].join(',')})`);
+    for (let k = 0; k < 3; k += 1) {
+      await shot(page, `61-art-${trail}-${k}`);
+      await page.waitForTimeout(700);
+    }
     await ctx.close();
   }
 }

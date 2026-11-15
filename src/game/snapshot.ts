@@ -57,7 +57,7 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     bossFinish: o.bossFinish ?? -1,
     cosmetics: o.cosmetics,
     ...(o.mission ? { mission: o.mission } : {}),
-    run: { seed: s.stage.seed, stageIndex: s.stage.chapter, progress: sessionProgress(s), beats: s.beats },
+    run: { seed: s.stage.seed, stageIndex: s.stage.chapter, stageId: s.stage.id, progress: sessionProgress(s), beats: s.beats },
   };
 }
 

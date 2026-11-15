@@ -322,7 +322,7 @@ class OfficeRenderer implements Renderer {
     setThrowFrame(snap.running && b !== null && b.state !== 'defeated', this.view);
     setFocusLane(visualLane(snap.player));
     // menus / demo without a run: no stale beats for the pickup sprites
-    setPickupFrame(run ? run.beats : NO_BEATS, run ? run.stageIndex : 0);
+    setPickupFrame(run ? run.beats : NO_BEATS, run ? run.stageId ?? run.stageIndex : 0);
     // F9: the gauge ran out → the superior is overtaken (slides out left, tired); a refilled gauge resets it
     if (b && b.hp <= 0 && this.exitId !== b.id) {
       this.exitId = b.id;

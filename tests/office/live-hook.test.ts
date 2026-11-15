@@ -137,3 +137,17 @@ describe('the daily is not the last campaign stage', () => {
     expect(runTitle(createSession('stage', stageById('w1-s10') as StageDef, { seed: 1 }))).toMatch(/1단계/);
   });
 });
+
+describe("the daily's collectibles", () => {
+  it("pickups draw the day's own collect item (by stage id), not the campaign chapter's", async () => {
+    const { collectibleFor, pickupSprite } = await import('../../src/office/render/collectibles');
+    const st = liveHook.dailyStage(save()) as StageDef;
+    const plan = dailyPlan('2026-11-18', 2);
+    const k = plan.missions.findIndex((m) => m.collectible !== undefined);
+    expect(collectibleFor(st.id, k)).toBe(plan.missions[k].collectible);
+    const beat = { part: k } as never;
+    expect(pickupSprite('coin', beat, st.id)).toBe(`collect-${plan.missions[k].collectible}`);
+    expect(pickupSprite('coin', beat, st.id)).toBe(pickupSprite('coin', beat, st.id));
+    expect(collectibleFor('w2-s10', 0)).toBe(collectibleFor(1, 0));
+  });
+});

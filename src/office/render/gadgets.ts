@@ -9,7 +9,7 @@ import { drawGadgets as v8Gadgets } from '../../render/gadgets';
 import type { SpriteCache } from '../../render/sprites';
 import type { Ctx } from '../../render/util';
 import { heldFade, joinTime, throwActive, throwArc, throwHand, throwStep } from './boss-throw';
-import { pickupSprite } from './collectibles';
+import { pickupSprite, type StageKey } from './collectibles';
 import { officeImage } from './images';
 import { isPointerProp, PROP_SIZE, beatIdOf, drawFootprint, drawProp, laneSizeK, propIdFor, propImage, propMotion } from './props';
 import { comboBlocked, glowDisc, passFade, pickupSize, pointerBeam, twinkle } from './readability';
@@ -20,24 +20,24 @@ export * from '../../render/gadgets';
 const DRONE_Y = 160;
 
 /** per-frame run context (set by the office renderer): the run's beats and stage, for pickup sprites */
-const run = { beats: [] as readonly Beat[], stageIndex: 0 };
+const run: { beats: readonly Beat[]; stage: StageKey } = { beats: [], stage: 0 };
 
-export function setPickupFrame(beats: readonly Beat[], stageIndex: number): void {
+export function setPickupFrame(beats: readonly Beat[], stage: StageKey): void {
   run.beats = beats;
-  run.stageIndex = stageIndex;
+  run.stage = stage;
 }
 
 /** the collectible sprite a pickup on `beat` stands for (a collect mission's coin), else null */
-export function laneCollectibleName(kind: ObstacleKind, beat: Beat | undefined, stageIndex: number): string | null {
+export function laneCollectibleName(kind: ObstacleKind, beat: Beat | undefined, stage: StageKey): string | null {
   if (kind !== 'coin') return null;
-  const name = pickupSprite(kind, beat, stageIndex);
+  const name = pickupSprite(kind, beat, stage);
   return name.startsWith('collect-') ? name : null;
 }
 
 /** rhythm-lane hook (render/lane.ts laneArt): collect-mission coins show their collectible (a neutral item glyph
  * while its sprite loads or is missing), never ₵ */
 export function laneCollectibleArt(beatId: number, kind: ObstacleKind): HTMLImageElement | 'item' | null {
-  const name = laneCollectibleName(kind, run.beats[beatId], run.stageIndex);
+  const name = laneCollectibleName(kind, run.beats[beatId], run.stage);
   return name ? officeImage(name) ?? 'item' : null;
 }
 
@@ -77,7 +77,7 @@ const LAND = { x: 0, y: 0 };
  */
 function pickupProp(ctx: Ctx, o: VisibleObstacle, lane: number, t: number): boolean {
   const id = beatIdOf(o);
-  const name = pickupSprite(o.kind, run.beats[id], run.stageIndex);
+  const name = pickupSprite(o.kind, run.beats[id], run.stage);
   const img = officeImage(name);
   if (!img) return false;
   if (o.timeUntil < -0.05) return true;
