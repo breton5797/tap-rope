@@ -31,16 +31,16 @@ export interface FxStyle {
 
 /** placeholder looks until ART delivers the sprites (keys = Cosmetic.sprite) */
 export const FX_STYLES: Readonly<Record<string, FxStyle>> = {
-  'trail-steps': { shape: 'foot', colors: ['#FFFFFF'], size: 6 },
+  'trail-sparkle': { shape: 'star', colors: ['#FFE45C', '#FFF6B0', '#FFFFFF'], size: 6 },
+  'trail-confetti': { shape: 'confetti', colors: ['#FF7EB3', '#FFE45C', '#7CF0D8', '#9BB8FF'], size: 6 },
+  'trail-highlighter': { shape: 'foot', colors: ['#D7FF4A', '#FFE45C'], size: 8 },
   'trail-coffee': { shape: 'dot', colors: ['#8A5A3C', '#C89B76'], size: 5 },
   'trail-paper': { shape: 'paper', colors: ['#FFFFFF', '#DDE6F2'], size: 7 },
-  'trail-star': { shape: 'star', colors: ['#FFE45C', '#FFF6B0'], size: 6 },
-  'trail-petal': { shape: 'petal', colors: ['#FF9FC7', '#FFD3E5'], size: 6 },
   'trail-rain': { shape: 'drop', colors: ['#8FD8FF', '#D6F2FF'], size: 6 },
   'jump-dust': { shape: 'dot', colors: ['#E4E0E6', '#FFFFFF'], size: 5 },
-  'jump-confetti': { shape: 'confetti', colors: ['#FF7EB3', '#FFE45C', '#7CF0D8', '#9BB8FF'], size: 6 },
-  'jump-paper': { shape: 'paper', colors: ['#FFFFFF', '#DDE6F2'], size: 8 },
   'jump-petal': { shape: 'petal', colors: ['#FF9FC7', '#FFD3E5', '#FFFFFF'], size: 7 },
+  'jump-papers': { shape: 'paper', colors: ['#FFFFFF', '#DDE6F2'], size: 8 },
+  'jump-medal': { shape: 'star', colors: ['#FFD54A', '#FFB020', '#FFFFFF'], size: 7 },
 };
 
 const FALLBACK_SHAPES: readonly FxShape[] = ['dot', 'star', 'petal', 'confetti'];

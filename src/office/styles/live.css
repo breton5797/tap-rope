@@ -151,12 +151,12 @@
 }
 
 /* placeholder designs until the art lands (key = Cosmetic.sprite) */
-.live-stamp--stamp-ok { color: #13806f; }
+.live-stamp--stamp-gold { color: #b8860b; border-style: double; border-width: 5px; }
+.live-stamp--stamp-heart { color: #e0457b; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; }
 .live-stamp--stamp-cat { color: #7a4fd0; border-radius: 40% 40% 50% 50%; }
 .live-stamp--stamp-coffee { color: #8a5a3c; }
-.live-stamp--stamp-sun { color: #d9822b; border-style: double; border-width: 5px; }
-.live-stamp--stamp-rain { color: #2f78c4; border-radius: 50% 50% 50% 0; }
-.live-stamp--stamp-classic { color: var(--red); border-radius: 8px; }
+.live-stamp--stamp-star { color: #d9822b; border-radius: 30%; }
+.live-stamp--stamp-clock { color: #2f78c4; border-width: 4px; }
 
 /* ---------- week card ---------- */
 .wcard-screen {
@@ -174,9 +174,9 @@
 }
 
 .wcard--card-kraft { background: #f1dcb8; }
-.wcard--card-mint { background: var(--pastel-mint); }
-.wcard--card-night { color: #fff; background: #3a3355; }
-.wcard--card-sakura { background: var(--pastel-pink); }
+.wcard--card-pastel { background: var(--pastel-pink); }
+.wcard--card-sky { background: linear-gradient(180deg, #ffd3a8, #d6ebff); }
+.wcard--card-dinner { color: #fff; background: #5a2f3a; }
 
 .wcard__head {
   display: flex;
@@ -227,7 +227,7 @@
   border-radius: 10px;
 }
 
-.wcard--card-night .wcard__box {
+.wcard--card-dinner .wcard__box {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.6);
 }
@@ -459,15 +459,17 @@
 }
 
 .mall-art--trail-coffee::after { background: #c89b76; }
-.mall-art--trail-paper::after, .mall-art--jump-paper::after { background: #fff; border-radius: 2px; }
-.mall-art--trail-petal::after, .mall-art--jump-petal::after { background: #ff9fc7; }
+.mall-art--trail-paper::after, .mall-art--jump-papers::after { background: #fff; border-radius: 2px; }
+.mall-art--jump-petal::after { background: #ff9fc7; }
 .mall-art--trail-rain::after { background: #8fd8ff; border-radius: 50% 50% 50% 0; }
-.mall-art--jump-confetti::after { background: linear-gradient(90deg, #ff7eb3, #ffe45c, #7cf0d8); border-radius: 2px; }
+.mall-art--trail-confetti::after { background: linear-gradient(90deg, #ff7eb3, #ffe45c, #7cf0d8); border-radius: 2px; }
+.mall-art--trail-highlighter::after { background: #d7ff4a; border-radius: 3px; }
+.mall-art--trail-sparkle::after, .mall-art--jump-medal::after { background: #ffd54a; border-radius: 30%; }
 .mall-art--cardTheme::after { content: ''; position: absolute; inset: 10px 6px; border: 2px solid var(--outline); border-radius: 4px; background: var(--panel-solid); }
 .mall-art--card-kraft::after { background: #f1dcb8; }
-.mall-art--card-mint::after { background: var(--pastel-mint); }
-.mall-art--card-night::after { background: #3a3355; }
-.mall-art--card-sakura::after { background: var(--pastel-pink); }
+.mall-art--card-pastel::after { background: var(--pastel-pink); }
+.mall-art--card-sky::after { background: linear-gradient(180deg, #ffd3a8, #d6ebff); }
+.mall-art--card-dinner::after { background: #5a2f3a; }
 
 .mall-item__name {
   font-weight: 800;
