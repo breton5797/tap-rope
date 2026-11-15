@@ -92,6 +92,14 @@ function menuScreens({ layers, ctx, mount, setHud }: Shared): MenuUi {
     toArchive: () => ctx.cb.onOpenArchive(),
     toAchievements: () => ctx.cb.onOpenAchievements(),
     toLeaderboard: () => ctx.cb.onOpenLeaderboard('endless'),
+    toTitle: back,
+    adopt: (s: SaveData) => {
+      save = s;
+    },
+    mount: (el: HTMLElement, name: string) => {
+      setHud(false);
+      mount(el, name);
+    },
     toGuide: () => {
       // overlays the title instead of replacing it, so closing needs no rebuild
       const sheet = buildGuide(ctx, () => sheet.remove());

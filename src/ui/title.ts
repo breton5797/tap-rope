@@ -16,6 +16,10 @@ export interface TitleNav {
   readonly toShop: () => void;
   readonly toSettings: () => void;
   readonly toGuide: () => void;
+  /** office live events: back to the title, the menu's copy of a changed save, and mounting an office screen (v8: unused) */
+  readonly toTitle?: () => void;
+  readonly adopt?: (save: SaveData) => void;
+  readonly mount?: (el: HTMLElement, name: string) => void;
 }
 
 /** "₵ 1,280" funds chip. */
