@@ -8,10 +8,12 @@ import type { CardMilestone, CosmeticId, DateKey, LiveRunCounts, LiveRunOutcome,
 import type { RunSummaryLike } from './run-types';
 import { addDays, weekOf } from './dates';
 import { CARD_MILESTONES, CARD_POINTS, cardFor, stamp, stampCount } from './card';
-import { cosmeticById } from './cosmetics';
 import { DAILY_POINTS, parseDailyId } from './daily';
 import { DAILY_KEEP_DAYS } from './save';
 import { GOAL_POINTS, addGoalProgress, themeOf } from './themes';
+
+/** BALANCE knob: a cosmetic reward the player already owns (the week's theme item twice) pays this instead */
+export const DUPLICATE_POINTS = 100;
 
 /** ledger entries older than this many days before maxDate are dropped (maxDate already blocks them) */
 const LEDGER_KEEP_DAYS = 70;
@@ -31,12 +33,12 @@ export function rollover(live: LiveSave, date: DateKey): LiveSave {
 
 interface Pay { readonly live: LiveSave; readonly rewards: readonly Reward[] }
 
-/** pays `rewards` once under `key` (cosmetics are added to owned; an owned one pays its price instead) */
+/** pays `rewards` once under `key` (cosmetics are added to owned; an owned one pays DUPLICATE_POINTS instead) */
 function pay(acc: Pay, key: string, rewards: readonly Reward[]): Pay {
   if (acc.live.ledger.includes(key)) return acc;
   const given = rewards.map((r): Reward => {
     if (r.kind !== 'cosmetic' || !acc.live.owned.includes(r.id)) return r;
-    return { kind: 'points', amount: cosmeticById(r.id)?.price ?? 0, why: r.why };
+    return { kind: 'points', amount: DUPLICATE_POINTS, why: r.why };
   });
   const owned = [...acc.live.owned, ...given.flatMap((r) => (r.kind === 'cosmetic' ? [r.id] : []))];
   const badges = [...acc.live.badges, ...given.flatMap((r) => (r.kind === 'badge' ? [r.week] : []))];

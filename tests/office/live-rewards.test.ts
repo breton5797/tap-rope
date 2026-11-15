@@ -3,7 +3,7 @@
 // nothing; Monday brings a new card (the old one goes to the 출근 기록부); turning the clock back earns nothing.
 import { describe, expect, it } from 'vitest';
 import {
-  CARD_POINTS, DAILY_POINTS, GOAL_POINTS, addDays, applyRun, cosmeticById, dailyPlan, emptyLive, rollover, stampCount, themeOf,
+  CARD_POINTS, DAILY_POINTS, DUPLICATE_POINTS, GOAL_POINTS, addDays, applyRun, cosmeticById, dailyPlan, emptyLive, rollover, stampCount, themeOf,
   type LiveRunCounts, type LiveSave, type Reward,
 } from '../../src/office/core/live';
 
@@ -88,14 +88,15 @@ describe('weekly card', () => {
     expect(later.history).toEqual([{ week: addDays(MON, 7), stamps: 1 }, { week: MON, stamps: 3 }]);
   });
 
-  it('a theme cosmetic already owned pays its price in points instead', () => {
+  it('a theme cosmetic already owned pays a fixed DUPLICATE_POINTS instead (a nice touch, not an income)', () => {
     const theme = themeOf(MON);
     const owned = { ...emptyLive(), owned: [theme.goal.cosmetic] };
     const { rewards } = week([0, 1, 2, 3, 4], owned);
     expect(rewards.filter((r) => r.why === 'card-5')).toEqual([
       { kind: 'points', amount: CARD_POINTS[5], why: 'card-5' },
-      { kind: 'points', amount: cosmeticById(theme.goal.cosmetic)!.price, why: 'card-5' },
+      { kind: 'points', amount: DUPLICATE_POINTS, why: 'card-5' },
     ]);
+    expect(DUPLICATE_POINTS).toBeLessThan(cosmeticById(theme.goal.cosmetic)!.price);
   });
 });
 
