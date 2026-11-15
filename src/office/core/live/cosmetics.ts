@@ -7,7 +7,7 @@ import type { BuyResult, Cosmetic, CosmeticCategory, CosmeticId, DateKey, LiveSa
 import { weekOf } from './dates';
 
 /** BALANCE knob: price per category (aim: one item every 2–3 days of 1–2 runs a day) */
-export const COSMETIC_PRICES: Readonly<Record<CosmeticCategory, number>> = { trail: 500, jump: 450, stamp: 400, cardTheme: 600 };
+export const COSMETIC_PRICES: Readonly<Record<CosmeticCategory, number>> = { trail: 650, jump: 550, stamp: 450, cardTheme: 750 };
 
 const item = (id: CosmeticId, category: CosmeticCategory, name: string, theme?: Cosmetic['theme']): Cosmetic =>
   ({ id, category, name, price: COSMETIC_PRICES[category], sprite: id, ...(theme ? { theme } : {}) });

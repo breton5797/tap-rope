@@ -29,7 +29,7 @@ export const DAILY_HAZARDS: readonly (readonly [number, number, number])[] = [
 export const dailyHazards = (tier: ProgressTier): readonly [number, number, number] =>
   DAILY_HAZARDS[Math.min(DAILY_HAZARDS.length, Math.max(1, tier)) - 1];
 export const DAILY_COLLECT_TARGET = 5;
-export const DAILY_POINTS = 60;
+export const DAILY_POINTS = 85;
 /** a theme may at most double the pickup rate */
 export const THEME_PICKUP_MAX = 2;
 /** days of a week the theme's favourite superior shows up (when the player has met them) */

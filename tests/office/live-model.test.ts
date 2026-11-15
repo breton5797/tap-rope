@@ -16,7 +16,7 @@ import type { Ctx } from '../../src/ui/dom';
 
 const WED = '2026-11-18';
 const cleared = { 'w1-s10': 3, 'w2-s10': 2 };
-const save = (over: Partial<SaveData> = {}): SaveData => ({ ...defaultSave(), stars: cleared, coins: 400, ...over });
+const save = (over: Partial<SaveData> = {}): SaveData => ({ ...defaultSave(), stars: cleared, coins: 1000, ...over });
 const clearDaily = (live: LiveSave, date: DateKey): LiveSave =>
   applyRun(rollover(live, date), { stageId: dailyPlan(date, 2).stage.id, cleared: true, score: 1000 }, ZERO_COUNTS, date, 2).live;
 /** the Monday of the first week from WED whose theme matches */
