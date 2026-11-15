@@ -129,13 +129,15 @@ const NEW_MOVES: readonly (readonly MoveId[])[] = [
 /** difficulty per stage (tempo, jump levels, move mix); the part-2 balance pass kept these — hazard counts were the
  * lever that moved the bots' clear rates (docs/balance/after.md) */
 const D: readonly number[] = [0.15, 0.3, 0.45, 0.58, 0.7, 0.73, 0.76, 0.79, 0.82, 0.85];
-/** BALANCE knob (live events): the daily mission plays this much below its tier stage's D (live/daily.ts) */
-export const DAILY_D_OFFSET = -0.1;
+/** BALANCE knob (live events): per tier (index = tier − 1), the daily mission's D relative to its tier stage's D
+ * (live/daily.ts; docs/balance/live-economy.md) */
+export const DAILY_D_OFFSET: readonly number[] = [0.85, 0.7, 0.55, 0.42, 0.3, 0.27, 0.24, 0.21, 0.18, 0.15];
 
 /** D of stage index `i` (0-based, clamped); `daily` = the daily mission at that tier (DAILY_D_OFFSET, ≥ 0.1) */
 export function stageDifficulty(i: number, daily = false): number {
   const d = D[Math.min(D.length - 1, Math.max(0, i))];
-  return daily ? Math.max(0.1, Math.round((d + DAILY_D_OFFSET) * 100) / 100) : d;
+  const offset = DAILY_D_OFFSET[Math.min(DAILY_D_OFFSET.length - 1, Math.max(0, i))];
+  return daily ? Math.max(0.1, Math.round((d + offset) * 100) / 100) : d;
 }
 
 export const STAGES: readonly StageDef[] = CHAPTERS.map((c, i) => {
@@ -174,7 +176,7 @@ function easeHardMoves(def: StageDef, k: number, focus: readonly MoveId[]): Stag
 }
 
 export function missionPartStage(stage: StageDef, k: number, spec: MissionSpec): StageDef {
-  // a daily mission (live events) is tuned to its tier stage, DAILY_D_OFFSET easier
+  // a daily mission (live events) is tuned to its tier stage, shifted by DAILY_D_OFFSET[tier − 1]
   const daily = readDailyId(stage.id);
   const i = daily ? daily.tier - 1 : Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
   const def = designCustomStage(

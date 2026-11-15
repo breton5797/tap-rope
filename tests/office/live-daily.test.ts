@@ -10,7 +10,7 @@ import { defaultSave } from '../../src/core/storage';
 import { startMissions } from '../../src/office/game/missions';
 import { missionsOf } from '../../src/office/core/stage-missions';
 import {
-  DAILY_HAZARDS, THEME_PICKUP_MAX, addDays, dailyPlan, dailyUnlocked, parseDailyId, progressTier, themeOf, weekOf,
+  dailyHazards, THEME_PICKUP_MAX, addDays, dailyPlan, dailyUnlocked, parseDailyId, progressTier, themeOf, weekOf,
   type ProgressTier,
 } from '../../src/office/core/live';
 import { HAZARD_KINDS, type Beat } from '../../src/types';
@@ -52,7 +52,7 @@ describe('dailyPlan', () => {
         for (const m of p.stage.moves) expect(unlocked, `${d} t${t} stage ${m}`).toContain(m);
         p.missions.forEach((m, k) => {
           for (const mv of [...m.moves, ...(m.focus ?? [])]) expect(unlocked, `${d} t${t} part ${k} ${mv}`).toContain(mv);
-          expect(m.hazards).toBe(DAILY_HAZARDS[k]);
+          expect(m.hazards).toBe(dailyHazards(t)[k]);
         });
         expect(p.missions.map((m) => m.kind)).toEqual(['dodge', 'collect', 'finale']);
       }
@@ -91,7 +91,7 @@ describe('the daily stage in the office systems', () => {
       expect(missionsOf(p.stage.id)).toEqual(p.missions);
       const { beats, doors } = generateStage(p.stage, DEFAULT_PHYSICS);
       expect(doors.map((x) => x.section)).toEqual([1, 2]);
-      [0, 1, 2].forEach((k) => expect(beats.filter((b) => b.part === k && isHazard(b)).length).toBe(DAILY_HAZARDS[k]));
+      [0, 1, 2].forEach((k) => expect(beats.filter((b) => b.part === k && isHazard(b)).length).toBe(dailyHazards(7)[k]));
       expect(startMissions(p.stage, beats)).not.toBeNull();
       for (const s of [0, 1, 2]) expect(bossForSection(p.stage, s)).toMatchObject({ id: p.boss.slot, name: p.boss.name });
       expect(bossFor(p.stage)?.name).toBe(p.boss.name);

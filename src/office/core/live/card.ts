@@ -7,7 +7,7 @@ import type { CardHistoryEntry, CardMilestone, DateKey, WeekCard } from './types
 import { weekOf, weekdayOf } from './dates';
 
 /** BALANCE knobs: points at 3 / 5 / 7 stamps */
-export const CARD_POINTS: Readonly<Record<CardMilestone, number>> = { 3: 100, 5: 150, 7: 200 };
+export const CARD_POINTS: Readonly<Record<CardMilestone, number>> = { 3: 60, 5: 90, 7: 130 };
 export const CARD_MILESTONES: readonly CardMilestone[] = [3, 5, 7];
 export const HISTORY_KEEP_WEEKS = 26;
 

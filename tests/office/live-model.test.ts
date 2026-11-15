@@ -3,7 +3,7 @@
 // rollover on open, rebuild on a date change).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  CARD_POINTS, COSMETICS, LIVE_SAVE_KEY, addDays, applyRun, dailyPlan, emptyLive, equipCosmetic, loadLive, rollover, themeOf,
+  CARD_POINTS, COSMETIC_PRICES, COSMETICS, LIVE_SAVE_KEY, addDays, applyRun, dailyPlan, emptyLive, equipCosmetic, loadLive, rollover, themeOf,
   weekOf, type DateKey, type LiveSave,
 } from '../../src/office/core/live';
 import { ZERO_COUNTS } from '../../src/office/game/live/counts';
@@ -141,7 +141,8 @@ describe('office title', () => {
   });
 
   it('buying in the mall spends the main save\'s points, owns + equips the item and updates the look', () => {
-    let main = save({ coins: 400 });
+    const trail = COSMETIC_PRICES.trail;
+    let main = save({ coins: trail + 100 });
     const onMetaUpdate = (u: (s: SaveData) => SaveData | null): SaveData | null => {
       const next = u(main);
       if (next) main = next;
@@ -152,7 +153,7 @@ describe('office title', () => {
     (el.querySelector('.live-mallbtn') as HTMLElement).click();
     const mall = n.mount.mock.calls[0][0] as HTMLElement;
     (mall.querySelector('.mall-item[data-id="trail-sparkle"] button') as HTMLElement).click();
-    expect(main.coins).toBe(400 - 300);
+    expect(main.coins).toBe(100);
     expect(n.adopt).toHaveBeenCalledWith(main);
     expect(loadLive().equipped.trail).toBe('trail-sparkle');
     expect(liveLook().trail).toBe('trail-sparkle');

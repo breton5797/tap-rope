@@ -20,8 +20,14 @@ import { makeDailyId, readDailyId } from './daily-id';
 import { themeOf } from './themes';
 
 export { DAILY_D_OFFSET };
-/** BALANCE knobs: hazards per mission (dodge / collect / finale), the collect target, the first-clear points */
-export const DAILY_HAZARDS: readonly [number, number, number] = [8, 8, 10];
+/** BALANCE knobs: per tier (index = tier − 1) hazards per mission (dodge / collect / finale); the collect target,
+ * the first-clear points (docs/balance/live-economy.md) */
+export const DAILY_HAZARDS: readonly (readonly [number, number, number])[] = [
+  [25, 8, 27], [22, 8, 24], [22, 8, 24], [21, 8, 23], [21, 8, 23], [21, 8, 23], [21, 8, 23], [20, 8, 22], [20, 8, 22], [20, 8, 22],
+];
+/** the hazard counts of a tier's daily */
+export const dailyHazards = (tier: ProgressTier): readonly [number, number, number] =>
+  DAILY_HAZARDS[Math.min(DAILY_HAZARDS.length, Math.max(1, tier)) - 1];
 export const DAILY_COLLECT_TARGET = 5;
 export const DAILY_POINTS = 60;
 /** a theme may at most double the pickup rate */
@@ -89,21 +95,22 @@ function lookOfDay(date: DateKey, tier: ProgressTier, theme: ThemeId): Pick<Stag
 function missionsOfDay(date: DateKey, tier: ProgressTier, boss: OfficeBoss): DailyPlan['missions'] {
   const emphasis = themeOf(weekOf(date)).emphasis;
   const unlocked = STAGES[tier - 1].moves;
+  const hz = dailyHazards(tier);
   const has = (m: MoveId): boolean => unlocked.includes(m);
   const focus = (emphasis.focus ?? []).filter(has);
   const mul = Math.min(THEME_PICKUP_MAX, Math.max(1, emphasis.pickupMul ?? 1));
   const pick = (rate: number): number => Math.min(1, rate * mul);
   const item = emphasis.collectible ?? ITEMS[draw(date, 'item') % ITEMS.length];
   const dodge: MissionSpec = {
-    kind: 'dodge', title: `${boss.name}의 기습`, target: DAILY_HAZARDS[0], hazards: DAILY_HAZARDS[0], moves: unlocked,
+    kind: 'dodge', title: `${boss.name}의 기습`, target: hz[0], hazards: hz[0], moves: unlocked,
     ...(focus.length > 0 ? { focus } : {}), ...DODGE, pickupRate: pick(DODGE.pickupRate), line: boss.catchphrase,
   };
   const collect: MissionSpec = {
-    kind: 'collect', title: `${ITEM_NAMES[item]} 모으기`, target: DAILY_COLLECT_TARGET, hazards: DAILY_HAZARDS[1],
+    kind: 'collect', title: `${ITEM_NAMES[item]} 모으기`, target: DAILY_COLLECT_TARGET, hazards: hz[1],
     moves: COLLECT_MOVES.filter(has), collectible: item, ...COLLECT, line: `${ITEM_NAMES[item]} 좀 챙겨 와~`,
   };
   const finale: MissionSpec = {
-    kind: 'finale', title: `${boss.name} 뛰어넘기`, target: DAILY_HAZARDS[2], hazards: DAILY_HAZARDS[2], moves: unlocked,
+    kind: 'finale', title: `${boss.name} 뛰어넘기`, target: hz[2], hazards: hz[2], moves: unlocked,
     ...(focus.length > 0 ? { focus } : {}), ...FINALE, pickupRate: pick(FINALE.pickupRate), line: `${boss.tag}!`,
   };
   return [dodge, collect, finale];

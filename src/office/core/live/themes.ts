@@ -7,7 +7,7 @@ import type { GoalProgress, LiveRunCounts, ThemeId, WeekKey, WeekTheme } from '.
 import { weekIndex } from './dates';
 
 /** BALANCE knob: points for a completed weekly goal */
-export const GOAL_POINTS = 300;
+export const GOAL_POINTS = 150;
 
 const theme = (t: Omit<WeekTheme, 'goal'> & { goal: Omit<WeekTheme['goal'], 'points'> }): WeekTheme =>
   ({ ...t, goal: { ...t.goal, points: GOAL_POINTS } });
