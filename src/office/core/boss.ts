@@ -19,6 +19,7 @@
 import type { Beat, BossId, BossMeta, BossView, Door, StageDef } from '../../types';
 import { HAZARD_KINDS } from '../../types';
 import { ATTACK_LEAD, INTRO_LEAD, STAGGER_TIME, bossView as v8BossView } from '../../core/boss';
+import { readDailyId } from './live/daily-id';
 
 export { ATTACK_LEAD, INTRO_LEAD, STAGGER_TIME };
 
@@ -82,6 +83,12 @@ type BossStage = Pick<StageDef, 'id' | 'kind' | 'chapter'>;
 const stageNumber = (stage: BossStage): number | null =>
   stage.kind === 'boss' && stage.id === `w${stage.chapter + 1}-s10` ? stage.chapter + 1 : null;
 
+/** a daily mission (live events): its superior row, carried in the stage id (live/daily-id.ts) */
+const dailyRow = (stage: BossStage): OfficeBoss | null => {
+  const d = readDailyId(stage.id);
+  return d ? OFFICE_BOSSES[d.row] ?? null : null;
+};
+
 /** the superior row of `section` on office stage number `stage` (1-based), else null */
 export function superiorAt(stage: number, section: number): OfficeBoss | null {
   return OFFICE_BOSSES.find((b) => b.stage === stage && (b.section === null || b.section === section)) ?? null;
@@ -90,7 +97,7 @@ export function superiorAt(stage: number, section: number): OfficeBoss | null {
 /** the superior of `section` on an office stage ("w1-s10".."w10-s10"), else null */
 export function bossForSection(stage: BossStage, section: number): BossMeta | null {
   const n = stageNumber(stage);
-  const office = n === null ? null : superiorAt(n, section);
+  const office = n === null ? dailyRow(stage) : superiorAt(n, section);
   return office ? BOSSES[OFFICE_BOSSES.indexOf(office)] : null;
 }
 
@@ -117,11 +124,13 @@ export function bossView(
   stage: BossStage, beats: readonly Beat[], doors: readonly Door[], t: number, hazardDone: number, hazardTotal: number,
 ): BossView | null {
   const n = stageNumber(stage);
-  if (n === null) return null;
-  // the v8 view only needs *a* boss on the stage; office stage ids match its "w{n}-s10" rule
-  const base = v8BossView(stage, beats, doors, t, hazardDone, hazardTotal);
+  const daily = n === null ? dailyRow(stage) : null;
+  if (n === null && daily === null) return null;
+  // the v8 view only needs *a* boss on the stage; office stage ids match its "w{n}-s10" rule (a daily borrows it)
+  const asV8 = daily ? { ...stage, id: `w${stage.chapter + 1}-s10`, kind: 'boss' as const } : stage;
+  const base = v8BossView(asV8, beats, doors, t, hazardDone, hazardTotal);
   if (!base) return null;
-  if (MULTI_STAGES.has(n)) return finalStageView(base, stage, beats, hazardDone);
+  if (n !== null && MULTI_STAGES.has(n)) return finalStageView(base, stage, beats, hazardDone);
   const boss = bossFor(stage);
   return boss ? { ...base, id: boss.id } : null;
 }

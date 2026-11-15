@@ -16,7 +16,8 @@ import { mulberry32 } from '../../core/rng';
 import { airtimeForLevel } from '../../core/physics';
 import { beatShape, gapAfter, laneReach, minGap, SAFETY } from '../../core/spacing';
 import { missionPartStage, sceneFor, transitionFor } from './content';
-import { STAGE_MISSIONS, type MissionSpec } from './missions';
+import type { MissionSpec } from './missions';
+import { missionsOf } from './stage-missions';
 
 export * from '../../core/levels';
 
@@ -224,7 +225,7 @@ function composeOffice(stage: StageDef, specs: readonly MissionSpec[], cfg: Phys
 
 /** Office stages: three stitched mission parts; anything else: the v8 generator. */
 export function generateStage(stage: StageDef, cfg: PhysicsConfig, startTime = 2.0): Stage {
-  const specs = STAGE_MISSIONS[stage.id];
+  const specs = missionsOf(stage.id);
   return specs ? composeOffice(stage, specs, cfg, startTime) : v8GenerateStage(stage, cfg, startTime);
 }
 

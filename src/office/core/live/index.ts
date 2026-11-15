@@ -8,3 +8,4 @@ export * from './cosmetics';
 export * from './save';
 export * from './rewards';
 export type { RunSummaryLike } from './run-types';
+export * from './daily-id';

@@ -125,7 +125,8 @@ const unseen = (id: CutsceneId, save: Seen): Cutscene | null => {
 
 /** the cutscene to play before starting `stage` (first time only), else null */
 export function cutsceneBefore(stage: Pick<StageDef, 'id' | 'kind' | 'chapter'>, save: Seen): Cutscene | null {
-  const boss = bossFor(stage);
+  // a daily mission (live events, "live-…") is not part of the story
+  const boss = stage.id.startsWith('live-') ? null : bossFor(stage);
   if (!boss) return null;
   // stage 1: the opening first; stage 6: the part-2 bridge for saves that cleared stage 5 before it existed
   const lead = boss.chapter === 0 ? unseen('op-start', save) : boss.chapter === 5 ? unseen('rescue', save) : null;

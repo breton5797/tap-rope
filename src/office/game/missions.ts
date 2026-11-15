@@ -11,8 +11,9 @@ import type { GameEvent } from '../../game/session';
 import { SAVE_PREFIX } from '../../flavor';
 import { STAGES } from '../../core/content';
 import { bossForSection } from '../../core/boss';
+import { missionsOf } from '../core/stage-missions';
 import {
-  MISSION_BONUS, STAGE_MISSIONS, maxHitsFor, missionProgress, stageGrade, starsFor, type MissionKind, type MissionSpec, type MissionStats,
+  MISSION_BONUS, maxHitsFor, missionProgress, stageGrade, starsFor, type MissionKind, type MissionSpec, type MissionStats,
 } from '../core/missions';
 
 export interface MissionRun {
@@ -58,7 +59,7 @@ const partOf = (b: Beat): number => b.part ?? b.section;
 
 /** a run's missions, or null for stages without a mission script (endless, the menu demo) */
 export function startMissions(stage: StageDef | null, beats: readonly Beat[]): MissionRun | null {
-  const specs = stage ? STAGE_MISSIONS[stage.id] : undefined;
+  const specs = stage ? missionsOf(stage.id) : undefined;
   if (!stage || !specs) return null;
   const hazards = beats.filter(isHazard);
   const stats = specs.map((_, k): MissionStats => ({
@@ -228,7 +229,7 @@ export interface MissionCard {
 
 /** the card shown as a section starts: which mission, its goal and the section's superior */
 export function missionCardFor(stage: StageDef, section: number): MissionCard | null {
-  const specs = STAGE_MISSIONS[stage.id];
+  const specs = missionsOf(stage.id);
   const spec = specs?.[section];
   if (!specs || !spec) return null;
   return {
