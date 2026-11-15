@@ -1,0 +1,69 @@
+/**
+ * Office live events in the app (swaps src/game/live-hook.ts): the 오늘의 미션 button plays today's daily stage
+ * (core/live dailyPlan for the player's tier), the boss of the day is announced before the countdown, every
+ * real run's events count toward the weekly goal, and its end goes through core/live applyRun — the points
+ * are added to the main save and the rewards are put on the result card. A daily run is not campaign progress.
+ */
+import type { LiveHook, LiveRunEnd, LiveRunSummary } from '../../game/live-hook';
+import type { GameEvent, Session } from '../../game/session';
+import type { SaveData, StageDef } from '../../types';
+import {
+  applyRun, dailyPlan, dailyUnlocked, loadLive, parseDailyId, progressTier, saveLive, themeOf, todayKey,
+  weekOf, type DateKey, type LiveRunCounts,
+} from '../core/live';
+import { setLiveLook } from '../render/live-look';
+import { equippedSprite, lookOf, rewardPoints, weekCardModel, withLive } from '../ui/live/model';
+import { startCounts, trackCounts } from './live/counts';
+
+
+let counts: LiveRunCounts = startCounts();
+/** the local date the run started on (a daily played across midnight still counts for its own day) */
+let runDate: DateKey = todayKey(new Date());
+
+const today = (): DateKey => todayKey(new Date());
+
+export const liveHook: LiveHook = {
+  dailyStage(save: SaveData): StageDef | null {
+    const tier = progressTier(save.stars);
+    return dailyUnlocked(tier) ? dailyPlan(today(), tier).stage : null;
+  },
+
+  offCampaign: (stageId: string) => parseDailyId(stageId) !== null,
+
+  briefing(stage: StageDef) {
+    const d = parseDailyId(stage.id);
+    if (!d) return null;
+    const plan = dailyPlan(d.date, d.tier);
+    return { kicker: `오늘의 칼퇴 미션 · ${themeOf(weekOf(d.date)).name}`, text: `오늘의 상사: ${plan.boss.name}` };
+  },
+
+  start(_session: Session) {
+    counts = startCounts();
+    runDate = today();
+    try {
+      setLiveLook(lookOf(loadLive(), runDate));
+    } catch (e) {
+      console.error('live events: look unavailable', e);
+    }
+  },
+
+  track(session: Session, events: readonly GameEvent[]) {
+    if (events.length > 0) counts = trackCounts(counts, session, events);
+  },
+
+  finish(save: SaveData, run: LiveRunSummary): LiveRunEnd {
+    const before = loadLive();
+    const out = applyRun(before, run, counts, runDate, progressTier(save.stars));
+    if (out.live !== before) saveLive(out.live);
+    const card = weekCardModel(out.live, runDate);
+    const stamped = out.rewards.some((r) => r.why === 'daily');
+    const coins = rewardPoints(out.rewards);
+    const show = out.daily || out.rewards.length > 0;
+    return {
+      coins,
+      decorate: (r) => (show
+        ? withLive({ ...r, coinsEarned: r.coinsEarned + coins }, { daily: out.daily, rewards: out.rewards, card, stamped, stampKey: equippedSprite(out.live, 'stamp') })
+        : r),
+    };
+  },
+};

@@ -3,9 +3,9 @@
 import {
   CARD_POINTS, COSMETICS, addDays, affordable, buyCosmetic, dailyPlan, dailyUnlocked, progressTier, stampCount, themeOf,
   weekOf, weekdayOf, type CardHistoryEntry, type CardMilestone, type Cosmetic, type CosmeticCategory, type DateKey,
-  type LiveSave, type WeekKey,
+  type LiveSave, type Reward, type WeekKey,
 } from '../../core/live';
-import type { SaveData } from '../../../types';
+import type { ResultInfo, SaveData } from '../../../types';
 import type { LiveLook } from '../../render/live-look';
 
 const NO_STAMPS = [false, false, false, false, false, false, false] as const;
@@ -143,4 +143,31 @@ export function unequip(live: LiveSave, category: CosmeticCategory): LiveSave {
   if (!(category in live.equipped)) return live;
   const equipped = Object.fromEntries(Object.entries(live.equipped).filter(([k]) => k !== category));
   return { ...live, equipped };
+}
+
+/** what the result card shows of the live events (office: `ResultInfo & { live }`, see liveOf) */
+export interface LiveResultView {
+  /** the run was today's daily mission */
+  readonly daily: boolean;
+  readonly rewards: readonly Reward[];
+  /** the week card after the run (its today slot gets the landing stamp when this run stamped it) */
+  readonly card: WeekCardModel;
+  /** this run put today's stamp on the card */
+  readonly stamped: boolean;
+  readonly stampKey: string | null;
+}
+
+export type LiveResultInfo = ResultInfo & { readonly live?: LiveResultView };
+
+export function liveOf(r: ResultInfo): LiveResultView | undefined {
+  return (r as LiveResultInfo).live;
+}
+
+export function withLive(r: ResultInfo, live: LiveResultView): ResultInfo {
+  return { ...r, live } as LiveResultInfo;
+}
+
+/** the 칼퇴 포인트 in a reward list */
+export function rewardPoints(rewards: readonly Reward[]): number {
+  return rewards.reduce((n, r) => n + (r.kind === 'points' ? r.amount : 0), 0);
 }
