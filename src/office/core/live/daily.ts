@@ -1,7 +1,8 @@
 /**
  * 오늘의 칼퇴 미션 (spec §1): one short three-mission stage per (date, tier).
- * - Fair: only the moves taught up to the player's tier stage; a superior the player has met; tuned to the tier
- *   (the tier stage's difficulty + DAILY_D_OFFSET, applied in content.ts missionPartStage).
+ * - Fair: only the moves taught up to the player's tier stage; a superior the player has met; tuned per tier
+ *   (the tier stage's difficulty + DAILY_D_OFFSET[tier − 1], applied in content.ts missionPartStage, and
+ *   DAILY_HAZARDS[tier − 1]) so the casual bot clears 85–92 % (docs/balance/live-economy.md).
  * - Deterministic: everything comes from hashString of the date (and the tier), never from the clock or input.
  * - Theme (themes.ts): pickup share (≤ ×THEME_PICKUP_MAX), the collect item, the superior of most days, a focus
  *   move the player already knows. Never more hazards or a faster tempo.

@@ -129,8 +129,9 @@ const NEW_MOVES: readonly (readonly MoveId[])[] = [
 /** difficulty per stage (tempo, jump levels, move mix); the part-2 balance pass kept these — hazard counts were the
  * lever that moved the bots' clear rates (docs/balance/after.md) */
 const D: readonly number[] = [0.15, 0.3, 0.45, 0.58, 0.7, 0.73, 0.76, 0.79, 0.82, 0.85];
-/** BALANCE knob (live events): per tier (index = tier − 1), the daily mission's D relative to its tier stage's D
- * (live/daily.ts; docs/balance/live-economy.md) */
+/** BALANCE knob (live events): per tier (index = tier − 1), added to the tier stage's D for the daily mission — positive,
+ * so every tier's daily runs at d ≈ 1.0 (the 150 bpm cap) with only learned moves; tuned with DAILY_HAZARDS so the casual
+ * bot clears 85–92 % (live/daily.ts; docs/balance/live-economy.md) */
 export const DAILY_D_OFFSET: readonly number[] = [0.85, 0.7, 0.55, 0.42, 0.3, 0.27, 0.24, 0.21, 0.18, 0.15];
 
 /** D of stage index `i` (0-based, clamped); `daily` = the daily mission at that tier (DAILY_D_OFFSET, ≥ 0.1) */
