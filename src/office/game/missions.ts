@@ -9,7 +9,7 @@ import type { Beat, MissionOutcome, MissionView, ObstacleKind, PickupCue, StageD
 import { HAZARD_KINDS } from '../../types';
 import type { GameEvent } from '../../game/session';
 import { SAVE_PREFIX } from '../../flavor';
-import { STAGES } from '../../core/content';
+import { STAGES, stageById } from '../../core/content';
 import { bossForSection } from '../../core/boss';
 import { missionsOf } from '../core/stage-missions';
 import {
@@ -47,6 +47,8 @@ export interface MissionSession {
 }
 
 const STAMPS_KEY = `${SAVE_PREFIX}.stamps.v1`;
+/** stamps whose ₵ bonus was paid (paid once per stamp, ever) */
+const PAID_KEY = `${SAVE_PREFIX}.stampsPaid.v1`;
 const CHASE_START = 0.5;
 const CHASE_DODGE = 0.05;
 const CHASE_HIT = 0.3;
@@ -198,14 +200,51 @@ function saveBest(stageId: string, stamps: readonly boolean[]): void {
   }
 }
 
-/** the run's outcome; a cleared, recorded run also keeps its best stamps for the map */
+/**
+ * stamps whose bonus was already paid, per campaign stage (office-only key). Missing or corrupt: seeded from
+ * the best stamps on the map, so a save from before the paid-once rule is never paid twice.
+ */
+function loadPaid(): Record<string, boolean[]> {
+  try {
+    const text = globalThis.localStorage?.getItem(PAID_KEY);
+    if (text) {
+      const raw: unknown = JSON.parse(text);
+      if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+        return Object.fromEntries(Object.entries(raw).filter(([, v]) => Array.isArray(v) && v.every((x) => typeof x === 'boolean'))) as Record<string, boolean[]>;
+      }
+    }
+  } catch {
+    // corrupt: rebuild below
+  }
+  return loadStamps();
+}
+
+function savePaid(paid: Record<string, boolean[]>): void {
+  try {
+    globalThis.localStorage?.setItem(PAID_KEY, JSON.stringify(paid));
+  } catch {
+    // storage refused: a later run may pay a stamp again (bounded, never more than once per stamp per session)
+  }
+}
+
+/**
+ * the run's outcome; a cleared, recorded run also keeps its best stamps for the map. The stamp bonus is paid
+ * only for stamps earned for the first time on a campaign stage (a daily mission's rewards are the live ones);
+ * a recorded run (cleared or failed: stamps are earned at the doors) stores them as paid.
+ */
 export function commitMissions(run: MissionRun | null, cleared: boolean, record: boolean): MissionOutcome | null {
   if (!run) return null;
   const done = run.stamps.map((v) => v === true);
+  // read the paid ledger before this run updates the best stamps (a legacy save is seeded from them)
+  const campaign = stageById(run.stageId) !== undefined;
+  const ledger = campaign ? loadPaid() : {};
   if (cleared && record) saveBest(run.stageId, done);
-  // the bonus is given at each door (spec §3.3): stamps already earned are paid on a failed run too
-  const stampBonus = done.filter(Boolean).length * MISSION_BONUS(run.stageIndex);
+  const before = ledger[run.stageId] ?? [];
+  const paid = done.map((v, k) => campaign && v && !before[k]);
+  if (campaign && record) savePaid({ ...ledger, [run.stageId]: done.map((v, k) => v || Boolean(before[k])) });
+  const stampBonus = paid.filter(Boolean).length * MISSION_BONUS(run.stageIndex);
   return {
+    paid,
     stamps: run.stamps.map((v, k) => (k < run.section || v !== null ? v ?? false : null)),
     grade: stageGrade(done, run.hits),
     stars: starsFor(done),

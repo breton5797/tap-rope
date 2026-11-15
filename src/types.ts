@@ -511,6 +511,8 @@ export interface MissionOutcome {
   readonly stampBonus: number;
   /** bonus collectibles picked up outside collect missions (stage 5's 금일봉) */
   readonly items: number;
+  /** office: per stamp, whether this run paid its bonus (the first time that stamp was ever earned); absent in v8 */
+  readonly paid?: readonly boolean[];
 }
 
 export interface RenderSnapshot {
@@ -645,6 +647,25 @@ export interface ResultInfo {
   readonly skin?: SkinId;
   /** office tester run: marked "테스트 판 · 기록 안 함", nothing was saved (absent in v8) */
   readonly testRun?: true;
+  /** office live events: what the run did to the week card and the rewards it earned (absent in v8) */
+  readonly live?: ResultLive;
+}
+
+/** office live events on the result screen (mirrors src/office/core/live Reward without importing office code) */
+export interface ResultLive {
+  /** the run was today's daily mission */
+  readonly daily: boolean;
+  readonly rewards: readonly (
+    | { readonly kind: 'points'; readonly amount: number; readonly why: string }
+    | { readonly kind: 'cosmetic'; readonly id: string; readonly why: string }
+    | { readonly kind: 'badge'; readonly week: string; readonly why: string }
+  )[];
+  /** the week card after the run, Monday … Sunday */
+  readonly stamps: readonly boolean[];
+  /** today's weekday, 0 = Monday … 6 = Sunday */
+  readonly today: number;
+  /** the equipped stamp cosmetic id, null = the office default */
+  readonly stampDesign: string | null;
 }
 
 /** v8: one ₵ reward line on the result card. */

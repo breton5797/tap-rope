@@ -116,6 +116,6 @@ describe('grade, stars, bonus', () => {
   });
 
   it('mission bonus grows with the stage', () => {
-    expect([0, 1, 4, 9].map(MISSION_BONUS)).toEqual([150, 300, 750, 1500]);
+    expect([0, 1, 4, 9].map(MISSION_BONUS)).toEqual([20, 40, 100, 200]);
   });
 });
