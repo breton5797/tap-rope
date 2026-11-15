@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { OFFICE_ART, OFFICE_EXTRA_ART } from '../../src/office/render/images';
 import { CUTSCENE_IMAGES } from '../../src/office/core/cutscenes';
 import { corridorArtFiles } from '../../src/render/art';
+import { COSMETICS } from '../../src/office/core/live/cosmetics';
 
 const ART = join(__dirname, '../../public-office/art');
 const missing = (names: readonly string[]): string[] => names.filter((n) => !existsSync(join(ART, `${n}.webp`)));
@@ -29,6 +30,11 @@ describe('office art files', () => {
 
   it('ship a badge for every stage-clear achievement (zone-1 … zone-10)', () => {
     expect(missing(['zone-1', 'zone-3', 'zone-5', 'zone-7', 'zone-10'].map((n) => `ach/${n}`))).toEqual([]);
+  });
+
+  it('ship a sprite for every live-events cosmetic (all 20 catalog ids, art/cosmetic/<sprite>.webp)', () => {
+    expect(COSMETICS).toHaveLength(20);
+    expect(missing(COSMETICS.map((c) => `cosmetic/${c.sprite}`))).toEqual([]);
   });
 
   it('ship every corridor photo the office fetches (themes 0–6, exterior sets, the stage-10 night street)', () => {
