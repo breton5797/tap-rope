@@ -169,14 +169,20 @@
 
 .wcard {
   padding: 12px;
-  background: var(--panel-solid);
+  background-color: var(--panel-solid);
+  background-position: center;
+  background-size: 100% 100%;
   border-radius: var(--r-lg);
 }
 
-.wcard--card-kraft { background: #f1dcb8; }
-.wcard--card-pastel { background: var(--pastel-pink); }
-.wcard--card-sky { background: linear-gradient(180deg, #ffd3a8, #d6ebff); }
-.wcard--card-dinner { color: #fff; background: #5a2f3a; }
+.wcard--card-kraft { background-color: #f1dcb8; }
+.wcard--card-pastel { background-color: var(--pastel-pink); }
+.wcard--card-sky { background-color: #ffd3a8; }
+.wcard--card-dinner { color: #fff; background-color: #5a2f3a; }
+.wcard--card-kraft,
+.wcard--card-pastel,
+.wcard--card-sky,
+.wcard--card-dinner { padding: 18px 20px; }
 
 .wcard__head {
   display: flex;

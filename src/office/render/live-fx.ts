@@ -77,6 +77,16 @@ export function clockBoost(look: LiveLook, progress01: number): boolean {
   return look.clock && progress01 > CLOCK_BOOST_FROM;
 }
 
+const artNames = new Map<string, string>();
+function artName(key: string): string {
+  let n = artNames.get(key);
+  if (n === undefined) {
+    n = `cosmetic/${key}`;
+    artNames.set(key, n);
+  }
+  return n;
+}
+
 function rand(seed: number): number {
   const x = Math.sin(seed * 12.9898) * 43758.5453;
   return x - Math.floor(x);
@@ -93,6 +103,8 @@ export class LiveFx {
   /** world-anchored (scrolls with the floor) */
   private readonly floor = new Uint8Array(LIVE_PARTICLES);
   private readonly key: string[] = new Array<string>(LIVE_PARTICLES).fill('');
+  /** 'cosmetic/<key>', built once per key (no string per particle per frame) */
+  private readonly art: string[] = new Array<string>(LIVE_PARTICLES).fill('');
   private readonly color: string[] = new Array<string>(LIVE_PARTICLES).fill('#FFFFFF');
   private next = 0;
   private seed = 1;
@@ -155,6 +167,7 @@ export class LiveFx {
     this.rot[k] = alt ? 0.25 : -0.25;
     this.floor[k] = 1;
     this.key[k] = key;
+    this.art[k] = artName(key);
     this.color[k] = s.colors[this.spawned % s.colors.length];
   }
 
@@ -176,6 +189,7 @@ export class LiveFx {
       this.rot[k] = r1 * Math.PI;
       this.floor[k] = 0;
       this.key[k] = key;
+      this.art[k] = artName(key);
       this.color[k] = s.colors[i % s.colors.length];
     }
   }
@@ -207,7 +221,7 @@ export class LiveFx {
       const t = this.age[k] / this.life[k];
       const s = fxStyle(this.key[k]);
       ctx.globalAlpha = 0.85 * (t < 0.6 ? 1 : (1 - t) / 0.4);
-      const img = image(`cosmetic/${this.key[k]}`);
+      const img = image(this.art[k]);
       const size = s.size * (this.floor[k] ? 1 : 1 - 0.3 * t);
       if (img) ctx.drawImage(img, this.px[k] - size * 1.5, this.py[k] - size * 1.5, size * 3, size * 3);
       else shapeAt(ctx, s.shape, this.color[k], this.px[k], this.py[k], size, this.rot[k]);
@@ -264,46 +278,28 @@ function shapeAt(ctx: Ctx, shape: FxShape, color: string, x: number, y: number, 
   ctx.stroke();
 }
 
-/** one rain tile, built once; drawn as a scrolling pattern (a single fill per frame) */
-const RAIN_TILE = 96;
-let rainTile: HTMLCanvasElement | null = null;
-let rainPattern: { ctx: Ctx; p: CanvasPattern | null } | null = null;
+/** rain streaks on screen at once (one path, one stroke per frame) */
+export const RAIN_DROPS = 28;
+const RAIN_FALL = 520; // px/s
+const RAIN_LEN = 16;
 
-function rainTileCanvas(): HTMLCanvasElement | null {
-  if (rainTile || typeof document === 'undefined') return rainTile;
-  const c = document.createElement('canvas');
-  c.width = RAIN_TILE;
-  c.height = RAIN_TILE;
-  const g = c.getContext('2d');
-  if (!g) return null;
-  g.strokeStyle = 'rgba(214,236,255,0.9)';
-  g.lineWidth = 1.4;
-  g.lineCap = 'round';
-  for (let i = 0; i < 9; i++) {
-    const x = rand(i + 1) * RAIN_TILE;
-    const y = rand(i + 50) * RAIN_TILE;
-    g.beginPath();
-    g.moveTo(x, y);
-    g.lineTo(x - 5, y + 16);
-    g.stroke();
-  }
-  rainTile = c;
-  return c;
-}
-
-/** light rain over the scene (rain week, part 2); still under reduced motion */
+/** light rain over the scene (rain week, part 2): one stroked path; still under reduced motion */
 export function drawRain(ctx: Ctx, v: View, realTime: number, reduced: boolean): void {
-  if (!rainPattern || rainPattern.ctx !== ctx) {
-    const tile = rainTileCanvas();
-    rainPattern = { ctx, p: tile ? ctx.createPattern(tile, 'repeat') : null };
-  }
-  const p = rainPattern.p;
-  if (!p) return;
-  const fall = reduced ? 0 : (realTime * 520) % RAIN_TILE;
+  const t = reduced ? 0 : realTime;
   ctx.save();
-  ctx.globalAlpha = 0.28;
-  ctx.fillStyle = p;
-  ctx.translate(-fall * 0.3, fall);
-  ctx.fillRect(v.x0 + fall * 0.3, v.y0 - fall, v.w, v.h);
+  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = '#D6ECFF';
+  ctx.lineWidth = 1.4;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < RAIN_DROPS; i++) {
+    const x0 = rand(i + 1) * v.w;
+    const span = v.h + RAIN_LEN;
+    const y = (rand(i + 50) * span + t * RAIN_FALL * (0.8 + 0.4 * rand(i + 90))) % span - RAIN_LEN;
+    const x = v.x0 + ((x0 - y * 0.3) % v.w + v.w) % v.w;
+    ctx.moveTo(x, v.y0 + y);
+    ctx.lineTo(x - 5, v.y0 + y + RAIN_LEN);
+  }
+  ctx.stroke();
   ctx.restore();
 }

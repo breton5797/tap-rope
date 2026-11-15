@@ -36,6 +36,8 @@ export function weekCard(m: WeekCardModel, stampKey: string | null): HTMLElement
   return h('div', {
     cls: `wcard card wcard--${m.cardTheme ?? 'plain'}`,
     attrs: { role: 'group', 'aria-label': `${LIVE_COPY.cardTitle} ${m.count}/7` },
+    // the theme's art (art/cosmetic/<key>.webp) over its placeholder colour
+    style: m.cardTheme ? { 'background-image': `url("./art/cosmetic/${m.cardTheme}.webp")` } : {},
   }, [
     h('div', { cls: 'wcard__head' }, [
       h('span', { cls: 'wcard__title', text: LIVE_COPY.cardTitle }),

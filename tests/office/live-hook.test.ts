@@ -113,3 +113,25 @@ describe('result card', () => {
     expect(el.querySelector('.live-result')).toBeNull();
   });
 });
+
+describe('the daily is not the last campaign stage', () => {
+  it("its result reads as a normal clear, never the 18:30 ending", async () => {
+    const { buildResult } = await import('../../src/ui/result');
+    const { COPY } = await import('../../src/flavor');
+    const st = liveHook.dailyStage(save()) as StageDef;
+    const ctxStub = { cb: new Proxy({}, { get: () => () => undefined }), tap: (fn: () => void) => fn, reducedMotion: () => true } as never;
+    const el = buildResult(ctxStub, base(st.id, { hasNext: false }));
+    expect(el.querySelector('.report__status')?.textContent).toBe(COPY.resultWinStatus);
+    expect(el.querySelector('.report__status')?.textContent).not.toBe(COPY.resultFinalStatus);
+    const last = buildResult(ctxStub, base('w10-s10', { hasNext: false }));
+    expect(last.querySelector('.report__status')?.textContent).toBe(COPY.resultFinalStatus);
+  });
+
+  it('its run title is its own name, without a campaign stage tag', async () => {
+    const { runTitle } = await import('../../src/game/snapshot');
+    const { createSession } = await import('../../src/game/session');
+    const st = liveHook.dailyStage(save()) as StageDef;
+    expect(runTitle(createSession('stage', st, { seed: 1 }))).toBe('오늘의 칼퇴 미션');
+    expect(runTitle(createSession('stage', stageById('w1-s10') as StageDef, { seed: 1 }))).toMatch(/1단계/);
+  });
+});

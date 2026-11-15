@@ -119,3 +119,30 @@ describe('theme render flags', () => {
     expect(clockBoost(look({ clock: false }), 0.9)).toBe(false);
   });
 });
+
+describe('rain', () => {
+  it('one stroked path per frame, the drops inside the view; reduced motion holds them still', async () => {
+    const { drawRain, RAIN_DROPS } = await import('../../src/office/render/live-fx');
+    const calls = { stroke: 0, moveTo: [] as number[][] };
+    const ctx = {
+      save() {}, restore() {}, beginPath() {}, lineTo() {}, stroke() { calls.stroke++; },
+      moveTo(x: number, y: number) { calls.moveTo.push([x, y]); },
+    } as unknown as CanvasRenderingContext2D;
+    const v = { x0: -50, y0: 0, w: 500, h: 900 } as never;
+    drawRain(ctx, v, 3.2, false);
+    expect(calls.stroke).toBe(1);
+    expect(calls.moveTo).toHaveLength(RAIN_DROPS);
+    for (const [x, y] of calls.moveTo) {
+      expect(x).toBeGreaterThanOrEqual(-50);
+      expect(x).toBeLessThan(450);
+      expect(y).toBeGreaterThanOrEqual(-16);
+      expect(y).toBeLessThanOrEqual(900);
+    }
+    const still: number[][] = [];
+    const ctx2 = { ...ctx, moveTo: (x: number, y: number) => still.push([x, y]) } as unknown as CanvasRenderingContext2D;
+    drawRain(ctx2, v, 1, true);
+    const still2: number[][] = [];
+    drawRain({ ...ctx, moveTo: (x: number, y: number) => still2.push([x, y]) } as unknown as CanvasRenderingContext2D, v, 9, true);
+    expect(still2).toEqual(still);
+  });
+});

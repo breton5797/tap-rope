@@ -3,7 +3,7 @@
 // both service workers). supabase.co is blocked and every attempt is counted (must be 0 for the office).
 //
 // Usage (from the worktree, after `npm run build && npm run build:office`):
-//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes|login|map|perf] [DIST]
+//   node tests/e2e/office.e2e.mjs [all|sw|campaign|reload|retry|ipad|flake|audio|heroes|login|map|live|perf] [DIST]
 // `playwright` is not a repo dependency and ESM ignores NODE_PATH: install it next to the repo first
 // (`npm i --no-save playwright && npx playwright install chromium`).
 // DIST defaults to <cwd>/dist. Screenshots: $E2E_SHOTS (default <tmp>/office-e2e-shots/). Exit code 1 on any failed check.
@@ -713,6 +713,139 @@ if (['all', 'map'].includes(which)) {
   }
 }
 
+// ---------- 10b. live events: 오늘의 미션 / 주간 출근 카드 / 사원 복지몰 with a controlled clock ----------
+// Autoplay earns nothing by policy, so a bot-played daily must leave the live save untouched; the stamp / buy /
+// equip checks start from a seeded live save (officeescape.live.v1, the shape core/live parseLive accepts).
+if (['all', 'live'].includes(which)) {
+  const LIVE_KEY = 'officeescape.live.v1';
+  const WED = new Date(2026, 10, 18, 10, 0, 0); // Wednesday 2026-11-18, week of Mon 11-16
+  const liveSeed = (extra = {}) => JSON.stringify({
+    v: 1, maxDate: '2026-11-18', daily: { '2026-11-18': { cleared: true, best: 900 } },
+    card: { week: '2026-11-16', stamps: [true, false, true, false, false, false, false] },
+    history: [{ week: '2026-11-09', stamps: 4 }], goal: { week: '2026-11-16', value: 5, done: false },
+    owned: [], equipped: {}, badges: [], themeSeen: {}, ledger: ['daily:2026-11-18'], ...extra,
+  });
+  const twoStages = { 'w1-s10': 1, 'w2-s10': 1 };
+  const seenAll = ['op-start', 'rescue', ...Array.from({ length: STAGE_COUNT }, (_, i) => `boss-${i + 1}`)];
+  const back = (page) => click(page.getByRole('button', { name: '뒤로' }));
+
+  // (1) a bot-played daily: plays, ends, says 보상 없음 and changes nothing
+  {
+    const ctx = await newContext();
+    await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [OFFICE_KEY, officeSave({ stars: twoStages, coins: 120, seenCutscenes: seenAll })]);
+    const page = await newPage(ctx);
+    await page.clock.install({ time: WED });
+    await page.goto(`${OFFICE}?autoplay=1`);
+    await waitTitle(page);
+    const daily = page.locator('.live-daily');
+    check(await daily.locator('.live-new').count() === 1, 'live: fresh day — 오늘의 미션 shows NEW');
+    check(/오늘의 상사: \S+/.test(await daily.innerText()), `live: the boss of the day on the button (${(await daily.innerText()).replace(/\s+/g, ' ')})`);
+    await shot(page, '50-live-title-new');
+    await click(daily);
+    await page.waitForTimeout(1200);
+    const brief = (await page.locator('.bossline').allInnerTexts()).join(' ');
+    check(/오늘의 칼퇴 미션/.test(brief) && /오늘의 상사/.test(brief), `live: the daily opens with its boss-of-the-day line (${brief.replace(/\s+/g, ' ')})`);
+    await shot(page, '51-live-daily-brief');
+    const txt = await playToResult(page, 'live-daily');
+    check(/자동 플레이 · 보상 없음/.test(txt), `live: the autoplay daily ends on a no-reward result (${txt.slice(0, 80)})`);
+    check(await page.locator('.live-result').count() === 0, 'live: no stamp / rewards on an autoplay result');
+    const live = await readSave(page, LIVE_KEY);
+    check(!live?.daily?.['2026-11-18'] && !(live?.ledger ?? []).length, `live: autoplay recorded no daily and paid nothing (${JSON.stringify(live?.daily ?? {})})`);
+    check((await readSave(page, OFFICE_KEY))?.coins === 120, 'live: autoplay daily left the points as they were');
+    const stars = (await readSave(page, OFFICE_KEY))?.stars ?? {};
+    check(Object.keys(stars).every((k) => /^w\d+-s10$/.test(k)), `live: the daily wrote no campaign stars (${Object.keys(stars).join(',')})`);
+    await page.reload();
+    await waitTitle(page);
+    check(await page.locator('.live-daily .live-new').count() === 1, 'live: NEW is still up after the autoplay daily');
+    await ctx.close();
+  }
+
+  // (2) seeded: today cleared → title signals, week card, mall purchase + equip; (3) the clock rolls over
+  {
+    const ctx = await newContext();
+    await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [OFFICE_KEY, officeSave({ stars: twoStages, coins: 700, seenCutscenes: seenAll })]);
+    await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [LIVE_KEY, liveSeed({ equipped: { stamp: 'stamp-cat' }, owned: ['stamp-cat'] })]);
+    const page = await newPage(ctx);
+    await page.clock.install({ time: new Date(2026, 10, 18, 23, 59, 0) });
+    await page.goto(OFFICE);
+    await waitTitle(page);
+    check(await page.locator('.live-daily .live-new').count() === 0 && /완료 ✓/.test(await page.locator('.live-daily').innerText()), 'live: today done — no NEW, 완료 ✓');
+    check(/출근 카드 2\/7/.test(await page.locator('.live-cardchip').innerText()), 'live: title card chip 2/7');
+    check(await page.locator('.live-goal__bar').getAttribute('aria-valuenow') === '5', 'live: weekly goal bar at 5');
+    check(/새 꾸미기 \d+/.test(await page.locator('.live-count').innerText().catch(() => '')), 'live: 복지몰 shows how many cosmetics can be bought');
+    await shot(page, '52-live-title-done');
+
+    await click(page.locator('.live-cardchip'));
+    await waitScreen(page, 'live-card');
+    const on = await page.locator('.wcard__slot').evaluateAll((els) => els.map((e) => e.classList.contains('is-on')));
+    check(JSON.stringify(on) === '[true,false,true,false,false,false,false]', `live: week card stamps Mon + Wed (${JSON.stringify(on)})`);
+    check(await page.locator('.wcard__slot[data-day="2"].is-today').count() === 1, 'live: today (Wed) marked on the card');
+    await page.waitForTimeout(600);
+    check(await page.locator('.wcard__slot.is-on .live-stamp--stamp-cat.has-art').count() === 2, 'live: stamps drawn in the equipped 고양이 도장 art');
+    check(/11\.9 주/.test(await page.locator('.wcard-history').innerText()), 'live: 출근 기록부 lists last week');
+    await shot(page, '53-live-card');
+    await back(page);
+    await waitTitle(page);
+
+    await click(page.locator('.live-mallbtn'));
+    await waitScreen(page, 'live-mall');
+    await page.waitForTimeout(500);
+    await shot(page, '54-live-mall');
+    await click(page.locator('.mall-item[data-id="trail-sparkle"] button'));
+    await page.waitForTimeout(300);
+    check(/교환 완료/.test(await page.locator('.mall-status').innerText()), 'live: buying 반짝 잔상 says 교환 완료');
+    await click(page.locator('.mall-tab[data-tab="jump"]'));
+    await click(page.locator('.mall-item[data-id="jump-petal"] button'));
+    await page.waitForTimeout(300);
+    const after = await readSave(page, LIVE_KEY);
+    check(after?.equipped?.trail === 'trail-sparkle' && after?.equipped?.jump === 'jump-petal', `live: both bought items owned + equipped (${JSON.stringify(after?.equipped)})`);
+    check((await readSave(page, OFFICE_KEY))?.coins === 700 - 300 - 250, `live: points spent at the fixed prices (${(await readSave(page, OFFICE_KEY))?.coins})`);
+    check(await page.locator('.mall-item[data-id="jump-petal"].is-equipped').count() === 1, 'live: the mall marks 꽃잎 점프 장착 중');
+    await shot(page, '55-live-mall-bought');
+    await back(page);
+    await waitTitle(page);
+    const chipText = (await page.locator('.title__top .chip--coin').first().innerText()).replace(/\s+/g, ' ');
+    check(/150/.test(chipText), `live: the title shows the points left (${chipText})`);
+
+    // the date changes while the title is up: within the 30 s check the title shows the new day's mission
+    await page.clock.fastForward('01:30');
+    await page.waitForTimeout(500);
+    check(await page.locator('.live-title').getAttribute('data-today') === '2026-11-19', 'live: midnight on the title → the 11-19 mission');
+    check(await page.locator('.live-daily .live-new').count() === 1 && await page.locator('.live-title__newday').count() === 1, 'live: new day — NEW is back with a "새 날" note');
+    await shot(page, '56-live-new-day');
+    // a week later: a fresh card, last week in the 출근 기록부
+    await page.clock.setSystemTime(new Date(2026, 10, 25, 10, 0, 0));
+    await page.clock.fastForward('00:31');
+    await page.waitForTimeout(500);
+    check(/출근 카드 0\/7/.test(await page.locator('.live-cardchip').innerText()), 'live: next week starts an empty card');
+    await click(page.locator('.live-cardchip'));
+    await waitScreen(page, 'live-card');
+    const firstRow = await page.locator('.wcard-history__row').first().innerText();
+    check(/11\.16 주/.test(firstRow) && /도장 2개/.test(firstRow), `live: last week's 2 stamps in the 출근 기록부 (${firstRow.replace(/\s+/g, ' ')})`);
+    await shot(page, '57-live-next-week');
+    await ctx.close();
+  }
+
+  // (4) the equipped trail / jump effect are drawn in a run: their sprites are requested by the renderer only
+  {
+    const ctx = await newContext();
+    await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [OFFICE_KEY, officeSave({ stars: twoStages, seenCutscenes: seenAll })]);
+    await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [LIVE_KEY, liveSeed({ owned: ['trail-sparkle', 'jump-petal'], equipped: { trail: 'trail-sparkle', jump: 'jump-petal' } })]);
+    const page = await newPage(ctx);
+    const asked = new Set();
+    page.on('request', (r) => { const m = /\/art\/cosmetic\/([\w-]+)\.webp/.exec(r.url()); if (m) asked.add(m[1]); });
+    await page.clock.install({ time: WED });
+    await page.goto(`${OFFICE}?autoplay=1`);
+    await waitTitle(page);
+    await openStage(page, 2);
+    await skipCutscenes(page, 2500);
+    await page.waitForTimeout(9000);
+    await shot(page, '58-live-trail-run');
+    check(asked.has('trail-sparkle') && asked.has('jump-petal'), `live: the run draws the equipped trail + jump art (${[...asked].join(',')})`);
+    await ctx.close();
+  }
+}
+
 // ---------- 11. perf: frame-callback p99 at 4× CPU throttle, mid-run on part-2 stages (+ stage 1 baseline) ----------
 // PERF_STAGES="1,6,7" narrows the list. The budget is 7 ms p99 (part 2 spec §5). Its own browser with GPU raster:
 // headless Chromium otherwise rasterises the canvas in software, which alone costs 30–40 ms p99 on every stage.
@@ -724,6 +857,23 @@ if (['all', 'perf'].includes(which)) {
     const stars = Object.fromEntries(Object.entries(allStars).slice(0, n - 1));
     const seen = ['op-start', 'rescue', ...Array.from({ length: STAGE_COUNT }, (_, i) => `boss-${i + 1}`)];
     await ctx.addInitScript(([k, d]) => localStorage.setItem(k, d), [OFFICE_KEY, officeSave({ stars, seenCutscenes: seen })]);
+    // PERF_LIVE=1: the live events' heaviest look — trail + jump effect equipped, in the rain week (Date only is
+    // shifted to 2026-11-25; timers and performance.now stay real so the frame times are true)
+    if (process.env.PERF_LIVE) {
+      await ctx.addInitScript(() => {
+        localStorage.setItem('officeescape.live.v1', JSON.stringify({
+          v: 1, maxDate: null, daily: {}, card: null, history: [], goal: null, owned: ['trail-confetti', 'jump-papers'],
+          equipped: { trail: 'trail-confetti', jump: 'jump-papers' }, badges: [], themeSeen: {}, ledger: [],
+        }));
+        const RealDate = Date;
+        const offset = new RealDate(2026, 10, 25, 12, 0, 0).getTime() - RealDate.now();
+        class ShiftedDate extends RealDate {
+          constructor(...a) { super(...(a.length ? a : [RealDate.now() + offset])); }
+          static now() { return RealDate.now() + offset; }
+        }
+        window.Date = ShiftedDate;
+      });
+    }
     await ctx.addInitScript(() => {
       window.__frames = [];
       const raf = window.requestAnimationFrame.bind(window);
