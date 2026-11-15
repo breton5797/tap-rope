@@ -7,7 +7,7 @@ import { coinChip } from '../../../ui/title';
 import type { Cosmetic, CosmeticCategory } from '../../core/live';
 import { CATEGORY_NAMES, LIVE_COPY, fillLive } from './copy';
 import type { MallItem } from './model';
-import { stampMark } from './parts';
+import { SHOP_HEADER, liveArt, stampMark } from './parts';
 
 export const MALL_TABS: readonly CosmeticCategory[] = ['trail', 'jump', 'stamp', 'cardTheme'];
 
@@ -91,6 +91,7 @@ export function buildMall(ctx: Ctx, actions: MallActions, onBack: () => void, fi
   return h('section', { cls: 'screen screen--mall', attrs: { 'aria-label': LIVE_COPY.mallTitle } }, [
     header(ctx, LIVE_COPY.mallTitle, onBack, [chip], icons.back()),
     h('div', { cls: 'scroll mall' }, [
+      liveArt(SHOP_HEADER, 'mall-banner'),
       h('p', { cls: 'mall-hint', text: LIVE_COPY.mallHint }),
       dex,
       tabs,

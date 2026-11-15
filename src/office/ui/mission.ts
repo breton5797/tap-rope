@@ -8,7 +8,6 @@ import { STAGES } from '../../core/content';
 import { loadStamps, missionCardFor, type MissionCard } from '../../game/missions';
 import { MISSION_BONUS, STAGE_MISSIONS, type MissionKind } from '../core/missions';
 import { missionsOf } from '../core/stage-missions';
-import { liveOf } from './live/model';
 import { liveResult } from './live/result';
 
 const KIND_LABEL: Readonly<Record<MissionKind, string>> = { dodge: '돌파', collect: '수집', chase: '추격', finale: '결전' };
@@ -79,11 +78,12 @@ function cardEl(stage: StageDef, index: number): HTMLElement | null {
   ]);
 }
 
-function stampEl(ok: boolean, stage: StageDef): HTMLElement {
-  const i = Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
+/** the door stamp; its +₵ only when this stamp pays (the first time it is ever earned — never on a daily) */
+function stampEl(ok: boolean, pays: boolean, stage: StageDef): HTMLElement {
+  const stageIndex = Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
   return h('div', { cls: `mission-stamp ${ok ? 'is-ok' : 'is-miss'}` }, [
     h('div', { cls: 'mission-stamp__ink', text: ok ? '미션 완료!' : '다음 기회에' }),
-    ok ? h('div', { cls: 'mission-stamp__bonus', text: `+₵${MISSION_BONUS(i)}` }) : null,
+    ok && pays ? h('div', { cls: 'mission-stamp__bonus', text: `+₵${MISSION_BONUS(stageIndex)}` }) : null,
   ]);
 }
 
@@ -132,7 +132,7 @@ export function renderMission(layer: HTMLElement, view: MissionView | undefined,
     if (stamped) {
       d.stampAt = view.stampAt;
       d.stamp?.el.remove();
-      d.stamp = { el: stampEl(view.stampOk === true, stage), from: time, until: time + STAMP_S };
+      d.stamp = { el: stampEl(view.stampOk === true, view.stampPays === true, stage), from: time, until: time + STAMP_S };
     }
     if (view.index !== d.index) {
       d.index = view.index;
@@ -184,7 +184,7 @@ function waitForTitle(card: Timed | null, layer: HTMLElement, time: number): Tim
 export function missionResult(r: ResultInfo): HTMLElement | null {
   const m = r.missions;
   const specs = r.stageId ? missionsOf(r.stageId) : undefined;
-  const live = liveOf(r);
+  const live = r.live;
   const liveEl = live ? liveResult(live) : null;
   if (!m || !specs) return liveEl;
   // R5: a failed run shows its stamps but no letter grade (야근 확정 + "B" was a mixed message for kids)

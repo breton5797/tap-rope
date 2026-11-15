@@ -15,7 +15,7 @@ const ctx = (): Ctx => ({ cb: new Proxy({}, { get: () => () => undefined }) as U
 const click = (el: Element | null | undefined): void => (el as HTMLElement).click();
 
 const title = (over: Partial<TitleLiveModel> = {}): TitleLiveModel => ({
-  today: '2026-11-18', unlocked: true, dailyDone: false, bossName: '박과장', themeName: '월요병 주간', cardCount: 2,
+  today: '2026-11-18', unlocked: true, dailyDone: false, bossName: '박과장', themeName: '월요병 주간', themeId: 'monday-blues', cardCount: 2,
   goal: { label: '커피 30잔 모으기', value: 12, target: 30, done: false }, newItems: 3, ...over,
 });
 
@@ -34,6 +34,7 @@ describe('title live block', () => {
     expect(bar?.getAttribute('aria-valuemax')).toBe('30');
     expect(el.querySelector('.live-goal')?.textContent).toContain('이번 주 · 월요병 주간');
     expect(el.querySelector('.live-count')?.textContent).toBe('새 꾸미기 3');
+    expect(el.querySelector('.live-goal__badge')?.getAttribute('src')).toBe('./art/live/badge-monday.webp');
     click(daily);
     click(el.querySelector('.live-cardchip'));
     click(el.querySelector('.live-mallbtn'));
@@ -67,7 +68,7 @@ const card = (over: Partial<WeekCardModel> = {}): WeekCardModel => ({
     { at: 7, points: 200, cosmetic: null, badge: true, reached: false },
   ],
   history: [{ week: '2026-11-09', stamps: 7 }, { week: '2026-11-02', stamps: 3 }],
-  themeName: '월요병 주간', goal: { label: '커피 30잔 모으기', value: 30, target: 30, done: true }, cardTheme: null, ...over,
+  themeName: '월요병 주간', themeId: 'monday-blues', goal: { label: '커피 30잔 모으기', value: 30, target: 30, done: true }, cardTheme: null, ...over,
 });
 
 describe('week card screen', () => {
@@ -94,6 +95,10 @@ describe('week card screen', () => {
     const rows = Array.from(el.querySelectorAll('.wcard-history__row'));
     expect(rows.map((r) => r.textContent)).toEqual(['11.9 주도장 7개', '11.2 주도장 3개']);
     expect(rows[0].classList.contains('is-full')).toBe(true);
+    expect(rows[0].querySelector('.wcard-history__badge')?.getAttribute('src')).toBe('./art/live/badge-attendance.webp');
+    expect(rows[1].querySelector('.wcard-history__badge')).toBeNull();
+    expect(el.querySelector('.wcard__ms[data-at="7"] .wcard__ms-badge')).not.toBeNull();
+    expect(el.querySelector('.live-deco--tape')).not.toBeNull();
   });
 
   it('a reached milestone is ticked; no history yet says where it will show', () => {
@@ -125,6 +130,7 @@ describe('사원 복지몰', () => {
     };
     const el = buildMall(ctx(), actions, vi.fn());
     expect(el.querySelector('.mall-dex')?.textContent).toBe('도감 2/20');
+    expect(el.querySelector('.mall-banner')?.getAttribute('src')).toBe('./art/live/shop-header.webp');
     expect(Array.from(el.querySelectorAll('.mall-tab')).map((t) => t.textContent)).toEqual(['발자국', '점프 효과', '결과 도장', '출근 카드']);
     const row = (id: string) => el.querySelector(`.mall-item[data-id="${id}"]`);
     expect(row('a')?.querySelector('button')?.getAttribute('aria-label')).toBe('a 칼퇴 포인트 300로 교환');

@@ -608,7 +608,9 @@ export function startApp(): void {
 
   /** office v2: the mission HUD, and a stamp's sound + buzz the frame it fires (v8: no missions, nothing shown) */
   const tickMissions = (): void => {
-    const view = missionView(missions, session.time);
+    const raw = missionView(missions, session.time);
+    // bot and tester runs record nothing, so no stamp of theirs pays (office; v8 has no missions)
+    const view = raw?.stampPays && (AUTOPLAY || session.invincible) ? { ...raw, stampPays: false } : raw;
     missionNow = view;
     ui.updateMission(view, view ? session.stage : null, session.time);
     if (view?.stampAt === undefined || view.stampAt === lastStampAt) return;

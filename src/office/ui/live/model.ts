@@ -3,9 +3,9 @@
 import {
   CARD_POINTS, COSMETICS, addDays, affordable, buyCosmetic, dailyPlan, dailyUnlocked, progressTier, stampCount, themeOf,
   weekOf, weekdayOf, type CardHistoryEntry, type CardMilestone, type Cosmetic, type CosmeticCategory, type DateKey,
-  type LiveSave, type Reward, type WeekKey,
+  type LiveSave, type Reward, type ThemeId, type WeekKey,
 } from '../../core/live';
-import type { ResultInfo, SaveData } from '../../../types';
+import type { SaveData } from '../../../types';
 import type { LiveLook } from '../../render/live-look';
 
 const NO_STAMPS = [false, false, false, false, false, false, false] as const;
@@ -23,6 +23,7 @@ export interface TitleLiveModel {
   readonly dailyDone: boolean;
   readonly bossName: string;
   readonly themeName: string;
+  readonly themeId: ThemeId;
   readonly cardCount: number;
   readonly goal: GoalModel;
   /** cosmetics the player could buy now */
@@ -50,6 +51,7 @@ export function titleLiveModel(live: LiveSave, save: Pick<SaveData, 'stars' | 'c
     dailyDone: live.daily[today]?.cleared ?? false,
     bossName: unlocked ? dailyPlan(today, tier).boss.name : '',
     themeName: themeOf(week).name,
+    themeId: themeOf(week).id,
     cardCount: live.card && live.card.week === week ? stampCount(live.card) : 0,
     goal: goalModel(live, week),
     newItems: affordable(live, save.coins, today).length,
@@ -76,6 +78,7 @@ export interface WeekCardModel {
   readonly milestones: readonly MilestoneModel[];
   readonly history: readonly CardHistoryEntry[];
   readonly themeName: string;
+  readonly themeId: ThemeId;
   readonly goal: GoalModel;
   /** the equipped card theme's sprite key, null = plain */
   readonly cardTheme: string | null;
@@ -98,6 +101,7 @@ export function weekCardModel(live: LiveSave, today: DateKey): WeekCardModel {
     milestones: MILESTONES.map((at) => ({ at, points: CARD_POINTS[at], cosmetic: at === 5 ? themeItem : null, badge: at === 7, reached: count >= at })),
     history: live.history,
     themeName: theme.name,
+    themeId: theme.id,
     goal: goalModel(live, week),
     cardTheme: equippedSprite(live, 'cardTheme'),
   };
@@ -143,28 +147,6 @@ export function unequip(live: LiveSave, category: CosmeticCategory): LiveSave {
   if (!(category in live.equipped)) return live;
   const equipped = Object.fromEntries(Object.entries(live.equipped).filter(([k]) => k !== category));
   return { ...live, equipped };
-}
-
-/** what the result card shows of the live events (office: `ResultInfo & { live }`, see liveOf) */
-export interface LiveResultView {
-  /** the run was today's daily mission */
-  readonly daily: boolean;
-  readonly rewards: readonly Reward[];
-  /** the week card after the run (its today slot gets the landing stamp when this run stamped it) */
-  readonly card: WeekCardModel;
-  /** this run put today's stamp on the card */
-  readonly stamped: boolean;
-  readonly stampKey: string | null;
-}
-
-export type LiveResultInfo = ResultInfo & { readonly live?: LiveResultView };
-
-export function liveOf(r: ResultInfo): LiveResultView | undefined {
-  return (r as LiveResultInfo).live;
-}
-
-export function withLive(r: ResultInfo, live: LiveResultView): ResultInfo {
-  return { ...r, live } as LiveResultInfo;
 }
 
 /** the 칼퇴 포인트 in a reward list */

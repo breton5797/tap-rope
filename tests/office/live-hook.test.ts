@@ -4,7 +4,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveHook } from '../../src/office/game/live-hook';
 import { DAILY_POINTS, dailyPlan, loadLive, parseDailyId, todayKey, weekdayOf } from '../../src/office/core/live';
-import { liveOf } from '../../src/office/ui/live/model';
 import { missionResult } from '../../src/office/ui/mission';
 import { defaultSave } from '../../src/core/storage';
 import { stageById } from '../../src/core/content';
@@ -18,6 +17,8 @@ const base = (stageId: string, over: Partial<ResultInfo> = {}): ResultInfo => ({
   missions: { stamps: [true, true, true], grade: 'A', stars: 3, bonus: 0, stampBonus: 0, items: 0 }, ...over,
 });
 const fakeSession = {} as Session;
+const liveOf = (r: ResultInfo) => r.live;
+const stamped = (r: ResultInfo): boolean => (r.live?.rewards ?? []).some((x) => x.why === 'daily');
 
 beforeEach(() => {
   localStorage.clear();
@@ -54,14 +55,15 @@ describe('run end', () => {
     const r = end.decorate(base(st.id));
     expect(r.coinsEarned).toBe(40 + DAILY_POINTS);
     const live = liveOf(r);
-    expect(live?.stamped).toBe(true);
-    expect(live?.card.stamps[weekdayOf('2026-11-18')]).toBe(true);
+    expect(stamped(r)).toBe(true);
+    expect(live?.stamps[weekdayOf('2026-11-18')]).toBe(true);
+    expect(live?.today).toBe(weekdayOf('2026-11-18'));
     expect(loadLive().daily['2026-11-18']).toEqual({ cleared: true, best: 900 });
     // the same day again: nothing more
     liveHook.start(fakeSession);
     const again = liveHook.finish(save(), { stageId: st.id, cleared: true, score: 1200 });
     expect(again.coins).toBe(0);
-    expect(liveOf(again.decorate(base(st.id)))?.stamped).toBe(false);
+    expect(stamped(again.decorate(base(st.id)))).toBe(false);
     expect(loadLive().daily['2026-11-18'].best).toBe(1200);
   });
 
@@ -70,7 +72,7 @@ describe('run end', () => {
     liveHook.start(fakeSession);
     const end = liveHook.finish(save(), { stageId: st.id, cleared: false, score: 100 });
     expect(end.coins).toBe(0);
-    expect(liveOf(end.decorate(base(st.id, { cleared: false })))?.stamped).toBe(false);
+    expect(stamped(end.decorate(base(st.id, { cleared: false })))).toBe(false);
   });
 
   it('a campaign run with nothing to pay leaves the result card as it was', () => {

@@ -158,6 +158,14 @@
 .live-stamp--stamp-star { color: #d9822b; border-radius: 30%; }
 .live-stamp--stamp-clock { color: #2f78c4; border-width: 4px; }
 
+/* ---------- live screens: opaque like the other menu screens, a phone-wide column on tablets ---------- */
+.screen--wcard,
+.screen--mall {
+  background: linear-gradient(180deg, #fff3e6, #ffe6d2);
+  padding-left: max(calc(var(--safe-l) + var(--gutter)), calc((100% - 600px) / 2));
+  padding-right: max(calc(var(--safe-r) + var(--gutter)), calc((100% - 600px) / 2));
+}
+
 /* ---------- week card ---------- */
 .wcard-screen {
   display: flex;
@@ -564,4 +572,65 @@
   .wcard__slot.is-landing .live-stamp {
     animation: none;
   }
+}
+
+/* ---------- live UI art: theme badges, the 복지몰 banner, deco stickers ---------- */
+.live-goal.has-badge {
+  position: relative;
+  padding-left: 58px;
+}
+
+.live-goal__badge {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 42px;
+  height: 42px;
+  transform: translateY(-50%);
+}
+
+.wcard__ms-badge {
+  width: 28px;
+  height: 28px;
+}
+
+.wcard-history {
+  position: relative;
+}
+
+.wcard-history__badge {
+  width: 22px;
+  height: 22px;
+}
+
+.wcard-wrap {
+  position: relative;
+}
+
+.live-deco {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+
+.live-deco--tape {
+  top: -12px;
+  right: 14px;
+  transform: rotate(12deg);
+}
+
+.live-deco--clip {
+  top: -14px;
+  right: 16px;
+}
+
+.mall-banner {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+  border: 2.5px solid var(--outline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
 }

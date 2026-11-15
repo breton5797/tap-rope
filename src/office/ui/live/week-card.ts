@@ -4,7 +4,7 @@ import { button, formatNumber, h, header, type Ctx } from '../../../ui/dom';
 import { icons } from '../../../ui/icons';
 import { LIVE_COPY, WEEKDAYS, fillLive, shortDate } from './copy';
 import type { MilestoneModel, WeekCardModel } from './model';
-import { goalBar, stampMark } from './parts';
+import { ATTENDANCE_BADGE, goalBar, liveArt, stampMark } from './parts';
 
 function slot(m: WeekCardModel, i: number, stampKey: string | null): HTMLElement {
   const on = m.stamps[i] === true;
@@ -27,6 +27,7 @@ function milestone(m: MilestoneModel): HTMLElement {
   return h('li', { cls: `wcard__ms${m.reached ? ' is-reached' : ''}`, attrs: { 'data-at': String(m.at) } }, [
     h('span', { cls: 'wcard__ms-at', text: fillLive(LIVE_COPY.milestone, { n: m.at }) }),
     h('span', { cls: 'wcard__ms-reward', text: parts.join(' + ') }),
+    m.badge ? liveArt(ATTENDANCE_BADGE, 'wcard__ms-badge') : null,
     m.reached ? h('span', { cls: 'wcard__ms-done' }, [icons.check(), h('span', { text: LIVE_COPY.milestoneDone })]) : null,
   ]);
 }
@@ -49,6 +50,7 @@ export function weekCard(m: WeekCardModel, stampKey: string | null): HTMLElement
 
 function history(m: WeekCardModel): HTMLElement {
   return h('section', { cls: 'wcard-history card', attrs: { 'aria-label': LIVE_COPY.historyTitle } }, [
+    liveArt('deco-clip', 'live-deco live-deco--clip'),
     h('h2', { cls: 'wcard-history__title', text: LIVE_COPY.historyTitle }),
     m.history.length === 0
       ? h('p', { cls: 'wcard-history__empty', text: LIVE_COPY.historyEmpty })
@@ -56,6 +58,7 @@ function history(m: WeekCardModel): HTMLElement {
         h('span', { text: fillLive(LIVE_COPY.historyRow, { from: shortDate(e.week) }) }),
         h('span', { cls: 'wcard-history__dots', attrs: { 'aria-hidden': 'true' } }, Array.from({ length: 7 }, (_, i) => h('i', { cls: i < e.stamps ? 'is-on' : '' }))),
         h('span', { cls: 'mono', text: fillLive(LIVE_COPY.historyStamps, { n: e.stamps }) }),
+        e.stamps >= 7 ? liveArt(ATTENDANCE_BADGE, 'wcard-history__badge') : null,
       ]))),
   ]);
 }
@@ -71,10 +74,10 @@ export function buildWeekCardScreen(ctx: Ctx, m: WeekCardModel, o: WeekCardScree
   return h('section', { cls: 'screen screen--wcard', attrs: { 'aria-label': LIVE_COPY.cardTitle } }, [
     header(ctx, LIVE_COPY.cardTitle, o.onBack, [], icons.back()),
     h('div', { cls: 'scroll wcard-screen' }, [
-      weekCard(m, o.stampKey),
+      h('div', { cls: 'wcard-wrap' }, [weekCard(m, o.stampKey), liveArt('deco-tape', 'live-deco live-deco--tape')]),
       h('p', { cls: 'wcard__hint', text: LIVE_COPY.cardHint }),
       h('ol', { cls: 'wcard__milestones card' }, m.milestones.map(milestone)),
-      h('div', { cls: 'card wcard__goal' }, [goalBar(m.goal, fillLive(LIVE_COPY.goalHead, { theme: m.themeName }))]),
+      h('div', { cls: 'card wcard__goal' }, [goalBar(m.goal, fillLive(LIVE_COPY.goalHead, { theme: m.themeName }), m.themeId)]),
       o.dailyOpen ? button({ label: LIVE_COPY.playDaily, variant: 'sun', icon: icons.play(), cls: 'wcard__play', onPress: ctx.tap(o.onPlay) }) : null,
       history(m),
     ]),

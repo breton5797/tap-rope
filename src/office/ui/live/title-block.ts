@@ -48,6 +48,6 @@ export function titleLiveBlock(ctx: Ctx, m: TitleLiveModel, nav: LiveNav): HTMLE
   return h('div', { cls: 'live-title', attrs: { 'data-today': m.today } }, [
     daily,
     h('div', { cls: 'row live-title__row' }, [card, mall]),
-    goalBar(m.goal, fillLive(LIVE_COPY.goalHead, { theme: m.themeName })),
+    goalBar(m.goal, fillLive(LIVE_COPY.goalHead, { theme: m.themeName }), m.themeId),
   ]);
 }

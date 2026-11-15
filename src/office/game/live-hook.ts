@@ -9,10 +9,10 @@ import type { GameEvent, Session } from '../../game/session';
 import type { SaveData, StageDef } from '../../types';
 import {
   applyRun, dailyPlan, dailyUnlocked, loadLive, parseDailyId, progressTier, saveLive, themeOf, todayKey,
-  weekOf, type DateKey, type LiveRunCounts,
+  weekOf, weekdayOf, type DateKey, type LiveRunCounts,
 } from '../core/live';
 import { setLiveLook } from '../render/live-look';
-import { equippedSprite, lookOf, rewardPoints, weekCardModel, withLive } from '../ui/live/model';
+import { equippedSprite, lookOf, rewardPoints } from '../ui/live/model';
 import { startCounts, trackCounts } from './live/counts';
 
 
@@ -55,14 +55,17 @@ export const liveHook: LiveHook = {
     const before = loadLive();
     const out = applyRun(before, run, counts, runDate, progressTier(save.stars));
     if (out.live !== before) saveLive(out.live);
-    const card = weekCardModel(out.live, runDate);
-    const stamped = out.rewards.some((r) => r.why === 'daily');
     const coins = rewardPoints(out.rewards);
     const show = out.daily || out.rewards.length > 0;
+    const stamps = out.live.card && out.live.card.week === weekOf(runDate) ? out.live.card.stamps : [false, false, false, false, false, false, false];
     return {
       coins,
       decorate: (r) => (show
-        ? withLive({ ...r, coinsEarned: r.coinsEarned + coins }, { daily: out.daily, rewards: out.rewards, card, stamped, stampKey: equippedSprite(out.live, 'stamp') })
+        ? {
+          ...r,
+          coinsEarned: r.coinsEarned + coins,
+          live: { daily: out.daily, rewards: out.rewards, stamps, today: weekdayOf(runDate), stampDesign: equippedSprite(out.live, 'stamp') },
+        }
         : r),
     };
   },

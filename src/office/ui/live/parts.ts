@@ -1,12 +1,38 @@
 // Office live events: small DOM parts shared by the title block, the week card, the mall and the result.
 import { h } from '../../../ui/dom';
+import type { ThemeId } from '../../core/live';
 import { LIVE_COPY, fillLive } from './copy';
 import type { GoalModel } from './model';
 
-/** the weekly goal: label and a progress bar (role=progressbar) */
-export function goalBar(goal: GoalModel, head: string): HTMLElement {
+/** the weekly theme badges and the 개근 badge (public-office/art/live/<name>.webp) */
+export const THEME_BADGES: Readonly<Record<ThemeId, string>> = {
+  'monday-blues': 'badge-monday',
+  'dodge-dinner': 'badge-dodge-dinner',
+  'paper-bomb': 'badge-approval-bomb',
+  'speed-clockout': 'badge-speed-out',
+  'sports-day': 'badge-sports-day',
+  'rainy-commute': 'badge-rainy',
+};
+export const ATTENDANCE_BADGE = 'badge-attendance';
+export const SHOP_HEADER = 'shop-header';
+export type Deco = 'deco-clip' | 'deco-tape' | 'deco-pin' | 'deco-note';
+/** every live UI art file (art-files test) */
+export const LIVE_UI_ART: readonly string[] = [
+  ...Object.values(THEME_BADGES), ATTENDANCE_BADGE, SHOP_HEADER, 'deco-clip', 'deco-tape', 'deco-pin', 'deco-note',
+];
+
+/** decorative live UI art (alt=""); removes itself when the file is missing */
+export function liveArt(name: string, cls: string): HTMLElement {
+  const img = h('img', { cls, attrs: { src: `./art/live/${name}.webp`, alt: '', decoding: 'async', draggable: 'false', 'aria-hidden': 'true' } });
+  img.addEventListener('error', () => img.remove());
+  return img;
+}
+
+/** the weekly goal: label and a progress bar (role=progressbar), with the week's theme badge */
+export function goalBar(goal: GoalModel, head: string, theme?: ThemeId): HTMLElement {
   const k = goal.target > 0 ? Math.min(1, goal.value / goal.target) : 0;
-  return h('div', { cls: `live-goal${goal.done ? ' is-done' : ''}` }, [
+  return h('div', { cls: `live-goal${goal.done ? ' is-done' : ''}${theme ? ' has-badge' : ''}` }, [
+    theme ? liveArt(THEME_BADGES[theme], 'live-goal__badge') : null,
     h('div', { cls: 'live-goal__head' }, [
       h('span', { cls: 'live-goal__kicker', text: head }),
       h('span', { cls: 'live-goal__value mono', text: goal.done ? LIVE_COPY.goalDone : `${goal.value}/${goal.target}` }),
