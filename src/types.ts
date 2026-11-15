@@ -495,6 +495,8 @@ export interface MissionView {
   readonly stampAt?: number;
   /** that stamp's outcome: true = 미션 완료, false = 다음 기회에 */
   readonly stampOk?: boolean;
+  /** office: that stamp pays its ₵ bonus (ok, campaign stage, never paid before); false on a daily mission */
+  readonly stampPays?: boolean;
   /** chase: distance to the superior 0..1 (1 = shaken off) */
   readonly chase?: number;
   /** one per section: true / false once stamped, null while still to come */

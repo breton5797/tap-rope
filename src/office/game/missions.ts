@@ -37,6 +37,10 @@ export interface MissionRun {
   readonly items: number;
   readonly stampAt?: number;
   readonly stampOk?: boolean;
+  /** the stamp that last fired pays its bonus (ok, campaign stage, not in the paid ledger at the run start) */
+  readonly stampPays?: boolean;
+  /** per section: its stamp's bonus was already paid before this run (all true off the campaign: never pays) */
+  readonly paidBefore: readonly boolean[];
 }
 
 /** the slice of a session the tracker reads */
@@ -74,7 +78,15 @@ export function startMissions(stage: StageDef | null, beats: readonly Beat[]): M
     pickupPart: 0,
     lastHazard: specs.map((_, k) => hazards.filter((b) => partOf(b) === k).at(-1)?.id ?? -1),
     stats, chase: specs.map(() => CHASE_START), stamps: specs.map(() => null), section: 0, hits: 0, items: 0,
+    paidBefore: paidBeforeRun(stage.id, specs.length),
   };
+}
+
+/** the paid ledger for `stageId` at the run start; a daily (not a campaign stage) never pays a stamp bonus */
+function paidBeforeRun(stageId: string, n: number): boolean[] {
+  if (stageById(stageId) === undefined) return Array.from({ length: n }, () => true);
+  const before = loadPaid()[stageId] ?? [];
+  return Array.from({ length: n }, (_, k) => Boolean(before[k]));
 }
 
 function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, current: number): MissionRun {
@@ -108,12 +120,15 @@ function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, curr
 function stampThrough(run: MissionRun, upTo: number, time: number): MissionRun {
   let stamps = run.stamps;
   let last: boolean | undefined;
+  let lastK = -1;
   for (let k = 0; k < Math.min(upTo, run.specs.length); k += 1) {
     if (stamps[k] !== null) continue;
     last = missionProgress(run.specs[k], run.stats[k]).complete;
+    lastK = k;
     stamps = stamps.map((v, j) => (j === k ? last ?? false : v));
   }
-  return last === undefined ? run : { ...run, stamps, stampAt: time, stampOk: last };
+  if (last === undefined) return run;
+  return { ...run, stamps, stampAt: time, stampOk: last, stampPays: last && !run.paidBefore[lastK] };
 }
 
 /** folds one frame's events in; a passed door stamps the section behind it, a cleared end the last one */
@@ -145,7 +160,7 @@ function buildView(run: MissionRun): MissionView {
   const p = missionProgress(spec, run.stats[index]);
   return {
     index, kind: spec.kind, title: spec.title, value: p.value, target: p.target, complete: p.complete,
-    ...(run.stampAt !== undefined ? { stampAt: run.stampAt, stampOk: run.stampOk } : {}),
+    ...(run.stampAt !== undefined ? { stampAt: run.stampAt, stampOk: run.stampOk, stampPays: run.stampPays ?? false } : {}),
     ...(spec.kind === 'chase' ? { chase: run.chase[index] } : {}),
     stamps: run.stamps,
   };

@@ -9,7 +9,7 @@ import { generateStage } from '../../src/core/levels';
 import { DEFAULT_PHYSICS } from '../../src/core/physics';
 import type { GameEvent } from '../../src/game/session';
 import { MISSION_BONUS } from '../../src/office/core/missions';
-import { commitMissions, startMissions, trackMissions, type MissionRun } from '../../src/office/game/missions';
+import { commitMissions, missionView, startMissions, trackMissions, type MissionRun } from '../../src/office/game/missions';
 import { dailyPlan } from '../../src/office/core/live';
 import { HAZARD_KINDS, type Beat, type StageDef } from '../../src/types';
 
@@ -77,5 +77,33 @@ describe('stamp bonus paid once', () => {
     expect(out.stamps[0]).toBe(true);
     expect(out.paid).toEqual([false, false, false]);
     expect(out.stampBonus).toBe(0);
+  });
+
+  it('missionView.stampPays: the stamp that just fired pays its bonus (ok, campaign stage, not paid before)', () => {
+    const first = runStage1(true);
+    expect(missionView(first, 6)?.stampOk).toBe(false); // the last stamp to fire (part 1) was missed
+    // the door stamp of part 0: right after it fired
+    const def = { ...(stageById('w1-s10') as StageDef), seed: 11 };
+    const { beats } = generateStage(def, DEFAULT_PHYSICS, 2);
+    const at = (section: number, time: number) => ({ beats, section, time });
+    const atDoor = (): MissionRun => trackMissions(
+      trackMissions(startMissions(def, beats) as MissionRun, at(0, 5), beats.filter((b) => b.part === 0 && isHazard(b)).map((b) => judge(b.id)))!,
+      at(1, 20), [],
+    )!;
+    expect(missionView(atDoor(), 20)).toMatchObject({ stampOk: true, stampPays: true });
+    commitMissions(runStage1(true), true, true); // stamp 0 of stage 1 is now paid
+    expect(missionView(atDoor(), 20)).toMatchObject({ stampOk: true, stampPays: false });
+    // a missed stamp never pays
+    expect(missionView(first, 41)?.stampPays).toBe(false);
+  });
+
+  it('missionView.stampPays is false on a daily mission', () => {
+    const plan = dailyPlan('2026-11-16', 3);
+    const { beats } = generateStage(plan.stage, DEFAULT_PHYSICS, 2);
+    const run = trackMissions(
+      trackMissions(startMissions(plan.stage, beats) as MissionRun, { beats, section: 0, time: 5 }, beats.filter((b) => b.part === 0 && isHazard(b)).map((b) => judge(b.id)))!,
+      { beats, section: 1, time: 20 }, [],
+    )!;
+    expect(missionView(run, 20)).toMatchObject({ stampOk: true, stampPays: false });
   });
 });
