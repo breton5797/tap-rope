@@ -443,7 +443,12 @@ export function startApp(): void {
       ui.showHud();
       beginCountdown();
     },
-    onRetry: () => startRun(run.mode, run.stage),
+    onRetry: () => {
+      // office: a daily whose day is over goes back to the title, where the new day's mission waits (v8: never)
+      const stage = run.stage ? liveHook.retry(run.stage, save) : null;
+      if (run.stage && !stage) toMenu((s) => ui.showTitle(s));
+      else startRun(run.mode, stage);
+    },
     onQuit: () => toMenu((s) => ui.showStageSelect(s)),
     onNextStage: () => {
       const id = run.stage ? nextStageId(run.stage.id) : null;

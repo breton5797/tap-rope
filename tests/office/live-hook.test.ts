@@ -169,3 +169,15 @@ describe('review fix: no points when the live save is refused', () => {
     expect(end.decorate(r)).toBe(r);
   });
 });
+
+describe('한 번 더 after midnight (pt-flow P3)', () => {
+  it("retrying today's daily replays it; once the day is over the retry goes back to the title (today's mission waits there)", () => {
+    vi.setSystemTime(new Date(2026, 10, 18, 23, 58, 0));
+    const st = liveHook.dailyStage(save()) as StageDef;
+    expect(liveHook.retry(st, save())).toBe(st);
+    vi.setSystemTime(new Date(2026, 10, 19, 0, 2, 0));
+    expect(liveHook.retry(st, save())).toBeNull();
+    const w1 = stageById('w1-s10') as StageDef;
+    expect(liveHook.retry(w1, save())).toBe(w1);
+  });
+});

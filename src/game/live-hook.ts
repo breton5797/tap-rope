@@ -25,6 +25,8 @@ export interface LiveHook {
   offCampaign(stageId: string): boolean;
   /** the line shown before the countdown instead of the chapter briefing; null = the usual briefing */
   briefing(stage: StageDef): { readonly kicker: string; readonly text: string } | null;
+  /** the stage 한 번 더 replays; null = its day is over (office: a past daily) — back to the title instead */
+  retry(stage: StageDef, save: SaveData): StageDef | null;
   /** a run starts (any mode) */
   start(session: Session): void;
   /** one step's events */
@@ -37,6 +39,7 @@ export const liveHook: LiveHook = {
   dailyStage: () => null,
   offCampaign: () => false,
   briefing: () => null,
+  retry: (stage) => stage,
   start: () => undefined,
   track: () => undefined,
   finish: () => ({ coins: 0, decorate: (r) => r }),

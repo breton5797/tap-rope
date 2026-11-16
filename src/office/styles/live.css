@@ -186,11 +186,13 @@
 .wcard--card-kraft { background-color: #f1dcb8; }
 .wcard--card-pastel { background-color: var(--pastel-pink); }
 .wcard--card-sky { background-color: #ffd3a8; }
-.wcard--card-dinner { color: #fff; background-color: #5a2f3a; }
+.wcard--card-dinner { background-color: #fff3df; }
+/* the card art frames a light centre panel: keep the slots inside it (ink text, 5:3-ish art) */
 .wcard--card-kraft,
 .wcard--card-pastel,
 .wcard--card-sky,
-.wcard--card-dinner { padding: 18px 20px; }
+.wcard--card-dinner { padding: 9% 9% 8%; }
+.wcard--card-dinner { padding-top: 12%; }
 
 .wcard__head {
   display: flex;
@@ -241,10 +243,7 @@
   border-radius: 10px;
 }
 
-.wcard--card-dinner .wcard__box {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.6);
-}
+
 
 .wcard__slot.is-today .wcard__box {
   border-style: solid;

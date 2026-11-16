@@ -67,4 +67,11 @@ describe('office goals (10 stages)', () => {
     expect(nextGoal(save({ stars: stars(9) }), '2026-11-03')).toMatchObject({ kind: 'boss' });
     expect(nextGoal(save({ stars: stars(9) }), '2026-11-03').text).toContain('10단계');
   });
+
+  it('the strip already says 다음 (titleGoalLabel): the goal text does not repeat it (pt-flow P3)', async () => {
+    const { COPY } = await import('../../src/flavor');
+    const text = nextGoal(save({ stars: stars(2) }), '2026-11-03').text;
+    expect(text).toBe('3단계 회의실 층 통과');
+    expect(text.startsWith(COPY.titleGoalLabel)).toBe(false);
+  });
 });

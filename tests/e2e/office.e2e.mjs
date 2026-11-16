@@ -763,7 +763,7 @@ if (['all', 'live'].includes(which)) {
   // (2) seeded: today cleared → title signals, week card, mall purchase + equip; (3) the clock rolls over
   {
     const ctx = await newContext();
-    await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [OFFICE_KEY, officeSave({ stars: twoStages, coins: 700, seenCutscenes: seenAll })]);
+    await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [OFFICE_KEY, officeSave({ stars: twoStages, coins: 1300, seenCutscenes: seenAll })]);
     await ctx.addInitScript(([k, d]) => { if (!localStorage.getItem(k)) localStorage.setItem(k, d); }, [LIVE_KEY, liveSeed({ equipped: { stamp: 'stamp-cat' }, owned: ['stamp-cat'] })]);
     const page = await newPage(ctx);
     await page.clock.install({ time: new Date(2026, 10, 18, 23, 59, 0) });
@@ -799,13 +799,13 @@ if (['all', 'live'].includes(which)) {
     await page.waitForTimeout(300);
     const after = await readSave(page, LIVE_KEY);
     check(after?.equipped?.trail === 'trail-sparkle' && after?.equipped?.jump === 'jump-petal', `live: both bought items owned + equipped (${JSON.stringify(after?.equipped)})`);
-    check((await readSave(page, OFFICE_KEY))?.coins === 700 - 300 - 250, `live: points spent at the fixed prices (${(await readSave(page, OFFICE_KEY))?.coins})`);
+    check((await readSave(page, OFFICE_KEY))?.coins === 1300 - 650 - 550, `live: points spent at the fixed prices (${(await readSave(page, OFFICE_KEY))?.coins})`);
     check(await page.locator('.mall-item[data-id="jump-petal"].is-equipped').count() === 1, 'live: the mall marks 꽃잎 점프 장착 중');
     await shot(page, '55-live-mall-bought');
     await back(page);
     await waitTitle(page);
     const chipText = (await page.locator('.title__top .chip--coin').first().innerText()).replace(/\s+/g, ' ');
-    check(/150/.test(chipText), `live: the title shows the points left (${chipText})`);
+    check(/^₵? ?100$/.test(chipText.trim()) || /\b100\b/.test(chipText), `live: the title shows the points left (${chipText})`);
 
     // the date changes while the title is up: within the 30 s check the title shows the new day's mission
     await page.clock.fastForward('01:30');

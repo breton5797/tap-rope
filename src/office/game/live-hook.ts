@@ -37,6 +37,13 @@ export const liveHook: LiveHook = {
     return { kicker: `오늘의 칼퇴 미션 · ${themeOf(weekOf(d.date)).name}`, text: `오늘의 상사: ${plan.boss.name}` };
   },
 
+  retry(stage: StageDef, _save: SaveData): StageDef | null {
+    const d = parseDailyId(stage.id);
+    if (!d) return stage;
+    // a daily is today's or nothing: after midnight 한 번 더 would replay a course that no longer counts
+    return d.date === today() ? stage : null;
+  },
+
   start(_session: Session) {
     counts = startCounts();
     runDate = today();
