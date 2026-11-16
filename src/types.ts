@@ -670,6 +670,8 @@ export interface ResultLive {
   readonly today: number;
   /** the equipped stamp cosmetic id, null = the office default */
   readonly stampDesign: string | null;
+  /** this week's goal after the run: its label (tier-aware), what the run added (gain), progress and done */
+  readonly goal?: { readonly label: string; readonly gain: number; readonly value: number; readonly target: number; readonly done: boolean };
 }
 
 /** v8: one ₵ reward line on the result card. */
