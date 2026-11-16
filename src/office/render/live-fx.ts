@@ -20,6 +20,9 @@ const TRAIL_PX = 30;
 const JUMP_PX = 30;
 /** trail marks land this far behind the hero's centre; a jump burst starts behind it and only flies back */
 const TRAIL_BEHIND = 34;
+/** trail marks drift back at this share of the floor speed: a short tail that stays on screen behind the hero
+ * (the hero runs near the left edge — floor-anchored marks left the screen within a few frames) */
+const TRAIL_DRIFT = 0.3;
 const JUMP_BEHIND = 10;
 /** part 2 starts at stage 6 (0-based chapter 5) */
 const PART2 = 5;
@@ -135,7 +138,7 @@ export class LiveFx {
     for (let k = 0; k < LIVE_PARTICLES; k++) {
       if (this.age[k] >= this.life[k]) continue;
       this.age[k] += dt;
-      if (this.floor[k]) this.px[k] -= dScroll;
+      if (this.floor[k]) this.px[k] -= dScroll * TRAIL_DRIFT;
       else {
         this.vy[k] += 220 * dt;
         this.px[k] += this.vx[k] * dt;

@@ -188,3 +188,18 @@ describe('cosmetics read clearly but stay behind the hero (pt-casual P2d)', () =
     for (const w of r.sizes) expect(w).toBeGreaterThanOrEqual(24);
   });
 });
+
+describe('the trail stays on screen behind the hero (pt-casual P2d)', () => {
+  it('a running trail keeps ≥ 3 marks within 120 px behind the hero', async () => {
+    const { PLAYER_X } = await import('../../src/types');
+    const fx = new LiveFx();
+    play(fx, look({ trail: 'trail-sparkle' }), 2);
+    const xs: number[] = [];
+    const ctx = new Proxy({}, {
+      get: (_t, k) => (k === 'drawImage' ? (_i: unknown, x: number, _y: number, w: number) => xs.push(x + w / 2) : () => undefined),
+      set: () => true,
+    }) as unknown as CanvasRenderingContext2D;
+    fx.draw(ctx, () => ({ width: 128 }) as HTMLImageElement);
+    expect(xs.filter((x) => x > PLAYER_X - 120 && x < PLAYER_X).length).toBeGreaterThanOrEqual(3);
+  });
+});
