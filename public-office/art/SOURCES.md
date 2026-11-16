@@ -673,3 +673,7 @@ Cleanup: the cosmetic sprites use core's catalog ids (`src/office/core/live/cosm
 `live/stamp-*` and `live/card-*` files were removed, because nothing references them; the `cosmetic/` table above says which sources
 they came from. `live/` keeps only the weekly badges (`badge-*`, 128×128), `shop-header` (1200×400) and the deco stickers (`deco-*`,
 128×128), until render confirms whether it uses them.
+
+- 2026-11-16 art-director fix (3 cr; live-events total **51.5 cr** per the job ledger): `cosmetic/trail-paper` and `cosmetic/jump-papers` read like the 서류 collectibles and paper hazards, so they were redrawn as torn pastel post-it confetti (same ids, paths and layout):
+  - `cosmetic/trail-paper.webp`: nano_banana_flash — three tiny torn scraps of pastel sticky note paper (pale peach, pale lilac, pale mint) with ragged torn white edges, irregular little confetti shapes, no lines, no writing, not rectangular documents.
+  - `cosmetic/jump-papers.webp`: nano_banana_flash — three small curly torn strips of pastel sticky note paper (pale yellow, pale pink, pale sky blue) twisting like confetti ribbons with ragged torn white edges, no lines, no writing, no stacks, no clipboards.
