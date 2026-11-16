@@ -17,7 +17,7 @@ const TRAIL_LIFE = 0.4;
 const TRAIL_PX = 38;
 /** trail pieces start behind the hero's centre, between heel and hip, and drift left / up (px, px/s) */
 const TRAIL_BEHIND = 22;
-const TRAIL_HEEL = 12;
+const TRAIL_HEEL = 20;
 const TRAIL_HIP = 44;
 const TRAIL_DRIFT_X = 90;
 const TRAIL_RISE = 30;

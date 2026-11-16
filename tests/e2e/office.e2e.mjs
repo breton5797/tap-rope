@@ -897,9 +897,10 @@ if (which === 'liveart') {
     await skipCutscenes(page, 2500);
     await page.waitForTimeout(8000);
     check(asked.has(trail) && asked.has(jump), `liveart: ${trail} + ${jump} drawn in a run (${[...asked].join(',')})`);
-    for (let k = 0; k < 3; k += 1) {
-      await shot(page, `61-art-${trail}-${k}`);
-      await page.waitForTimeout(700);
+    // 8 frames 180 ms apart: the bot jumps often, so some catch the jump burst as well as the trail
+    for (let k = 0; k < 8; k += 1) {
+      await shot(page, `61-art-${trail}-${jump}-${k}`);
+      await page.waitForTimeout(180);
     }
     await ctx.close();
   }

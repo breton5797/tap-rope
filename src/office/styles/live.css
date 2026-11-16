@@ -203,7 +203,7 @@
 .wcard--card-dinner { background-color: #fff3df; }
 /* each card art has its own inner safe rect (720×400; percentages of the width, also vertically) */
 .wcard--card-kraft { padding: 5.5% 8% 6%; }
-.wcard--card-sky { padding: 5.5% 9% 6%; }
+.wcard--card-sky { padding: 6.5% 12% 7%; }
 /* the badge holder: the panel sits under the lanyard slot */
 .wcard--card-pastel { padding: 11% 15% 8.5%; }
 /* the 포장마차 stall: usable ≈ x 14–86 %, y 12–80 % of the art */
