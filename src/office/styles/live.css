@@ -39,18 +39,21 @@
 }
 
 .live-count {
-  /* inside the 복지몰 button, after its label (never over it) */
-  position: static;
-  margin-left: 4px;
-  padding: 1px 7px;
+  /* a small pill on the button's top-right corner, outside its label (art review) */
+  position: absolute;
+  top: -9px;
+  right: -4px;
+  min-width: 22px;
+  padding: 0 6px;
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
-  line-height: 1.4;
-  white-space: nowrap;
+  line-height: 18px;
+  text-align: center;
   background: #13806f;
   border: 2px solid var(--outline);
   border-radius: 999px;
+  pointer-events: none;
 }
 
 .live-new {
@@ -198,14 +201,26 @@
 .wcard--card-pastel { background-color: var(--pastel-pink); }
 .wcard--card-sky { background-color: #ffd3a8; }
 .wcard--card-dinner { background-color: #fff3df; }
-/* the card art frames a light centre panel: keep the slots inside it (ink text, 5:3-ish art) */
+/* each card art has its own inner safe rect (720×400; percentages of the width, also vertically) */
+.wcard--card-kraft { padding: 5.5% 8% 6%; }
+.wcard--card-sky { padding: 5.5% 9% 6%; }
+/* the badge holder: the panel sits under the lanyard slot */
+.wcard--card-pastel { padding: 11% 15% 8.5%; }
+/* the 포장마차 stall: usable ≈ x 14–86 %, y 12–80 % of the art */
+.wcard--card-dinner { padding: 8% 14% 11%; }
+.wcard--card-kraft .wcard__slots,
+.wcard--card-sky .wcard__slots,
+.wcard--card-pastel .wcard__slots,
+.wcard--card-dinner .wcard__slots { gap: 3px; }
+.wcard--card-kraft .wcard__box,
+.wcard--card-sky .wcard__box,
+.wcard--card-pastel .wcard__box,
+.wcard--card-dinner .wcard__box { max-width: 42px; justify-self: center; }
 .wcard--card-kraft,
-.wcard--card-pastel,
 .wcard--card-sky,
-.wcard--card-dinner { padding: 9% 9% 8%; }
-.wcard--card-dinner { padding-top: 12%; }
-/* the badge-holder art: its panel is inset under the lanyard slot */
-.wcard--card-pastel { padding: 12% 15% 9%; }
+.wcard--card-pastel,
+.wcard--card-dinner { aspect-ratio: 9 / 5; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; }
+.wcard--card-dinner .wcard__head { padding: 2px 8px; background: rgba(255, 246, 230, 0.92); border-radius: 8px; }
 
 .wcard__head {
   display: flex;
@@ -567,12 +582,14 @@
 }
 
 .wcard__slot.is-landing .live-stamp {
-  animation: live-stamp-land 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) 0.5s both;
+  animation: live-stamp-land 0.55s ease-out 0.5s both;
 }
 
+/* lands, then pops to 1.2× with the thunk and settles (art review) */
 @keyframes live-stamp-land {
   0% { opacity: 0; transform: rotate(-12deg) scale(2.2); }
-  70% { opacity: 1; transform: rotate(-12deg) scale(0.9); }
+  55% { opacity: 1; transform: rotate(-12deg) scale(0.92); }
+  75% { opacity: 1; transform: rotate(-12deg) scale(1.2); }
   100% { opacity: 1; transform: rotate(-12deg) scale(1); }
 }
 
@@ -661,4 +678,55 @@
 
 .live-result__goal.is-done {
   color: #13806f;
+}
+
+/* ---------- title: the card button carries the weekly goal (sub line + thin bar) ---------- */
+.live-cardchip {
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.live-cardchip__badge {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.live-cardchip .btn__sub {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-thinbar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 5px;
+  height: 4px;
+  overflow: hidden;
+  background: var(--amber-dim);
+  border-radius: 999px;
+}
+
+.live-thinbar__fill {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+  transform-origin: left center;
+}
+
+.live-cardchip.is-goal-done .live-thinbar__fill {
+  background: #2fd2a0;
+}
+
+.live-mallbtn {
+  position: relative;
+}
+
+/* the result's mini card: stamps read at a glance */
+.live-result__card .wcard__box .live-stamp {
+  width: 90%;
+  height: 90%;
 }

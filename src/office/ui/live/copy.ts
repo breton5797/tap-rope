@@ -10,6 +10,7 @@ export const LIVE_COPY = {
   cardChip: '출근 카드 {n}/7',
   goalHead: '이번 주 · {theme}',
   goalDone: '달성!',
+  goalWord: '주간 목표',
   mallButton: '사원 복지몰',
   mallNew: '새 꾸미기 {n}',
   newDay: '새 날이에요! 오늘의 미션이 바뀌었어요',

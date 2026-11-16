@@ -124,6 +124,19 @@ describe('fx readability (art review + code review)', () => {
     }
   });
 
+  it('an equipped jump effect replaces the take-off rings (no ground ellipse under the burst — art review)', async () => {
+    const { setLiveLook, NO_LOOK } = await import('../../src/office/render/live-look');
+    const { fx, api, ctx, v, hud, juice, snap } = await setup();
+    setLiveLook({ ...NO_LOOK, jump: 'jump-dust' });
+    try {
+      api.impact('jump', { level: 3 });
+      fx.frame(ctx, v, snap({}), hud);
+      expect(juice.rings()).toBe(0);
+    } finally {
+      setLiveLook(NO_LOOK);
+    }
+  });
+
   it('a coin in a collect section flies to the mission chip only (no coin-counter flyer)', async () => {
     const { fx, api, ctx, v, hud, juice, snap } = await setup();
     const mission = (value: number) => ({ index: 1, kind: 'collect', title: '', value, target: 6, complete: false, stamps: [] });

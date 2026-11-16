@@ -1,7 +1,7 @@
 // Office live events: small DOM parts shared by the title block, the week card, the mall and the result.
 import { h } from '../../../ui/dom';
 import type { ThemeId } from '../../core/live';
-import { LIVE_COPY, fillLive } from './copy';
+import { LIVE_COPY } from './copy';
 import type { GoalModel } from './model';
 
 /** the weekly theme badges and the 개근 badge (public-office/art/live/<name>.webp) */
@@ -70,6 +70,14 @@ export function newBadge(): HTMLElement {
   return h('span', { cls: 'live-new', text: LIVE_COPY.newBadge });
 }
 
-export function countBadge(n: number): HTMLElement | null {
-  return n > 0 ? h('span', { cls: 'live-count', text: fillLive(LIVE_COPY.mallNew, { n }) }) : null;
+/** the weekly goal as a thin bar (inside the title's card button) */
+export function goalBarThin(goal: GoalModel): HTMLElement {
+  const k = goal.target > 0 ? Math.min(1, goal.value / goal.target) : 0;
+  return h('span', {
+    cls: 'live-thinbar',
+    attrs: {
+      role: 'progressbar', 'aria-label': goal.label, 'aria-valuemin': '0', 'aria-valuemax': String(goal.target),
+      'aria-valuenow': String(goal.value),
+    },
+  }, [h('i', { cls: 'live-thinbar__fill', style: { transform: `scaleX(${k.toFixed(3)})` } })]);
 }

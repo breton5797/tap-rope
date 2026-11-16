@@ -10,20 +10,23 @@ import type { View } from '../../render/view';
 import type { LiveLook } from './live-look';
 
 export const LIVE_PARTICLES = 48;
-/** a trail mark every this many px of floor scroll (reduced motion: twice as far apart) */
-const TRAIL_STEP = 70;
-const TRAIL_LIFE = 0.55;
-const JUMP_COUNT = 7;
-const JUMP_LIFE = 0.5;
-/** drawn sprite sizes (px, logical): big enough to see a purchase, small next to the hero */
-const TRAIL_PX = 30;
-const JUMP_PX = 30;
-/** trail marks land this far behind the hero's centre; a jump burst starts behind it and only flies back */
-const TRAIL_BEHIND = 34;
-/** trail marks drift back at this share of the floor speed: a short tail that stays on screen behind the hero
- * (the hero runs near the left edge — floor-anchored marks left the screen within a few frames) */
-const TRAIL_DRIFT = 0.3;
-const JUMP_BEHIND = 10;
+/** art review: a trail piece every 0.1 s while running (reduced motion: 0.2 s), alive 0.4 s → 3–5 at once */
+const TRAIL_EVERY = 0.1;
+const TRAIL_LIFE = 0.4;
+/** ≈ 25 % of the hero's height */
+const TRAIL_PX = 38;
+/** trail pieces start behind the hero's centre, between heel and hip, and drift left / up (px, px/s) */
+const TRAIL_BEHIND = 22;
+const TRAIL_HEEL = 12;
+const TRAIL_HIP = 44;
+const TRAIL_DRIFT_X = 90;
+const TRAIL_RISE = 30;
+const JUMP_COUNT = 6;
+/** a jump burst: from the hero's feet, up and back, gone within 0.4 s */
+const JUMP_LIFE = 0.38;
+const JUMP_PX = 26;
+/** pieces keep rising (negative gravity): nothing falls back onto the floor */
+const JUMP_LIFT = -80;
 /** part 2 starts at stage 6 (0-based chapter 5) */
 const PART2 = 5;
 /** the clock week: urgent for the last third of any run */
@@ -36,6 +39,8 @@ export interface FxStyle {
   readonly colors: readonly string[];
   /** px */
   readonly size: number;
+  /** a jump piece that shoots up faster (medal rosettes) */
+  readonly fast?: boolean;
 }
 
 /** placeholder looks until ART delivers the sprites (keys = Cosmetic.sprite) */
@@ -49,7 +54,7 @@ export const FX_STYLES: Readonly<Record<string, FxStyle>> = {
   'jump-dust': { shape: 'dot', colors: ['#E4E0E6', '#FFFFFF'], size: 5 },
   'jump-petal': { shape: 'petal', colors: ['#FF9FC7', '#FFD3E5', '#FFFFFF'], size: 7 },
   'jump-papers': { shape: 'paper', colors: ['#FFFFFF', '#DDE6F2'], size: 8 },
-  'jump-medal': { shape: 'star', colors: ['#FFD54A', '#FFB020', '#FFFFFF'], size: 7 },
+  'jump-medal': { shape: 'star', colors: ['#FFD54A', '#FFB020', '#FFFFFF'], size: 7, fast: true },
 };
 
 const FALLBACK_SHAPES: readonly FxShape[] = ['dot', 'star', 'petal', 'confetti'];
@@ -109,7 +114,7 @@ export class LiveFx {
   private readonly age = new Float32Array(LIVE_PARTICLES);
   private readonly life = new Float32Array(LIVE_PARTICLES);
   private readonly rot = new Float32Array(LIVE_PARTICLES);
-  /** world-anchored (scrolls with the floor) */
+  /** 1 = a trail piece, 0 = a jump piece */
   private readonly floor = new Uint8Array(LIVE_PARTICLES);
   private readonly key: string[] = new Array<string>(LIVE_PARTICLES).fill('');
   /** 'cosmetic/<key>', built once per key (no string per particle per frame) */
@@ -119,6 +124,7 @@ export class LiveFx {
   private seed = 1;
   private lastTime = Number.NaN;
   private lastScroll = 0;
+  /** seconds of running since the last trail piece */
   private trailAcc = 0;
   private wasGrounded = true;
   /** particles spawned since the last reset (tests) */
@@ -138,21 +144,18 @@ export class LiveFx {
     for (let k = 0; k < LIVE_PARTICLES; k++) {
       if (this.age[k] >= this.life[k]) continue;
       this.age[k] += dt;
-      if (this.floor[k]) this.px[k] -= dScroll * TRAIL_DRIFT;
-      else {
-        this.vy[k] += 220 * dt;
-        this.px[k] += this.vx[k] * dt;
-        this.py[k] += this.vy[k] * dt;
-        this.rot[k] += 4 * dt;
-      }
+      if (!this.floor[k]) this.vy[k] += JUMP_LIFT * dt;
+      this.px[k] += this.vx[k] * dt;
+      this.py[k] += this.vy[k] * dt;
+      if (!this.floor[k]) this.rot[k] += 4 * dt;
     }
     const grounded = p.grounded;
-    if (look.trail && grounded && !p.sliding) {
-      this.trailAcc += dScroll;
-      const step = snap.reducedMotion ? TRAIL_STEP * 2 : TRAIL_STEP;
-      for (; this.trailAcc >= step; this.trailAcc -= step) this.trailMark(look.trail, floorY, scale);
+    if (look.trail && grounded && !p.sliding && dScroll > 0) {
+      this.trailAcc += dt;
+      const every = snap.reducedMotion ? TRAIL_EVERY * 2 : TRAIL_EVERY;
+      for (; this.trailAcc >= every; this.trailAcc -= every) this.trailMark(look.trail, floorY, scale);
     } else this.trailAcc = 0;
-    if (look.jump && this.wasGrounded && !grounded) this.jumpBurst(look.jump, floorY, snap.reducedMotion);
+    if (look.jump && this.wasGrounded && !grounded) this.jumpBurst(look.jump, floorY, scale, snap.reducedMotion);
     this.wasGrounded = grounded;
   }
 
@@ -166,36 +169,39 @@ export class LiveFx {
   private trailMark(key: string, floorY: number, scale: number): void {
     const s = fxStyle(key);
     const k = this.slot();
-    const alt = this.spawned % 2;
-    this.px[k] = PLAYER_X - TRAIL_BEHIND * scale;
-    this.py[k] = floorY - 2 - alt * 5 * scale;
-    this.vx[k] = 0;
-    this.vy[k] = 0;
+    const r1 = rand(this.seed++);
+    const r2 = rand(this.seed++);
+    this.px[k] = PLAYER_X - (TRAIL_BEHIND + r1 * 10) * scale;
+    this.py[k] = floorY - (TRAIL_HEEL + r2 * (TRAIL_HIP - TRAIL_HEEL)) * scale;
+    this.vx[k] = -TRAIL_DRIFT_X * (0.8 + 0.4 * r2);
+    this.vy[k] = -TRAIL_RISE * (0.6 + 0.8 * r1);
     this.age[k] = 0;
     this.life[k] = TRAIL_LIFE;
-    this.rot[k] = alt ? 0.25 : -0.25;
+    this.rot[k] = (r1 - 0.5) * 0.5;
     this.floor[k] = 1;
     this.key[k] = key;
     this.art[k] = artName(key);
     this.color[k] = s.colors[this.spawned % s.colors.length];
   }
 
-  private jumpBurst(key: string, floorY: number, reduced: boolean): void {
+  private jumpBurst(key: string, floorY: number, scale: number, reduced: boolean): void {
     const s = fxStyle(key);
     const n = reduced ? 2 : JUMP_COUNT;
+    const speed = s.fast ? 1.6 : 1;
     for (let i = 0; i < n; i++) {
       const k = this.slot();
       const r1 = rand(this.seed++);
       const r2 = rand(this.seed++);
-      // up and back only (−90°…−170°): never into the lane ahead of the hero
-      const a = -Math.PI / 2 - r1 * 1.4;
-      const sp = 90 + 80 * r2;
-      this.px[k] = PLAYER_X - JUMP_BEHIND - r2 * 14;
-      this.py[k] = floorY - 6;
+      // up and back only (−90°…−160°): never into the lane ahead of the hero
+      const a = -Math.PI / 2 - r1 * 1.2;
+      const sp = (110 + 70 * r2) * speed;
+      // at the hero's own feet
+      this.px[k] = PLAYER_X - (4 + r2 * 10) * scale;
+      this.py[k] = floorY - 6 * scale;
       this.vx[k] = Math.cos(a) * sp;
       this.vy[k] = Math.sin(a) * sp;
       this.age[k] = 0;
-      this.life[k] = JUMP_LIFE * (0.8 + 0.4 * r1);
+      this.life[k] = JUMP_LIFE * (0.85 + 0.15 * r1);
       this.rot[k] = r1 * Math.PI;
       this.floor[k] = 0;
       this.key[k] = key;
@@ -230,7 +236,8 @@ export class LiveFx {
       }
       const t = this.age[k] / this.life[k];
       const s = fxStyle(this.key[k]);
-      ctx.globalAlpha = 0.75 * (t < 0.6 ? 1 : (1 - t) / 0.4);
+      // 0.9 → 0 over the piece's life
+      ctx.globalAlpha = 0.9 * (1 - t);
       const img = image(this.art[k]);
       if (img) {
         const px = this.floor[k] ? TRAIL_PX : JUMP_PX * (1 - 0.2 * t);
@@ -244,7 +251,7 @@ export class LiveFx {
 /** the procedural mark of one particle (a thin dark rim keeps it readable on light floors) */
 function shapeAt(ctx: Ctx, shape: FxShape, color: string, x: number, y: number, s: number, rot: number): void {
   ctx.fillStyle = color;
-  ctx.strokeStyle = 'rgba(46,36,51,0.45)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   switch (shape) {

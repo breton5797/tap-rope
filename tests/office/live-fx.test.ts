@@ -180,12 +180,12 @@ describe('cosmetics read clearly but stay behind the hero (pt-casual P2d)', () =
     const fx = new LiveFx();
     const l = look({ jump: 'jump-petal' });
     const t = play(fx, l, 0.3);
-    play(fx, l, 0.4, { grounded: false }, t);
+    play(fx, l, 0.2, { grounded: false }, t);
     const r = record();
     fx.draw(r.ctx, () => img);
     expect(r.xs.length).toBeGreaterThan(0);
     for (const x of r.xs) expect(x).toBeLessThanOrEqual(PLAYER_X + 12);
-    for (const w of r.sizes) expect(w).toBeGreaterThanOrEqual(24);
+    for (const w of r.sizes) expect(w).toBeGreaterThanOrEqual(20);
   });
 });
 
@@ -201,5 +201,44 @@ describe('the trail stays on screen behind the hero (pt-casual P2d)', () => {
     }) as unknown as CanvasRenderingContext2D;
     fx.draw(ctx, () => ({ width: 128 }) as HTMLImageElement);
     expect(xs.filter((x) => x > PLAYER_X - 120 && x < PLAYER_X).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('art director review: FX stay airborne and short', () => {
+  const ys = (fx: LiveFx): number[] => {
+    const out: number[] = [];
+    const ctx = new Proxy({}, {
+      get: (_t, k) => (k === 'drawImage' ? (_i: unknown, _x: number, y: number, _w: number, hh: number) => out.push(y + hh / 2) : () => undefined),
+      set: () => true,
+    }) as unknown as CanvasRenderingContext2D;
+    fx.draw(ctx, () => ({ width: 128 }) as HTMLImageElement);
+    return out;
+  };
+
+  it('no trail or jump piece ever rests on (or below) the floor line', async () => {
+    const { laneY } = await import('../../src/render/layout');
+    const floor = laneY(1);
+    const fx = new LiveFx();
+    const l = look({ trail: 'trail-coffee', jump: 'jump-dust' });
+    let t = 0;
+    for (let i = 0; i < 240; i++) {
+      t += 1 / 60;
+      fx.update(snap(t, { grounded: Math.floor(i / 30) % 2 === 0 }), l);
+      for (const y of ys(fx)) expect(y).toBeLessThan(floor - 2);
+    }
+  });
+
+  it('a jump burst is gone within 0.4 s; a trail keeps 3–5 pieces alive', () => {
+    const fx = new LiveFx();
+    const l = look({ jump: 'jump-medal' });
+    const t = play(fx, l, 0.2);
+    fx.update(snap(t + 1 / 60, { grounded: false }), l);
+    expect(fx.live()).toBeGreaterThan(0);
+    play(fx, l, 0.42, { grounded: false }, t + 1 / 60);
+    expect(fx.live()).toBe(0);
+    const tr = new LiveFx();
+    play(tr, look({ trail: 'trail-sparkle' }), 1.5);
+    expect(tr.live()).toBeGreaterThanOrEqual(3);
+    expect(tr.live()).toBeLessThanOrEqual(5);
   });
 });

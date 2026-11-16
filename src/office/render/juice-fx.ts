@@ -10,6 +10,7 @@ import { PLAYER_X } from '../../types';
 import { collectibleFor, stageCollectible } from './collectibles';
 import { heroAccent, jumpRingScale } from './hero-style';
 import { officeImage } from './images';
+import { liveLook } from './live-look';
 import { JUMP_RING_COLORS, Juice, pickupFromPopup, takeoffRing, type PowerUp } from './juice';
 
 type Cue =
@@ -142,6 +143,8 @@ export class JuiceFx {
         else this.juice.burst(c.what === 'shield' ? 'pop' : 'frost', x, y - 45, reduced);
         return;
       case 'jump': {
+        // an equipped jump effect (live events) replaces the take-off rings: no ground ellipse under its burst
+        if (liveLook().jump) return;
         const level = Math.min(3, Math.max(1, c.level));
         const r = takeoffRing(level);
         // one ring per level, each a beat later and wider, in neutral greys; the jump stat widens them. Never the

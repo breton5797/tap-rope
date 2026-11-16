@@ -28,13 +28,17 @@ describe('title live block', () => {
     const daily = el.querySelector('.live-daily');
     expect(daily?.querySelector('.live-new')?.textContent).toBe('NEW');
     expect(daily?.textContent).toContain('오늘의 상사: 박과장');
-    expect(el.querySelector('.live-cardchip')?.textContent).toContain('출근 카드 2/7');
-    const bar = el.querySelector('[role="progressbar"]');
+    // art review: the weekly goal is folded into the card button (one row less): its sub line + a thin bar
+    const chip = el.querySelector('.live-cardchip');
+    expect(chip?.textContent).toContain('출근 카드 2/7');
+    expect(chip?.textContent).toContain('커피 30잔 모으기 12/30');
+    const bar = chip?.querySelector('[role="progressbar"]');
     expect(bar?.getAttribute('aria-valuenow')).toBe('12');
     expect(bar?.getAttribute('aria-valuemax')).toBe('30');
-    expect(el.querySelector('.live-goal')?.textContent).toContain('이번 주 · 월요병 주간');
-    expect(el.querySelector('.live-count')?.textContent).toBe('새 꾸미기 3');
-    expect(el.querySelector('.live-goal__badge')?.getAttribute('src')).toBe('./art/live/badge-monday.webp');
+    expect(chip?.querySelector('.live-cardchip__badge')?.getAttribute('src')).toBe('./art/live/badge-monday.webp');
+    expect(el.querySelector('.live-goal')).toBeNull();
+    expect(el.querySelector('.live-count')?.textContent).toBe('3');
+    expect(el.querySelector('.live-mallbtn')?.getAttribute('aria-label')).toBe('사원 복지몰, 새 꾸미기 3');
     click(daily);
     click(el.querySelector('.live-cardchip'));
     click(el.querySelector('.live-mallbtn'));
@@ -47,11 +51,19 @@ describe('title live block', () => {
     expect(titleLiveBlock(ctx(), title({ cardCount: 1 }), nav).querySelector('.live-cardchip .btn__icon')).not.toBeNull();
   });
 
-  it('the 새 꾸미기 count sits inside the 복지몰 button, after its label (never over it)', () => {
+  it('the new-items count is a corner pill on the 복지몰 button, outside its label (art review)', () => {
     const el = titleLiveBlock(ctx(), title(), { onDaily: vi.fn(), onCard: vi.fn(), onMall: vi.fn() });
-    const label = el.querySelector('.live-mallbtn .btn__label');
-    expect(label?.textContent).toBe('사원 복지몰');
-    expect(label?.nextElementSibling?.classList.contains('live-count')).toBe(true);
+    const btn = el.querySelector('.live-mallbtn');
+    expect(btn?.querySelector('.btn__label')?.textContent).toBe('사원 복지몰');
+    const pill = btn?.querySelector('.live-count');
+    expect(pill?.parentElement).toBe(btn);
+    expect(pill?.classList.contains('live-count--corner')).toBe(true);
+    expect(pill?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('a done goal reads 달성! in the card button', () => {
+    const el = titleLiveBlock(ctx(), title({ goal: { label: '커피 30잔 모으기', value: 30, target: 30, done: true } }), { onDaily: vi.fn(), onCard: vi.fn(), onMall: vi.fn() });
+    expect(el.querySelector('.live-cardchip')?.textContent).toContain('주간 목표 달성!');
   });
 
   it('done today: no NEW, the replay line; nothing to buy: no count', () => {

@@ -771,8 +771,8 @@ if (['all', 'live'].includes(which)) {
     await waitTitle(page);
     check(await page.locator('.live-daily .live-new').count() === 0 && /완료 ✓/.test(await page.locator('.live-daily').innerText()), 'live: today done — no NEW, 완료 ✓');
     check(/출근 카드 2\/7/.test(await page.locator('.live-cardchip').innerText()), 'live: title card chip 2/7');
-    check(await page.locator('.live-goal__bar').getAttribute('aria-valuenow') === '5', 'live: weekly goal bar at 5');
-    check(/새 꾸미기 \d+/.test(await page.locator('.live-count').innerText().catch(() => '')), 'live: 복지몰 shows how many cosmetics can be bought');
+    check(await page.locator('.live-cardchip [role="progressbar"]').getAttribute('aria-valuenow') === '5', 'live: weekly goal bar (in the card button) at 5');
+    check(/^\d+$/.test((await page.locator('.live-count').innerText().catch(() => '')).trim()), 'live: 복지몰 shows how many cosmetics can be bought');
     await shot(page, '52-live-title-done');
 
     await click(page.locator('.live-cardchip'));
