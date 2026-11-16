@@ -13,6 +13,7 @@ import { designCustomStage } from '../../core/campaign';
 import type { MissionSpec } from './missions';
 import { hashString } from '../../core/rng';
 import { CHARACTERS } from './characters';
+import { readDailyId } from './live/daily-id';
 
 export { movesForMix } from '../../core/moves';
 
@@ -128,6 +129,17 @@ const NEW_MOVES: readonly (readonly MoveId[])[] = [
 /** difficulty per stage (tempo, jump levels, move mix); the part-2 balance pass kept these — hazard counts were the
  * lever that moved the bots' clear rates (docs/balance/after.md) */
 const D: readonly number[] = [0.15, 0.3, 0.45, 0.58, 0.7, 0.73, 0.76, 0.79, 0.82, 0.85];
+/** BALANCE knob (live events): per tier (index = tier − 1), added to the tier stage's D for the daily mission — positive,
+ * so every tier's daily runs at d ≈ 1.0 (the 150 bpm cap) with only learned moves; tuned with DAILY_HAZARDS so the casual
+ * bot clears 85–92 % (live/daily.ts; docs/balance/live-economy.md) */
+export const DAILY_D_OFFSET: readonly number[] = [0.85, 0.7, 0.55, 0.42, 0.3, 0.27, 0.24, 0.21, 0.18, 0.15];
+
+/** D of stage index `i` (0-based, clamped); `daily` = the daily mission at that tier (DAILY_D_OFFSET, ≥ 0.1) */
+export function stageDifficulty(i: number, daily = false): number {
+  const d = D[Math.min(D.length - 1, Math.max(0, i))];
+  const offset = DAILY_D_OFFSET[Math.min(DAILY_D_OFFSET.length - 1, Math.max(0, i))];
+  return daily ? Math.max(0.1, Math.round((d + offset) * 100) / 100) : d;
+}
 
 export const STAGES: readonly StageDef[] = CHAPTERS.map((c, i) => {
   const id = `w${i + 1}-s10`;
@@ -165,11 +177,13 @@ function easeHardMoves(def: StageDef, k: number, focus: readonly MoveId[]): Stag
 }
 
 export function missionPartStage(stage: StageDef, k: number, spec: MissionSpec): StageDef {
-  const i = Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
+  // a daily mission (live events) is tuned to its tier stage, shifted by DAILY_D_OFFSET[tier − 1]
+  const daily = readDailyId(stage.id);
+  const i = daily ? daily.tier - 1 : Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
   const def = designCustomStage(
     {
       id: `${stage.id}#${k}`, name: stage.name, n: (i + 1) * 10, chapter: stage.chapter, index: stage.index, kind: 'boss',
-      world: stage.world, variant: stage.variant, d: D[i], seed: hashString(`${stage.seed}:part${k}`), campaign: true,
+      world: stage.world, variant: stage.variant, d: stageDifficulty(i, daily !== null), seed: hashString(`${stage.seed}:part${k}`), campaign: true,
     },
     spec.moves,
     spec.focus ?? [],

@@ -495,6 +495,8 @@ export interface MissionView {
   readonly stampAt?: number;
   /** that stamp's outcome: true = 미션 완료, false = 다음 기회에 */
   readonly stampOk?: boolean;
+  /** office: that stamp pays its ₵ bonus (ok, campaign stage, never paid before); false on a daily mission */
+  readonly stampPays?: boolean;
   /** chase: distance to the superior 0..1 (1 = shaken off) */
   readonly chase?: number;
   /** one per section: true / false once stamped, null while still to come */
@@ -511,6 +513,8 @@ export interface MissionOutcome {
   readonly stampBonus: number;
   /** bonus collectibles picked up outside collect missions (stage 5's 금일봉) */
   readonly items: number;
+  /** office: per stamp, whether this run paid its bonus (the first time that stamp was ever earned); absent in v8 */
+  readonly paid?: readonly boolean[];
 }
 
 export interface RenderSnapshot {
@@ -551,6 +555,8 @@ export interface RenderSnapshot {
 export interface RenderRun {
   readonly seed: number; // the stage's run seed
   readonly stageIndex: number; // chapter
+  /** office: the run's stage id (a daily mission has its own missions / collectibles, missionsOf); v8 never reads it */
+  readonly stageId?: string;
   readonly progress: number; // 0..1 of the stage
   readonly beats: readonly Beat[];
 }
@@ -645,6 +651,27 @@ export interface ResultInfo {
   readonly skin?: SkinId;
   /** office tester run: marked "테스트 판 · 기록 안 함", nothing was saved (absent in v8) */
   readonly testRun?: true;
+  /** office live events: what the run did to the week card and the rewards it earned (absent in v8) */
+  readonly live?: ResultLive;
+}
+
+/** office live events on the result screen (mirrors src/office/core/live Reward without importing office code) */
+export interface ResultLive {
+  /** the run was today's daily mission */
+  readonly daily: boolean;
+  readonly rewards: readonly (
+    | { readonly kind: 'points'; readonly amount: number; readonly why: string }
+    | { readonly kind: 'cosmetic'; readonly id: string; readonly why: string }
+    | { readonly kind: 'badge'; readonly week: string; readonly why: string }
+  )[];
+  /** the week card after the run, Monday … Sunday */
+  readonly stamps: readonly boolean[];
+  /** today's weekday, 0 = Monday … 6 = Sunday */
+  readonly today: number;
+  /** the equipped stamp cosmetic id, null = the office default */
+  readonly stampDesign: string | null;
+  /** this week's goal after the run: its label (tier-aware), what the run added (gain), progress and done */
+  readonly goal?: { readonly label: string; readonly gain: number; readonly value: number; readonly target: number; readonly done: boolean };
 }
 
 /** v8: one ₵ reward line on the result card. */

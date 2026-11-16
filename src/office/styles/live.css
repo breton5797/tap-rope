@@ -1,0 +1,747 @@
+/* Office live events (오늘의 미션 · 주간 출근 카드 · 사원 복지몰): office build only, on the office skin tokens. */
+
+/* ---------- title block ---------- */
+.live-title {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  word-break: keep-all;
+}
+
+.live-title__row {
+  gap: 8px;
+}
+
+.live-title__row .btn {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.live-title__newday {
+  margin: 0;
+  padding: 6px 12px;
+  color: var(--ink);
+  font-weight: 800;
+  text-align: center;
+  background: var(--pastel-sun);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.live-daily {
+  position: relative;
+}
+
+.live-daily.is-locked {
+  opacity: 0.72;
+}
+
+.live-count {
+  /* a small pill on the button's top-right corner, outside its label (art review) */
+  position: absolute;
+  top: -9px;
+  right: -4px;
+  min-width: 22px;
+  padding: 0 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 18px;
+  text-align: center;
+  background: #13806f;
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.live-new {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  padding: 2px 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--red);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+
+/* ---------- weekly goal ---------- */
+.live-goal {
+  padding: 8px 12px;
+  background: var(--panel-solid);
+  border: 2px solid var(--outline);
+  border-radius: var(--r);
+  word-break: keep-all;
+}
+
+.live-goal__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.live-goal__kicker {
+  color: #b23a6a;
+  font-weight: 800;
+}
+
+.live-goal__value {
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+
+.live-goal__label {
+  margin: 2px 0 6px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.live-goal__bar {
+  height: 10px;
+  overflow: hidden;
+  background: var(--amber-dim);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.live-goal__fill {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+  transform-origin: left center;
+}
+
+.live-goal.is-done .live-goal__fill {
+  background: #2fd2a0;
+}
+
+/* ---------- stamp ---------- */
+.live-stamp {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--red);
+  border: 3px solid currentColor;
+  border-radius: 50%;
+  transform: rotate(-12deg);
+}
+
+.live-stamp__ink {
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.live-stamp__img {
+  position: absolute;
+  inset: -4px;
+  width: calc(100% + 8px);
+  height: calc(100% + 8px);
+  object-fit: contain;
+  opacity: 0;
+}
+
+.live-stamp.has-art {
+  border-color: transparent;
+}
+
+.live-stamp.has-art .live-stamp__ink {
+  visibility: hidden;
+}
+
+.live-stamp.has-art .live-stamp__img {
+  opacity: 1;
+}
+
+/* placeholder designs until the art lands (key = Cosmetic.sprite) */
+.live-stamp--stamp-gold { color: #b8860b; border-style: double; border-width: 5px; }
+.live-stamp--stamp-heart { color: #e0457b; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; }
+.live-stamp--stamp-cat { color: #7a4fd0; border-radius: 40% 40% 50% 50%; }
+.live-stamp--stamp-coffee { color: #8a5a3c; }
+.live-stamp--stamp-star { color: #d9822b; border-radius: 30%; }
+.live-stamp--stamp-clock { color: #2f78c4; border-width: 4px; }
+
+/* ---------- live screens: opaque like the other menu screens, a phone-wide column on tablets ---------- */
+.screen--wcard,
+.screen--mall {
+  background: linear-gradient(180deg, #fff3e6, #ffe6d2);
+  padding-left: max(calc(var(--safe-l) + var(--gutter)), calc((100% - 600px) / 2));
+  padding-right: max(calc(var(--safe-r) + var(--gutter)), calc((100% - 600px) / 2));
+}
+
+/* ---------- week card ---------- */
+.wcard-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 24px;
+  word-break: keep-all;
+}
+
+.wcard {
+  padding: 12px;
+  background-color: var(--panel-solid);
+  background-position: center;
+  background-size: 100% 100%;
+  border-radius: var(--r-lg);
+}
+
+.wcard--card-kraft { background-color: #f1dcb8; }
+.wcard--card-pastel { background-color: var(--pastel-pink); }
+.wcard--card-sky { background-color: #ffd3a8; }
+.wcard--card-dinner { background-color: #fff3df; }
+/* each card art has its own inner safe rect (720×400; percentages of the width, also vertically) */
+.wcard--card-kraft { padding: 5.5% 8% 6%; }
+.wcard--card-sky { padding: 6.5% 12% 7%; }
+/* the badge holder: the panel sits under the lanyard slot */
+.wcard--card-pastel { padding: 11% 15% 8.5%; }
+/* the 포장마차 stall: usable ≈ x 14–86 %, y 12–80 % of the art */
+.wcard--card-dinner { padding: 8% 14% 11%; }
+.wcard--card-kraft .wcard__slots,
+.wcard--card-sky .wcard__slots,
+.wcard--card-pastel .wcard__slots,
+.wcard--card-dinner .wcard__slots { gap: 3px; }
+.wcard--card-kraft .wcard__box,
+.wcard--card-sky .wcard__box,
+.wcard--card-pastel .wcard__box,
+.wcard--card-dinner .wcard__box { max-width: 42px; justify-self: center; }
+.wcard--card-kraft,
+.wcard--card-sky,
+.wcard--card-pastel,
+.wcard--card-dinner { aspect-ratio: 9 / 5; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; }
+.wcard--card-dinner .wcard__head { padding: 2px 8px; background: rgba(255, 246, 230, 0.92); border-radius: 8px; }
+
+.wcard__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.wcard__title {
+  font-weight: 900;
+}
+
+.wcard__dates {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.wcard__slots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wcard__slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.wcard__day {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.wcard__box {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 48px;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px dashed var(--line-strong);
+  border-radius: 10px;
+}
+
+
+
+.wcard__slot.is-today .wcard__box {
+  border-style: solid;
+  box-shadow: 0 0 0 3px var(--amber);
+}
+
+.wcard__slot.is-future .wcard__box {
+  opacity: 0.55;
+}
+
+.wcard__box .live-stamp {
+  width: 80%;
+  height: 80%;
+}
+
+.wcard__box .live-stamp__ink {
+  font-size: 10px;
+}
+
+.wcard__hint,
+.mall-hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.wcard__milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  background: var(--panel-solid);
+}
+
+.wcard__ms {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wcard__ms-at {
+  min-width: 64px;
+  font-weight: 900;
+}
+
+.wcard__ms-reward {
+  flex: 1;
+  color: var(--ink-soft);
+}
+
+.wcard__ms.is-reached .wcard__ms-reward {
+  color: var(--ink);
+}
+
+.wcard__ms-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #13806f;
+  font-weight: 800;
+}
+
+.wcard__ms-done .ico,
+.mall-item__on .ico {
+  width: 16px;
+  height: 16px;
+}
+
+.wcard__goal {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.wcard-history {
+  padding: 10px 12px;
+  background: var(--panel-solid);
+}
+
+.wcard-history__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.wcard-history__empty {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.wcard-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wcard-history__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.wcard-history__row > span:first-child {
+  min-width: 56px;
+}
+
+.wcard-history__dots {
+  display: inline-flex;
+  flex: 1;
+  gap: 3px;
+}
+
+.wcard-history__dots i {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--outline);
+  border-radius: 50%;
+}
+
+.wcard-history__dots i.is-on {
+  background: var(--red);
+}
+
+.wcard-history__row.is-full .wcard-history__dots i.is-on {
+  background: var(--amber);
+}
+
+/* ---------- 사원 복지몰 ---------- */
+.mall {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 24px;
+  word-break: keep-all;
+}
+
+.mall-dex {
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+
+.mall-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mall-tab {
+  flex: 1 1 auto;
+}
+
+.mall-status {
+  min-height: 1.2em;
+  margin: 0;
+  color: #b23a6a;
+  font-weight: 800;
+}
+
+.mall-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mall-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  text-align: center;
+  background: var(--panel-solid);
+}
+
+.mall-item.is-equipped {
+  background: var(--teal-dim);
+}
+
+.mall-item__art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  background: var(--bg-1);
+  border: 2px solid var(--outline);
+  border-radius: 12px;
+}
+
+.mall-item__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+}
+
+.mall-item__art.has-art img {
+  opacity: 1;
+}
+
+/* placeholders until the art lands */
+.mall-art--trail::after,
+.mall-art--jump::after {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 10px;
+  background: var(--amber);
+  border: 2px solid var(--outline);
+  border-radius: 50%;
+}
+
+.mall-item__art.has-art::after {
+  display: none;
+}
+
+.mall-art--trail-coffee::after { background: #c89b76; }
+.mall-art--trail-paper::after, .mall-art--jump-papers::after { background: #fff; border-radius: 2px; }
+.mall-art--jump-petal::after { background: #ff9fc7; }
+.mall-art--trail-rain::after { background: #8fd8ff; border-radius: 50% 50% 50% 0; }
+.mall-art--trail-confetti::after { background: linear-gradient(90deg, #ff7eb3, #ffe45c, #7cf0d8); border-radius: 2px; }
+.mall-art--trail-highlighter::after { background: #d7ff4a; border-radius: 3px; }
+.mall-art--trail-sparkle::after, .mall-art--jump-medal::after { background: #ffd54a; border-radius: 30%; }
+.mall-art--cardTheme::after { content: ''; position: absolute; inset: 10px 6px; border: 2px solid var(--outline); border-radius: 4px; background: var(--panel-solid); }
+.mall-art--card-kraft::after { background: #f1dcb8; }
+.mall-art--card-pastel::after { background: var(--pastel-pink); }
+.mall-art--card-sky::after { background: linear-gradient(180deg, #ffd3a8, #d6ebff); }
+.mall-art--card-dinner::after { background: #5a2f3a; }
+
+.mall-item__name {
+  font-weight: 800;
+}
+
+.mall-item__tag {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 900;
+  background: var(--pastel-sky);
+  border: 1.5px solid var(--outline);
+  border-radius: 999px;
+}
+
+.mall-item__on {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #13806f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mall-item__later {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+/* ---------- result: the stamp lands on the week card ---------- */
+.live-result {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  word-break: keep-all;
+}
+
+.live-result__card .wcard {
+  padding: 8px;
+  border-width: 2px;
+  box-shadow: none;
+}
+
+.live-result__rewards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-result__reward {
+  padding: 2px 10px;
+  font-weight: 800;
+  background: var(--pastel-sun);
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.live-result__note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  text-align: center;
+}
+
+.wcard__slot.is-landing .live-stamp {
+  animation: live-stamp-land 0.55s ease-out 0.5s both;
+}
+
+/* lands, then pops to 1.2× with the thunk and settles (art review) */
+@keyframes live-stamp-land {
+  0% { opacity: 0; transform: rotate(-12deg) scale(2.2); }
+  55% { opacity: 1; transform: rotate(-12deg) scale(0.92); }
+  75% { opacity: 1; transform: rotate(-12deg) scale(1.2); }
+  100% { opacity: 1; transform: rotate(-12deg) scale(1); }
+}
+
+#app.reduced-motion .wcard__slot.is-landing .live-stamp {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wcard__slot.is-landing .live-stamp {
+    animation: none;
+  }
+}
+
+/* ---------- live UI art: theme badges, the 복지몰 banner, deco stickers ---------- */
+.live-goal.has-badge {
+  position: relative;
+  padding-left: 58px;
+}
+
+.live-goal__badge {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 42px;
+  height: 42px;
+  transform: translateY(-50%);
+}
+
+.wcard__ms-badge {
+  width: 28px;
+  height: 28px;
+}
+
+.wcard-history {
+  position: relative;
+}
+
+.wcard-history__badge {
+  width: 22px;
+  height: 22px;
+}
+
+.wcard-wrap {
+  position: relative;
+}
+
+.live-deco {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+
+.live-deco--tape {
+  top: -12px;
+  right: 14px;
+  transform: rotate(12deg);
+}
+
+.live-deco--clip {
+  top: -14px;
+  right: 16px;
+}
+
+.mall-banner {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  object-fit: cover;
+  border: 2.5px solid var(--outline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+}
+
+.mall-item.is-selected {
+  box-shadow: 0 0 0 3px var(--amber), var(--shadow);
+}
+
+.live-result__goal {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.live-result__goal.is-done {
+  color: #13806f;
+}
+
+/* ---------- title: the card button carries the weekly goal (sub line + thin bar) ---------- */
+.live-cardchip {
+  position: relative;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 58px;
+  padding: 6px 10px 12px;
+  text-align: left;
+}
+
+.live-cardchip .btn__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.live-title__row .live-mallbtn {
+  min-height: 58px;
+}
+
+.live-cardchip__badge {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+
+.live-cardchip .btn__sub {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-thinbar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 5px;
+  height: 4px;
+  overflow: hidden;
+  background: var(--amber-dim);
+  border-radius: 999px;
+}
+
+.live-thinbar__fill {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+  transform-origin: left center;
+}
+
+.live-cardchip.is-goal-done .live-thinbar__fill {
+  background: #2fd2a0;
+}
+
+.live-mallbtn {
+  position: relative;
+}
+
+/* the result's mini card: stamps read at a glance */
+.live-result__card .wcard__box .live-stamp {
+  width: 90%;
+  height: 90%;
+}

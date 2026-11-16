@@ -40,4 +40,6 @@ export const OFFICE_SWAPS: Readonly<Record<string, string>> = {
   'src/platform/account.ts': 'src/office/platform/account.ts',
   'src/platform/online.ts': 'src/office/platform/online.ts',
   'src/ui/login.ts': 'src/office/ui/login.ts',
+  'src/ui/title.ts': 'src/office/ui/title.ts',
+  'src/game/live-hook.ts': 'src/office/game/live-hook.ts',
 };

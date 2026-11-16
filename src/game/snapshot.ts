@@ -2,7 +2,7 @@
 import type { BossView, CosmeticLook, HudState, MissionView, RenderSnapshot, SkinId } from '../types';
 import { SCROLL_SPEED } from '../types';
 import { laneItems, visibleDoors, visibleObstacles } from '../core/timeline';
-import { CHAPTERS } from '../core/content';
+import { CHAPTERS, stageById } from '../core/content';
 import { COPY, fillCopy, stageVars } from '../flavor';
 import { bossForSection, bossView } from '../core/boss';
 import { sessionProgress, type Session } from './session';
@@ -57,7 +57,7 @@ export function toSnapshot(s: Session, skin: SkinId, o: SnapshotOpts): RenderSna
     bossFinish: o.bossFinish ?? -1,
     cosmetics: o.cosmetics,
     ...(o.mission ? { mission: o.mission } : {}),
-    run: { seed: s.stage.seed, stageIndex: s.stage.chapter, progress: sessionProgress(s), beats: s.beats },
+    run: { seed: s.stage.seed, stageIndex: s.stage.chapter, stageId: s.stage.id, progress: sessionProgress(s), beats: s.beats },
   };
 }
 
@@ -73,6 +73,8 @@ function bossHud(s: Session): HudState['boss'] {
 export function runTitle(s: Session): string {
   if (s.mode === 'endless') return '무한 침투';
   if (s.mode === 'daily') return '일일 작전';
+  // a stage outside the campaign (office: the daily mission) has no stage tag (v8: every stage is a campaign one)
+  if (stageById(s.stage.id) === undefined) return s.stage.name;
   return `${fillCopy(COPY.stageTag, stageVars(s.stage))} · ${s.stage.name}`;
 }
 

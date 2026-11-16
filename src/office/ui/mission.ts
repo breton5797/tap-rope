@@ -7,6 +7,8 @@ import { h } from '../../ui/dom';
 import { STAGES } from '../../core/content';
 import { loadStamps, missionCardFor, type MissionCard } from '../../game/missions';
 import { MISSION_BONUS, STAGE_MISSIONS, type MissionKind } from '../core/missions';
+import { missionsOf } from '../core/stage-missions';
+import { liveResult } from './live/result';
 
 const KIND_LABEL: Readonly<Record<MissionKind, string>> = { dodge: '돌파', collect: '수집', chase: '추격', finale: '결전' };
 /** seconds of run time the card and the stamp stay up (run time: they wait while the game is paused) */
@@ -76,11 +78,12 @@ function cardEl(stage: StageDef, index: number): HTMLElement | null {
   ]);
 }
 
-function stampEl(ok: boolean, stage: StageDef): HTMLElement {
-  const i = Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
+/** the door stamp; its +₵ only when this stamp pays (the first time it is ever earned — never on a daily) */
+function stampEl(ok: boolean, pays: boolean, stage: StageDef): HTMLElement {
+  const stageIndex = Math.max(0, STAGES.findIndex((s) => s.id === stage.id));
   return h('div', { cls: `mission-stamp ${ok ? 'is-ok' : 'is-miss'}` }, [
     h('div', { cls: 'mission-stamp__ink', text: ok ? '미션 완료!' : '다음 기회에' }),
-    ok ? h('div', { cls: 'mission-stamp__bonus', text: `+₵${MISSION_BONUS(i)}` }) : null,
+    ok && pays ? h('div', { cls: 'mission-stamp__bonus', text: `+₵${MISSION_BONUS(stageIndex)}` }) : null,
   ]);
 }
 
@@ -101,7 +104,7 @@ function chipText(v: MissionView): string {
 }
 
 function patchChip(d: MissionDom, view: MissionView, stage: StageDef): void {
-  const spec = STAGE_MISSIONS[stage.id]?.[view.index];
+  const spec = missionsOf(stage.id)?.[view.index];
   d.label.textContent = spec?.kind === 'collect' ? spec.title : KIND_LABEL[view.kind];
   d.count.textContent = chipText(view);
   d.chip.classList.toggle('is-complete', view.complete);
@@ -129,7 +132,7 @@ export function renderMission(layer: HTMLElement, view: MissionView | undefined,
     if (stamped) {
       d.stampAt = view.stampAt;
       d.stamp?.el.remove();
-      d.stamp = { el: stampEl(view.stampOk === true, stage), from: time, until: time + STAMP_S };
+      d.stamp = { el: stampEl(view.stampOk === true, view.stampPays === true, stage), from: time, until: time + STAMP_S };
     }
     if (view.index !== d.index) {
       d.index = view.index;
@@ -180,8 +183,10 @@ function waitForTitle(card: Timed | null, layer: HTMLElement, time: number): Tim
 /** the result card's row: one stamp per mission and the stage grade */
 export function missionResult(r: ResultInfo): HTMLElement | null {
   const m = r.missions;
-  const specs = r.stageId ? STAGE_MISSIONS[r.stageId] : undefined;
-  if (!m || !specs) return null;
+  const specs = r.stageId ? missionsOf(r.stageId) : undefined;
+  const live = r.live;
+  const liveEl = live ? liveResult(live) : null;
+  if (!m || !specs) return liveEl;
   // R5: a failed run shows its stamps but no letter grade (야근 확정 + "B" was a mixed message for kids)
   const grade = r.cleared ? `, 등급 ${m.grade}` : '';
   return h('div', { cls: 'report__missions', attrs: { role: 'group', 'aria-label': `미션 도장 ${m.stamps.filter((s) => s === true).length}/${specs.length}${grade}` } }, [
@@ -194,6 +199,7 @@ export function missionResult(r: ResultInfo): HTMLElement | null {
     })),
     r.cleared ? h('div', { cls: `report__grade grade--${m.grade}` }, [h('span', { cls: 'report__grade-label', text: '등급' }), h('b', { text: m.grade })]) : null,
     bonusLine(r),
+    liveEl,
   ]);
 }
 

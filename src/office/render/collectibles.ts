@@ -4,18 +4,22 @@
 // falls back to the v8 icons while a sprite is missing.
 import type { Beat, ObstacleKind } from '../../types';
 import { STAGES } from '../core/content';
-import { STAGE_MISSIONS } from '../core/missions';
+import { missionsOf } from '../core/stage-missions';
 
-/** the collectible id of mission part `part` on stage `stageIndex` (STAGE_MISSIONS), or null when it has none */
-export function collectibleFor(stageIndex: number, part: number | undefined): string | null {
+/** a run's stage: its id (any office stage, the daily included), or a campaign stage index (chapter) */
+export type StageKey = string | number;
+
+const idOf = (stage: StageKey): string => (typeof stage === 'string' ? stage : STAGE_IDS[stage] ?? `w${stage + 1}-s10`);
+
+/** the collectible id of mission part `part` of the stage (missionsOf), or null when it has none */
+export function collectibleFor(stage: StageKey, part: number | undefined): string | null {
   if (part === undefined) return null;
-  return STAGE_MISSIONS[STAGE_IDS[stageIndex] ?? `w${stageIndex + 1}-s10`]?.[part]?.collectible ?? null;
+  return missionsOf(idOf(stage))?.[part]?.collectible ?? null;
 }
 
 /** the stage's mission collectible (any part), for a collect mission whose part has none on record */
-export function stageCollectible(stageIndex: number): string | null {
-  const parts = STAGE_MISSIONS[STAGE_IDS[stageIndex] ?? `w${stageIndex + 1}-s10`] ?? [];
-  for (const p of parts) if (p.collectible) return p.collectible;
+export function stageCollectible(stage: StageKey): string | null {
+  for (const p of missionsOf(idOf(stage)) ?? []) if (p.collectible) return p.collectible;
   return null;
 }
 
@@ -23,19 +27,25 @@ export function stageCollectible(stageIndex: number): string | null {
 export const partOf = (beat: Beat | undefined): number | undefined => beat?.part;
 
 const STAGE_IDS: readonly string[] = STAGES.map((s) => s.id);
-/** sprite names per (stage, part, kind), built once (no string building per pickup per frame) */
-const NAMES = new Map<number, string>();
+/** sprite names per stage id, then per (part, kind) slot, built once (no string building per pickup per frame) */
+const NAMES = new Map<string, string[]>();
 const KINDS: readonly ObstacleKind[] = ['coin', 'shield', 'slow', 'heart'];
 
 /** sprite name for a pickup obstacle on `beat` */
-export function pickupSprite(kind: ObstacleKind, beat: Beat | undefined, stageIndex: number): string {
+export function pickupSprite(kind: ObstacleKind, beat: Beat | undefined, stage: StageKey): string {
   const part = kind === 'coin' ? partOf(beat) ?? -1 : -1;
-  const key = (stageIndex * 4 + (part + 1)) * KINDS.length + Math.max(0, KINDS.indexOf(kind));
-  let name = NAMES.get(key);
+  const id = idOf(stage);
+  let names = NAMES.get(id);
+  if (!names) {
+    names = [];
+    NAMES.set(id, names);
+  }
+  const slot = (part + 1) * KINDS.length + Math.max(0, KINDS.indexOf(kind));
+  let name = names[slot];
   if (!name) {
-    const c = kind === 'coin' ? collectibleFor(stageIndex, part < 0 ? undefined : part) : null;
+    const c = kind === 'coin' ? collectibleFor(id, part < 0 ? undefined : part) : null;
     name = c ? `collect-${c}` : `pickup-${kind}`;
-    NAMES.set(key, name);
+    names[slot] = name;
   }
   return name;
 }

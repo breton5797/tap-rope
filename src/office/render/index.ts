@@ -46,6 +46,8 @@ import { escortLook } from '../../render/escort';
 /** the escort's opacity while a rear attack is on its way */
 const ESCORT_FADE = 0.4;
 import { JuiceFx } from './juice-fx';
+import { LiveFx, clockBoost, drawRain, rainOn } from './live-fx';
+import { liveLook } from './live-look';
 
 export * from '../../render/index';
 
@@ -234,6 +236,8 @@ class OfficeRenderer implements Renderer {
   }
 
   private readonly juice = new JuiceFx();
+  /** live events: the equipped trail / jump effect */
+  private readonly liveFx = new LiveFx();
   private scan: ReturnType<typeof scanSigns> | null = null;
   private fxApi: EffectsApi | null = null;
 
@@ -318,7 +322,7 @@ class OfficeRenderer implements Renderer {
     setThrowFrame(snap.running && b !== null && b.state !== 'defeated', this.view);
     setFocusLane(visualLane(snap.player));
     // menus / demo without a run: no stale beats for the pickup sprites
-    setPickupFrame(run ? run.beats : NO_BEATS, run ? run.stageIndex : 0);
+    setPickupFrame(run ? run.beats : NO_BEATS, run ? run.stageId ?? run.stageIndex : 0);
     // F9: the gauge ran out → the superior is overtaken (slides out left, tired); a refilled gauge resets it
     if (b && b.hp <= 0 && this.exitId !== b.id) {
       this.exitId = b.id;
@@ -379,6 +383,12 @@ class OfficeRenderer implements Renderer {
     // one callout at a time: the fire-drill banner already says where the attack comes from
     this.bubble(ctx, v, snap, broadcast !== null, Math.max(band.top, band.line), band.countdown, drill !== null);
     const stampAt = snap.mission?.stampAt;
+    const look = liveLook();
+    if (snap.running && run && rainOn(look, run.stageIndex)) drawRain(ctx, v, snap.realTime, snap.reducedMotion);
+    if (snap.running) {
+      this.liveFx.update(snap, look);
+      this.liveFx.draw(ctx, officeImage);
+    }
     if (snap.running) this.juice.frame(ctx, v, snap, band);
     if (snap.running) this.signs(ctx, v, snap);
     // R4: the one-time move tip (part 2's first lane hazard, stage 7's first lanejump) — real stage runs only
@@ -387,7 +397,7 @@ class OfficeRenderer implements Renderer {
       if (tip) drawMoveTip(ctx, v, tip.id === 'lanejump' ? COPY.tipLanejump : COPY.tipLane2, tip.id === 'lanejump', snap.realTime - this.tips.since, snap.reducedMotion);
     }
     if (stampAt !== undefined && !snap.reducedMotion) drawConfetti(ctx, v, t - stampAt, Math.max(v.y0, band.top));
-    if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), clockUrgent(run.stageIndex, run.progress));
+    if (run && snap.running) drawClock(ctx, v, OFFICE_CLOCK(run.stageIndex, run.progress), clockUrgent(run.stageIndex, run.progress) || clockBoost(look, run.progress));
     ctx.globalAlpha = 1;
   }
 

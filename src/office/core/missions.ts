@@ -170,5 +170,8 @@ export function starsFor(stamps: readonly boolean[]): 1 | 2 | 3 {
   return Math.min(3, Math.max(1, stamps.filter(Boolean).length)) as 1 | 2 | 3;
 }
 
-/** 칼퇴 포인트 for each stamp on stage `stageIndex` (0-based) */
-export const MISSION_BONUS = (stageIndex: number): number => 150 * (stageIndex + 1);
+/**
+ * 칼퇴 포인트 for each stamp on stage `stageIndex` (0-based), paid only the first time that stamp is earned
+ * (office/game/missions.ts commitMissions; economy decision 2026-11-16: 150 × stage → 20 × stage, once)
+ */
+export const MISSION_BONUS = (stageIndex: number): number => 20 * (stageIndex + 1);

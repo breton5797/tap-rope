@@ -160,3 +160,20 @@ describe('one mission card per section (pt-casual round 2, stage 6)', () => {
     }
   });
 });
+
+describe('the door stamp shows its ₵ only when it pays (economy decision b)', () => {
+  it('a first-time stamp shows +₵ (20 × stage); a repeat or a daily stamp shows none', async () => {
+    const { MISSION_BONUS } = await import('../../src/office/core/missions');
+    const layer = document.createElement('div');
+    document.body.appendChild(layer);
+    const s2 = stageById('w2-s10') as StageDef;
+    const at = (pays: boolean, t: number) => view({ index: 1, kind: 'collect', title: '커피 쿠폰', value: 0, target: 5, stampAt: t, stampOk: true, stampPays: pays, stamps: [true, null, null] });
+    renderMission(layer, at(true, 20), s2, true, 20);
+    expect(layer.querySelector('.mission-stamp__bonus')?.textContent).toBe(`+₵${MISSION_BONUS(1)}`);
+    renderMission(layer, undefined, null, true, 0);
+    renderMission(layer, at(false, 40), s2, true, 40);
+    expect(layer.querySelector('.mission-stamp.is-ok')).not.toBeNull();
+    expect(layer.querySelector('.mission-stamp__bonus')).toBeNull();
+    renderMission(layer, undefined, null, true, 0);
+  });
+});

@@ -9,10 +9,11 @@ import type { Beat, MissionOutcome, MissionView, ObstacleKind, PickupCue, StageD
 import { HAZARD_KINDS } from '../../types';
 import type { GameEvent } from '../../game/session';
 import { SAVE_PREFIX } from '../../flavor';
-import { STAGES } from '../../core/content';
+import { STAGES, stageById } from '../../core/content';
 import { bossForSection } from '../../core/boss';
+import { missionsOf } from '../core/stage-missions';
 import {
-  MISSION_BONUS, STAGE_MISSIONS, maxHitsFor, missionProgress, stageGrade, starsFor, type MissionKind, type MissionSpec, type MissionStats,
+  MISSION_BONUS, maxHitsFor, missionProgress, stageGrade, starsFor, type MissionKind, type MissionSpec, type MissionStats,
 } from '../core/missions';
 
 export interface MissionRun {
@@ -36,6 +37,10 @@ export interface MissionRun {
   readonly items: number;
   readonly stampAt?: number;
   readonly stampOk?: boolean;
+  /** the stamp that last fired pays its bonus (ok, campaign stage, not in the paid ledger at the run start) */
+  readonly stampPays?: boolean;
+  /** per section: its stamp's bonus was already paid before this run (all true off the campaign: never pays) */
+  readonly paidBefore: readonly boolean[];
 }
 
 /** the slice of a session the tracker reads */
@@ -46,6 +51,8 @@ export interface MissionSession {
 }
 
 const STAMPS_KEY = `${SAVE_PREFIX}.stamps.v1`;
+/** stamps whose ₵ bonus was paid (paid once per stamp, ever) */
+const PAID_KEY = `${SAVE_PREFIX}.stampsPaid.v1`;
 const CHASE_START = 0.5;
 const CHASE_DODGE = 0.05;
 const CHASE_HIT = 0.3;
@@ -58,7 +65,7 @@ const partOf = (b: Beat): number => b.part ?? b.section;
 
 /** a run's missions, or null for stages without a mission script (endless, the menu demo) */
 export function startMissions(stage: StageDef | null, beats: readonly Beat[]): MissionRun | null {
-  const specs = stage ? STAGE_MISSIONS[stage.id] : undefined;
+  const specs = stage ? missionsOf(stage.id) : undefined;
   if (!stage || !specs) return null;
   const hazards = beats.filter(isHazard);
   const stats = specs.map((_, k): MissionStats => ({
@@ -71,7 +78,15 @@ export function startMissions(stage: StageDef | null, beats: readonly Beat[]): M
     pickupPart: 0,
     lastHazard: specs.map((_, k) => hazards.filter((b) => partOf(b) === k).at(-1)?.id ?? -1),
     stats, chase: specs.map(() => CHASE_START), stamps: specs.map(() => null), section: 0, hits: 0, items: 0,
+    paidBefore: paidBeforeRun(stage.id, specs.length),
   };
+}
+
+/** the paid ledger for `stageId` at the run start; a daily (not a campaign stage) never pays a stamp bonus */
+function paidBeforeRun(stageId: string, n: number): boolean[] {
+  if (stageById(stageId) === undefined) return Array.from({ length: n }, () => true);
+  const before = loadPaid()[stageId] ?? [];
+  return Array.from({ length: n }, (_, k) => Boolean(before[k]));
 }
 
 function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, current: number): MissionRun {
@@ -105,12 +120,15 @@ function judged(run: MissionRun, ev: Extract<GameEvent, { type: 'judge' }>, curr
 function stampThrough(run: MissionRun, upTo: number, time: number): MissionRun {
   let stamps = run.stamps;
   let last: boolean | undefined;
+  let lastK = -1;
   for (let k = 0; k < Math.min(upTo, run.specs.length); k += 1) {
     if (stamps[k] !== null) continue;
     last = missionProgress(run.specs[k], run.stats[k]).complete;
+    lastK = k;
     stamps = stamps.map((v, j) => (j === k ? last ?? false : v));
   }
-  return last === undefined ? run : { ...run, stamps, stampAt: time, stampOk: last };
+  if (last === undefined) return run;
+  return { ...run, stamps, stampAt: time, stampOk: last, stampPays: last && !run.paidBefore[lastK] };
 }
 
 /** folds one frame's events in; a passed door stamps the section behind it, a cleared end the last one */
@@ -142,7 +160,7 @@ function buildView(run: MissionRun): MissionView {
   const p = missionProgress(spec, run.stats[index]);
   return {
     index, kind: spec.kind, title: spec.title, value: p.value, target: p.target, complete: p.complete,
-    ...(run.stampAt !== undefined ? { stampAt: run.stampAt, stampOk: run.stampOk } : {}),
+    ...(run.stampAt !== undefined ? { stampAt: run.stampAt, stampOk: run.stampOk, stampPays: run.stampPays ?? false } : {}),
     ...(spec.kind === 'chase' ? { chase: run.chase[index] } : {}),
     stamps: run.stamps,
   };
@@ -197,14 +215,54 @@ function saveBest(stageId: string, stamps: readonly boolean[]): void {
   }
 }
 
-/** the run's outcome; a cleared, recorded run also keeps its best stamps for the map */
+/** stamps whose bonus was already paid, per campaign stage (office-only key) merged with the map's best stamps */
+function loadPaid(): Record<string, boolean[]> {
+  // every best stamp on the map was paid (legacy saves, or a run of this rule): it always counts as paid, so an
+  // empty, partial or corrupt store can never pay a stamp twice
+  const best = loadStamps();
+  let stored: Record<string, boolean[]> = {};
+  try {
+    const raw: unknown = JSON.parse(globalThis.localStorage?.getItem(PAID_KEY) ?? '{}');
+    if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+      stored = Object.fromEntries(Object.entries(raw).filter(([, v]) => Array.isArray(v) && v.every((x) => typeof x === 'boolean'))) as Record<string, boolean[]>;
+    }
+  } catch {
+    // corrupt: the best stamps below
+  }
+  const ids = new Set([...Object.keys(best), ...Object.keys(stored)]);
+  return Object.fromEntries([...ids].map((id) => {
+    const a = stored[id] ?? [];
+    const b = best[id] ?? [];
+    return [id, Array.from({ length: Math.max(a.length, b.length) }, (_, k) => Boolean(a[k] || b[k]))];
+  }));
+}
+
+function savePaid(paid: Record<string, boolean[]>): void {
+  try {
+    globalThis.localStorage?.setItem(PAID_KEY, JSON.stringify(paid));
+  } catch {
+    // storage refused: a later run may pay a stamp again (bounded, never more than once per stamp per session)
+  }
+}
+
+/**
+ * the run's outcome; a cleared, recorded run also keeps its best stamps for the map. The stamp bonus is paid
+ * only for stamps earned for the first time on a campaign stage (a daily mission's rewards are the live ones);
+ * a recorded run (cleared or failed: stamps are earned at the doors) stores them as paid.
+ */
 export function commitMissions(run: MissionRun | null, cleared: boolean, record: boolean): MissionOutcome | null {
   if (!run) return null;
   const done = run.stamps.map((v) => v === true);
+  // read the paid ledger before this run updates the best stamps (a legacy save is seeded from them)
+  const campaign = stageById(run.stageId) !== undefined;
+  const ledger = campaign ? loadPaid() : {};
   if (cleared && record) saveBest(run.stageId, done);
-  // the bonus is given at each door (spec §3.3): stamps already earned are paid on a failed run too
-  const stampBonus = done.filter(Boolean).length * MISSION_BONUS(run.stageIndex);
+  const before = ledger[run.stageId] ?? [];
+  const paid = done.map((v, k) => campaign && v && !before[k]);
+  if (campaign && record) savePaid({ ...ledger, [run.stageId]: done.map((v, k) => v || Boolean(before[k])) });
+  const stampBonus = paid.filter(Boolean).length * MISSION_BONUS(run.stageIndex);
   return {
+    paid,
     stamps: run.stamps.map((v, k) => (k < run.section || v !== null ? v ?? false : null)),
     grade: stageGrade(done, run.hits),
     stars: starsFor(done),
@@ -228,7 +286,7 @@ export interface MissionCard {
 
 /** the card shown as a section starts: which mission, its goal and the section's superior */
 export function missionCardFor(stage: StageDef, section: number): MissionCard | null {
-  const specs = STAGE_MISSIONS[stage.id];
+  const specs = missionsOf(stage.id);
   const spec = specs?.[section];
   if (!specs || !spec) return null;
   return {

@@ -37,6 +37,7 @@ import { FINISHER_SLOW, finisherStarts, phaseLineDue } from './boss-lines';
 import { autoplayResult, takeChallenge, testResult, withoutChallenge } from './run-policy';
 import { accountState, initAccount, onAccountChange, onAccountNotice } from '../platform/account';
 import { commitMissions, missionView, pickupCue, startMissions, trackMissions, type MissionRun } from './missions';
+import { liveHook } from './live-hook';
 
 /** controls = the first-run two-thumb card is up; cutscene = a story cutscene plays (GDD-v7 §2) */
 type Screen = 'menu' | 'controls' | 'picker' | 'cutscene' | 'countdown' | 'play' | 'paused' | 'result';
@@ -281,6 +282,7 @@ export function startApp(): void {
     // office login spec §1: a tester's run is invincible and records nothing (v8: never a tester)
     session = createSession(mode, stage ? { ...stage, seed: runSeedFor(stage) } : null, { date, seed, skin: save.skin, invincible: accountState().tester });
     runLog = createRunLog(mode, seed, date, save.skin);
+    liveHook.start(session);
     missions = mode === 'stage' ? startMissions(session.stage, session.beats) : null;
     lastStampAt = undefined;
     missionNow = undefined;
@@ -302,14 +304,18 @@ export function startApp(): void {
     ui.showHud();
     ui.updateHud(toHud(session));
     const chapter = stage?.chapter ?? -1;
-    const brief = mode === 'stage' && stage !== null && (stage.index === 0 || !save.briefed.includes(chapter));
+    // live events (office): the daily announces its boss of the day instead of the chapter briefing (v8: never)
+    const liveBrief = stage ? liveHook.briefing(stage) : null;
+    if (liveBrief) ui.showBossLine(liveBrief.kicker, liveBrief.text);
+    const brief = !liveBrief && mode === 'stage' && stage !== null && (stage.index === 0 || !save.briefed.includes(chapter));
     if (brief) {
       ui.showBriefing(chapter);
       persist(markBriefed(save, chapter));
     }
     // v8 (fun P1-4): a retry of the same run counts down from 2 (less dead time after a fail)
     const key = `${mode}:${stage?.id ?? ''}`;
-    beginCountdown(brief ? BRIEFING_TIME : 0, key === lastRunKey && !brief ? 2 : 3);
+    const lead = brief || liveBrief ? BRIEFING_TIME : 0;
+    beginCountdown(lead, key === lastRunKey && lead === 0 ? 2 : 3);
     lastRunKey = key;
     if (!save.tutorialDone && mode === 'stage') {
       // v8 (A1): the jump card waits for GO (never over the countdown); the tutorial freeze teaches the jump itself
@@ -361,7 +367,9 @@ export function startApp(): void {
     // bot runs and tester runs record nothing (no stars, stamps, best, coins, streak or achievements)
     const testRun = session.invincible;
     const noRecord = AUTOPLAY || testRun;
-    const outcome = run.mode === 'stage' ? commitMissions(missions, cleared, !noRecord) : null;
+    // live events (office): the daily is no campaign progress — no stars, best, mission stamps (v8: never)
+    const offCampaign = run.mode === 'stage' && liveHook.offCampaign(session.stage.id);
+    const outcome = run.mode === 'stage' ? commitMissions(missions, cleared, !noRecord && !offCampaign) : null;
     const stars = outcome && cleared ? outcome.stars : sessionStars(session);
     const coinsEarned = session.score.coins + (outcome?.bonus ?? 0);
     const key = run.mode === 'stage' ? session.stage.id : run.mode === 'endless' ? 'endless' : `daily:${run.date}`;
@@ -369,7 +377,8 @@ export function startApp(): void {
     const score = session.score.score;
     const saveBefore = save; // economy pays first-clear / new-star rewards against the save before this run
     // bot runs (?autoplay=1, QA / demo) record nothing: no stars, best, coins, streak or achievements
-    if (!noRecord) persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, coinsEarned));
+    if (!noRecord && !offCampaign) persist(recordResult(save, key, run.mode === 'stage' ? stars : 0, score, coinsEarned));
+    else if (!noRecord && coinsEarned > 0) persist({ ...save, coins: save.coins + coinsEarned });
     const stageId = run.mode === 'stage' ? session.stage.id : null;
     const next = stageId ? nextStageId(stageId) : null;
     const base: ResultInfo = {
@@ -395,7 +404,13 @@ export function startApp(): void {
     // bot runs (?autoplay=1, QA/demo) are never submitted to the leaderboard
     const record = noRecord ? null : runLog.record(session);
     const summary = outcome ? { ...runLog.summary(session, stageId), stamps: outcome.stamps.map((v) => v === true), grade: outcome.grade } : runLog.summary(session, stageId);
-    const info = testRun ? testResult(base, prevBest) : AUTOPLAY ? autoplayResult(base, prevBest) : progress.afterRun(summary, record, base, saveBefore);
+    let info = testRun ? testResult(base, prevBest) : AUTOPLAY ? autoplayResult(base, prevBest) : offCampaign ? base : progress.afterRun(summary, record, base, saveBefore);
+    // live events (office): the weekly goal / daily stamp / card rewards of a real run (v8: nothing)
+    if (!noRecord) {
+      const end = liveHook.finish(save, { stageId, cleared, score });
+      if (end.coins > 0) persist({ ...save, coins: save.coins + end.coins });
+      info = end.decorate(info);
+    }
     // the "vs" duel belongs to the challenge run's result only
     if (challengeRun) {
       challengeRun = false;
@@ -416,7 +431,11 @@ export function startApp(): void {
       if (st) startRun('stage', st);
     },
     onStartEndless: () => startRun('endless', null),
-    onStartDaily: () => startRun('daily', null),
+    onStartDaily: () => {
+      const daily = liveHook.dailyStage(save); // office: today's mission as a stage (v8: the daily mode)
+      if (daily) startRun('stage', daily);
+      else startRun('daily', null);
+    },
     onPause: pause,
     onResume: () => {
       if (screen !== 'paused') return;
@@ -424,8 +443,14 @@ export function startApp(): void {
       ui.showHud();
       beginCountdown();
     },
-    onRetry: () => startRun(run.mode, run.stage),
-    onQuit: () => toMenu((s) => ui.showStageSelect(s)),
+    onRetry: () => {
+      // office: a daily whose day is over goes back to the title, where the new day's mission waits (v8: never)
+      const stage = run.stage ? liveHook.retry(run.stage, save) : null;
+      if (run.stage && !stage) toMenu((s) => ui.showTitle(s));
+      else startRun(run.mode, stage);
+    },
+    // office: the daily mission's result goes back to the title (its card and mall are there; v8: never)
+    onQuit: () => toMenu((s) => (run.stage && liveHook.offCampaign(run.stage.id) ? ui.showTitle(s) : ui.showStageSelect(s))),
     onNextStage: () => {
       const id = run.stage ? nextStageId(run.stage.id) : null;
       const st = id ? stageById(id) : undefined;
@@ -481,8 +506,13 @@ export function startApp(): void {
     },
     onMetaUpdate: (update) => {
       const next = update(save); // against the current save, so another tab's progress is never overwritten
-      if (next) persist(next);
-      return next;
+      if (!next) return null;
+      // a change that could not be written (storage full / a newer save in another tab) did not happen
+      const before = save;
+      save = next;
+      if (writeSave(save) === 'ok') return next;
+      save = before;
+      return null;
     },
     onOpenShop: () => toMenu((s) => ui.showShop(s)),
   });
@@ -553,6 +583,7 @@ export function startApp(): void {
       const out = applyInput(session, input);
       session = out.session;
       missions = trackMissions(missions, session, out.events);
+      liveHook.track(session, out.events);
       playFeedback(deps, out.events);
     }
     if (tutorial.frozen) {
@@ -562,6 +593,7 @@ export function startApp(): void {
     const out = step(session, tutorial.clampDt(session.time, dt));
     session = out.session;
     missions = trackMissions(missions, session, out.events);
+    liveHook.track(session, out.events);
     tickMissions();
     playFeedback(deps, out.events);
     for (const e of out.events) if (e.type === 'fever') runLog.fever();
@@ -587,7 +619,9 @@ export function startApp(): void {
 
   /** office v2: the mission HUD, and a stamp's sound + buzz the frame it fires (v8: no missions, nothing shown) */
   const tickMissions = (): void => {
-    const view = missionView(missions, session.time);
+    const raw = missionView(missions, session.time);
+    // bot and tester runs record nothing, so no stamp of theirs pays (office; v8 has no missions)
+    const view = raw?.stampPays && (AUTOPLAY || session.invincible) ? { ...raw, stampPays: false } : raw;
     missionNow = view;
     ui.updateMission(view, view ? session.stage : null, session.time);
     if (view?.stampAt === undefined || view.stampAt === lastStampAt) return;

@@ -34,7 +34,7 @@ export function nextGoal(save: SaveData, _today: string): Goal {
     return { kind: 'first', text: `첫 퇴근: 1단계 클리어 → 보너스 ₵${FIRST_MISSION_COINS}` };
   }
   const i = STAGES.findIndex((s) => !cleared(save, s.id));
-  if (i >= 0) return { kind: i === STAGES.length - 1 ? 'boss' : 'stage', text: `다음 목표: ${i + 1}단계 ${STAGES[i].name} 통과` };
+  if (i >= 0) return { kind: i === STAGES.length - 1 ? 'boss' : 'stage', text: `${i + 1}단계 ${STAGES[i].name} 통과` };
   const closest = ACHIEVEMENTS
     .filter((a) => save.achievements[a.id] === undefined)
     .map((a) => ({ a, p: achievementProgress(a.id, save) }))

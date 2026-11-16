@@ -10,6 +10,7 @@ import { PLAYER_X } from '../../types';
 import { collectibleFor, stageCollectible } from './collectibles';
 import { heroAccent, jumpRingScale } from './hero-style';
 import { officeImage } from './images';
+import { liveLook } from './live-look';
 import { JUMP_RING_COLORS, Juice, pickupFromPopup, takeoffRing, type PowerUp } from './juice';
 
 type Cue =
@@ -142,6 +143,8 @@ export class JuiceFx {
         else this.juice.burst(c.what === 'shield' ? 'pop' : 'frost', x, y - 45, reduced);
         return;
       case 'jump': {
+        // an equipped jump effect (live events) replaces the take-off rings: no ground ellipse under its burst
+        if (liveLook().jump) return;
         const level = Math.min(3, Math.max(1, c.level));
         const r = takeoffRing(level);
         // one ring per level, each a beat later and wider, in neutral greys; the jump stat widens them. Never the
@@ -200,7 +203,8 @@ export class JuiceFx {
     }
     if (m.index === pm.index && m.kind === 'collect' && m.value > pm.value) {
       // a collect mission always flies its collectible (never the clock coin)
-      const id = collectibleFor(snap.run?.stageIndex ?? 0, m.index) ?? stageCollectible(snap.run?.stageIndex ?? 0);
+      const stage = snap.run?.stageId ?? snap.run?.stageIndex ?? 0;
+      const id = collectibleFor(stage, m.index) ?? stageCollectible(stage);
       this.juice.burst('coin', x, y - 40, reduced, undefined, this.accent);
       if (Number.isFinite(hud.chip.x)) this.juice.fly(id ? `collect-${id}` : 'pickup-coin', { x, y: y - 40 }, hud.chip, 'chip', this.onChip);
       this.plus.text = '+1';

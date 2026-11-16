@@ -81,7 +81,7 @@ describe('mission tracker', () => {
     expect(out.stamps).toEqual([false, false, true]);
     expect(out.grade).toBe('B');
     expect(out.stars).toBe(1);
-    expect(out.bonus).toBe(150);
+    expect(out.bonus).toBe(20);
   });
 
   it('a failed run leaves the current section unstamped and records nothing', () => {
@@ -101,8 +101,8 @@ describe('mission tracker', () => {
     r = trackMissions(r, at(beats, 2, 33), [{ type: 'end', cleared: false }])!;
     const out = commitMissions(r, false, false)!;
     expect(out.stamps).toEqual([true, false, null]);
-    expect(out.stampBonus).toBe(150);
-    expect(out.bonus).toBe(150);
+    expect(out.stampBonus).toBe(20);
+    expect(out.bonus).toBe(20);
   });
 
   it('counts 금일봉 picked up in the stage-5 finale (+₵20 each), cleared or not', () => {

@@ -90,7 +90,8 @@ function headline(r: ResultInfo): Headline {
   if (r.mode !== 'stage') return { status: r.newRecord ? 'NEW RECORD' : 'OPERATION ENDED', title: r.newRecord ? '최고 기록 갱신' : '작전 종료', tone: r.newRecord ? 'win' : 'lose' };
   if (!r.cleared) return { status: COPY.resultFailStatus, title: COPY.resultFailTitle, tone: 'lose' };
   // the last stage (no next one) has its own headline above the ending card; v8 reads the same as any clear
-  return r.hasNext === false
+  // a stage outside the campaign (office: the daily mission) has no next stage but is no ending either
+  return r.hasNext === false && STAGES.some((s) => s.id === r.stageId)
     ? { status: COPY.resultFinalStatus, title: COPY.resultFinalTitle, tone: 'win' }
     : { status: COPY.resultWinStatus, title: COPY.resultWinTitle, tone: 'win' };
 }
@@ -182,8 +183,10 @@ function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
     icon: icons.retry(),
     onPress: ctx.tap(() => ctx.cb.onRetry()),
   });
+  // a stage outside the campaign (office: the daily mission) goes back to the title (v8: every stage is a campaign one)
+  const offCampaign = r.mode === 'stage' && !STAGES.some((s) => s.id === r.stageId);
   const quit = button({
-    label: r.mode !== 'stage' ? '메뉴' : inPart2(r) ? COPY.resultMapPart2 : COPY.resultMap,
+    label: r.mode !== 'stage' ? '메뉴' : offCampaign ? '타이틀로' : inPart2(r) ? COPY.resultMapPart2 : COPY.resultMap,
     variant: 'glass',
     icon: icons.grid(),
     onPress: ctx.tap(() => ctx.cb.onQuit()),

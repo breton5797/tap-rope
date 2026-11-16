@@ -6,7 +6,7 @@ import { STAGES } from '../../src/core/content';
 import { createSession, lane, step, swipe, tap, type Session } from '../../src/game/session';
 import { createSkilledBot, PROFILES, type BotFn, type ProfileId } from '../../src/game/bot-profiles';
 import { commitMissions, startMissions, trackMissions, type MissionRun } from '../../src/office/game/missions';
-import { STAGE_MISSIONS } from '../../src/office/core/missions';
+import { missionsOf } from '../../src/office/core/stage-missions';
 
 export const SKINS: readonly SkinId[] = ['kid', 'cat', 'bunny', 'robot'];
 const DT = 1 / 60;
@@ -18,12 +18,17 @@ export const runSeeds = (n: number, offset = 0): number[] =>
 
 /** the player goes for the coins of a collect mission (the mission card tells them to) */
 export const collectCoins = (stageId: string) => (b: Beat): boolean =>
-  STAGE_MISSIONS[stageId]?.[b.part ?? b.section]?.kind === 'collect';
+  missionsOf(stageId)?.[b.part ?? b.section]?.kind === 'collect';
 
 export interface RunResult {
   readonly cleared: boolean;
   readonly hits: number;
   readonly stamps: number;
+  /** 칼퇴 포인트 the run pays (app.ts: session coins + mission bonus); one-time rewards (first clear, stars,
+   * achievements) excluded */
+  readonly coins: number;
+  /** of which pickup ₵ (session coins): all a replay pays once stamp bonuses are first-time only */
+  readonly pickups: number;
 }
 
 export function playRun(stage: StageDef, skin: SkinId, seed: number, bot: BotFn): RunResult {
@@ -43,7 +48,7 @@ export function playRun(stage: StageDef, skin: SkinId, seed: number, bot: BotFn)
   const cleared = s.status === 'cleared';
   const outcome = commitMissions(run, cleared, false);
   const stamps = outcome ? outcome.stamps.filter((v) => v === true).length : 0;
-  return { cleared, hits: s.hitsTaken, stamps };
+  return { cleared, hits: s.hitsTaken, stamps, coins: s.score.coins + (outcome?.bonus ?? 0), pickups: s.score.coins };
 }
 
 export interface Cell {
@@ -54,6 +59,8 @@ export interface Cell {
   readonly clear: number; // 0..1
   readonly hits: number; // mean
   readonly stamps: number; // mean
+  readonly coins: number; // mean ₵ per run
+  readonly pickups: number; // mean pickup ₵ per run
 }
 
 export function measureCell(profile: ProfileId, stageIndex: number, skin: SkinId, seeds: readonly number[]): Cell {
@@ -63,7 +70,7 @@ export function measureCell(profile: ProfileId, stageIndex: number, skin: SkinId
   const mean = (f: (r: RunResult) => number): number => results.reduce((a, r) => a + f(r), 0) / results.length;
   return {
     profile, stage: stageIndex + 1, skin, runs: results.length,
-    clear: mean((r) => (r.cleared ? 1 : 0)), hits: mean((r) => r.hits), stamps: mean((r) => r.stamps),
+    clear: mean((r) => (r.cleared ? 1 : 0)), hits: mean((r) => r.hits), stamps: mean((r) => r.stamps), coins: mean((r) => r.coins), pickups: mean((r) => r.pickups),
   };
 }
 
