@@ -34,7 +34,7 @@ export function titleLiveBlock(ctx: Ctx, m: TitleLiveModel, nav: LiveNav): HTMLE
   if (fresh) daily.appendChild(newBadge());
   const card = button({
     label: fillLive(LIVE_COPY.cardChip, { n: m.cardCount }),
-    variant: 'glass', size: 'sm', icon: icons.check(), cls: 'live-cardchip',
+    variant: 'glass', size: 'sm', ...(m.cardCount > 0 ? { icon: icons.check() } : {}), cls: 'live-cardchip',
     onPress: ctx.tap(nav.onCard),
   });
   const mall = button({

@@ -791,11 +791,17 @@ if (['all', 'live'].includes(which)) {
     await waitScreen(page, 'live-mall');
     await page.waitForTimeout(500);
     await shot(page, '54-live-mall');
+    // two taps (pt-casual P2c): the price asks, 교환하기 exchanges
     await click(page.locator('.mall-item[data-id="trail-sparkle"] button'));
+    await page.waitForTimeout(200);
+    check(/교환하기/.test(await page.locator('.mall-item[data-id="trail-sparkle"] button').innerText()), 'live: the first tap asks 교환하기 (₵…) before spending');
+    await click(page.locator('.mall-item[data-id="trail-sparkle"] .mall-item__confirm'));
     await page.waitForTimeout(300);
     check(/교환 완료/.test(await page.locator('.mall-status').innerText()), 'live: buying 반짝 잔상 says 교환 완료');
     await click(page.locator('.mall-tab[data-tab="jump"]'));
     await click(page.locator('.mall-item[data-id="jump-petal"] button'));
+    await page.waitForTimeout(200);
+    await click(page.locator('.mall-item[data-id="jump-petal"] .mall-item__confirm'));
     await page.waitForTimeout(300);
     const after = await readSave(page, LIVE_KEY);
     check(after?.equipped?.trail === 'trail-sparkle' && after?.equipped?.jump === 'jump-petal', `live: both bought items owned + equipped (${JSON.stringify(after?.equipped)})`);

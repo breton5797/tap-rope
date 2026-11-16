@@ -146,3 +146,45 @@ describe('rain', () => {
     expect(still2).toEqual(still);
   });
 });
+
+describe('cosmetics read clearly but stay behind the hero (pt-casual P2d)', () => {
+  const record = () => {
+    const xs: number[] = [];
+    const sizes: number[] = [];
+    const ctx = new Proxy({}, {
+      get: (_t, k) => {
+        if (k === 'drawImage') return (_i: unknown, x: number, _y: number, w: number) => { xs.push(x + w / 2); sizes.push(w); };
+        if (k === 'ellipse' || k === 'arc') return (x: number) => xs.push(x);
+        if (k === 'moveTo') return (x: number) => xs.push(x);
+        return () => undefined;
+      },
+      set: () => true,
+    }) as unknown as CanvasRenderingContext2D;
+    return { ctx, xs, sizes };
+  };
+  const img = { width: 128 } as HTMLImageElement;
+
+  it('trail marks are drawn ≥ 28 px wide, all behind the hero', async () => {
+    const { PLAYER_X } = await import('../../src/types');
+    const fx = new LiveFx();
+    play(fx, look({ trail: 'trail-sparkle' }), 1);
+    const r = record();
+    fx.draw(r.ctx, () => img);
+    expect(r.sizes.length).toBeGreaterThan(0);
+    for (const w of r.sizes) expect(w).toBeGreaterThanOrEqual(28);
+    for (const x of r.xs) expect(x).toBeLessThan(PLAYER_X - 10);
+  });
+
+  it('a jump burst flies up and back, never ahead of the hero (the hazard lane)', async () => {
+    const { PLAYER_X } = await import('../../src/types');
+    const fx = new LiveFx();
+    const l = look({ jump: 'jump-petal' });
+    const t = play(fx, l, 0.3);
+    play(fx, l, 0.4, { grounded: false }, t);
+    const r = record();
+    fx.draw(r.ctx, () => img);
+    expect(r.xs.length).toBeGreaterThan(0);
+    for (const x of r.xs) expect(x).toBeLessThanOrEqual(PLAYER_X + 12);
+    for (const w of r.sizes) expect(w).toBeGreaterThanOrEqual(24);
+  });
+});

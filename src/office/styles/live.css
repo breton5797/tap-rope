@@ -38,8 +38,22 @@
   opacity: 0.72;
 }
 
-.live-new,
 .live-count {
+  /* inside the 복지몰 button, after its label (never over it) */
+  position: static;
+  margin-left: 4px;
+  padding: 1px 7px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: #13806f;
+  border: 2px solid var(--outline);
+  border-radius: 999px;
+}
+
+.live-new {
   position: absolute;
   top: -8px;
   right: -6px;
@@ -55,9 +69,6 @@
   pointer-events: none;
 }
 
-.live-count {
-  background: #13806f;
-}
 
 /* ---------- weekly goal ---------- */
 .live-goal {
@@ -193,6 +204,8 @@
 .wcard--card-sky,
 .wcard--card-dinner { padding: 9% 9% 8%; }
 .wcard--card-dinner { padding-top: 12%; }
+/* the badge-holder art: its panel is inset under the lanyard slot */
+.wcard--card-pastel { padding: 12% 15% 9%; }
 
 .wcard__head {
   display: flex;
@@ -632,4 +645,20 @@
   border: 2.5px solid var(--outline);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow);
+}
+
+.mall-item.is-selected {
+  box-shadow: 0 0 0 3px var(--amber), var(--shadow);
+}
+
+.live-result__goal {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.live-result__goal.is-done {
+  color: #13806f;
 }

@@ -1,9 +1,9 @@
 // Office live events: what the live screens show, computed from the live save, the main save and today's date
 // (pure; the screens only render these). Every rule comes from core/live — nothing is decided here.
 import {
-  CARD_POINTS, COSMETICS, addDays, affordable, buyCosmetic, dailyPlan, dailyUnlocked, progressTier, stampCount, themeOf,
+  CARD_POINTS, COSMETICS, addDays, goalFor, affordable, buyCosmetic, dailyPlan, dailyUnlocked, progressTier, stampCount, themeOf,
   weekOf, weekdayOf, type CardHistoryEntry, type CardMilestone, type Cosmetic, type CosmeticCategory, type DateKey,
-  type LiveSave, type Reward, type ThemeId, type WeekKey,
+  type LiveSave, type ProgressTier, type Reward, type ThemeId, type WeekKey,
 } from '../../core/live';
 import type { SaveData } from '../../../types';
 import type { LiveLook } from '../../render/live-look';
@@ -35,8 +35,8 @@ export function weekStamps(live: LiveSave, week: WeekKey): readonly boolean[] {
   return live.card && live.card.week === week ? live.card.stamps : NO_STAMPS;
 }
 
-export function goalModel(live: LiveSave, week: WeekKey): GoalModel {
-  const g = themeOf(week).goal;
+export function goalModel(live: LiveSave, week: WeekKey, tier: ProgressTier): GoalModel {
+  const g = goalFor(week, tier);
   const p = live.goal && live.goal.week === week ? live.goal : null;
   return { label: g.label, value: Math.min(g.target, p?.value ?? 0), target: g.target, done: p?.done ?? false };
 }
@@ -53,7 +53,7 @@ export function titleLiveModel(live: LiveSave, save: Pick<SaveData, 'stars' | 'c
     themeName: themeOf(week).name,
     themeId: themeOf(week).id,
     cardCount: live.card && live.card.week === week ? stampCount(live.card) : 0,
-    goal: goalModel(live, week),
+    goal: goalModel(live, week, tier),
     newItems: affordable(live, save.coins, today).length,
   };
 }
@@ -86,12 +86,12 @@ export interface WeekCardModel {
 
 const MILESTONES: readonly CardMilestone[] = [3, 5, 7];
 
-export function weekCardModel(live: LiveSave, today: DateKey): WeekCardModel {
+export function weekCardModel(live: LiveSave, today: DateKey, tier: ProgressTier): WeekCardModel {
   const week = weekOf(today);
   const theme = themeOf(week);
   const stamps = weekStamps(live, week);
   const count = stamps.filter(Boolean).length;
-  const themeItem = COSMETICS.find((c) => c.id === theme.goal.cosmetic)?.name ?? null;
+  const themeItem = COSMETICS.find((c) => c.id === goalFor(week, tier).cosmetic)?.name ?? null;
   return {
     week,
     lastDay: addDays(week, 6),
@@ -102,7 +102,7 @@ export function weekCardModel(live: LiveSave, today: DateKey): WeekCardModel {
     history: live.history,
     themeName: theme.name,
     themeId: theme.id,
-    goal: goalModel(live, week),
+    goal: goalModel(live, week, tier),
     cardTheme: equippedSprite(live, 'cardTheme'),
   };
 }

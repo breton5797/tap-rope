@@ -13,6 +13,8 @@ export const MALL_TABS: readonly CosmeticCategory[] = ['trail', 'jump', 'stamp',
 
 export interface MallView {
   readonly coins: number;
+  /** this week's theme (its event item is sold from next week) */
+  readonly themeName: string;
   readonly items: readonly MallItem[];
   readonly owned: number;
   readonly total: number;
@@ -35,7 +37,12 @@ function swatch(c: Cosmetic): HTMLElement {
   return box;
 }
 
-function action(ctx: Ctx, it: MallItem, act: (fn: () => string | null | void) => void, actions: MallActions): HTMLElement {
+interface Pick {
+  /** the item asked about (the first tap on its price): the second tap exchanges */
+  selected: string | null;
+}
+
+function action(ctx: Ctx, it: MallItem, v: MallView, pick: Pick, act: (fn: () => string | null | void) => void, actions: MallActions): HTMLElement {
   const c = it.item;
   switch (it.state) {
     case 'equipped':
@@ -43,13 +50,29 @@ function action(ctx: Ctx, it: MallItem, act: (fn: () => string | null | void) =>
     case 'owned':
       return button({ label: LIVE_COPY.equip, variant: 'mint', size: 'sm', aria: `${c.name} ${LIVE_COPY.equip}`, onPress: ctx.tap(() => act(() => actions.equip(c, c.category))) });
     case 'not-yet':
-      return h('span', { cls: 'mall-item__later', text: LIVE_COPY.notYet });
+      return h('span', { cls: 'mall-item__later', text: fillLive(LIVE_COPY.notYet, { theme: v.themeName }) });
     default: {
       const poor = it.state === 'poor';
+      if (pick.selected === c.id && !poor) {
+        const confirm = button({
+          label: fillLive(LIVE_COPY.exchange, { price: formatNumber(c.price) }), variant: 'sun', size: 'sm', cls: 'mall-item__confirm',
+          aria: fillLive(LIVE_COPY.buyAria, { name: c.name, price: c.price }),
+          onPress: ctx.tap(() => act(() => {
+            pick.selected = null;
+            return actions.buy(c.id);
+          })),
+        });
+        confirm.dataset.autofocus = '';
+        return confirm;
+      }
       return button({
         label: formatNumber(c.price), variant: poor ? 'glass' : 'sun', size: 'sm', icon: icons.coin(), cls: poor ? 'is-poor' : '',
-        aria: fillLive(LIVE_COPY.buyAria, { name: c.name, price: c.price }),
-        onPress: ctx.tap(() => act(() => actions.buy(c.id))),
+        aria: `${c.name} ₵${c.price}`,
+        onPress: ctx.tap(() => act(() => {
+          if (poor) return LIVE_COPY.poor;
+          pick.selected = c.id;
+          return null;
+        })),
       });
     }
   }
@@ -57,6 +80,7 @@ function action(ctx: Ctx, it: MallItem, act: (fn: () => string | null | void) =>
 
 export function buildMall(ctx: Ctx, actions: MallActions, onBack: () => void, first: CosmeticCategory = 'trail'): HTMLElement {
   let tab = first;
+  const pick: Pick = { selected: null };
   const chip = h('div', { cls: 'shop__chip' });
   const tabs = h('div', { cls: 'mall-tabs', attrs: { role: 'tablist' } });
   const list = h('ul', { cls: 'mall-list', attrs: { role: 'tabpanel' } });
@@ -67,20 +91,20 @@ export function buildMall(ctx: Ctx, actions: MallActions, onBack: () => void, fi
     chip.replaceChildren(coinChip(v.coins));
     dex.textContent = fillLive(LIVE_COPY.mallCollection, { n: v.owned, total: v.total });
     tabs.replaceChildren(...MALL_TABS.map((t) => {
-      const b = button({ label: CATEGORY_NAMES[t], variant: t === tab ? 'sun' : 'glass', size: 'sm', cls: `mall-tab${t === tab ? ' is-on' : ''}`, onPress: ctx.tap(() => { tab = t; status.textContent = ''; render(); }) });
+      const b = button({ label: CATEGORY_NAMES[t], variant: t === tab ? 'sun' : 'glass', size: 'sm', cls: `mall-tab${t === tab ? ' is-on' : ''}`, onPress: ctx.tap(() => { tab = t; pick.selected = null; status.textContent = ''; render(); }) });
       b.setAttribute('role', 'tab');
       b.setAttribute('aria-selected', String(t === tab));
       b.dataset.tab = t;
       return b;
     }));
     list.replaceChildren(...v.items.map((it) => h('li', {
-      cls: `mall-item card is-${it.state}${it.item.theme ? ' is-theme' : ''}`, attrs: { 'data-id': it.item.id },
+      cls: `mall-item card is-${it.state}${it.item.theme ? ' is-theme' : ''}${pick.selected === it.item.id ? ' is-selected' : ''}`, attrs: { 'data-id': it.item.id },
     }, [
       swatch(it.item),
       h('span', { cls: 'mall-item__name', text: it.item.name }),
       it.item.theme ? h('span', { cls: 'mall-item__tag', text: LIVE_COPY.themeItem }) : null,
       it.state === 'equipped' ? h('span', { cls: 'mall-item__on' }, [icons.check(), h('span', { text: LIVE_COPY.equipped })]) : null,
-      action(ctx, it, act, actions),
+      action(ctx, it, v, pick, act, actions),
     ])));
   };
   const act = (fn: () => string | null | void): void => {

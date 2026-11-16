@@ -8,7 +8,7 @@ import type { LiveHook, LiveRunEnd, LiveRunSummary } from '../../game/live-hook'
 import type { GameEvent, Session } from '../../game/session';
 import type { SaveData, StageDef } from '../../types';
 import {
-  applyRun, dailyPlan, dailyUnlocked, loadLive, parseDailyId, progressTier, saveLive, themeOf, todayKey,
+  applyRun, dailyPlan, dailyUnlocked, goalFor, loadLive, parseDailyId, progressTier, saveLive, themeOf, todayKey,
   weekOf, weekdayOf, type DateKey, type LiveRunCounts,
 } from '../core/live';
 import { setLiveLook } from '../render/live-look';
@@ -60,11 +60,18 @@ export const liveHook: LiveHook = {
 
   finish(save: SaveData, run: LiveRunSummary): LiveRunEnd {
     const before = loadLive();
-    const out = applyRun(before, run, counts, runDate, progressTier(save.stars));
+    const tier = progressTier(save.stars);
+    const out = applyRun(before, run, counts, runDate, tier);
     // a live save that can't be written pays nothing: its ledger would be lost and the reward paid again
     if (out.live !== before && !saveLive(out.live)) return { coins: 0, decorate: (r) => r };
     const coins = rewardPoints(out.rewards);
-    const show = out.daily || out.rewards.length > 0;
+    const week = weekOf(runDate);
+    const prev = before.goal && before.goal.week === week ? before.goal.value : 0;
+    const now = out.live.goal && out.live.goal.week === week ? out.live.goal : null;
+    const g = goalFor(week, tier);
+    const gain = now ? Math.max(0, now.value - prev) : 0;
+    const goal = now ? { label: g.label, gain, value: Math.min(g.target, now.value), target: g.target, done: now.done } : undefined;
+    const show = out.daily || out.rewards.length > 0 || gain > 0;
     const stamps = out.live.card && out.live.card.week === weekOf(runDate) ? out.live.card.stamps : [false, false, false, false, false, false, false];
     return {
       coins,
@@ -72,7 +79,7 @@ export const liveHook: LiveHook = {
         ? {
           ...r,
           coinsEarned: r.coinsEarned + coins,
-          live: { daily: out.daily, rewards: out.rewards, stamps, today: weekdayOf(runDate), stampDesign: equippedSprite(out.live, 'stamp') },
+          live: { daily: out.daily, rewards: out.rewards, stamps, today: weekdayOf(runDate), stampDesign: equippedSprite(out.live, 'stamp'), ...(goal ? { goal } : {}) },
         }
         : r),
     };

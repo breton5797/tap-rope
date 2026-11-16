@@ -6,7 +6,7 @@ import { buildTitle as v8Title, type TitleNav } from '../../ui/title';
 import type { SaveData } from '../../types';
 import { h, type Ctx } from '../../ui/dom';
 import {
-  buyCosmetic, cosmeticById, dailyUnlocked, equipCosmetic, loadLive, progressTier, rollover, saveLive, todayKey, type Cosmetic,
+  buyCosmetic, cosmeticById, dailyUnlocked, themeOf, weekOf, equipCosmetic, loadLive, progressTier, rollover, saveLive, todayKey, type Cosmetic,
   type CosmeticCategory, type DateKey, type LiveSave,
 } from '../core/live';
 import { setLiveLook } from '../render/live-look';
@@ -37,7 +37,7 @@ function mallActions(ctx: Ctx, nav: TitleNav, today: DateKey, coins: () => numbe
     view: (category: CosmeticCategory) => {
       const live = loadLive();
       const c = collection(live);
-      return { coins: coins(), items: mallItems(live, coins(), today, category), owned: c.owned, total: c.total };
+      return { coins: coins(), themeName: themeOf(weekOf(today)).name, items: mallItems(live, coins(), today, category), owned: c.owned, total: c.total };
     },
     buy: (id: string) => {
       // atomic: the points are taken from the main save first (null = refused or not written), then the item
@@ -46,7 +46,7 @@ function mallActions(ctx: Ctx, nav: TitleNav, today: DateKey, coins: () => numbe
       const next = ctx.cb.onMetaUpdate?.((cur) => {
         const r = buyCosmetic(loadLive(), id, cur.coins, today);
         if (!r.ok) {
-          pending.refused = r.reason === 'poor' ? LIVE_COPY.poor : r.reason === 'not-yet' ? LIVE_COPY.notYet : '';
+          pending.refused = r.reason === 'poor' ? LIVE_COPY.poor : r.reason === 'not-yet' ? fillLive(LIVE_COPY.notYet, { theme: themeOf(weekOf(today)).name }) : '';
           return null;
         }
         pending.live = equipCosmetic(r.live, id);
@@ -94,7 +94,7 @@ function addLive(el: HTMLElement, ctx: Ctx, save: SaveData, nav: TitleNav, today
   const unlocked = dailyUnlocked(progressTier(save.stars));
   const back = (): void => nav.toTitle?.();
   const openCard = (): void => {
-    const screen = buildWeekCardScreen(ctx, weekCardModel(loadLive(), today), {
+    const screen = buildWeekCardScreen(ctx, weekCardModel(loadLive(), today, progressTier(save.stars)), {
       stampKey: equippedSprite(loadLive(), 'stamp'), dailyOpen: unlocked, onPlay: () => ctx.cb.onStartDaily(), onBack: back,
     });
     nav.mount?.(screen, 'live-card');

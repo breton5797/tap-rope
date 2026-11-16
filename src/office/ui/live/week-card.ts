@@ -6,7 +6,7 @@ import { LIVE_COPY, WEEKDAYS, fillLive, shortDate } from './copy';
 import type { MilestoneModel, WeekCardModel } from './model';
 import { ATTENDANCE_BADGE, goalBar, liveArt, stampMark } from './parts';
 
-function slot(m: WeekCardModel, i: number, stampKey: string | null): HTMLElement {
+function slot(m: CardView, i: number, stampKey: string | null): HTMLElement {
   const on = m.stamps[i] === true;
   const state = on ? '도장' : i < m.today ? '빈 칸' : i === m.today ? '오늘' : '';
   return h('li', {
@@ -33,7 +33,10 @@ function milestone(m: MilestoneModel): HTMLElement {
 }
 
 /** the card itself (also shown small on the result): 7 slots in the equipped card theme */
-export function weekCard(m: WeekCardModel, stampKey: string | null): HTMLElement {
+/** the parts of the model the card itself shows */
+export type CardView = Pick<WeekCardModel, 'week' | 'lastDay' | 'stamps' | 'today' | 'count' | 'cardTheme'>;
+
+export function weekCard(m: CardView, stampKey: string | null): HTMLElement {
   return h('div', {
     cls: `wcard card wcard--${m.cardTheme ?? 'plain'}`,
     attrs: { role: 'group', 'aria-label': `${LIVE_COPY.cardTitle} ${m.count}/7` },

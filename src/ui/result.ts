@@ -183,8 +183,10 @@ function actions(ctx: Ctx, r: ResultInfo, tone: Headline['tone']): HTMLElement {
     icon: icons.retry(),
     onPress: ctx.tap(() => ctx.cb.onRetry()),
   });
+  // a stage outside the campaign (office: the daily mission) goes back to the title (v8: every stage is a campaign one)
+  const offCampaign = r.mode === 'stage' && !STAGES.some((s) => s.id === r.stageId);
   const quit = button({
-    label: r.mode !== 'stage' ? '메뉴' : inPart2(r) ? COPY.resultMapPart2 : COPY.resultMap,
+    label: r.mode !== 'stage' ? '메뉴' : offCampaign ? '타이틀로' : inPart2(r) ? COPY.resultMapPart2 : COPY.resultMap,
     variant: 'glass',
     icon: icons.grid(),
     onPress: ctx.tap(() => ctx.cb.onQuit()),

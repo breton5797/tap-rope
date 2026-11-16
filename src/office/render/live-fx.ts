@@ -15,6 +15,12 @@ const TRAIL_STEP = 70;
 const TRAIL_LIFE = 0.55;
 const JUMP_COUNT = 7;
 const JUMP_LIFE = 0.5;
+/** drawn sprite sizes (px, logical): big enough to see a purchase, small next to the hero */
+const TRAIL_PX = 30;
+const JUMP_PX = 30;
+/** trail marks land this far behind the hero's centre; a jump burst starts behind it and only flies back */
+const TRAIL_BEHIND = 34;
+const JUMP_BEHIND = 10;
 /** part 2 starts at stage 6 (0-based chapter 5) */
 const PART2 = 5;
 /** the clock week: urgent for the last third of any run */
@@ -158,7 +164,7 @@ export class LiveFx {
     const s = fxStyle(key);
     const k = this.slot();
     const alt = this.spawned % 2;
-    this.px[k] = PLAYER_X - 14 * scale;
+    this.px[k] = PLAYER_X - TRAIL_BEHIND * scale;
     this.py[k] = floorY - 2 - alt * 5 * scale;
     this.vx[k] = 0;
     this.vy[k] = 0;
@@ -178,9 +184,10 @@ export class LiveFx {
       const k = this.slot();
       const r1 = rand(this.seed++);
       const r2 = rand(this.seed++);
-      const a = -Math.PI / 2 + (r1 - 0.5) * 2.2;
+      // up and back only (−90°…−170°): never into the lane ahead of the hero
+      const a = -Math.PI / 2 - r1 * 1.4;
       const sp = 90 + 80 * r2;
-      this.px[k] = PLAYER_X + (r2 - 0.5) * 20;
+      this.px[k] = PLAYER_X - JUMP_BEHIND - r2 * 14;
       this.py[k] = floorY - 6;
       this.vx[k] = Math.cos(a) * sp;
       this.vy[k] = Math.sin(a) * sp;
@@ -220,11 +227,12 @@ export class LiveFx {
       }
       const t = this.age[k] / this.life[k];
       const s = fxStyle(this.key[k]);
-      ctx.globalAlpha = 0.85 * (t < 0.6 ? 1 : (1 - t) / 0.4);
+      ctx.globalAlpha = 0.75 * (t < 0.6 ? 1 : (1 - t) / 0.4);
       const img = image(this.art[k]);
-      const size = s.size * (this.floor[k] ? 1 : 1 - 0.3 * t);
-      if (img) ctx.drawImage(img, this.px[k] - size * 1.5, this.py[k] - size * 1.5, size * 3, size * 3);
-      else shapeAt(ctx, s.shape, this.color[k], this.px[k], this.py[k], size, this.rot[k]);
+      if (img) {
+        const px = this.floor[k] ? TRAIL_PX : JUMP_PX * (1 - 0.2 * t);
+        ctx.drawImage(img, this.px[k] - px / 2, this.py[k] - px / 2, px, px);
+      } else shapeAt(ctx, s.shape, this.color[k], this.px[k], this.py[k], s.size * (this.floor[k] ? 1.8 : 1.8 - 0.5 * t), this.rot[k]);
     }
     if (any) ctx.restore();
   }

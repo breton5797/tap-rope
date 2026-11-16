@@ -181,3 +181,31 @@ describe('한 번 더 after midnight (pt-flow P3)', () => {
     expect(liveHook.retry(w1, save())).toBe(w1);
   });
 });
+
+describe('the daily result leads home (pt-casual P2a)', () => {
+  it("its second action says 타이틀로 (a campaign result keeps the map)", async () => {
+    const { buildResult } = await import('../../src/ui/result');
+    const { COPY } = await import('../../src/flavor');
+    const st = liveHook.dailyStage(save()) as StageDef;
+    const ctxStub = { cb: new Proxy({}, { get: () => () => undefined }), tap: (fn: () => void) => fn, reducedMotion: () => true } as never;
+    const labels = (r: ResultInfo) => Array.from(buildResult(ctxStub, r).querySelectorAll('.btn__label')).map((b) => b.textContent);
+    expect(labels(base(st.id))).toContain('타이틀로');
+    expect(labels(base('w1-s10', { hasNext: true }))).toContain(COPY.resultMap);
+  });
+});
+
+describe('the weekly-goal gain on the result (pt-casual P2a)', () => {
+  it('a cleared run on the clears / any goal shows what it added and where the goal stands', async () => {
+    const { goalFor, weekOf: wk, progressTier: pt } = await import('../../src/office/core/live');
+    const st = liveHook.dailyStage(save()) as StageDef;
+    liveHook.start(fakeSession);
+    const goal = goalFor(wk('2026-11-18'), pt(save().stars));
+    // jumps: the sports week's goal (2026-11-16) — the hook's counts come from trackCounts; give it some jumps
+    const jump = { type: 'tap', action: 'jump' } as never;
+    liveHook.track({ stage: st, beats: [] } as unknown as Session, [jump, jump, jump]);
+    const r = liveHook.finish(save(), { stageId: st.id, cleared: true, score: 900 }).decorate(base(st.id));
+    expect(r.live?.goal).toEqual({ label: goal.label, gain: 3, value: 3, target: goal.target, done: false });
+    const line = (missionResult(r) as HTMLElement).querySelector('.live-result__goal')?.textContent;
+    expect(line).toBe(`주간 목표 · ${goal.label} +3 (3/${goal.target})`);
+  });
+});

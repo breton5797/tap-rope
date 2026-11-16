@@ -449,7 +449,8 @@ export function startApp(): void {
       if (run.stage && !stage) toMenu((s) => ui.showTitle(s));
       else startRun(run.mode, stage);
     },
-    onQuit: () => toMenu((s) => ui.showStageSelect(s)),
+    // office: the daily mission's result goes back to the title (its card and mall are there; v8: never)
+    onQuit: () => toMenu((s) => (run.stage && liveHook.offCampaign(run.stage.id) ? ui.showTitle(s) : ui.showStageSelect(s))),
     onNextStage: () => {
       const id = run.stage ? nextStageId(run.stage.id) : null;
       const st = id ? stageById(id) : undefined;

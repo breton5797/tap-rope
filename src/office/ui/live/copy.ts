@@ -36,7 +36,8 @@ export const LIVE_COPY = {
   unequip: '해제',
   equipped: '장착 중',
   poor: '포인트가 모자라요',
-  notYet: '테마 주간이 지나면 살 수 있어요',
+  notYet: '{theme} 이벤트 상품 · 다음 주부터 살 수 있어요',
+  exchange: '교환하기 (₵{price})',
   bought: '{name} 교환 완료!',
   saveFailed: '저장할 수 없어요. 저장 공간을 확인해 주세요.',
   themeItem: '테마',
@@ -46,6 +47,7 @@ export const LIVE_COPY = {
   resultCosmetic: '새 꾸미기: {name}',
   resultBadge: '개근 배지!',
   resultGoal: '주간 목표 달성!',
+  resultGoalGain: '주간 목표 · {label} +{gain} {where}',
   resultNoReward: '자동 플레이 · 보상 없음',
 } as const;
 

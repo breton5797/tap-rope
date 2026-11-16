@@ -41,6 +41,19 @@ describe('title live block', () => {
     expect([nav.onDaily, nav.onCard, nav.onMall].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
   });
 
+  it('the card chip shows its ✓ only once a stamp is on the card (pt-casual P3)', () => {
+    const nav = { onDaily: vi.fn(), onCard: vi.fn(), onMall: vi.fn() };
+    expect(titleLiveBlock(ctx(), title({ cardCount: 0 }), nav).querySelector('.live-cardchip .btn__icon')).toBeNull();
+    expect(titleLiveBlock(ctx(), title({ cardCount: 1 }), nav).querySelector('.live-cardchip .btn__icon')).not.toBeNull();
+  });
+
+  it('the 새 꾸미기 count sits inside the 복지몰 button, after its label (never over it)', () => {
+    const el = titleLiveBlock(ctx(), title(), { onDaily: vi.fn(), onCard: vi.fn(), onMall: vi.fn() });
+    const label = el.querySelector('.live-mallbtn .btn__label');
+    expect(label?.textContent).toBe('사원 복지몰');
+    expect(label?.nextElementSibling?.classList.contains('live-count')).toBe(true);
+  });
+
   it('done today: no NEW, the replay line; nothing to buy: no count', () => {
     const el = titleLiveBlock(ctx(), title({ dailyDone: true, newItems: 0 }), { onDaily: vi.fn(), onCard: vi.fn(), onMall: vi.fn() });
     expect(el.querySelector('.live-new')).toBeNull();
@@ -120,7 +133,7 @@ describe('사원 복지몰', () => {
     const actions: MallActions = {
       view: (cat) => {
         asked.push(cat);
-        return { coins: 500, owned: 2, total: 20, items: Object.keys(state).map((id) => ({ item: item(id, id === 'e' ? { theme: 'rainy-commute' } : {}), state: state[id] })) };
+        return { coins: 500, owned: 2, total: 20, themeName: '비 오는 퇴근길 주간', items: Object.keys(state).map((id) => ({ item: item(id, id === 'e' ? { theme: 'rainy-commute' } : {}), state: state[id] })) };
       },
       buy: vi.fn((id: string) => {
         state = { ...state, [id]: 'equipped', d: 'owned' };
@@ -133,12 +146,21 @@ describe('사원 복지몰', () => {
     expect(el.querySelector('.mall-banner')?.getAttribute('src')).toBe('./art/live/shop-header.webp');
     expect(Array.from(el.querySelectorAll('.mall-tab')).map((t) => t.textContent)).toEqual(['발자국', '점프 효과', '결과 도장', '출근 카드']);
     const row = (id: string) => el.querySelector(`.mall-item[data-id="${id}"]`);
-    expect(row('a')?.querySelector('button')?.getAttribute('aria-label')).toBe('a 칼퇴 포인트 300로 교환');
+    expect(row('a')?.querySelector('button')?.getAttribute('aria-label')).toBe('a ₵300');
     expect(row('b')?.querySelector('button')?.classList.contains('is-poor')).toBe(true);
     expect(row('c')?.querySelector('button')?.textContent).toBe('장착');
     expect(row('d')?.querySelector('.mall-item__on')?.textContent).toBe('장착 중');
     expect(row('e')?.querySelector('button')).toBeNull();
     expect(row('e')?.querySelector('.mall-item__tag')?.textContent).toBe('테마');
+    expect(row('e')?.querySelector('.mall-item__later')?.textContent).toBe('비 오는 퇴근길 주간 이벤트 상품 · 다음 주부터 살 수 있어요');
+    // two steps (pt-casual P2c): the first tap selects and asks, the second exchanges
+    click(row('a')?.querySelector('button'));
+    expect(actions.buy).not.toHaveBeenCalled();
+    expect(row('a')?.classList.contains('is-selected')).toBe(true);
+    expect(row('a')?.querySelector('button')?.textContent).toBe('교환하기 (₵300)');
+    click(row('b')?.querySelector('button')); // too few points: says so, selects nothing
+    expect(el.querySelector('.mall-status')?.textContent).toBe('포인트가 모자라요');
+    expect(row('b')?.classList.contains('is-selected')).toBe(false);
     click(row('a')?.querySelector('button'));
     expect(actions.buy).toHaveBeenCalledWith('a');
     expect(el.querySelector('.mall-status')?.textContent).toBe('a 교환 완료!');

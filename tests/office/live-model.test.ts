@@ -60,11 +60,22 @@ describe('title model', () => {
   });
 });
 
+describe('the weekly goal follows the player (pt-casual P1)', () => {
+  it('the rain week asks a part-1 player for any 3 clears, a part-2 player for 3 part-2 clears', () => {
+    const rain = weekWith('rainy-commute');
+    const live = rollover(emptyLive(), rain);
+    expect(titleLiveModel(live, save(), rain).goal.label).toBe('단계 3번 클리어');
+    expect(weekCardModel(live, rain, 2).goal.label).toBe('단계 3번 클리어');
+    const all = Object.fromEntries(Array.from({ length: 7 }, (_, i) => [`w${i + 1}-s10`, 1]));
+    expect(titleLiveModel(live, save({ stars: all }), rain).goal.label).toBe(themeOf(rain).goal.label);
+  });
+});
+
 describe('week card model', () => {
   it('slots, today, milestones with points + the theme item + the badge, and the history after a week', () => {
     const lastWeek = clearDaily(clearDaily(emptyLive(), addDays(WED, -7)), addDays(WED, -6));
     const live = clearDaily(rollover(lastWeek, WED), WED);
-    const m = weekCardModel(live, WED);
+    const m = weekCardModel(live, WED, 2);
     expect(m.week).toBe('2026-11-16');
     expect(m.lastDay).toBe('2026-11-22');
     expect(m.today).toBe(2);
@@ -152,7 +163,11 @@ describe('office title', () => {
     const el = buildTitle(ctx({ onMetaUpdate }), main, n);
     (el.querySelector('.live-mallbtn') as HTMLElement).click();
     const mall = n.mount.mock.calls[0][0] as HTMLElement;
-    (mall.querySelector('.mall-item[data-id="trail-sparkle"] button') as HTMLElement).click();
+    const tapTwice = (id: string): void => {
+      (mall.querySelector(`.mall-item[data-id="${id}"] button`) as HTMLElement).click();
+      (mall.querySelector(`.mall-item[data-id="${id}"] button`) as HTMLElement).click();
+    };
+    tapTwice('trail-sparkle');
     expect(main.coins).toBe(100);
     expect(n.adopt).toHaveBeenCalledWith(main);
     expect(loadLive().equipped.trail).toBe('trail-sparkle');
@@ -160,7 +175,7 @@ describe('office title', () => {
     expect(mall.querySelector('.mall-status')?.textContent).toBe('반짝 잔상 교환 완료!');
     expect(mall.querySelector('.mall-item[data-id="trail-sparkle"]')?.classList.contains('is-equipped')).toBe(true);
     // not enough left for another trail: refused, nothing spent
-    (mall.querySelector('.mall-item[data-id="trail-confetti"] button') as HTMLElement).click();
+    (mall.querySelector('.mall-item[data-id="trail-confetti"] button') as HTMLElement).click(); // too few points: refused at the first tap
     expect(main.coins).toBe(100);
     expect(mall.querySelector('.mall-status')?.textContent).toBe('포인트가 모자라요');
   });
@@ -202,7 +217,10 @@ describe('review fixes: purchase atomicity, date watcher cleanup', () => {
     (el.querySelector('.live-mallbtn') as HTMLElement).click();
     return n.mount.mock.calls[0][0] as HTMLElement;
   };
-  const buy = (mall: HTMLElement): void => (mall.querySelector('.mall-item[data-id="trail-sparkle"] button') as HTMLElement).click();
+  const buy = (mall: HTMLElement): void => {
+    (mall.querySelector('.mall-item[data-id="trail-sparkle"] button') as HTMLElement).click();
+    (mall.querySelector('.mall-item[data-id="trail-sparkle"] button') as HTMLElement).click();
+  };
 
   beforeEach(() => {
     localStorage.clear();
