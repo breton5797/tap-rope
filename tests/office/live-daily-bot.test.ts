@@ -41,7 +41,8 @@ describe('daily mission clearability', () => {
       let can: readonly LaneId[] = [0, 1, 2];
       let at = Number.NEGATIVE_INFINITY;
       let got = 0;
-      for (const b of beats.filter((x) => x.part === 1)) {
+      const k = p.missions.findIndex((m) => m.kind === 'collect');
+      for (const b of beats.filter((x) => x.part === k)) {
         const coin = b.obstacles.find((o) => o.kind === 'coin');
         const reach = laneReach(can, b.time - at, isHazard(b) ? b.blockedLanes : []);
         at = b.time;
@@ -53,7 +54,7 @@ describe('daily mission clearability', () => {
           can = [coin.lanes![0]];
         } else can = reach;
       }
-      expect(got, `${date} t${tier}`).toBeGreaterThanOrEqual(p.missions[1].target + 2);
+      expect(got, `${date} t${tier}`).toBeGreaterThanOrEqual(p.missions[k].target + 2);
     }
   });
 });

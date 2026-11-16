@@ -30,6 +30,10 @@ function runStage1(cleared: boolean, def: StageDef = { ...(stageById('w1-s10') a
 
 beforeEach(() => localStorage.clear());
 
+/** a daily whose first part is not a collect part (its dodges / chase stamp at the first door) */
+const dodgeFirst = () => Array.from({ length: 14 }, (_, i) => dailyPlan(`2026-11-${String(16 + i).padStart(2, '0')}`, 3))
+  .find((p) => p.missions[0].kind !== 'collect')!;
+
 describe('stamp bonus paid once', () => {
   it('MISSION_BONUS is 20 × stage', () => {
     expect([0, 1, 4, 9].map(MISSION_BONUS)).toEqual([20, 40, 100, 200]);
@@ -80,7 +84,7 @@ describe('stamp bonus paid once', () => {
   });
 
   it('the daily mission pays no stamp bonus (its rewards are the live ones)', () => {
-    const plan = dailyPlan('2026-11-16', 3);
+    const plan = dodgeFirst();
     const out = commitMissions(runStage1(true, plan.stage), true, true)!;
     expect(out.stamps[0]).toBe(true);
     expect(out.paid).toEqual([false, false, false]);
@@ -106,7 +110,7 @@ describe('stamp bonus paid once', () => {
   });
 
   it('missionView.stampPays is false on a daily mission', () => {
-    const plan = dailyPlan('2026-11-16', 3);
+    const plan = dodgeFirst();
     const { beats } = generateStage(plan.stage, DEFAULT_PHYSICS, 2);
     const run = trackMissions(
       trackMissions(startMissions(plan.stage, beats) as MissionRun, { beats, section: 0, time: 5 }, beats.filter((b) => b.part === 0 && isHazard(b)).map((b) => judge(b.id)))!,
