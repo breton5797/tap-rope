@@ -151,3 +151,21 @@ describe("the daily's collectibles", () => {
     expect(collectibleFor('w2-s10', 0)).toBe(collectibleFor(1, 0));
   });
 });
+
+describe('review fix: no points when the live save is refused', () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("a daily clear whose live save can't be written pays nothing (it would be paid again)", async () => {
+    const { LIVE_SAVE_KEY } = await import('../../src/office/core/live');
+    const st = liveHook.dailyStage(save()) as StageDef;
+    liveHook.start(fakeSession);
+    const real = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === LIVE_SAVE_KEY) throw new Error('quota');
+      real.call(this, k, v);
+    });
+    const end = liveHook.finish(save(), { stageId: st.id, cleared: true, score: 900 });
+    expect(end.coins).toBe(0);
+    const r = base(st.id);
+    expect(end.decorate(r)).toBe(r);
+  });
+});

@@ -186,3 +186,68 @@ describe('office title', () => {
     expect(el.querySelector('.live-title')).not.toBeNull();
   });
 });
+
+describe('review fixes: purchase atomicity, date watcher cleanup', () => {
+  const ctx = (cb: Partial<UiCallbacks> = {}): Ctx => ({
+    cb: new Proxy(cb, { get: (t, k) => (t as Record<string | symbol, unknown>)[k] ?? (() => undefined) }) as UiCallbacks,
+    tap: (fn) => fn, reducedMotion: () => true,
+  });
+  const nav = () => ({
+    toStages: vi.fn(), toArchive: vi.fn(), toAchievements: vi.fn(), toLeaderboard: vi.fn(), toShop: vi.fn(), toSettings: vi.fn(),
+    toGuide: vi.fn(), toTitle: vi.fn(), adopt: vi.fn(), mount: vi.fn(),
+  });
+  const openMall = (onMetaUpdate: UiCallbacks['onMetaUpdate']) => {
+    const n = nav();
+    const el = buildTitle(ctx({ onMetaUpdate }), save({ coins: 1000 }), n);
+    (el.querySelector('.live-mallbtn') as HTMLElement).click();
+    return n.mount.mock.calls[0][0] as HTMLElement;
+  };
+  const buy = (mall: HTMLElement): void => (mall.querySelector('.mall-item[data-id="trail-sparkle"] button') as HTMLElement).click();
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 18, 12, 0, 0));
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it('the main save refusing the payment leaves the item unbought', () => {
+    const mall = openMall(() => null);
+    buy(mall);
+    expect(loadLive().owned).not.toContain('trail-sparkle');
+    expect(mall.querySelector('.mall-status')?.textContent).toBe('저장할 수 없어요. 저장 공간을 확인해 주세요.');
+  });
+
+  it('the live save refusing the item refunds the points', () => {
+    let main = save({ coins: 1000 });
+    const onMetaUpdate = (u: (s: SaveData) => SaveData | null): SaveData | null => {
+      const next = u(main);
+      if (next) main = next;
+      return next;
+    };
+    const mall = openMall(onMetaUpdate);
+    const real = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === LIVE_SAVE_KEY) throw new Error('quota');
+      real.call(this, k, v);
+    });
+    buy(mall);
+    expect(main.coins).toBe(1000);
+    expect(loadLive().owned).not.toContain('trail-sparkle');
+    expect(mall.querySelector('.mall-status')?.textContent).toBe('저장할 수 없어요. 저장 공간을 확인해 주세요.');
+  });
+
+  it('leaving the title before the first date check stops the watcher (no timer or listener left behind)', () => {
+    const clear = vi.spyOn(window, 'clearInterval');
+    const remove = vi.spyOn(document, 'removeEventListener');
+    const el = buildTitle(ctx(), save(), nav());
+    document.body.appendChild(el);
+    el.remove(); // left within 30 s
+    vi.advanceTimersByTime(30_000);
+    expect(clear).toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+  });
+});

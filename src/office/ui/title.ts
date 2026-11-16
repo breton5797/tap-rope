@@ -40,28 +40,31 @@ function mallActions(ctx: Ctx, nav: TitleNav, today: DateKey, coins: () => numbe
       return { coins: coins(), items: mallItems(live, coins(), today, category), owned: c.owned, total: c.total };
     },
     buy: (id: string) => {
-      let msg: string | null = null;
-      let name = '';
+      // atomic: the points are taken from the main save first (null = refused or not written), then the item
+      // goes into the live save; if that write fails the points are given back
+      const pending: { live: LiveSave | null; cost: number; refused: string | null } = { live: null, cost: 0, refused: null };
       const next = ctx.cb.onMetaUpdate?.((cur) => {
         const r = buyCosmetic(loadLive(), id, cur.coins, today);
         if (!r.ok) {
-          msg = r.reason === 'poor' ? LIVE_COPY.poor : r.reason === 'not-yet' ? LIVE_COPY.notYet : null;
+          pending.refused = r.reason === 'poor' ? LIVE_COPY.poor : r.reason === 'not-yet' ? LIVE_COPY.notYet : '';
           return null;
         }
-        const live = equipCosmetic(r.live, id);
-        if (!saveLive(live)) {
-          msg = LIVE_COPY.saveFailed;
-          return null;
-        }
-        setLiveLook(lookOf(live, today));
-        name = cosmeticById(id)?.name ?? '';
+        pending.live = equipCosmetic(r.live, id);
+        pending.cost = r.cost;
         return { ...cur, coins: cur.coins - r.cost };
       }) ?? null;
-      if (!next) return msg;
+      if (!next) return pending.refused ?? LIVE_COPY.saveFailed;
+      if (!pending.live || !saveLive(pending.live)) {
+        const refunded = ctx.cb.onMetaUpdate?.((cur) => ({ ...cur, coins: cur.coins + pending.cost })) ?? next;
+        setCoins(refunded);
+        nav.adopt?.(refunded);
+        return LIVE_COPY.saveFailed;
+      }
+      setLiveLook(lookOf(pending.live, today));
       setCoins(next);
       nav.adopt?.(next);
       ctx.cb.onUiSfx?.('powerup');
-      return fillLive(LIVE_COPY.bought, { name });
+      return fillLive(LIVE_COPY.bought, { name: cosmeticById(id)?.name ?? '' });
     },
     equip: (item: Cosmetic | null, category: CosmeticCategory) => {
       const cur = loadLive();
@@ -112,13 +115,12 @@ function addLive(el: HTMLElement, ctx: Ctx, save: SaveData, nav: TitleNav, today
 
 /** while the title is up: a new local date rebuilds it (checked every DATE_CHECK_MS and when the app comes back) */
 function watchDate(el: HTMLElement, today: DateKey, rebuild: () => void): void {
-  let seen = false;
   const check = (): void => {
+    // the title was left (or replaced): stop watching, so no timer, listener or detached title stays alive
     if (!el.isConnected) {
-      if (seen) stop();
+      stop();
       return;
     }
-    seen = true;
     if (todayKey(new Date()) !== today) {
       stop();
       rebuild();

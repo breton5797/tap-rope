@@ -500,8 +500,13 @@ export function startApp(): void {
     },
     onMetaUpdate: (update) => {
       const next = update(save); // against the current save, so another tab's progress is never overwritten
-      if (next) persist(next);
-      return next;
+      if (!next) return null;
+      // a change that could not be written (storage full / a newer save in another tab) did not happen
+      const before = save;
+      save = next;
+      if (writeSave(save) === 'ok') return next;
+      save = before;
+      return null;
     },
     onOpenShop: () => toMenu((s) => ui.showShop(s)),
   });

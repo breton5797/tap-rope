@@ -54,7 +54,8 @@ export const liveHook: LiveHook = {
   finish(save: SaveData, run: LiveRunSummary): LiveRunEnd {
     const before = loadLive();
     const out = applyRun(before, run, counts, runDate, progressTier(save.stars));
-    if (out.live !== before) saveLive(out.live);
+    // a live save that can't be written pays nothing: its ledger would be lost and the reward paid again
+    if (out.live !== before && !saveLive(out.live)) return { coins: 0, decorate: (r) => r };
     const coins = rewardPoints(out.rewards);
     const show = out.daily || out.rewards.length > 0;
     const stamps = out.live.card && out.live.card.week === weekOf(runDate) ? out.live.card.stamps : [false, false, false, false, false, false, false];
