@@ -37,7 +37,7 @@ export function titleLiveBlock(ctx: Ctx, m: TitleLiveModel, nav: LiveNav): HTMLE
   const card = button({
     label: fillLive(LIVE_COPY.cardChip, { n: m.cardCount }),
     sub: goalText,
-    variant: 'glass', size: 'sm', ...(m.cardCount > 0 ? { icon: icons.check() } : {}), cls: `live-cardchip${m.goal.done ? ' is-goal-done' : ''}`,
+    variant: 'glass', size: 'sm', cls: `live-cardchip${m.goal.done ? ' is-goal-done' : ''}`,
     aria: `${fillLive(LIVE_COPY.cardChip, { n: m.cardCount })}, ${fillLive(LIVE_COPY.goalHead, { theme: m.themeName })} ${goalText}`,
     onPress: ctx.tap(nav.onCard),
   });

@@ -45,10 +45,13 @@ describe('title live block', () => {
     expect([nav.onDaily, nav.onCard, nav.onMall].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
   });
 
-  it('the card chip shows its ✓ only once a stamp is on the card (pt-casual P3)', () => {
+  it('the card button leads with the week\'s theme badge, no ✓ (pt-casual P3 + art review: never a ✓ on 0/7)', () => {
     const nav = { onDaily: vi.fn(), onCard: vi.fn(), onMall: vi.fn() };
-    expect(titleLiveBlock(ctx(), title({ cardCount: 0 }), nav).querySelector('.live-cardchip .btn__icon')).toBeNull();
-    expect(titleLiveBlock(ctx(), title({ cardCount: 1 }), nav).querySelector('.live-cardchip .btn__icon')).not.toBeNull();
+    for (const n of [0, 3]) {
+      const chip = titleLiveBlock(ctx(), title({ cardCount: n }), nav).querySelector('.live-cardchip');
+      expect(chip?.querySelector('.btn__icon')).toBeNull();
+      expect(chip?.firstElementChild?.classList.contains('live-cardchip__badge')).toBe(true);
+    }
   });
 
   it('the new-items count is a corner pill on the 복지몰 button, outside its label (art review)', () => {

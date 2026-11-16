@@ -683,7 +683,22 @@
 /* ---------- title: the card button carries the weekly goal (sub line + thin bar) ---------- */
 .live-cardchip {
   position: relative;
-  padding-bottom: 10px;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 58px;
+  padding: 6px 10px 12px;
+  text-align: left;
+}
+
+.live-cardchip .btn__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.live-title__row .live-mallbtn {
+  min-height: 58px;
 }
 
 .live-cardchip__badge {
