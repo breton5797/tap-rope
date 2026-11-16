@@ -136,8 +136,14 @@ export function dailyPlan(date: DateKey, tier: ProgressTier): DailyPlan {
   return { date, tier: t, stage, missions, boss: { slot: boss.slot, name: boss.name, stage: boss.stage }, theme: theme.id };
 }
 
-/** the missions of a daily stage id (stage-missions.ts), else undefined */
+/** one-entry cache: a run looks its daily up per judge event / view change (the plan is deterministic per id) */
+let cached: { readonly id: string; readonly missions: DailyPlan['missions'] | undefined } | null = null;
+
+/** the missions of a daily stage id (stage-missions.ts), else undefined; memoised by id */
 export function dailyMissions(id: string): DailyPlan['missions'] | undefined {
+  if (cached?.id === id) return cached.missions;
   const d = parseDailyId(id);
-  return d ? dailyPlan(d.date, d.tier).missions : undefined;
+  const missions = d ? dailyPlan(d.date, d.tier).missions : undefined;
+  cached = { id, missions };
+  return missions;
 }

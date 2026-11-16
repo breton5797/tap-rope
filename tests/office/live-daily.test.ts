@@ -99,6 +99,12 @@ describe('the daily stage in the office systems', () => {
       expect(bossView(p.stage, beats, doors, 0, 0, hz.length)).toMatchObject({ id: p.boss.slot, hp: 1 });
       expect(cutsceneBefore(p.stage, defaultSave())).toBeNull();
     }
+    // memoised: repeated lookups of a daily id return the same object (called per judge event / view change)
+    const id = dailyPlan('2026-11-20', 5).stage.id;
+    expect(missionsOf(id)).toBe(missionsOf(id));
+    const other = dailyPlan('2026-11-21', 5).stage.id;
+    expect(missionsOf(other)).toEqual(dailyPlan('2026-11-21', 5).missions);
+    expect(missionsOf(id)).toEqual(dailyPlan('2026-11-20', 5).missions);
     // campaign stages are untouched
     expect(missionsOf('w3-s10')?.[0].kind).toBe('chase');
     expect(missionsOf('nope')).toBeUndefined();
