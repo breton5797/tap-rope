@@ -26,7 +26,7 @@ export { DAILY_D_OFFSET };
 /** BALANCE knobs: per tier (index = tier − 1) hazards per mission (dodge / collect / finale); the collect target,
  * the first-clear points (docs/balance/live-economy.md) */
 export const DAILY_HAZARDS: readonly (readonly [number, number, number])[] = [
-  [25, 8, 27], [22, 8, 24], [22, 8, 24], [21, 8, 23], [21, 8, 23], [21, 8, 23], [21, 8, 23], [20, 8, 22], [20, 8, 22], [20, 8, 22],
+  [23, 8, 25], [22, 8, 24], [22, 8, 24], [21, 8, 23], [21, 8, 23], [21, 8, 23], [21, 8, 23], [20, 8, 22], [20, 8, 22], [20, 8, 22],
 ];
 /** the hazard counts of a tier's daily */
 export const dailyHazards = (tier: ProgressTier): readonly [number, number, number] =>
