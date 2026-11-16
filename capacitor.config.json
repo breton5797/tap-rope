@@ -1,8 +1,8 @@
 {
   "appId": "com.heesookyang.taprope",
-  "appName": "레이저 탈출작전",
-  "webDir": "dist",
-  "backgroundColor": "#0e1424",
+  "appName": "칼퇴근 대작전",
+  "webDir": "dist-ios",
+  "backgroundColor": "#07090c",
   "ios": {
     "contentInset": "never",
     "scrollEnabled": false

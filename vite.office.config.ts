@@ -29,8 +29,20 @@ function officeIndex(): Plugin {
   };
 }
 
+/** Capacitor's webDir for the iPad app build (`--mode office-app`) */
+export const APP_OUT_DIR = 'dist-ios';
+
+/** the app build ships no sign-in: OAuth cannot return to capacitor://localhost */
+export function appEnvCheck(env: Readonly<Record<string, string | undefined>>): void {
+  if (env.VITE_SUPABASE_URL || env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error('office app build: sign-in env must be empty (OAuth cannot return to the iPad app)');
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const app = mode === 'office-app';
+  if (app) appEnvCheck(env);
   const key = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
   if (key && !key.startsWith('sb_publishable_')) {
     throw new Error('office build: VITE_SUPABASE_PUBLISHABLE_KEY must be a publishable key (never a secret / service key)');
@@ -42,10 +54,15 @@ export default defineConfig(({ mode }) => {
     base: './',
     publicDir: 'public-office',
     // officeIndex (post) runs before the worker plugin (post, later in the list), so sw.js precaches index.html
-    plugins: [swapModules(OFFICE_SWAPS), officeIndex(), serviceWorker({ publicDir: 'public-office', publicFiles: PUBLIC_FILES, cachePrefix: 'office-escape-', skip: [] })],
+    // the app build has no worker: WKWebView cannot register one, and app updates must never serve stale caches
+    plugins: [
+      swapModules(OFFICE_SWAPS),
+      officeIndex(),
+      ...(app ? [] : [serviceWorker({ publicDir: 'public-office', publicFiles: PUBLIC_FILES, cachePrefix: 'office-escape-', skip: [] })]),
+    ],
     build: {
       target: 'es2022',
-      outDir: 'dist/office',
+      outDir: app ? APP_OUT_DIR : 'dist/office',
       emptyOutDir: true, // only dist/office: the v8 build next to it is left alone
       rollupOptions: { input: 'office.html' },
     },

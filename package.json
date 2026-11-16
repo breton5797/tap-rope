@@ -10,9 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "ios": "npm run build && cap sync ios",
+    "ios": "npm run build:office-app && cap sync ios",
     "build:sim": "vite build --config vite.sim.config.ts",
-    "build:office": "tsc --noEmit && vite build --config vite.office.config.ts --mode office"
+    "build:office": "tsc --noEmit && vite build --config vite.office.config.ts --mode office",
+    "build:office-app": "tsc --noEmit && vite build --config vite.office.config.ts --mode office-app"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",
