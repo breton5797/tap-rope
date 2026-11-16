@@ -1,10 +1,11 @@
 /**
  * 사원 복지몰 (spec §4): cosmetics at fixed prices (no randomness), one equipped per category. Only effects that
  * need no per-frame character art: trails, jump effects, result stamps, attendance-card themes. A theme item
- * comes from its week's goal / card, and is sold at its price from the week after its theme first ran.
+ * comes from its week's goal / card, and is sold at its price in every other week.
  */
 import type { BuyResult, Cosmetic, CosmeticCategory, CosmeticId, DateKey, LiveSave } from './types';
 import { weekOf } from './dates';
+import { themeOf } from './themes';
 
 /** BALANCE knob: price per category (aim: one item every 2–3 days of 1–2 runs a day) */
 export const COSMETIC_PRICES: Readonly<Record<CosmeticCategory, number>> = { trail: 650, jump: 550, stamp: 450, cardTheme: 750 };
@@ -42,11 +43,12 @@ export function cosmeticById(id: CosmeticId): Cosmetic | undefined {
   return BY_ID.get(id);
 }
 
-/** a theme item is for sale once a week has passed since its theme first ran; others always */
-function onSale(live: LiveSave, c: Cosmetic, date: DateKey): boolean {
-  if (!c.theme) return true;
-  const seen = live.themeSeen[c.theme];
-  return seen !== undefined && seen < weekOf(date);
+/**
+ * a theme item is the event prize during its own theme week and on sale every other week (the rotation has run
+ * it before, whether or not this player was around then); other items always
+ */
+function onSale(_live: LiveSave, c: Cosmetic, date: DateKey): boolean {
+  return !c.theme || themeOf(weekOf(date)).id !== c.theme;
 }
 
 /** buy `id` with `coins` 칼퇴 포인트 on `date` (the caller deducts `cost` from SaveData.coins) */

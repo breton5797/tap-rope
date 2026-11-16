@@ -6,7 +6,7 @@ import {
   themeOf, weekOf, type LiveRunCounts, type LiveSave,
 } from '../../src/office/core/live';
 
-const ZERO: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0 };
+const ZERO: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0, clears: 0 };
 const MON = '2026-11-16';
 
 describe('cosmetics catalog', () => {
@@ -67,11 +67,14 @@ describe('buy and equip', () => {
     expect(buyCosmetic(emptyLive(), 'nope', 10_000, MON)).toEqual({ ok: false, reason: 'unknown' });
   });
 
-  it('a theme item is sold from the week after its theme first ran (never gone for good)', () => {
-    expect(buyCosmetic(emptyLive(), themed.id, 10_000, MON)).toEqual({ ok: false, reason: 'not-yet' });
-    expect(buyCosmetic(withSeen(MON), themed.id, 10_000, MON)).toEqual({ ok: false, reason: 'not-yet' });
-    expect(buyCosmetic(withSeen(MON), themed.id, 10_000, addDays(MON, 7)).ok).toBe(true);
-    expect(buyCosmetic(withSeen(MON), themed.id, 10_000, addDays(MON, 300)).ok).toBe(true);
+  it('a theme item is the event prize in its own week and on sale every other week (by the rotation, seen or not)', () => {
+    const own = Array.from({ length: 6 }, (_, i) => addDays(MON, 7 * i)).find((w) => themeOf(w).id === themed.theme)!;
+    expect(buyCosmetic(emptyLive(), themed.id, 10_000, own)).toEqual({ ok: false, reason: 'not-yet' });
+    expect(buyCosmetic(emptyLive(), themed.id, 10_000, addDays(own, 6))).toEqual({ ok: false, reason: 'not-yet' });
+    expect(buyCosmetic(emptyLive(), themed.id, 10_000, addDays(own, 7)).ok).toBe(true);
+    expect(buyCosmetic(emptyLive(), themed.id, 10_000, addDays(own, -1)).ok).toBe(true);
+    // a player who never opened the game during that theme week can still buy it
+    expect(buyCosmetic(withSeen(own), themed.id, 10_000, addDays(own, 7 * 43)).ok).toBe(true);
   });
 
   it('equips one per category, only owned items', () => {
@@ -87,7 +90,7 @@ describe('buy and equip', () => {
     const cheapest = Math.min(...COSMETICS.map((c) => c.price));
     expect(affordable(emptyLive(), cheapest - 1, MON)).toEqual([]);
     const list = affordable(emptyLive(), 10_000, MON);
-    expect(list.every((c) => !c.theme)).toBe(true);
-    expect(list.length).toBe(COSMETICS.filter((c) => !c.theme).length);
+    // everything except this week's event item
+    expect(list.map((c) => c.id).sort()).toEqual(COSMETICS.filter((c) => c.theme !== themeOf(MON).id).map((c) => c.id).sort());
   });
 });

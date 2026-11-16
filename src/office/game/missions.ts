@@ -215,23 +215,26 @@ function saveBest(stageId: string, stamps: readonly boolean[]): void {
   }
 }
 
-/**
- * stamps whose bonus was already paid, per campaign stage (office-only key). Missing or corrupt: seeded from
- * the best stamps on the map, so a save from before the paid-once rule is never paid twice.
- */
+/** stamps whose bonus was already paid, per campaign stage (office-only key) merged with the map's best stamps */
 function loadPaid(): Record<string, boolean[]> {
+  // every best stamp on the map was paid (legacy saves, or a run of this rule): it always counts as paid, so an
+  // empty, partial or corrupt store can never pay a stamp twice
+  const best = loadStamps();
+  let stored: Record<string, boolean[]> = {};
   try {
-    const text = globalThis.localStorage?.getItem(PAID_KEY);
-    if (text) {
-      const raw: unknown = JSON.parse(text);
-      if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
-        return Object.fromEntries(Object.entries(raw).filter(([, v]) => Array.isArray(v) && v.every((x) => typeof x === 'boolean'))) as Record<string, boolean[]>;
-      }
+    const raw: unknown = JSON.parse(globalThis.localStorage?.getItem(PAID_KEY) ?? '{}');
+    if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
+      stored = Object.fromEntries(Object.entries(raw).filter(([, v]) => Array.isArray(v) && v.every((x) => typeof x === 'boolean'))) as Record<string, boolean[]>;
     }
   } catch {
-    // corrupt: rebuild below
+    // corrupt: the best stamps below
   }
-  return loadStamps();
+  const ids = new Set([...Object.keys(best), ...Object.keys(stored)]);
+  return Object.fromEntries([...ids].map((id) => {
+    const a = stored[id] ?? [];
+    const b = best[id] ?? [];
+    return [id, Array.from({ length: Math.max(a.length, b.length) }, (_, k) => Boolean(a[k] || b[k]))];
+  }));
 }
 
 function savePaid(paid: Record<string, boolean[]>): void {

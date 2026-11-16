@@ -5,7 +5,7 @@
  */
 import type { CardHistoryEntry, CosmeticCategory, DailyRecord, GoalProgress, LiveSave, ThemeId, WeekCard } from './types';
 import { LIVE_SAVE_KEY, LIVE_SAVE_VERSION } from './types';
-import { isDateKey } from './dates';
+import { isDateKey, weekOf } from './dates';
 import { cosmeticById } from './cosmetics';
 import { THEMES } from './themes';
 
@@ -33,6 +33,8 @@ export function emptyLive(): LiveSave {
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const count = (v: unknown, max = Number.MAX_SAFE_INTEGER): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= max;
+/** a week key is a real Monday */
+const isWeekKey = (v: unknown): v is string => isDateKey(v) && weekOf(v) === v;
 const CATEGORIES: readonly CosmeticCategory[] = ['trail', 'jump', 'stamp', 'cardTheme'];
 const THEME_IDS: readonly ThemeId[] = THEMES.map((t) => t.id);
 
@@ -43,19 +45,19 @@ function parseDaily(raw: unknown): Record<string, DailyRecord> {
 }
 
 function parseCard(raw: unknown): WeekCard | null {
-  if (!isObj(raw) || !isDateKey(raw.week) || !Array.isArray(raw.stamps) || raw.stamps.length !== 7) return null;
+  if (!isObj(raw) || !isWeekKey(raw.week) || !Array.isArray(raw.stamps) || raw.stamps.length !== 7) return null;
   if (!raw.stamps.every((s) => typeof s === 'boolean')) return null;
   return { week: raw.week, stamps: raw.stamps as unknown as WeekCard['stamps'] };
 }
 
 function parseHistory(raw: unknown): CardHistoryEntry[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((h): h is CardHistoryEntry => isObj(h) && isDateKey(h.week) && count(h.stamps, 7)).slice(0, HISTORY_KEEP)
+  return raw.filter((h): h is CardHistoryEntry => isObj(h) && isWeekKey(h.week) && count(h.stamps, 7)).slice(0, HISTORY_KEEP)
     .map((h) => ({ week: h.week, stamps: h.stamps }));
 }
 
 function parseGoal(raw: unknown): GoalProgress | null {
-  return isObj(raw) && isDateKey(raw.week) && count(raw.value) && typeof raw.done === 'boolean' ? { week: raw.week, value: raw.value, done: raw.done } : null;
+  return isObj(raw) && isWeekKey(raw.week) && count(raw.value) && typeof raw.done === 'boolean' ? { week: raw.week, value: raw.value, done: raw.done } : null;
 }
 
 /** validates unknown JSON into a LiveSave (drops what does not fit; another version = a fresh save) */
@@ -77,7 +79,7 @@ export function parseLive(raw: unknown): LiveSave {
     goal: parseGoal(raw.goal),
     owned,
     equipped,
-    badges: Array.isArray(raw.badges) ? raw.badges.filter(isDateKey) : [],
+    badges: Array.isArray(raw.badges) ? [...new Set(raw.badges.filter(isWeekKey))] : [],
     themeSeen: Object.fromEntries(THEME_IDS.flatMap((t) => (isDateKey(seen[t]) ? [[t, seen[t]]] : []))),
     ledger: Array.isArray(raw.ledger) ? raw.ledger.filter((k): k is string => typeof k === 'string') : [],
   };

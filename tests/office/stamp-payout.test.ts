@@ -65,6 +65,14 @@ describe('stamp bonus paid once', () => {
     expect(JSON.parse(localStorage.getItem(PAID_KEY) ?? '{}')['w1-s10']).toEqual([true, false, false]);
   });
 
+  it('P3: an empty (or partial) paid store still counts the best stamps as paid', () => {
+    localStorage.setItem(STAMPS_KEY, JSON.stringify({ 'w1-s10': [true, false, false] }));
+    localStorage.setItem(PAID_KEY, '{}');
+    expect(commitMissions(runStage1(true), true, true)!.stampBonus).toBe(0);
+    localStorage.setItem(PAID_KEY, JSON.stringify({ 'w2-s10': [true, true, true] }));
+    expect(commitMissions(runStage1(true), true, true)!.stampBonus).toBe(0);
+  });
+
   it('a corrupt paid store is rebuilt from the best stamps (never pays twice, never throws)', () => {
     localStorage.setItem(STAMPS_KEY, JSON.stringify({ 'w1-s10': [true, false, false] }));
     localStorage.setItem(PAID_KEY, '{oops');

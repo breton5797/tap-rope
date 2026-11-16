@@ -107,7 +107,7 @@ function missionsOfDay(date: DateKey, tier: ProgressTier, boss: OfficeBoss): Dai
     ...(focus.length > 0 ? { focus } : {}), ...DODGE, pickupRate: pick(DODGE.pickupRate), line: boss.catchphrase,
   };
   const collect: MissionSpec = {
-    kind: 'collect', title: `${ITEM_NAMES[item]} 모으기`, target: DAILY_COLLECT_TARGET, hazards: hz[1],
+    kind: 'collect', title: ITEM_NAMES[item], target: DAILY_COLLECT_TARGET, hazards: hz[1],
     moves: COLLECT_MOVES.filter(has), collectible: item, ...COLLECT, line: `${ITEM_NAMES[item]} 좀 챙겨 와~`,
   };
   const finale: MissionSpec = {

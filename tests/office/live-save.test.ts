@@ -5,7 +5,7 @@ import {
   LIVE_SAVE_KEY, addDays, applyRun, dailyPlan, emptyLive, equipCosmetic, loadLive, parseLive, saveLive, type LiveRunCounts,
 } from '../../src/office/core/live';
 
-const ZERO: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0 };
+const ZERO: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0, clears: 0 };
 const MON = '2026-11-16';
 
 function memory(init: Record<string, string> = {}) {
@@ -67,5 +67,13 @@ describe('live save', () => {
     expect(p.card).toBeNull();
     expect(p.goal).toBeNull();
     expect(p.themeSeen).toEqual({ 'monday-blues': '2026-11-16' });
+  });
+
+  it('P3: a card week must be a Monday, and badges are Mondays without duplicates', () => {
+    const good = played();
+    expect(parseLive({ ...good, card: { ...good.card, week: '2026-11-17' } }).card).toBeNull();
+    expect(parseLive({ ...good, card: { ...good.card, week: '2026-11-16' } }).card?.week).toBe('2026-11-16');
+    expect(parseLive({ ...good, badges: ['2026-11-16', '2026-11-16', '2026-11-18', '2026-11-09'] }).badges).toEqual(['2026-11-16', '2026-11-09']);
+    expect(parseLive({ ...good, history: [{ week: '2026-11-10', stamps: 2 }] }).history).toEqual([]);
   });
 });

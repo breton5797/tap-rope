@@ -55,6 +55,8 @@ describe('dailyPlan', () => {
           expect(m.hazards).toBe(dailyHazards(t)[k]);
         });
         expect(p.missions.map((m) => m.kind)).toEqual(['dodge', 'collect', 'finale']);
+        // the collect title is the item's name, as in the campaign (the card adds "N개 모으기")
+        expect(p.missions[1].title).not.toContain('모으기');
       }
     }
     // tier 1: the three first moves only

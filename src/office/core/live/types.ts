@@ -51,7 +51,8 @@ export interface DailyRecord {
 export type ThemeId = 'monday-blues' | 'dodge-dinner' | 'paper-bomb' | 'speed-clockout' | 'sports-day' | 'rainy-commute';
 
 /** what a run adds to the weekly goal (collected by src/office/game/live from the run's events) */
-export type GoalMetric = 'coffee' | 'dodge-dinner' | 'docs' | 'perfects' | 'jumps' | 'part2-clears';
+/** clears: any cleared office run (the rainy week's goal for a player who has not reached part 2 yet) */
+export type GoalMetric = 'coffee' | 'dodge-dinner' | 'docs' | 'perfects' | 'jumps' | 'part2-clears' | 'clears';
 export type LiveRunCounts = Readonly<Record<GoalMetric, number>>;
 
 export interface WeeklyGoal {

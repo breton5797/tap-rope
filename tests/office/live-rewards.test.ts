@@ -3,11 +3,11 @@
 // nothing; Monday brings a new card (the old one goes to the 출근 기록부); turning the clock back earns nothing.
 import { describe, expect, it } from 'vitest';
 import {
-  CARD_POINTS, DAILY_POINTS, DUPLICATE_POINTS, GOAL_POINTS, addDays, applyRun, cosmeticById, dailyPlan, emptyLive, rollover, stampCount, themeOf,
+  CARD_POINTS, DAILY_POINTS, DUPLICATE_POINTS, GOAL_POINTS, addDays, goalFor, applyRun, cosmeticById, dailyPlan, emptyLive, rollover, stampCount, themeOf,
   type LiveRunCounts, type LiveSave, type Reward,
 } from '../../src/office/core/live';
 
-const ZERO: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0 };
+const ZERO: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0, clears: 0 };
 const MON = '2026-11-16';
 const daily = (date: string, cleared = true, score = 1000) => ({ stageId: dailyPlan(date, 4).stage.id, cleared, score });
 const campaign = (cleared = true) => ({ stageId: 'w3-s10', cleared, score: 500 });
@@ -114,24 +114,81 @@ describe('weekly goal', () => {
 });
 
 describe('clock turned back', () => {
-  it('a date before the latest one seen earns nothing (no re-earning the same day or week)', () => {
+  it('a step back of one day (time zones, a late-night retry) earns nothing and changes nothing', () => {
     const now = week([0, 1, 2, 3]).live;
     expect(now.maxDate).toBe(addDays(MON, 3));
-    for (const d of [0, 1, 2, -5]) {
-      const out = applyRun(now, daily(addDays(MON, d)), { ...ZERO, coffee: 99 }, addDays(MON, d), 4);
-      expect(out.rewards, `day ${d}`).toEqual([]);
-      expect(out.live).toEqual(now);
-    }
-    // opening the game on an earlier date changes nothing either
-    expect(rollover(now, MON)).toEqual(now);
-    // the clock coming back to normal plays on
+    const out = applyRun(now, daily(addDays(MON, 2)), { ...ZERO, coffee: 99 }, addDays(MON, 2), 4);
+    expect(out.rewards).toEqual([]);
+    expect(out.live).toEqual(now);
+    expect(rollover(now, addDays(MON, 2))).toEqual(now);
     expect(applyRun(now, daily(addDays(MON, 4)), ZERO, addDays(MON, 4), 4).rewards.length).toBeGreaterThan(0);
+  });
+
+  it('further back is a clock reset: the save follows the clock, but no day or week pays twice', () => {
+    const now = week([0, 1, 2, 3]).live;
+    // days already earned stay earned
+    for (const d of [0, 1]) expect(applyRun(now, daily(addDays(MON, d)), ZERO, addDays(MON, d), 4).rewards, `day ${d}`).toEqual([]);
+    const back = applyRun(now, daily(addDays(MON, 1)), ZERO, addDays(MON, 1), 4).live;
+    expect(back.maxDate).toBe(addDays(MON, 1));
+    // a day never earned pays once (spec §0: the clock can be fiddled, each date pays once)
+    const earlier = applyRun(now, daily(addDays(MON, -5)), ZERO, addDays(MON, -5), 4);
+    expect(earlier.rewards.filter((r) => r.why === 'daily')).toHaveLength(1);
+    expect(earlier.live.card?.week).toBe(addDays(MON, -7));
+  });
+
+  it('P1: a clock set FORWARD once does not switch live rewards off when it comes back', () => {
+    const today = '2026-11-16';
+    const future = '2030-01-07';
+    let live = applyRun(emptyLive(), daily(today), ZERO, today, 4).live;
+    live = applyRun(live, daily(future), ZERO, future, 4).live;
+    expect(live.maxDate).toBe(future);
+    // back to the real date: the next day's daily pays and stamps this week's card
+    const back = applyRun(live, daily('2026-11-17'), ZERO, '2026-11-17', 4);
+    expect(back.rewards.filter((r) => r.why === 'daily')).toEqual([{ kind: 'points', amount: DAILY_POINTS, why: 'daily' }]);
+    expect(back.live.maxDate).toBe('2026-11-17');
+    expect(back.live.card?.week).toBe(today);
+    expect(back.live.card?.stamps[1]).toBe(true);
+    expect(back.live.history.every((h) => h.week <= today)).toBe(true);
+    expect(back.live.goal?.week).toBe(today);
+    // the day earned before the jump does not pay again
+    expect(applyRun(back.live, daily(today), ZERO, today, 4).rewards).toEqual([]);
+    // forward again: the future day already paid stays paid; a new future day pays
+    const again = rollover(back.live, future);
+    expect(applyRun(again, daily(future), ZERO, future, 4).rewards).toEqual([]);
+    expect(applyRun(again, daily('2030-01-08'), ZERO, '2030-01-08', 4).rewards.some((r) => r.why === 'daily')).toBe(true);
+  });
+
+  it('the ledger is pruned by count, not by date: a long stay in the future cannot make real days re-earnable', () => {
+    let live = applyRun(emptyLive(), daily(MON), ZERO, MON, 4).live;
+    for (let d = 0; d < 120; d += 1) {
+      const date = addDays('2030-01-07', d);
+      live = applyRun(live, daily(date), ZERO, date, 4).live;
+    }
+    const back = rollover(live, addDays(MON, 1));
+    expect(applyRun(back, daily(MON), ZERO, MON, 4).rewards).toEqual([]);
   });
 
   it('the same day twice in a row pays once even across a reload (ledger)', () => {
     const a = applyRun(emptyLive(), daily(MON), ZERO, MON, 4);
     const reloaded = JSON.parse(JSON.stringify(a.live)) as LiveSave;
     expect(applyRun(reloaded, daily(MON), ZERO, MON, 4).rewards).toEqual([]);
+  });
+});
+
+describe('weekly goal for every player', () => {
+  it('the rainy week (2부 단계 3번) counts any clear for a player who has not reached part 2', () => {
+    const rainy = Array.from({ length: 6 }, (_, i) => addDays(MON, 7 * i)).find((w) => themeOf(w).id === 'rainy-commute')!;
+    expect(goalFor(rainy, 4).label).not.toContain('2부');
+    expect(goalFor(rainy, 7).label).toContain('2부');
+    const clear = { ...ZERO, clears: 1 };
+    let low = emptyLive();
+    for (let i = 0; i < 3; i += 1) low = applyRun(low, campaign(), clear, addDays(rainy, i), 4).live;
+    expect(low.goal).toMatchObject({ week: rainy, done: true });
+    let high = emptyLive();
+    for (let i = 0; i < 3; i += 1) high = applyRun(high, campaign(), clear, addDays(rainy, i), 7).live;
+    expect(high.goal).toMatchObject({ week: rainy, value: 0, done: false });
+    // other weeks keep one goal for everyone
+    expect(goalFor(MON, 1)).toEqual(themeOf(MON).goal);
   });
 });
 

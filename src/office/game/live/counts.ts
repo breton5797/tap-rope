@@ -6,7 +6,7 @@
  * - docs: mission items of a part collecting 서류
  * - perfects: PERFECT judgements · jumps: taps that jumped (jump / boost)
  * - dodge-dinner: hazards passed while 윤이사 is the superior of that section
- * - part2-clears: a cleared campaign stage of part 2 (6–10)
+ * - part2-clears: a cleared campaign stage of part 2 (6–10) · clears: any cleared office run (daily included)
  */
 import type { Beat } from '../../../types';
 import { HAZARD_KINDS } from '../../../types';
@@ -16,7 +16,7 @@ import { CHAPTERS, stageById } from '../../core/content';
 import { missionsOf } from '../../core/stage-missions';
 import type { GoalMetric, LiveRunCounts } from '../../core/live/types';
 
-export const ZERO_COUNTS: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0 };
+export const ZERO_COUNTS: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0, jumps: 0, 'part2-clears': 0, clears: 0 };
 
 type RunView = Pick<Session, 'stage' | 'beats'>;
 
@@ -34,7 +34,8 @@ function scoreEvent(s: RunView, e: GameEvent): Partial<Record<GoalMetric, number
     case 'pickup': return e.kind === 'slow' ? { coffee: 1 } : {};
     case 'end': {
       const part2 = stageById(s.stage.id) !== undefined && CHAPTERS[s.stage.chapter]?.part === 2;
-      return e.cleared && part2 ? { 'part2-clears': 1 } : {};
+      if (!e.cleared) return {};
+      return part2 ? { 'part2-clears': 1, clears: 1 } : { clears: 1 };
     }
     case 'judge': {
       const out: Partial<Record<GoalMetric, number>> = e.result.grade === 'perfect' ? { perfects: 1 } : {};

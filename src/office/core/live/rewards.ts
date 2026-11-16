@@ -1,12 +1,16 @@
 /**
  * The run hook and the reward ledger (spec §1–3): a finished office run on `date` updates the day's record,
  * stamps the week card on the daily's first clear, adds to the weekly goal, and pays each reward once — the
- * ledger keys "daily:<date>", "card:<week>:<3|5|7>", "goal:<week>". A date before the latest one seen
- * (maxDate: the clock turned back) changes nothing and earns nothing.
+ * ledger keys "daily:<date>", "card:<week>:<3|5|7>", "goal:<week>".
+ * Clock changes (pt-flow P1): a date one day before the latest one seen (maxDate) changes nothing and earns
+ * nothing (time zones, a retry past midnight). Further back is a clock reset — a clock once set forward must not
+ * switch live rewards off until that date comes — so the save follows the clock: maxDate, the card, its history
+ * and the goal go back to that date's week. The ledger still pays each date / week once, and it is pruned by
+ * count (newest LEDGER_KEEP entries), never by date, so a stay in the future cannot make real days re-earnable.
  */
 import type { CardMilestone, CosmeticId, DateKey, LiveRunCounts, LiveRunOutcome, LiveSave, ProgressTier, Reward, RewardWhy } from './types';
 import type { RunSummaryLike } from './run-types';
-import { addDays, weekOf } from './dates';
+import { daysBetween, weekOf } from './dates';
 import { CARD_MILESTONES, CARD_POINTS, cardFor, stamp, stampCount } from './card';
 import { DAILY_POINTS, parseDailyId } from './daily';
 import { DAILY_KEEP_DAYS } from './save';
@@ -15,14 +19,31 @@ import { GOAL_POINTS, addGoalProgress, themeOf } from './themes';
 /** BALANCE knob: a cosmetic reward the player already owns (the week's theme item twice) pays this instead */
 export const DUPLICATE_POINTS = 100;
 
-/** ledger entries older than this many days before maxDate are dropped (maxDate already blocks them) */
-const LEDGER_KEEP_DAYS = 70;
+/** newest ledger entries kept (about 12 a week: ~8 months; ordered by when they were paid, not by date) */
+const LEDGER_KEEP = 400;
+/** a step back this many days or fewer is not a clock reset (it earns nothing and changes nothing) */
+const STEP_BACK_DAYS = 1;
 
-const isBefore = (live: LiveSave, date: DateKey): boolean => live.maxDate !== null && date < live.maxDate;
+const back = (live: LiveSave, date: DateKey): number => (live.maxDate === null ? 0 : daysBetween(date, live.maxDate));
+const stepBack = (live: LiveSave, date: DateKey): boolean => back(live, date) > 0 && back(live, date) <= STEP_BACK_DAYS;
+
+/** the clock went back further than a step: drop what belongs to weeks after `date`'s (they come back with the clock) */
+function resetTo(live: LiveSave, date: DateKey): LiveSave {
+  if (back(live, date) <= STEP_BACK_DAYS) return live;
+  const week = weekOf(date);
+  return {
+    ...live,
+    maxDate: date,
+    card: live.card && live.card.week > week ? null : live.card,
+    history: live.history.filter((h) => h.week < week),
+    goal: live.goal && live.goal.week > week ? null : live.goal,
+  };
+}
 
 /** the save on opening the game on `date`: the card / goal move to the new week, the theme is recorded as seen */
-export function rollover(live: LiveSave, date: DateKey): LiveSave {
-  if (isBefore(live, date)) return live;
+export function rollover(live0: LiveSave, date: DateKey): LiveSave {
+  if (stepBack(live0, date)) return live0;
+  const live = resetTo(live0, date);
   const week = weekOf(date);
   const { card, history } = cardFor(live.card, live.history, date);
   const theme = themeOf(week).id;
@@ -58,24 +79,24 @@ function cardRewards(acc: Pay, date: DateKey): Pay {
   }, acc);
 }
 
-function prune(live: LiveSave, date: DateKey): LiveSave {
-  const keepDay = addDays(date, -DAILY_KEEP_DAYS);
-  const keepLedger = addDays(date, -LEDGER_KEEP_DAYS);
-  const daily = Object.fromEntries(Object.entries(live.daily).filter(([d]) => d > keepDay));
-  const ledger = live.ledger.filter((k) => (/\d{4}-\d{2}-\d{2}/.exec(k)?.[0] ?? date) >= keepLedger);
-  return { ...live, daily, ledger };
+/** keeps the newest entries by insertion (clock-independent) */
+function prune(live: LiveSave): LiveSave {
+  const daily = Object.fromEntries(Object.entries(live.daily).slice(-DAILY_KEEP_DAYS));
+  return { ...live, daily, ledger: live.ledger.slice(-LEDGER_KEEP) };
 }
 
 /** a finished run (any office stage or the daily) on `date`: daily record + card stamp + weekly goal + rewards */
-export function applyRun(live0: LiveSave, run: RunSummaryLike, counts: LiveRunCounts, date: DateKey, _tier: ProgressTier): LiveRunOutcome {
+export function applyRun(live0: LiveSave, run: RunSummaryLike, counts: LiveRunCounts, date: DateKey, tier: ProgressTier): LiveRunOutcome {
   const plan = run.stageId ? parseDailyId(run.stageId) : null;
   const isDaily = plan !== null && plan.date === date;
-  if (isBefore(live0, date)) return { live: live0, rewards: [], daily: isDaily };
+  if (stepBack(live0, date)) return { live: live0, rewards: [], daily: isDaily };
   let acc: Pay = { live: rollover(live0, date), rewards: [] };
   if (isDaily) {
     const prev = acc.live.daily[date];
     const record = { cleared: (prev?.cleared ?? false) || run.cleared, best: Math.max(prev?.best ?? 0, run.score) };
-    acc = { ...acc, live: { ...acc.live, daily: { ...acc.live.daily, [date]: record } } };
+    // re-inserted last, so the insertion-order prune keeps the days played most recently
+    const { [date]: _old, ...others } = acc.live.daily;
+    acc = { ...acc, live: { ...acc.live, daily: { ...others, [date]: record } } };
     if (run.cleared && !acc.live.ledger.includes(`daily:${date}`)) {
       acc = pay(acc, `daily:${date}`, [{ kind: 'points', amount: DAILY_POINTS, why: 'daily' }]);
       acc = acc.live.card ? { ...acc, live: { ...acc.live, card: stamp(acc.live.card, date) } } : acc;
@@ -83,8 +104,8 @@ export function applyRun(live0: LiveSave, run: RunSummaryLike, counts: LiveRunCo
     }
   }
   const week = weekOf(date);
-  const goal = addGoalProgress(acc.live.goal, week, counts);
+  const goal = addGoalProgress(acc.live.goal, week, counts, tier);
   acc = { ...acc, live: { ...acc.live, goal } };
   if (goal.done) acc = pay(acc, `goal:${week}`, [{ kind: 'points', amount: GOAL_POINTS, why: 'goal' }, themeItem(date, 'goal')]);
-  return { live: prune(acc.live, date), rewards: acc.rewards, daily: isDaily };
+  return { live: prune(acc.live), rewards: acc.rewards, daily: isDaily };
 }

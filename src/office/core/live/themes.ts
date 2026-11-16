@@ -3,7 +3,7 @@
  * share, the collect item, the superior of most days, a focus move the player already knows) and sets one
  * weekly goal that every office run counts toward. Never a difficulty knob (spec §3).
  */
-import type { GoalProgress, LiveRunCounts, ThemeId, WeekKey, WeekTheme } from './types';
+import type { GoalProgress, LiveRunCounts, ProgressTier, ThemeId, WeekKey, WeekTheme, WeeklyGoal } from './types';
 import { weekIndex } from './dates';
 
 /** BALANCE knob: points for a completed weekly goal */
@@ -55,9 +55,19 @@ export function themeOf(week: WeekKey): WeekTheme {
   return THEMES[((weekIndex(week) % n) + n) % n];
 }
 
-/** the goal progress after a run (a new week starts at 0; done is sticky, value stops at the target) */
-export function addGoalProgress(prev: GoalProgress | null, week: WeekKey, counts: LiveRunCounts): GoalProgress {
+/** part 2 starts at stage 6: below that tier, part-2 goals count any clear so every player can finish every week */
+const PART2_TIER = 6;
+
+/** the week's goal as this player sees it (tier-aware: no goal a player cannot reach yet) */
+export function goalFor(week: WeekKey, tier: ProgressTier): WeeklyGoal {
   const goal = themeOf(week).goal;
+  if (goal.metric !== 'part2-clears' || tier >= PART2_TIER) return goal;
+  return { ...goal, metric: 'clears', label: `단계 ${goal.target}번 클리어` };
+}
+
+/** the goal progress after a run (a new week starts at 0; done is sticky, value stops at the target) */
+export function addGoalProgress(prev: GoalProgress | null, week: WeekKey, counts: LiveRunCounts, tier: ProgressTier = 10): GoalProgress {
+  const goal = goalFor(week, tier);
   const base = prev && prev.week === week ? prev : { week, value: 0, done: false };
   const value = Math.min(goal.target, base.value + Math.max(0, Math.floor(counts[goal.metric] ?? 0)));
   return { week, value, done: base.done || value >= goal.target };
