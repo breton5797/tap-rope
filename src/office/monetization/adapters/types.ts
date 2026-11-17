@@ -2,7 +2,7 @@
 
 export interface AdAdapter {
   /** consent flow (UMP on the app): may ads be requested? */
-  init(): Promise<{ readonly canRequestAds: boolean }>;
+  init(): Promise<{ readonly canRequestAds: boolean; readonly privacyOptionsRequired?: boolean }>;
   /** load one rewarded ad; rejects on no fill / network / SDK errors */
   load(): Promise<void>;
   /** show the loaded ad: true only when the SDK's reward callback fired; rejects when it cannot show */
@@ -19,6 +19,6 @@ export interface PassAdapter {
   /** localized price ("₩3,300"), null when the product cannot be loaded */
   price(): Promise<string | null>;
   buy(): Promise<BuyResult>;
-  /** restore purchases: true when the pass was found */
-  restore(): Promise<boolean>;
+  /** restore purchases: true when the pass was found, null when the store could not be reached */
+  restore(): Promise<boolean | null>;
 }

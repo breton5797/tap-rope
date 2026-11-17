@@ -18,6 +18,11 @@ const env = (key: string): string | undefined => {
   return typeof v === 'string' && v.startsWith('ca-app-pub-') ? v : undefined;
 };
 
+/** the app never runs the scripted test adapters */
+export function testAdaptersAllowed(_env?: { readonly DEV: boolean }): boolean {
+  return false;
+}
+
 export function monetizationPlatform(): MonetizationPlatform {
   const p = Capacitor.getPlatform();
   if (p !== 'ios' && p !== 'android') return { ads: null, pass: null, configUrl: null };

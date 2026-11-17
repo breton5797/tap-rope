@@ -105,4 +105,44 @@ describe('AdService (rewarded lifecycle)', () => {
     expect(await svc.init()).toBe(false);
     expect(await svc.showRewarded()).toBe('unavailable');
   });
+
+  it('starts the SDK (consent, then load) only when an ad is first asked for', async () => {
+    let inits = 0;
+    const a = { ...fake({}), init: async () => { inits += 1; return { canRequestAds: true }; } };
+    const svc = new AdService(a, { sleep: noSleep, now: () => 0 });
+    expect(inits).toBe(0);
+    expect(svc.canRequestAds).toBeNull();
+    expect(await svc.showRewarded()).toBe('rewarded');
+    expect(await svc.showRewarded()).toBe('rewarded');
+    expect(inits).toBe(1);
+  });
+
+  it('a tap that finds no consent loads nothing', async () => {
+    const a = fake({ consent: false });
+    const svc = new AdService(a, { sleep: noSleep, now: () => 0 });
+    expect(await svc.showRewarded()).toBe('unavailable');
+    expect(a.loadCalls).toBe(0);
+    expect(svc.canRequestAds).toBe(false);
+  });
+
+  it('a second request while the first is still loading is refused (lock covers loading)', async () => {
+    let release: () => void = () => undefined;
+    const a = { ...fake({}), load: () => new Promise<void>((r) => { release = r; }) };
+    const svc = new AdService(a, { sleep: noSleep, now: () => 0 });
+    const first = svc.showRewarded();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(await svc.showRewarded()).toBe('unavailable');
+    release();
+    expect(await first).toBe('rewarded');
+  });
+
+  it('re-reads consent after the privacy options form', async () => {
+    let consent = true;
+    const a = { ...fake({}), init: async () => ({ canRequestAds: consent }) };
+    const svc = new AdService(a, { sleep: noSleep, now: () => 0 });
+    await svc.init();
+    consent = false;
+    await svc.privacyOptions();
+    expect(svc.canRequestAds).toBe(false);
+  });
 });

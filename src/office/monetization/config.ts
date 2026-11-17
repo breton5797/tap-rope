@@ -40,9 +40,10 @@ export function parseConfig(raw: unknown): MonetizationConfig {
     adsEnabled: bool(r.ads_enabled, d.adsEnabled),
     rewardedEnabled: bool(r.rewarded_enabled, d.rewardedEnabled),
     interstitialEnabled: false,
-    graceSeconds: int(r.new_user_ad_grace_seconds, d.graceSeconds, 0, 3600),
-    rewardedDailyLimit: int(r.rewarded_daily_limit, d.rewardedDailyLimit, 0, 20),
-    stageRewardPoints: int(r.stage_reward_points, d.stageRewardPoints, 0, 200),
+    // the remote file may only make ads rarer than what shipped (a hijacked JSON cannot raise exposure)
+    graceSeconds: int(r.new_user_ad_grace_seconds, d.graceSeconds, d.graceSeconds, 24 * 3600),
+    rewardedDailyLimit: int(r.rewarded_daily_limit, d.rewardedDailyLimit, 0, d.rewardedDailyLimit),
+    stageRewardPoints: int(r.stage_reward_points, d.stageRewardPoints, 0, d.stageRewardPoints),
   };
 }
 

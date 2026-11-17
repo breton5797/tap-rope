@@ -1,11 +1,11 @@
 /**
  * AdMob rewarded adapter (app build only; monetization spec §3–4). Family title: every request is child-directed,
  * under the age of consent and rated General; no App Tracking Transparency prompt. Consent (UMP) runs before the
- * SDK starts and ads are requested only when `canRequestAds`. The reward counts only from the SDK's Rewarded event.
+ * SDK starts and ads are requested only when `canRequestAds`. The reward counts only when the SDK's reward callback settles the show.
  * Ad unit ids come from the build env; without them Google's public test units are used (and marked testing).
  */
-import { AdMob, AdmobConsentStatus, MaxAdContentRating, RewardAdPluginEvents } from '@capacitor-community/admob';
-import type { PluginListenerHandle } from '@capacitor/core';
+import { AdMob, AdmobConsentStatus, MaxAdContentRating } from '@capacitor-community/admob';
+import { rewardOutcome } from './reward-outcome';
 import type { AdAdapter } from './types';
 
 /** Google's public rewarded test units (developers.google.com/admob/{ios,android}/test-ads) */
@@ -25,33 +25,31 @@ export function createAdmobAdapter(platform: 'ios' | 'android', env: Partial<Adm
   const unit = rewardedUnit(platform, env);
   return {
     async init() {
+      // UMP first; the Mobile Ads SDK starts only when consent allows requests (Google UMP guidance)
       let info = await AdMob.requestConsentInfo({ tagForUnderAgeOfConsent: true });
       if (info.status === AdmobConsentStatus.REQUIRED && info.isConsentFormAvailable) info = await AdMob.showConsentForm();
-      await AdMob.initialize({
-        tagForChildDirectedTreatment: true,
-        tagForUnderAgeOfConsent: true,
-        maxAdContentRating: MaxAdContentRating.General,
-        initializeForTesting: unit.testing,
-      });
-      return { canRequestAds: info.canRequestAds };
+      if (info.canRequestAds) {
+        await AdMob.initialize({
+          tagForChildDirectedTreatment: true,
+          tagForUnderAgeOfConsent: true,
+          maxAdContentRating: MaxAdContentRating.General,
+          initializeForTesting: unit.testing,
+        });
+      }
+      return {
+        canRequestAds: info.canRequestAds,
+        privacyOptionsRequired: String(info.privacyOptionsRequirementStatus) === 'REQUIRED', // the enum is not exported by the package
+      };
     },
     async load() {
       await AdMob.prepareRewardVideoAd({ adId: unit.id, isTesting: unit.testing });
     },
-    show() {
-      return new Promise<boolean>((resolve, reject) => {
-        let earned = false;
-        const handles: Array<Promise<PluginListenerHandle>> = [];
-        const done = (fn: () => void): void => {
-          for (const h of handles) void h.then((x) => x.remove());
-          fn();
-        };
-        handles.push(AdMob.addListener(RewardAdPluginEvents.Rewarded, () => { earned = true; }));
-        handles.push(AdMob.addListener(RewardAdPluginEvents.Dismissed, () => done(() => resolve(earned))));
-        handles.push(AdMob.addListener(RewardAdPluginEvents.FailedToShow, () => done(() => reject(new Error('admob: failed to show')))));
-        AdMob.showRewardVideoAd().catch((e: unknown) => done(() => reject(e instanceof Error ? e : new Error('admob: show rejected'))));
-      });
-    },
+    // resolves on the SDK's reward callback; REWARDED_AD_CANCELLED = closed before it (verified on Android 2026-11-18)
+    show: () =>
+      AdMob.showRewardVideoAd().then(
+        () => rewardOutcome({ ok: true }),
+        (error: unknown) => rewardOutcome({ ok: false, error }),
+      ),
     privacyOptions: () => AdMob.showPrivacyOptionsForm(),
   };
 }

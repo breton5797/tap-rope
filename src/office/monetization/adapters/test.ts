@@ -8,11 +8,13 @@ export interface TestAdScript {
   readonly consent?: boolean;
   readonly load?: 'ok' | 'fail';
   readonly show?: 'reward' | 'skip' | 'fail';
+  /** the consent SDK asks for a privacy-options entry point */
+  readonly privacy?: boolean;
 }
 
 export function createTestAds(s: TestAdScript): AdAdapter {
   return {
-    init: async () => ({ canRequestAds: s.consent ?? true }),
+    init: async () => ({ canRequestAds: s.consent ?? true, privacyOptionsRequired: s.privacy ?? false }),
     load: async () => {
       if (s.load === 'fail') throw new Error('test: no fill');
     },

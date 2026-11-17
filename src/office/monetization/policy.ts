@@ -9,8 +9,8 @@ export type Placement = 'daily' | 'stage';
 export interface PolicyInput {
   readonly placement: Placement;
   readonly config: MonetizationConfig;
-  /** the consent SDK says ads may be requested */
-  readonly canRequestAds: boolean;
+  /** the consent SDK says ads may be requested; null = not asked yet (the SDK starts, and asks, on the player's tap) */
+  readonly canRequestAds: boolean | null;
   readonly hasPass: boolean;
   /** a full-screen ad is on screen (global lock) */
   readonly showing: boolean;
@@ -33,7 +33,7 @@ export function decide(i: PolicyInput): Decision {
   if (i.hasPass) return { kind: 'pass' };
   if (!i.config.adsEnabled || !i.config.rewardedEnabled) return none('off');
   if (i.showing) return none('busy');
-  if (!i.canRequestAds) return none('consent');
+  if (i.canRequestAds === false) return none('consent');
   if (i.secondsSinceFirstOpen < i.config.graceSeconds) return none('grace');
   return { kind: 'ad' };
 }

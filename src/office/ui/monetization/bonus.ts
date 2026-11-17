@@ -54,10 +54,16 @@ export function adBonus(ctx: Ctx, r: ResultInfo, m: Monetization = monetization(
     busy = false;
     if (res.result === 'granted') {
       const saved = ctx.cb.onMetaUpdate?.((cur) => ({ ...cur, coins: cur.coins + res.points })) ?? null;
-      note.textContent = saved ? fillMon(MON_COPY.granted, { points: res.points }) : MON_COPY.saveFailed;
-      done = true;
-      haptics.vibrate([18, 40, 28]);
-      ctx.cb.onUiSfx?.('powerup');
+      if (saved) {
+        note.textContent = fillMon(MON_COPY.granted, { points: res.points });
+        done = true;
+        haptics.vibrate([18, 40, 28]);
+        ctx.cb.onUiSfx?.('powerup');
+      } else {
+        // the points were not written: give the grant back so it can be earned again
+        res.undo();
+        note.textContent = MON_COPY.saveFailed;
+      }
     } else {
       note.textContent = res.result === 'skipped' ? MON_COPY.skipped : MON_COPY.unavailable;
     }

@@ -837,3 +837,10 @@
   color: var(--ink-soft);
   font-size: 0.9em;
 }
+
+.pass-card__terms {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.8em;
+  line-height: 1.4;
+}

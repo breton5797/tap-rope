@@ -8,7 +8,7 @@ import { DAILY_POINTS } from '../core/live/daily';
 import { AdService, type AdServiceDeps } from './ad-service';
 import type { AdAdapter, BuyResult, PassAdapter } from './adapters/types';
 import { DEFAULT_CONFIG, type MonetizationConfig } from './config';
-import { claim as payOnce, claimsOn, emptyMon, nextKey, parseMon, type MonSave } from './ledger';
+import { claim as payOnce, claimsOn, emptyMon, nextKey, parseMon, unclaim, type MonSave } from './ledger';
 import { decide, type Decision, type Placement } from './policy';
 
 export const MON_KEY = 'officeescape.mon.v1';
@@ -20,10 +20,12 @@ export type Offer = Decision & { readonly points: number; readonly used: number;
 export interface ClaimResult {
   readonly result: 'granted' | 'skipped' | 'unavailable';
   readonly points: number;
+  /** take the grant back when its points could not be saved (the player can earn it again) */
+  undo(): void;
 }
 
 export interface Monetization {
-  /** settles after consent + the pass check; offers made before then are conservative (no ad) */
+  /** settles after the pass check (the ad SDK is not touched until a player taps a bonus) */
   readonly ready: Promise<void>;
   /** an ad or purchase SDK exists in this build */
   readonly available: boolean;
@@ -34,7 +36,12 @@ export interface Monetization {
   passOwned(): boolean;
   passPrice(): string | null;
   buyPass(): Promise<BuyResult>;
-  restorePass(): Promise<boolean>;
+  /** true found, false not found, null the store could not be reached */
+  restorePass(): Promise<boolean | null>;
+  /** ask the store again (app back in the foreground: a pending purchase may have been approved) */
+  refreshPass(): Promise<void>;
+  /** the consent SDK asks for a way back into the privacy choices (known once ads were started) */
+  privacyOptionsRequired(): boolean;
   privacyOptions(): Promise<void>;
   setConfig(config: MonetizationConfig): void;
 }
@@ -87,22 +94,22 @@ export function createMonetization(d: MonetizationDeps): Monetization {
     write(d.store, PASS_KEY, owned ? '1' : '0');
   };
 
-  const ready = (async () => {
-    const [, owned, p] = await Promise.all([
-      ads ? ads.init().then(() => ads.preload()) : Promise.resolve(),
-      d.pass ? d.pass.owned().catch(() => null) : Promise.resolve(null),
-      d.pass ? d.pass.price().catch(() => null) : Promise.resolve(null),
-    ]);
+  const refreshPass = async (): Promise<void> => {
+    if (!d.pass) return;
+    const [owned, p] = await Promise.all([d.pass.owned().catch(() => null), d.pass.price().catch(() => null)]);
+    // the store could not be asked: keep what we knew (an offline launch never takes the pass away)
     if (owned !== null) setPass(owned);
-    price = p;
-  })();
+    if (p !== null) price = p;
+  };
+
+  const ready = refreshPass();
 
   const offer = (placement: Placement, date: DateKey): Offer => {
     const day = claimsOn(save, date);
     const decision = decide({
       placement,
       config: ads ? config : { ...config, adsEnabled: false },
-      canRequestAds: ads?.canRequestAds ?? false,
+      canRequestAds: ads ? ads.canRequestAds : false,
       hasPass: pass,
       showing: ads?.showing ?? false,
       secondsSinceFirstOpen: (d.now() - save.firstOpenMs) / 1000,
@@ -115,12 +122,17 @@ export function createMonetization(d: MonetizationDeps): Monetization {
       : { ...decision, points, used: day.stage, limit: config.rewardedDailyLimit };
   };
 
+  const persist = (next: MonSave): void => {
+    save = next;
+    write(d.store, MON_KEY, JSON.stringify(save));
+  };
+  const none = (result: 'skipped' | 'unavailable'): ClaimResult => ({ result, points: 0, undo: () => undefined });
+
   const grant = (placement: Placement, date: DateKey, key: string): ClaimResult => {
     const paid = payOnce(save, key, config);
-    if (!paid || nextKey(save, placement, date) !== key) return { result: 'unavailable', points: 0 };
-    save = paid.save;
-    write(d.store, MON_KEY, JSON.stringify(save));
-    return { result: 'granted', points: paid.points };
+    if (!paid || nextKey(save, placement, date) !== key) return none('unavailable');
+    persist(paid.save);
+    return { result: 'granted', points: paid.points, undo: () => persist(unclaim(save, key)) };
   };
 
   const claim = async (placement: Placement, date: DateKey): Promise<ClaimResult> => {
@@ -128,10 +140,11 @@ export function createMonetization(d: MonetizationDeps): Monetization {
     // the grant id is fixed before the ad shows, so a late or repeated callback can only pay this one grant
     const key = nextKey(save, placement, date);
     if (o.kind === 'pass') return grant(placement, date, key);
-    if (o.kind !== 'ad' || !ads) return { result: 'unavailable', points: 0 };
+    if (o.kind !== 'ad' || !ads) return none('unavailable');
     const shown = await ads.showRewarded();
-    void ads.preload();
-    if (shown !== 'rewarded') return { result: shown, points: 0 };
+    // the SDK was started by this player's choice: the next ad may load ahead
+    if (!pass) void ads.preload();
+    if (shown !== 'rewarded') return none(shown);
     return grant(placement, date, key);
   };
 
@@ -151,10 +164,12 @@ export function createMonetization(d: MonetizationDeps): Monetization {
     },
     restorePass: async () => {
       if (!d.pass) return false;
-      const found = await d.pass.restore().catch(() => false);
+      const found = await d.pass.restore().catch(() => null);
       if (found) setPass(true);
       return found;
     },
+    refreshPass,
+    privacyOptionsRequired: () => ads?.privacyOptionsRequired ?? false,
     privacyOptions: () => ads?.privacyOptions() ?? Promise.resolve(),
     setConfig: (c) => {
       config = c;

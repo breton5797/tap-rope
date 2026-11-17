@@ -15,8 +15,14 @@ describe('monetization config (AD_MONETIZATION §6)', () => {
   });
 
   it('reads the remote snake_case keys', () => {
-    const cfg = parseConfig({ ads_enabled: false, rewarded_daily_limit: 3, new_user_ad_grace_seconds: 60, stage_reward_points: 20 });
-    expect(cfg).toMatchObject({ adsEnabled: false, rewardedDailyLimit: 3, graceSeconds: 60, stageRewardPoints: 20 });
+    const cfg = parseConfig({ ads_enabled: false, rewarded_daily_limit: 3, new_user_ad_grace_seconds: 600, stage_reward_points: 20 });
+    expect(cfg).toMatchObject({ adsEnabled: false, rewardedDailyLimit: 3, graceSeconds: 600, stageRewardPoints: 20 });
+  });
+
+  it('remote values can only make ads less frequent than the shipped defaults (a hijacked JSON cannot escalate)', () => {
+    const cfg = parseConfig({ rewarded_daily_limit: 20, new_user_ad_grace_seconds: 0, stage_reward_points: 200 });
+    expect(cfg).toMatchObject({ rewardedDailyLimit: 5, graceSeconds: 180, stageRewardPoints: 30 });
+    expect(parseConfig({ rewarded_daily_limit: 2, new_user_ad_grace_seconds: 900 })).toMatchObject({ rewardedDailyLimit: 2, graceSeconds: 900 });
   });
 
   it('falls back per key on a wrong type or an out-of-range value', () => {

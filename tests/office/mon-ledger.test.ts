@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG } from '../../src/office/monetization/config';
-import { claim, claimsOn, emptyMon, nextKey, parseMon } from '../../src/office/monetization/ledger';
+import { claim, claimsOn, emptyMon, nextKey, parseMon, unclaim } from '../../src/office/monetization/ledger';
 import { DAILY_POINTS } from '../../src/office/core/live/daily';
 
 const D1 = '2026-11-18';
@@ -34,6 +34,17 @@ describe('ad reward ledger (one grant per reward id)', () => {
     for (let i = 0; i < DEFAULT_CONFIG.rewardedDailyLimit; i += 1) s = claim(s, nextKey(s, 'stage', D1), DEFAULT_CONFIG)!.save;
     expect(claim(s, nextKey(s, 'stage', D1), DEFAULT_CONFIG)).toBeNull();
     expect(claimsOn(s, D2)).toEqual({ stage: 0, daily: false });
+  });
+
+  it('undoes a grant whose points could not be saved (the reward can be earned again)', () => {
+    const s0 = emptyMon(0);
+    const key = nextKey(s0, 'stage', D1);
+    const paid = claim(s0, key, DEFAULT_CONFIG)!.save;
+    const back = unclaim(paid, key);
+    expect(claimsOn(back, D1)).toEqual({ stage: 0, daily: false });
+    expect(back.ledger).toEqual([]);
+    expect(claim(back, key, DEFAULT_CONFIG)?.points).toBe(30);
+    expect(unclaim(back, key)).toBe(back);
   });
 
   it('rejects malformed keys', () => {

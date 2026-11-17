@@ -36,23 +36,23 @@ describe('monetization facade', () => {
     expect(m.offer('stage', D)).toMatchObject({ kind: 'none', reason: 'grace' });
     setNow(LATER);
     expect(m.offer('stage', D)).toMatchObject({ kind: 'ad', points: 30, used: 0, limit: 5 });
-    expect(await m.claim('stage', D)).toEqual({ result: 'granted', points: 30 });
+    expect(await m.claim('stage', D)).toMatchObject({ result: 'granted', points: 30 });
     expect(m.offer('stage', D)).toMatchObject({ used: 1 });
   });
 
   it('pays nothing when the player skips the ad or no ad is available', async () => {
     const skip = await setup({ ads: { show: 'skip' }, now: LATER });
-    expect(await skip.m.claim('stage', D)).toEqual({ result: 'skipped', points: 0 });
+    expect(await skip.m.claim('stage', D)).toMatchObject({ result: 'skipped', points: 0 });
     const empty = await setup({ ads: { load: 'fail' }, now: LATER });
-    expect(await empty.m.claim('stage', D)).toEqual({ result: 'unavailable', points: 0 });
+    expect(await empty.m.claim('stage', D)).toMatchObject({ result: 'unavailable', points: 0 });
     expect(empty.m.offer('stage', D)).toMatchObject({ used: 0 });
   });
 
   it('gives a pass holder the reward without an ad, within the limits', async () => {
     const { m } = await setup({ pass: true });
     expect(m.offer('daily', D)).toMatchObject({ kind: 'pass', points: DAILY_POINTS });
-    expect(await m.claim('daily', D)).toEqual({ result: 'granted', points: DAILY_POINTS });
-    expect(await m.claim('daily', D)).toEqual({ result: 'unavailable', points: 0 });
+    expect(await m.claim('daily', D)).toMatchObject({ result: 'granted', points: DAILY_POINTS });
+    expect(await m.claim('daily', D)).toMatchObject({ result: 'unavailable', points: 0 });
   });
 
   it('persists claims and the first launch across restarts', async () => {
@@ -84,12 +84,52 @@ describe('monetization facade', () => {
     expect(m.passOwned()).toBe(true);
   });
 
+  it('does not touch the ad SDK until the player taps a bonus (child data minimisation)', async () => {
+    let inits = 0;
+    const ads = { ...createTestAds({}), init: async () => { inits += 1; return { canRequestAds: true }; } };
+    const m = createMonetization({ ads, pass: createTestPass({}), store: memStore(), now: () => T0, config: DEFAULT_CONFIG, sleep: async () => undefined });
+    await m.ready;
+    expect(inits).toBe(0);
+    const later = createMonetization({ ads, pass: createTestPass({}), store: memStore(), now: () => LATER, config: DEFAULT_CONFIG, sleep: async () => undefined });
+    await later.ready;
+    expect(inits).toBe(0);
+  });
+
+  it('never starts the ad SDK for a pass holder', async () => {
+    let inits = 0;
+    const ads = { ...createTestAds({}), init: async () => { inits += 1; return { canRequestAds: true }; } };
+    const m = createMonetization({ ads, pass: createTestPass({ owned: true }), store: memStore(), now: () => LATER, config: DEFAULT_CONFIG, sleep: async () => undefined });
+    await m.ready;
+    expect((await m.claim('stage', D)).result).toBe('granted');
+    expect(inits).toBe(0);
+  });
+
+  it('undo() takes back a grant whose points could not be saved', async () => {
+    const { m } = await setup({ now: LATER });
+    const r = await m.claim('stage', D);
+    expect(r.result).toBe('granted');
+    r.undo();
+    expect(m.offer('stage', D)).toMatchObject({ used: 0 });
+    expect((await m.claim('stage', D)).points).toBe(30);
+  });
+
+  it('a restore that cannot reach the store says so (null), and keeps the pass', async () => {
+    const store = memStore({ [PASS_KEY]: '1' });
+    const m = createMonetization({
+      ads: null, pass: { ...createTestPass({}), owned: async () => null, restore: async () => null },
+      store, now: () => T0, config: DEFAULT_CONFIG,
+    });
+    await m.ready;
+    expect(await m.restorePass()).toBeNull();
+    expect(m.passOwned()).toBe(true);
+  });
+
   it('works with no ad / purchase SDK at all (web build)', async () => {
     const m = createMonetization({ ads: null, pass: null, store: memStore(), now: () => LATER, config: DEFAULT_CONFIG });
     await m.ready;
     expect(m.available).toBe(false);
     expect(m.passAvailable).toBe(false);
     expect(m.offer('stage', D)).toMatchObject({ kind: 'none', reason: 'off' });
-    expect(await m.claim('stage', D)).toEqual({ result: 'unavailable', points: 0 });
+    expect(await m.claim('stage', D)).toMatchObject({ result: 'unavailable', points: 0 });
   });
 });

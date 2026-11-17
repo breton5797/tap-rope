@@ -53,8 +53,9 @@ apply from: 'capacitor.build.gradle'
 
 gradle.taskGraph.whenReady { graph ->
     def releasing = graph.allTasks.any { it.name.toLowerCase().contains('release') }
-    if (releasing && admobAppId == ADMOB_TEST_APP_ID) {
-        logger.warn('WARNING: release build is using the AdMob TEST app ID. Pass -PADMOB_APP_ID=<production id> before uploading to Play.')
+    // a release must never ship Google's test app id (security review M2); -PALLOW_TEST_ADS=true for an internal test build only
+    if (releasing && admobAppId == ADMOB_TEST_APP_ID && project.findProperty('ALLOW_TEST_ADS') != 'true') {
+        throw new GradleException('Release build uses the AdMob TEST app id. Pass -PADMOB_APP_ID=<production id> (or -PALLOW_TEST_ADS=true for an internal test build).')
     }
 }
 

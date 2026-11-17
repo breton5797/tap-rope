@@ -110,6 +110,15 @@ describe('칼퇴 패스 card', () => {
     expect(card.textContent).toContain('칼퇴 패스를 사용할 수 있어요');
     expect(owned).toBe(1);
     expect(card.querySelector('.pass-card__restore')).not.toBeNull();
+    // the ad SDK was never started (no ad chosen): no privacy-options entry yet
+    expect(card.textContent).not.toContain('광고 개인정보 설정');
+  });
+
+  it('offers the ad privacy choices once the consent SDK asks for them', async () => {
+    const { m, at } = await mon({ privacy: true });
+    at(LATER);
+    await m.claim('stage', '2026-11-18');
+    const card = passCard(ctxWithSave({ coins: 0 }), { m, onOwned: () => undefined })!;
     expect(card.textContent).toContain('광고 개인정보 설정');
   });
 

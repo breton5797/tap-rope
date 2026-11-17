@@ -34,6 +34,16 @@ function syncPassItems(): void {
   if (next !== cur) saveLive(next);
 }
 
+let resumeWatched = false;
+/** back in the foreground: a pending purchase (Ask to Buy) may have been approved meanwhile */
+function watchPassOnResume(): void {
+  if (resumeWatched || typeof document === 'undefined') return;
+  resumeWatched = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void monetization().refreshPass().then(syncPassItems);
+  });
+}
+
 /** the live save rolled into `today` (written back when it changed) */
 export function liveFor(today: DateKey): LiveSave {
   const loaded = loadLive();
@@ -99,6 +109,7 @@ function addLive(el: HTMLElement, ctx: Ctx, save: SaveData, nav: TitleNav, today
   // the first title starts the ad consent flow and the pass check (monetization runtime); pass items follow the pass
   syncPassItems();
   void monetization().ready.then(syncPassItems);
+  watchPassOnResume();
   const live = liveFor(today);
   setLiveLook(lookOf(live, today));
   const newDay = shownDay !== null && shownDay !== today;

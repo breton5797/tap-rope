@@ -44,9 +44,12 @@ export function passCard(ctx: Ctx, d: PassCardDeps): HTMLElement | null {
         : h('span', { cls: 'pass-card__offline', text: MON_COPY.passStoreOffline });
     const restore = button({
       label: MON_COPY.passRestore, variant: 'glass', size: 'sm', cls: 'pass-card__restore',
-      onPress: ctx.tap(() => act(async () => ((await d.m.restorePass()) ? MON_COPY.passRestored : MON_COPY.passNotFound))),
+      onPress: ctx.tap(() => act(async () => {
+        const found = await d.m.restorePass();
+        return found === null ? MON_COPY.passStoreOffline : found ? MON_COPY.passRestored : MON_COPY.passNotFound;
+      })),
     });
-    const privacy = d.m.available
+    const privacy = d.m.privacyOptionsRequired()
       ? button({ label: MON_COPY.privacy, variant: 'ghost', size: 'sm', cls: 'pass-card__privacy', onPress: ctx.tap(() => void d.m.privacyOptions()) })
       : null;
     for (const b of [buy, restore]) if (busy && b instanceof HTMLButtonElement) b.disabled = true;
@@ -55,6 +58,7 @@ export function passCard(ctx: Ctx, d: PassCardDeps): HTMLElement | null {
       h('p', { cls: 'pass-card__body', text: MON_COPY.passBody }),
       h('ul', { cls: 'pass-card__perks' }, MON_COPY.passPerks.map((p) => h('li', { text: p }))),
       h('div', { cls: 'pass-card__row' }, [buy, restore]),
+      ...(owned ? [] : [h('p', { cls: 'pass-card__terms', text: MON_COPY.passTerms })]),
       note,
       ...(privacy ? [privacy] : []),
     );

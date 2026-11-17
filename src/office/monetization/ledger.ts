@@ -94,3 +94,12 @@ export function parseMon(raw: unknown, nowMs: number): MonSave {
   const ledger = Array.isArray(r.ledger) ? r.ledger.filter((k): k is string => typeof k === 'string' && parseKey(k) !== null) : [];
   return { v: MON_SAVE_VERSION, firstOpenMs: r.firstOpenMs, days: pruneDays(days), ledger: ledger.slice(-LEDGER_KEEP) };
 }
+
+/** take back the grant `key` (its points could not be saved): the reward can be earned again */
+export function unclaim(save: MonSave, key: string): MonSave {
+  const k = parseKey(key);
+  if (!k || !save.ledger.includes(key)) return save;
+  const day = claimsOn(save, k.date);
+  const back: DayClaims = k.placement === 'daily' ? { ...day, daily: false } : { ...day, stage: Math.max(0, day.stage - 1) };
+  return { ...save, days: { ...save.days, [k.date]: back }, ledger: save.ledger.filter((x) => x !== key) };
+}

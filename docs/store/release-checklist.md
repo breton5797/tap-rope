@@ -20,8 +20,11 @@
 1. [ ] AdMob 계정 생성(회사 Google 계정), 결제·세금 정보 입력. 계정 승인까지 기다림.
 2. [ ] 앱 2개 추가: iOS "칼퇴근 대작전", Android "칼퇴근 대작전". 스토어 출시 전이면 "아직 스토어에 없음"으로 추가 → 출시 후 스토어 연결.
 3. [ ] 앱 설정에서 **아동 대상(child-directed) 처리** 켜기 / 광고 콘텐츠 등급 **G**. 차단 설정에서 민감 카테고리(도박·데이트 등) 차단 확인.
-4. [ ] 광고 단위: 플랫폼별 **보상형 2개** (오늘의 미션 / 스테이지 클리어) = 총 4개. 보상 설정은 앱이 처리하므로 콘솔 보상 값은 기본(1)이어도 무방. 서버 측 확인(SSV)은 이번 범위 밖.
-5. [ ] 앱 ID 2개 + 광고 단위 ID 4개를 개발팀에 전달 → **[개발]** 운영 ID 입력은 출시 빌드에서만, 개발·자동 테스트는 계속 테스트 광고 ID.
+4. [ ] 광고 단위: 플랫폼별 **보상형 1개** = 총 2개(오늘의 미션·스테이지 클리어가 같은 단위를 씀). 보상 양은 앱이 정하므로 콘솔 보상 값은 기본(1)이어도 무방. 서버 측 확인(SSV)은 이번 범위 밖.
+5. [ ] 앱 ID 2개 + 광고 단위 ID 2개를 개발팀에 전달 → **[개발]** 운영 ID는 출시 빌드에서만 넣고(저장소에 커밋하지 않음), 개발·자동 테스트는 계속 테스트 광고 ID.
+   - 웹 번들: `VITE_RELEASE=1 VITE_ADMOB_REWARDED_IOS=<iOS 단위> VITE_ADMOB_REWARDED_ANDROID=<Android 단위> npm run build:office-app` — 운영 단위가 없거나 Google 테스트 단위면 **빌드가 실패**함.
+   - Android: `npx cap sync android && cd android && ./gradlew bundleRelease -PADMOB_APP_ID=<Android 앱 ID>` — 테스트 앱 ID면 **빌드 실패**(내부 테스트용만 `-PALLOW_TEST_ADS=true`).
+   - iOS: `npx cap sync ios` 후 Xcode Archive 시 `ADMOB_APP_ID=<iOS 앱 ID>`를 넘김(`xcodebuild ... archive ADMOB_APP_ID=...` 또는 Release 빌드 설정 값). 아카이브 후 `Info.plist`의 `GADApplicationIdentifier`가 테스트 ID(`~1458002511`)가 아닌지 반드시 확인.
 6. [ ] **개인정보 및 메시지 › UMP 동의 메시지**: GDPR(유럽) 메시지 생성·게시 (필요 지역에서만 표시). 미국 주 법 메시지는 필요 여부 확인. iOS ATT 안내 메시지(IDFA 설명)는 **만들지 않음**(ATT 안 씀).
 7. [ ] **app-ads.txt**: AdMob이 주는 한 줄(`google.com, pub-…, DIRECT, f08c47fec0942fa0`)을 개발자 웹사이트 **도메인 루트** `/app-ads.txt`에 게시 → 두 스토어 등록정보의 웹사이트(Play "웹사이트", iOS "마케팅 URL")에 같은 도메인 입력 → AdMob app-ads.txt 탭에서 확인(Play 최대 24시간, iOS는 며칠 걸릴 수 있음). `breton5797.github.io/tap-rope/` 같은 하위 경로에는 둘 수 없어요.
 8. [ ] 출시 후: AdMob에서 각 앱을 스토어 앱과 연결(app-ads.txt 확인·광고 게재에 필요).
@@ -31,10 +34,11 @@
 
 ### 2.1 공통
 - [ ] 모든 광고 요청 `tagForChildDirectedTreatment: true`, `maxAdContentRating: 'G'`, 비맞춤형 — e2e/단위 테스트로 고정.
-- [ ] Google은 TFCD 태그를 **폐지 예정(deprecated)**으로 표시하고 `ageRestrictedTreatment`(iOS) / `setAgeRestrictedTreatment()`(Android) 값 `child`로 대체 안내 [S19]. 사용 중인 Capacitor AdMob 플러그인·네이티브 SDK 버전에서 어느 쪽이 실제로 적용되는지 확인.
+- [ ] Google은 TFCD 태그를 **폐지 예정(deprecated)**으로 표시하고 `ageRestrictedTreatment`(iOS) / `setAgeRestrictedTreatment()`(Android) 값 `child`로 대체 안내 [S19]. 확인 결과(2026-11-18): 플러그인 8.4.2는 `setRequestConfiguration`으로 TFCD·TFUA·G등급을 `MobileAds.initialize`보다 먼저 적용(현재도 동작). 플러그인이 새 API를 내면 교체.
+- [x] 광고 SDK는 이용자가 광고 버튼을 처음 누를 때만 시작(앱 실행 시 AdMob 로그 0줄, Android 에뮬레이터 2026-11-18). 칼퇴 패스 보유자는 SDK를 시작하지 않음.
 - [ ] 보상은 정식 보상 콜백에서만 1회 지급, 닫힘 이벤트로 지급 안 함 (설계 1장).
 - [ ] 구매 복원 버튼(설정 화면) 동작, 패스 설명 문구 = 스토어 설명 문구.
-- [ ] 개인정보처리방침 링크를 앱 설정 화면에 노출 (두 스토어 모두 앱 안 링크 요구).
+- [x] 개인정보처리방침·이용약관 링크가 앱 설정 화면에 있음. 앱 빌드는 게시된 https 주소로 연결해 시스템 브라우저가 열림(Android 확인 2026-11-18). **출시 전 Pages에 최신 privacy.html·terms.html이 배포돼 있어야 함**(main 병합 시 자동).
 
 ### 2.2 iOS
 - [ ] `Info.plist`: `GADApplicationIdentifier`(출시 빌드는 운영 ID), `SKAdNetworkItems`(Google 목록), **`NSUserTrackingUsageDescription` 없음**.

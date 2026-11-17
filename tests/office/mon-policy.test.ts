@@ -33,6 +33,10 @@ describe('ad policy (AD_MONETIZATION §4)', () => {
     expect(decide({ ...base, canRequestAds: false })).toEqual({ kind: 'none', reason: 'consent' });
   });
 
+  it('offers before the SDK is started (consent unknown): consent is asked when the player taps', () => {
+    expect(decide({ ...base, canRequestAds: null })).toEqual({ kind: 'ad' });
+  });
+
   it('keeps new players ad-free during the grace period', () => {
     expect(decide({ ...base, secondsSinceFirstOpen: 179 })).toEqual({ kind: 'none', reason: 'grace' });
     expect(decide({ ...base, secondsSinceFirstOpen: 180 })).toEqual({ kind: 'ad' });
