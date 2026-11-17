@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CONFIG, parseConfig } from '../../src/office/monetization/config';
 
@@ -29,5 +30,10 @@ describe('monetization config (AD_MONETIZATION §6)', () => {
 
   it('returns the defaults for anything that is not an object', () => {
     for (const raw of [null, undefined, 42, 'x', []]) expect(parseConfig(raw)).toEqual(DEFAULT_CONFIG);
+  });
+
+  it('the published remote config (public-office/monetization.json) equals the local defaults', () => {
+    const raw: unknown = JSON.parse(readFileSync(new URL('../../public-office/monetization.json', import.meta.url), 'utf8'));
+    expect(parseConfig(raw)).toEqual(DEFAULT_CONFIG);
   });
 });

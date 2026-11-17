@@ -107,7 +107,7 @@ export function weekCardModel(live: LiveSave, today: DateKey, tier: ProgressTier
   };
 }
 
-export type ItemState = 'equipped' | 'owned' | 'buy' | 'poor' | 'not-yet';
+export type ItemState = 'equipped' | 'owned' | 'buy' | 'poor' | 'not-yet' | 'pass-only';
 
 export interface MallItem {
   readonly item: Cosmetic;
@@ -122,18 +122,22 @@ export function equippedSprite(live: LiveSave, category: CosmeticCategory): stri
 function itemState(live: LiveSave, c: Cosmetic, coins: number, today: DateKey): ItemState {
   if (live.equipped[c.category] === c.id) return 'equipped';
   if (live.owned.includes(c.id)) return 'owned';
+  if (c.exclusive) return 'pass-only';
   // the rules (theme items: from the week after their theme week) are core's; ask with unlimited points
   const r = buyCosmetic(live, c.id, Number.MAX_SAFE_INTEGER, today);
   if (!r.ok) return 'not-yet';
   return coins >= c.price ? 'buy' : 'poor';
 }
 
-export function mallItems(live: LiveSave, coins: number, today: DateKey, category: CosmeticCategory): readonly MallItem[] {
-  return COSMETICS.filter((c) => c.category === category).map((item) => ({ item, state: itemState(live, item, coins, today) }));
+/** `showExclusive`: the build can sell the 칼퇴 패스 (else pass items show only once owned) */
+export function mallItems(live: LiveSave, coins: number, today: DateKey, category: CosmeticCategory, showExclusive = false): readonly MallItem[] {
+  return COSMETICS.filter((c) => c.category === category && (!c.exclusive || showExclusive || live.owned.includes(c.id))).map((item) => ({ item, state: itemState(live, item, coins, today) }));
 }
 
 export function collection(live: LiveSave): { readonly owned: number; readonly total: number } {
-  return { owned: COSMETICS.filter((c) => live.owned.includes(c.id)).length, total: COSMETICS.length };
+  // pass items count only once owned: the 도감 never nudges toward a purchase (P4)
+  const counted = COSMETICS.filter((c) => !c.exclusive || live.owned.includes(c.id));
+  return { owned: counted.filter((c) => live.owned.includes(c.id)).length, total: counted.length };
 }
 
 /** the renderer's look: equipped trail / jump art keys and this week's theme flags */

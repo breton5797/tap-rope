@@ -31,6 +31,7 @@ export const COSMETICS: readonly Cosmetic[] = [
   item('stamp-coffee', 'stamp', '커피잔 도장'),
   item('stamp-star', 'stamp', '별 도장'),
   item('stamp-clock', 'stamp', '칼퇴 시계 도장', 'speed-clockout'),
+  { ...item('stamp-pass', 'stamp', '칼퇴 패스 도장'), price: 0, exclusive: 'pass' },
   item('card-kraft', 'cardTheme', '크라프트 출근 카드'),
   item('card-pastel', 'cardTheme', '파스텔 출근 카드'),
   item('card-sky', 'cardTheme', '노을 하늘 출근 카드'),
@@ -56,6 +57,7 @@ export function buyCosmetic(live: LiveSave, id: CosmeticId, coins: number, date:
   const c = cosmeticById(id);
   if (!c) return { ok: false, reason: 'unknown' };
   if (live.owned.includes(id)) return { ok: false, reason: 'owned' };
+  if (c.exclusive) return { ok: false, reason: 'exclusive' };
   if (!onSale(live, c, date)) return { ok: false, reason: 'not-yet' };
   if (coins < c.price) return { ok: false, reason: 'poor' };
   return { ok: true, live: { ...live, owned: [...live.owned, id] }, cost: c.price };
@@ -70,5 +72,14 @@ export function equipCosmetic(live: LiveSave, id: CosmeticId): LiveSave {
 
 /** cosmetics the player could buy now with `coins` (the title's "새로 살 수 있는 꾸미기" count) */
 export function affordable(live: LiveSave, coins: number, date: DateKey): readonly Cosmetic[] {
-  return COSMETICS.filter((c) => !live.owned.includes(c.id) && onSale(live, c, date) && c.price <= coins);
+  return COSMETICS.filter((c) => !c.exclusive && !live.owned.includes(c.id) && onSale(live, c, date) && c.price <= coins);
+}
+
+/** the cosmetics that come with the 칼퇴 패스 */
+export const PASS_ITEMS: readonly CosmeticId[] = COSMETICS.filter((c) => c.exclusive === 'pass').map((c) => c.id);
+
+/** a pass holder owns the pass items (unchanged save when they already do) */
+export function grantPassItems(live: LiveSave): LiveSave {
+  const missing = PASS_ITEMS.filter((id) => !live.owned.includes(id));
+  return missing.length === 0 ? live : { ...live, owned: [...live.owned, ...missing] };
 }

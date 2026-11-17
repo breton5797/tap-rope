@@ -678,3 +678,11 @@ they came from. `live/` keeps only the weekly badges (`badge-*`, 128×128), `sho
   - `cosmetic/trail-paper.webp`: nano_banana_flash — three tiny torn scraps of pastel sticky note paper (pale peach, pale lilac, pale mint) with ragged torn white edges, irregular little confetti shapes, no lines, no writing, not rectangular documents.
   - `cosmetic/jump-papers.webp`: nano_banana_flash — three small curly torn strips of pastel sticky note paper (pale yellow, pale pink, pale sky blue) twisting like confetti ribbons with ragged torn white edges, no lines, no writing, no stacks, no clipboards.
 - 2026-11-16 polish (0 cr): `cosmetic/jump-dust` puffs recoloured locally from dark grey to warm cream (#FAF2E0, luminance-shaded) with a soft light-grey outline (#A8A39E), so they no longer read as floor dirt. Silhouette and size unchanged.
+
+## 칼퇴 패스 도장 (2026-11-18, monetization)
+
+| file | model | cr | prompt |
+|---|---|---|---|
+| `cosmetic/stamp-pass.webp` | gpt_image_2_5 | 0.25 | Office rubber stamp imprint design for a game result screen, flat matte ink impression on a transparent background, slightly rough ink texture, bold and simple, readable at small size, no text, no letters, no numbers, no Korean characters, no digits. The stamp: a round double-ring office seal in teal-mint ink with a simple pictogram in the middle of an open office door with a small arrow pointing out of it and a tiny four-point star above. |
+
+Post: paper keyed to alpha by ink coverage (0.30–0.75 ramp, ink #158C78), cropped, 4% pad, 256×256 WebP q90.

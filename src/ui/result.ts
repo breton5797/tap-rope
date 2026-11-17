@@ -238,7 +238,7 @@ export function buildResult(ctx: Ctx, r: ResultInfo): HTMLElement {
     r.testRun && COPY.resultTestRun ? h('div', { cls: 'report__test mono', text: COPY.resultTestRun }) : null,
     h('h2', { cls: 'report__title', text: head.title }),
     story ? storyLine(story) : null,
-    missionResult(r),
+    missionResult(r, ctx),
     onlineLine(r),
     !r.cleared && meta?.hitBy ? failTip(meta.hitBy, r.stageId, meta.hitSection ?? null) : null,
     h('div', { cls: 'report__scorebox' }, [

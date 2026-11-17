@@ -27,6 +27,8 @@ export interface Monetization {
   readonly ready: Promise<void>;
   /** an ad or purchase SDK exists in this build */
   readonly available: boolean;
+  /** a store purchase SDK exists (the 칼퇴 패스 card is shown) */
+  readonly passAvailable: boolean;
   offer(placement: Placement, date: DateKey): Offer;
   claim(placement: Placement, date: DateKey): Promise<ClaimResult>;
   passOwned(): boolean;
@@ -136,6 +138,7 @@ export function createMonetization(d: MonetizationDeps): Monetization {
   return {
     ready,
     available: Boolean(d.ads || d.pass),
+    passAvailable: d.pass !== null,
     offer,
     claim,
     passOwned: () => pass,

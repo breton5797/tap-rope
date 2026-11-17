@@ -88,6 +88,7 @@ describe('monetization facade', () => {
     const m = createMonetization({ ads: null, pass: null, store: memStore(), now: () => LATER, config: DEFAULT_CONFIG });
     await m.ready;
     expect(m.available).toBe(false);
+    expect(m.passAvailable).toBe(false);
     expect(m.offer('stage', D)).toMatchObject({ kind: 'none', reason: 'off' });
     expect(await m.claim('stage', D)).toEqual({ result: 'unavailable', points: 0 });
   });

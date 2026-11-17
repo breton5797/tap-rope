@@ -34,8 +34,8 @@ describe('office art files', () => {
     expect(missing(['zone-1', 'zone-3', 'zone-5', 'zone-7', 'zone-10'].map((n) => `ach/${n}`))).toEqual([]);
   });
 
-  it('ship a sprite for every live-events cosmetic (all 20 catalog ids, art/cosmetic/<sprite>.webp)', () => {
-    expect(COSMETICS).toHaveLength(20);
+  it('ship a sprite for every live-events cosmetic (all 21 catalog ids incl. the 칼퇴 패스 stamp, art/cosmetic/<sprite>.webp)', () => {
+    expect(COSMETICS).toHaveLength(21);
     expect(missing(COSMETICS.map((c) => `cosmetic/${c.sprite}`))).toEqual([]);
   });
 

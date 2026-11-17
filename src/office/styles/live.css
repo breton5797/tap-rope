@@ -745,3 +745,90 @@
   width: 90%;
   height: 90%;
 }
+
+/* monetization spec §1–2: the optional rewarded bonus on the result card and the 칼퇴 패스 card in the mall */
+.ad-bonus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  word-break: keep-all;
+}
+
+.ad-bonus[hidden] {
+  display: none;
+}
+
+.ad-bonus__btn {
+  min-height: 44px;
+}
+
+.ad-bonus__count {
+  color: var(--ink-soft);
+  font-size: 0.85em;
+}
+
+.ad-bonus__note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9em;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ad-bonus__note:empty {
+  display: none;
+}
+
+.pass-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  word-break: keep-all;
+}
+
+.pass-card__title {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.pass-card__body,
+.pass-card__note {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.pass-card__note:empty {
+  display: none;
+}
+
+.pass-card__perks {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.pass-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pass-card__row > .btn {
+  min-height: 44px;
+}
+
+.pass-card__owned {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.pass-card__privacy {
+  align-self: flex-start;
+  min-height: 44px;
+}
