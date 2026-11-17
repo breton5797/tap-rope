@@ -21,6 +21,23 @@
 2. [ ] 앱 2개 추가: iOS "칼퇴근 대작전", Android "칼퇴근 대작전". 스토어 출시 전이면 "아직 스토어에 없음"으로 추가 → 출시 후 스토어 연결.
 3. [ ] 앱 설정에서 **아동 대상(child-directed) 처리** 켜기 / 광고 콘텐츠 등급 **G**. 차단 설정에서 민감 카테고리(도박·데이트 등) 차단 확인.
 4. [ ] 광고 단위: 플랫폼별 **보상형 1개** = 총 2개(오늘의 미션·스테이지 클리어가 같은 단위를 씀). 보상 양은 앱이 정하므로 콘솔 보상 값은 기본(1)이어도 무방. 서버 측 확인(SSV)은 이번 범위 밖.
+
+**AdMob 등록 결과 (2026-11-18, 기존 AdMob 계정 pub-7181131934411179에 추가 · 스토어 출시 전 "스토어에 없음"으로 등록 → 출시 후 스토어 연결 필요)**
+
+| 플랫폼 | 앱 ID (`ADMOB_APP_ID`) | 보상형 광고 단위 "칼퇴 보너스 보상형" |
+|---|---|---|
+| iOS | `ca-app-pub-7181131934411179~4256228099` | `ca-app-pub-7181131934411179/5002333553` |
+| Android | `ca-app-pub-7181131934411179~9223428406` | `ca-app-pub-7181131934411179/9316983086` |
+
+출시 빌드 명령(개발·디버그 빌드는 계속 테스트 ID):
+```sh
+VITE_RELEASE=1 VITE_ADMOB_REWARDED_IOS=ca-app-pub-7181131934411179/5002333553 \
+  VITE_ADMOB_REWARDED_ANDROID=ca-app-pub-7181131934411179/9316983086 npm run build:office-app
+npx cap sync android && (cd android && ./gradlew bundleRelease -PADMOB_APP_ID=ca-app-pub-7181131934411179~9223428406)
+npx cap sync ios   # Xcode Archive: ADMOB_APP_ID=ca-app-pub-7181131934411179~4256228099
+```
+- [x] 1·2·4번 완료(계정은 이미 승인 상태였음). 남은 것: 3번(차단 관리의 광고 콘텐츠 등급 G·민감 카테고리 — 계정 전체 설정이라 다른 게임에도 영향, 대표님 확인 후), 6·7·8·9번.
+
 5. [ ] 앱 ID 2개 + 광고 단위 ID 2개를 개발팀에 전달 → **[개발]** 운영 ID는 출시 빌드에서만 넣고(저장소에 커밋하지 않음), 개발·자동 테스트는 계속 테스트 광고 ID.
    - 웹 번들: `VITE_RELEASE=1 VITE_ADMOB_REWARDED_IOS=<iOS 단위> VITE_ADMOB_REWARDED_ANDROID=<Android 단위> npm run build:office-app` — 운영 단위가 없거나 Google 테스트 단위면 **빌드가 실패**함.
    - Android: `npx cap sync android && cd android && ./gradlew bundleRelease -PADMOB_APP_ID=<Android 앱 ID>` — 테스트 앱 ID면 **빌드 실패**(내부 테스트용만 `-PALLOW_TEST_ADS=true`).
