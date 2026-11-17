@@ -29,7 +29,7 @@
 
 ## 2. 칼퇴 패스 (확정형 비소모성 구매, P1 준수)
 
-- 내용(설명 문구와 1:1): ① 위 두 보상을 **광고 시청 없이** 바로 받기(같은 상한) ② 패스 전용 꾸미기 1종(트레일 "정시 퇴근 별빛").
+- 내용(설명 문구와 1:1): ① 위 두 보상을 **광고 시청 없이** 바로 받기(같은 상한) ② 패스 전용 꾸미기 1종 「칼퇴 패스 도장」(구현 중 트레일 → 도장으로 변경: 렌더 경로 추가 없이 카드에 찍힘. 포인트로 교환 불가, 패스 보유 시 지급, 미보유자 도감 총계에서 제외 — P4).
 - 가격 제안 ₩3,300 (스토어 가격 등급에서 대표님 확정). 무작위 요소·한정 판매·카운트다운 없음 (P4: CD6·CD8 미사용).
 - 노출 위치: 설정 화면과 복지몰 하단의 차분한 카드 1개. 결과 화면·실패 화면에 구매 유도 없음.
 - 구매 복원 버튼(애플 필수), 결제는 StoreKit 2 / Play Billing 7 (`@capgo/native-purchases`), 비소모성 `kaltoe.pass`.
@@ -56,7 +56,8 @@ src/office/monetization/
 
 ## 4. 동의·아동 보호
 
-- 모든 광고 요청에 `tagForChildDirectedTreatment: true`, `maxAdContentRating: 'G'`, 비맞춤형. iOS ATT 요청·IDFA 사용 안 함
+- 모든 광고 요청에 `tagForChildDirectedTreatment: true`, `tagForUnderAgeOfConsent: true`, `maxAdContentRating: General`, 비맞춤형.
+  Google은 TFCD를 `ageRestrictedTreatment`로 대체 예정이라고 안내함(2026-11 확인) — 플러그인 8.4.2는 아직 TFCD만 노출하므로 유지하고, 플러그인이 새 API를 내면 교체한다. iOS ATT 요청·IDFA 사용 안 함
   (`NSUserTrackingUsageDescription` 넣지 않음).
 - UMP: 실행 시 `requestConsentInfo` → 필요하면 폼 → `canRequestAds`일 때만 광고 요청. 설정에 "광고 개인정보 설정" 다시 열기.
 - 개인정보처리방침(`public-office/privacy.html`) 갱신: AdMob(광고 식별 정보, 비맞춤형), 스토어 결제 정보 처리 위탁 고지.
