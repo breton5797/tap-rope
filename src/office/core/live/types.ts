@@ -129,11 +129,13 @@ export interface Cosmetic {
   readonly theme?: ThemeId;
   /** art: public-office/art/cosmetic/<sprite>.webp (ART) */
   readonly sprite: string;
+  /** never sold for points: comes with the 칼퇴 패스 purchase (monetization spec §2) */
+  readonly exclusive?: 'pass';
 }
 
 export type BuyResult =
   | { readonly ok: true; readonly live: LiveSave; readonly cost: number }
-  | { readonly ok: false; readonly reason: 'unknown' | 'owned' | 'poor' | 'not-yet' };
+  | { readonly ok: false; readonly reason: 'unknown' | 'owned' | 'poor' | 'not-yet' | 'exclusive' };
 
 // ---------- rewards ----------
 

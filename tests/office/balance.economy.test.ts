@@ -5,8 +5,8 @@ import { COSMETICS } from '../../src/office/core/live';
 import { LIGHT, REGULAR, catalogCount, progressionPoints, summarise } from './balance.economy';
 
 describe('live economy (model on the shipped constants)', () => {
-  it('prices are fixed and inside 300–800 ₵', () => {
-    for (const c of COSMETICS) {
+  it('prices are fixed and inside 300–800 ₵ (the 칼퇴 패스 stamp is not sold for points)', () => {
+    for (const c of COSMETICS.filter((x) => !x.exclusive)) {
       expect(c.price, c.id).toBeGreaterThanOrEqual(300);
       expect(c.price, c.id).toBeLessThanOrEqual(800);
     }

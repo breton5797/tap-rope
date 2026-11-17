@@ -10,13 +10,15 @@ const ZERO: LiveRunCounts = { coffee: 0, 'dodge-dinner': 0, docs: 0, perfects: 0
 const MON = '2026-11-16';
 
 describe('cosmetics catalog', () => {
-  it('has 6 trails, 4 jump effects, 6 stamps and 4 card themes with unique ids, Korean names and the category price', () => {
-    const count = (c: string) => COSMETICS.filter((x) => x.category === c).length;
+  it('has 6 trails, 4 jump effects, 6 stamps and 4 card themes for sale (+ the 칼퇴 패스 stamp) with unique ids, Korean names and the category price', () => {
+    const SALE = COSMETICS.filter((x) => !x.exclusive);
+    expect(COSMETICS.filter((x) => x.exclusive).map((x) => x.id)).toEqual(['stamp-pass']);
+    const count = (c: string) => SALE.filter((x) => x.category === c).length;
     expect([count('trail'), count('jump'), count('stamp'), count('cardTheme')]).toEqual([6, 4, 6, 4]);
     expect(new Set(COSMETICS.map((c) => c.id)).size).toBe(COSMETICS.length);
     for (const c of COSMETICS) {
       expect(c.name, c.id).toMatch(/[가-힣]/);
-      expect(c.price).toBe(COSMETIC_PRICES[c.category]);
+      expect(c.price).toBe(c.exclusive ? 0 : COSMETIC_PRICES[c.category]);
       expect(c.sprite).toMatch(/^[a-z0-9-]+$/);
     }
   });
@@ -87,10 +89,10 @@ describe('buy and equip', () => {
   });
 
   it('affordable lists what can be bought right now', () => {
-    const cheapest = Math.min(...COSMETICS.map((c) => c.price));
+    const cheapest = Math.min(...COSMETICS.filter((c) => !c.exclusive).map((c) => c.price));
     expect(affordable(emptyLive(), cheapest - 1, MON)).toEqual([]);
     const list = affordable(emptyLive(), 10_000, MON);
     // everything except this week's event item
-    expect(list.map((c) => c.id).sort()).toEqual(COSMETICS.filter((c) => c.theme !== themeOf(MON).id).map((c) => c.id).sort());
+    expect(list.map((c) => c.id).sort()).toEqual(COSMETICS.filter((c) => c.theme !== themeOf(MON).id && !c.exclusive).map((c) => c.id).sort());
   });
 });

@@ -24,7 +24,7 @@ export const REGULAR: PlayerModel = { label: '꾸준한 플레이어 (하루 1�
 export const LIGHT: PlayerModel = { label: '가벼운 플레이어 (주 5일 1판)', dailies: 5, runs: 5, goalShare: 0 };
 
 const themeItems = COSMETICS.filter((c) => c.theme !== undefined);
-const shopItems = COSMETICS.filter((c) => c.theme === undefined);
+const shopItems = COSMETICS.filter((c) => c.theme === undefined && !c.exclusive); // the 칼퇴 패스 stamp is not sold for points
 const sum = (xs: readonly number[]): number => xs.reduce((a, x) => a + x, 0);
 
 /** ₵ per week once the campaign is done */

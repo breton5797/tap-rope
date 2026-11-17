@@ -5,6 +5,7 @@
 // an always-offline stub, so no leaderboard / register / submit-run call ships. Run: npm run build:office
 import type { Plugin } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
+import { APP_SWAPS } from './build/app-swaps.ts';
 import { OFFICE_SWAPS } from './build/office-swaps.ts';
 import { serviceWorker } from './build/service-worker.ts';
 import { swapModules } from './build/swap-modules.ts';
@@ -39,10 +40,26 @@ export function appEnvCheck(env: Readonly<Record<string, string | undefined>>): 
   }
 }
 
+/** Google's public AdMob test publisher (the test-ads pages for iOS and Android) */
+const ADMOB_TEST_PUB = 'ca-app-pub-3940256099942544';
+
+/** a release app build (VITE_RELEASE=1) must carry production rewarded units for both stores (review M7) */
+export function releaseAdCheck(env: Readonly<Record<string, string | undefined>>): void {
+  if (env.VITE_RELEASE !== '1') return;
+  for (const key of ['VITE_ADMOB_REWARDED_IOS', 'VITE_ADMOB_REWARDED_ANDROID'] as const) {
+    const v = env[key] ?? '';
+    if (!v.startsWith('ca-app-pub-')) throw new Error(`office app release: set ${key} to the production AdMob rewarded unit`);
+    if (v.startsWith(ADMOB_TEST_PUB)) throw new Error(`office app release: ${key} is a Google test unit`);
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   const app = mode === 'office-app';
-  if (app) appEnvCheck(env);
+  if (app) {
+    appEnvCheck(env);
+    releaseAdCheck({ ...env, VITE_RELEASE: process.env.VITE_RELEASE ?? env.VITE_RELEASE });
+  }
   const key = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '';
   if (key && !key.startsWith('sb_publishable_')) {
     throw new Error('office build: VITE_SUPABASE_PUBLISHABLE_KEY must be a publishable key (never a secret / service key)');
@@ -56,7 +73,7 @@ export default defineConfig(({ mode }) => {
     // officeIndex (post) runs before the worker plugin (post, later in the list), so sw.js precaches index.html
     // the app build has no worker: WKWebView cannot register one, and app updates must never serve stale caches
     plugins: [
-      swapModules(OFFICE_SWAPS),
+      swapModules(app ? { ...OFFICE_SWAPS, ...APP_SWAPS } : OFFICE_SWAPS),
       officeIndex(),
       ...(app ? [] : [serviceWorker({ publicDir: 'public-office', publicFiles: PUBLIC_FILES, cachePrefix: 'office-escape-', skip: [] })]),
     ],

@@ -38,6 +38,7 @@ export const LIVE_COPY = {
   equipped: '장착 중',
   poor: '포인트가 모자라요',
   notYet: '{theme} 이벤트 상품 · 다음 주부터 살 수 있어요',
+  passOnly: '칼퇴 패스 전용',
   exchange: '교환하기 (₵{price})',
   bought: '{name} 교환 완료!',
   saveFailed: '저장할 수 없어요. 저장 공간을 확인해 주세요.',

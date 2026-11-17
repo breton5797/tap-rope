@@ -3,12 +3,13 @@
 // with the stamp bonus), the result card's three stamps and grade, and the map's stamp dots.
 // Non-blocking (pointer-events: none); built once per run and patched every frame.
 import type { MissionView, ResultInfo, StageDef } from '../../types';
-import { h } from '../../ui/dom';
+import { h, type Ctx } from '../../ui/dom';
 import { STAGES } from '../../core/content';
 import { loadStamps, missionCardFor, type MissionCard } from '../../game/missions';
 import { MISSION_BONUS, STAGE_MISSIONS, type MissionKind } from '../core/missions';
 import { missionsOf } from '../core/stage-missions';
 import { liveResult } from './live/result';
+import { adBonus } from './monetization/bonus';
 
 const KIND_LABEL: Readonly<Record<MissionKind, string>> = { dodge: '돌파', collect: '수집', chase: '추격', finale: '결전' };
 /** seconds of run time the card and the stamp stay up (run time: they wait while the game is paused) */
@@ -181,12 +182,14 @@ function waitForTitle(card: Timed | null, layer: HTMLElement, time: number): Tim
 }
 
 /** the result card's row: one stamp per mission and the stage grade */
-export function missionResult(r: ResultInfo): HTMLElement | null {
+export function missionResult(r: ResultInfo, ctx?: Ctx): HTMLElement | null {
   const m = r.missions;
   const specs = r.stageId ? missionsOf(r.stageId) : undefined;
   const live = r.live;
   const liveEl = live ? liveResult(live) : null;
-  if (!m || !specs) return liveEl;
+  // the optional rewarded bonus (monetization spec §1) sits under the run's own rewards
+  const bonus = ctx ? adBonus(ctx, r) : null;
+  if (!m || !specs) return liveEl && bonus ? h('div', { cls: 'report__live' }, [liveEl, bonus]) : liveEl ?? bonus;
   // R5: a failed run shows its stamps but no letter grade (야근 확정 + "B" was a mixed message for kids)
   const grade = r.cleared ? `, 등급 ${m.grade}` : '';
   return h('div', { cls: 'report__missions', attrs: { role: 'group', 'aria-label': `미션 도장 ${m.stamps.filter((s) => s === true).length}/${specs.length}${grade}` } }, [
@@ -200,6 +203,7 @@ export function missionResult(r: ResultInfo): HTMLElement | null {
     r.cleared ? h('div', { cls: `report__grade grade--${m.grade}` }, [h('span', { cls: 'report__grade-label', text: '등급' }), h('b', { text: m.grade })]) : null,
     bonusLine(r),
     liveEl,
+    bonus,
   ]);
 }
 

@@ -49,6 +49,8 @@ function action(ctx: Ctx, it: MallItem, v: MallView, pick: Pick, act: (fn: () =>
       return button({ label: LIVE_COPY.unequip, variant: 'glass', size: 'sm', aria: `${c.name} ${LIVE_COPY.unequip}`, onPress: ctx.tap(() => act(() => actions.equip(null, c.category))) });
     case 'owned':
       return button({ label: LIVE_COPY.equip, variant: 'mint', size: 'sm', aria: `${c.name} ${LIVE_COPY.equip}`, onPress: ctx.tap(() => act(() => actions.equip(c, c.category))) });
+    case 'pass-only':
+      return h('span', { cls: 'mall-item__later', text: LIVE_COPY.passOnly });
     case 'not-yet':
       return h('span', { cls: 'mall-item__later', text: fillLive(LIVE_COPY.notYet, { theme: v.themeName }) });
     default: {
@@ -78,7 +80,8 @@ function action(ctx: Ctx, it: MallItem, v: MallView, pick: Pick, act: (fn: () =>
   }
 }
 
-export function buildMall(ctx: Ctx, actions: MallActions, onBack: () => void, first: CosmeticCategory = 'trail'): HTMLElement {
+/** `footer`: an optional card under the list (the app's 칼퇴 패스), given the mall's redraw */
+export function buildMall(ctx: Ctx, actions: MallActions, onBack: () => void, first: CosmeticCategory = 'trail', footer?: (rerender: () => void) => HTMLElement | null): HTMLElement {
   let tab = first;
   const pick: Pick = { selected: null };
   const chip = h('div', { cls: 'shop__chip' });
@@ -121,6 +124,7 @@ export function buildMall(ctx: Ctx, actions: MallActions, onBack: () => void, fi
       tabs,
       status,
       list,
+      footer ? footer(render) : null,
     ]),
   ]);
 }

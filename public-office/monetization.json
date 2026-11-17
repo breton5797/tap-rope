@@ -1,0 +1,8 @@
+{
+  "ads_enabled": true,
+  "rewarded_enabled": true,
+  "interstitial_enabled": false,
+  "new_user_ad_grace_seconds": 180,
+  "rewarded_daily_limit": 5,
+  "stage_reward_points": 30
+}

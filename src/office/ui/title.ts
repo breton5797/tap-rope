@@ -6,7 +6,7 @@ import { buildTitle as v8Title, type TitleNav } from '../../ui/title';
 import type { SaveData } from '../../types';
 import { h, type Ctx } from '../../ui/dom';
 import {
-  buyCosmetic, cosmeticById, dailyUnlocked, themeOf, weekOf, equipCosmetic, loadLive, progressTier, rollover, saveLive, todayKey, type Cosmetic,
+  buyCosmetic, cosmeticById, dailyUnlocked, grantPassItems, themeOf, weekOf, equipCosmetic, loadLive, progressTier, rollover, saveLive, todayKey, type Cosmetic,
   type CosmeticCategory, type DateKey, type LiveSave,
 } from '../core/live';
 import { setLiveLook } from '../render/live-look';
@@ -14,6 +14,8 @@ import { LIVE_COPY, fillLive } from './live/copy';
 import { buildMall, type MallActions } from './live/mall';
 import { collection, equippedSprite, lookOf, mallItems, titleLiveModel, unequip, weekCardModel } from './live/model';
 import { titleLiveBlock } from './live/title-block';
+import { monetization } from '../monetization/runtime';
+import { passCard } from './monetization/pass-card';
 import { buildWeekCardScreen } from './live/week-card';
 import '../styles/live.css';
 
@@ -23,6 +25,24 @@ export { artImage, coinChip, type TitleNav } from '../../ui/title';
 const DATE_CHECK_MS = 30_000;
 /** the date the title last showed (a different one = a new day since: say so once) */
 let shownDay: DateKey | null = null;
+
+/** a 칼퇴 패스 holder owns the pass cosmetics (granted on the title and after a purchase / restore) */
+function syncPassItems(): void {
+  if (!monetization().passOwned()) return;
+  const cur = loadLive();
+  const next = grantPassItems(cur);
+  if (next !== cur) saveLive(next);
+}
+
+let resumeWatched = false;
+/** back in the foreground: a pending purchase (Ask to Buy) may have been approved meanwhile */
+function watchPassOnResume(): void {
+  if (resumeWatched || typeof document === 'undefined') return;
+  resumeWatched = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void monetization().refreshPass().then(syncPassItems);
+  });
+}
 
 /** the live save rolled into `today` (written back when it changed) */
 export function liveFor(today: DateKey): LiveSave {
@@ -37,7 +57,7 @@ function mallActions(ctx: Ctx, nav: TitleNav, today: DateKey, coins: () => numbe
     view: (category: CosmeticCategory) => {
       const live = loadLive();
       const c = collection(live);
-      return { coins: coins(), themeName: themeOf(weekOf(today)).name, items: mallItems(live, coins(), today, category), owned: c.owned, total: c.total };
+      return { coins: coins(), themeName: themeOf(weekOf(today)).name, items: mallItems(live, coins(), today, category, monetization().passAvailable), owned: c.owned, total: c.total };
     },
     buy: (id: string) => {
       // atomic: the points are taken from the main save first (null = refused or not written), then the item
@@ -86,6 +106,10 @@ export function buildTitle(ctx: Ctx, save: SaveData, nav: TitleNav, today: DateK
 }
 
 function addLive(el: HTMLElement, ctx: Ctx, save: SaveData, nav: TitleNav, today: DateKey): void {
+  // the first title starts the ad consent flow and the pass check (monetization runtime); pass items follow the pass
+  syncPassItems();
+  void monetization().ready.then(syncPassItems);
+  watchPassOnResume();
   const live = liveFor(today);
   setLiveLook(lookOf(live, today));
   const newDay = shownDay !== null && shownDay !== today;
@@ -101,7 +125,8 @@ function addLive(el: HTMLElement, ctx: Ctx, save: SaveData, nav: TitleNav, today
   };
   const openMall = (): void => {
     const actions = mallActions(ctx, nav, today, () => coins, (s) => { coins = s.coins; });
-    nav.mount?.(buildMall(ctx, actions, back), 'live-mall');
+    const footer = (rerender: () => void): HTMLElement | null => passCard(ctx, { m: monetization(), onOwned: () => { syncPassItems(); rerender(); } });
+    nav.mount?.(buildMall(ctx, actions, back, 'trail', footer), 'live-mall');
   };
   const block = titleLiveBlock(ctx, titleLiveModel(live, save, today), {
     onDaily: () => ctx.cb.onStartDaily(), onCard: openCard, onMall: openMall,

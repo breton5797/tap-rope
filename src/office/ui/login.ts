@@ -3,10 +3,11 @@
 // The entry redraws itself on account changes while it is on the page.
 import { h, button, swallowInput, type Ctx } from '../../ui/dom';
 import { account as shared, type Account, type AccountState, type Provider } from '../platform/account';
+import { legalHref } from './legal-href';
 
 const PRIVACY = '이메일은 로그인 확인에만 사용해요.';
 
-/** the static pages next to the game (public-office/privacy.html, terms.html), opened in a new tab */
+/** the static pages (public-office/privacy.html, terms.html; the app links the published copies), opened in a new tab */
 const link = (href: string, text: string): HTMLElement =>
   h('a', { cls: 'legal__link', text, attrs: { href, target: '_blank', rel: 'noopener' } });
 const FAILED = '로그인을 시작할 수 없어요. 잠시 후 다시 시도해 주세요';
@@ -37,7 +38,7 @@ function sheet(ctx: Ctx, acc: Account, close: () => void): HTMLElement {
       ]),
       status,
       h('p', { cls: 'login-sheet__privacy' }, [
-        `${PRIVACY} `, link('./privacy.html', '개인정보처리방침'), ' · ', link('./terms.html', '이용약관'),
+        `${PRIVACY} `, link(legalHref('privacy.html'), '개인정보처리방침'), ' · ', link(legalHref('terms.html'), '이용약관'),
       ]),
       button({ label: '닫기', variant: 'ghost', size: 'sm', cls: 'login-sheet__close', onPress: ctx.tap(close) }),
     ]),
@@ -90,5 +91,5 @@ export function loginEntry(ctx: Ctx, acc: Account = shared): HTMLElement | null 
 
 /** privacy policy / terms links (settings screen) */
 export function legalLinks(): HTMLElement {
-  return h('p', { cls: 'legal' }, [link('./privacy.html', '개인정보처리방침'), ' · ', link('./terms.html', '이용약관')]);
+  return h('p', { cls: 'legal' }, [link(legalHref('privacy.html'), '개인정보처리방침'), ' · ', link(legalHref('terms.html'), '이용약관')]);
 }
