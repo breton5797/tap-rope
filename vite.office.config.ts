@@ -5,6 +5,7 @@
 // an always-offline stub, so no leaderboard / register / submit-run call ships. Run: npm run build:office
 import type { Plugin } from 'vite';
 import { defineConfig, loadEnv } from 'vite';
+import { APP_SWAPS } from './build/app-swaps.ts';
 import { OFFICE_SWAPS } from './build/office-swaps.ts';
 import { serviceWorker } from './build/service-worker.ts';
 import { swapModules } from './build/swap-modules.ts';
@@ -56,7 +57,7 @@ export default defineConfig(({ mode }) => {
     // officeIndex (post) runs before the worker plugin (post, later in the list), so sw.js precaches index.html
     // the app build has no worker: WKWebView cannot register one, and app updates must never serve stale caches
     plugins: [
-      swapModules(OFFICE_SWAPS),
+      swapModules(app ? { ...OFFICE_SWAPS, ...APP_SWAPS } : OFFICE_SWAPS),
       officeIndex(),
       ...(app ? [] : [serviceWorker({ publicDir: 'public-office', publicFiles: PUBLIC_FILES, cachePrefix: 'office-escape-', skip: [] })]),
     ],

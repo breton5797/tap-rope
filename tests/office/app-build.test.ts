@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import type { PluginOption, UserConfig } from 'vite';
 import { describe, expect, it } from 'vitest';
 import officeConfig, { APP_OUT_DIR, appEnvCheck } from '../../vite.office.config';
+import { APP_SWAPS } from '../../build/app-swaps';
 
 type ConfigFn = (env: { mode: string; command: 'build' | 'serve' }) => UserConfig;
 
@@ -31,6 +32,15 @@ describe('office app build (iPad)', () => {
     expect(() => appEnvCheck({ VITE_SUPABASE_URL: 'https://x.supabase.co' })).toThrow(/app build/);
     expect(() => appEnvCheck({ VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_x' })).toThrow(/app build/);
     expect(() => appEnvCheck({})).not.toThrow();
+  });
+
+  it('app swaps keep every export of the module they replace', () => {
+    const names = (file: string): string[] =>
+      [...readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8').matchAll(/^export (?:async )?(?:function|const|interface|type|class) (\w+)/gm)].map((m) => m[1]!);
+    for (const [from, to] of Object.entries(APP_SWAPS)) {
+      const missing = names(from).filter((n) => !names(to).includes(n) && !readFileSync(new URL(`../../${to}`, import.meta.url), 'utf8').includes(`export type { ${n} }`));
+      expect(missing, `${to} lacks exports of ${from}`).toEqual([]);
+    }
   });
 
   it('points Capacitor at the app build with the office name', () => {

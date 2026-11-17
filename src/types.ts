@@ -651,6 +651,8 @@ export interface ResultInfo {
   readonly skin?: SkinId;
   /** office tester run: marked "테스트 판 · 기록 안 함", nothing was saved (absent in v8) */
   readonly testRun?: true;
+  /** a bot run (?autoplay=1): it earns nothing, so the result card offers no reward */
+  readonly autoplay?: true;
   /** office live events: what the run did to the week card and the rewards it earned (absent in v8) */
   readonly live?: ResultLive;
 }

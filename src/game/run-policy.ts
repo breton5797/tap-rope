@@ -30,7 +30,7 @@ export const AUTOPLAY_NOTE = COPY.autoplayNote;
 
 /** the result card of a bot run: nothing earned, no record, flagged in the title */
 export function autoplayResult(base: ResultInfo, prevBest: number): ResultInfo {
-  return { ...base, best: prevBest, newRecord: false, coinsEarned: 0, title: `${base.title} · ${AUTOPLAY_NOTE}` };
+  return { ...base, best: prevBest, newRecord: false, coinsEarned: 0, title: `${base.title} · ${AUTOPLAY_NOTE}`, autoplay: true };
 }
 
 /** the result card of an office tester run: nothing earned or saved, marked "테스트 판 · 기록 안 함" */
