@@ -33,12 +33,15 @@ export function passCard(ctx: Ctx, d: PassCardDeps): HTMLElement | null {
   const render = (): void => {
     const owned = d.m.passOwned();
     const price = d.m.passPrice();
+    // a purchase is offered only with the store's own price on it (unknown price = store unreachable)
     const buy = owned
       ? h('span', { cls: 'pass-card__owned', text: MON_COPY.passOwned })
-      : button({
-        label: price ? fillMon(MON_COPY.passBuy, { price }) : MON_COPY.passBuyNoPrice, variant: 'sun', size: 'sm', cls: 'pass-card__buy',
-        onPress: ctx.tap(() => act(async () => BUY_NOTE[await d.m.buyPass()])),
-      });
+      : price
+        ? button({
+          label: fillMon(MON_COPY.passBuy, { price }), variant: 'sun', size: 'sm', cls: 'pass-card__buy',
+          onPress: ctx.tap(() => act(async () => BUY_NOTE[await d.m.buyPass()])),
+        })
+        : h('span', { cls: 'pass-card__offline', text: MON_COPY.passStoreOffline });
     const restore = button({
       label: MON_COPY.passRestore, variant: 'glass', size: 'sm', cls: 'pass-card__restore',
       onPress: ctx.tap(() => act(async () => ((await d.m.restorePass()) ? MON_COPY.passRestored : MON_COPY.passNotFound))),

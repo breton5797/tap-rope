@@ -15,7 +15,7 @@ export const MON_COPY = {
   passBody: '한 번 구매하면 계속 쓸 수 있어요.',
   passPerks: ['광고 없이 결과 화면 보너스를 바로 받아요 (받는 양과 횟수는 같아요)', '패스 전용 「칼퇴 패스 도장」'],
   passBuy: '{price} 구매',
-  passBuyNoPrice: '구매',
+  passStoreOffline: '지금은 스토어에 연결할 수 없어요. 잠시 후 다시 열어 주세요',
   passOwned: '사용 중',
   passRestore: '구매 복원',
   passBought: '칼퇴 패스를 사용할 수 있어요. 고마워요!',

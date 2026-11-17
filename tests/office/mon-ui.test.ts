@@ -119,6 +119,17 @@ describe('칼퇴 패스 card', () => {
     expect(card.textContent).not.toMatch(/한정|마감|오늘만|지금 안 사면|남은 시간|놓치/);
   });
 
+  it('shows no buy button while the store price is unknown (offline / no billing)', async () => {
+    const m = createMonetization({
+      ads: null, pass: createTestPass({ owned: false, price: null }), store: mem(), now: () => T0, config: DEFAULT_CONFIG,
+    });
+    await m.ready;
+    const card = passCard(ctxWithSave({ coins: 0 }), { m, onOwned: () => undefined })!;
+    expect(card.querySelector('.pass-card__buy')).toBeNull();
+    expect(card.textContent).toContain('지금은 스토어에 연결할 수 없어요');
+    expect(card.querySelector('.pass-card__restore')).not.toBeNull();
+  });
+
   it('is absent where the store cannot sell it', () => {
     const web = createMonetization({ ads: null, pass: null, store: mem(), now: () => T0, config: DEFAULT_CONFIG });
     expect(passCard(ctxWithSave({ coins: 0 }), { m: web, onOwned: () => undefined })).toBeNull();

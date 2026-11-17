@@ -27,13 +27,15 @@ export function createTestAds(s: TestAdScript): AdAdapter {
 export interface TestPassScript {
   readonly owned?: boolean;
   readonly buy?: BuyResult;
+  /** the store price, null = the store could not be reached */
+  readonly price?: string | null;
 }
 
 export function createTestPass(s: TestPassScript): PassAdapter {
   let owned = s.owned ?? false;
   return {
     owned: async () => owned,
-    price: async () => '₩3,300',
+    price: async () => (s.price === undefined ? '₩3,300' : s.price),
     buy: async () => {
       const r = s.buy ?? 'bought';
       if (r === 'bought') owned = true;

@@ -832,3 +832,8 @@
   align-self: flex-start;
   min-height: 44px;
 }
+
+.pass-card__offline {
+  color: var(--ink-soft);
+  font-size: 0.9em;
+}
