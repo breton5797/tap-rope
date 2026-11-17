@@ -43,7 +43,10 @@ const stageClear = { mode: 'stage', stageId: 'w1-s1', cleared: true } as unknown
 const flush = () => new Promise((r) => setTimeout(r, 0));
 const btn = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('.ad-bonus__btn');
 
-beforeEach(() => document.body.replaceChildren());
+beforeEach(() => {
+  document.body.replaceChildren();
+  localStorage.setItem('officeescape.adnotice.v1', '1'); // the one-time notice has its own test
+});
 
 describe('result card rewarded bonus', () => {
   it('watching the ad adds the points to the save once', async () => {
@@ -60,6 +63,27 @@ describe('result card rewarded bonus', () => {
     expect(save.coins).toBe(130);
     expect(el.textContent).toContain('보너스 +₵30 받았어요!');
     expect(btn(el)).toBeNull();
+  });
+
+  it('the first ad asks once (data goes to Google; under-14s with a guardian); 취소 shows no ad', async () => {
+    localStorage.removeItem('officeescape.adnotice.v1');
+    const { m, at } = await mon({});
+    at(LATER);
+    const save = { coins: 100 };
+    const el = adBonus(ctxWithSave(save), stageClear, m, new Date(LATER))!;
+    btn(el)!.click();
+    await flush();
+    expect(el.textContent).toContain('Google(미국)');
+    expect(el.textContent).toContain('만 14세 미만');
+    el.querySelector<HTMLButtonElement>('.ad-bonus__cancel')!.click();
+    await flush();
+    expect(save.coins).toBe(100);
+    btn(el)!.click();
+    el.querySelector<HTMLButtonElement>('.ad-bonus__ok')!.click();
+    await flush();
+    await flush();
+    expect(save.coins).toBe(130);
+    expect(localStorage.getItem('officeescape.adnotice.v1')).toBe('1');
   });
 
   it('a skipped ad pays nothing and says why; the button stays', async () => {

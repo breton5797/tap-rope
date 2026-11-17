@@ -844,3 +844,17 @@
   font-size: 0.8em;
   line-height: 1.4;
 }
+
+.ad-bonus__notice {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.85em;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.ad-bonus__ok,
+.ad-bonus__cancel {
+  min-height: 44px;
+}

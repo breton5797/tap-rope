@@ -124,6 +124,25 @@ describe('monetization facade', () => {
     expect(m.passOwned()).toBe(true);
   });
 
+  it('a store check that started before a purchase cannot switch the bought pass off', async () => {
+    let answer: (v: boolean) => void = () => undefined;
+    let calls = 0;
+    const pass = { ...createTestPass({}), owned: () => { calls += 1; return calls === 1 ? Promise.resolve(false) : new Promise<boolean>((r) => { answer = r; }); } };
+    const m = createMonetization({ ads: null, pass, store: memStore(), now: () => T0, config: DEFAULT_CONFIG });
+    await m.ready;
+    const stale = m.refreshPass(); // e.g. back in the foreground: asks the store (slow)
+    expect(await m.buyPass()).toBe('bought');
+    answer(false); // the old answer arrives after the purchase
+    await stale;
+    expect(m.passOwned()).toBe(true);
+  });
+
+  it('a build without a store never trusts a stored pass flag', async () => {
+    const m = createMonetization({ ads: null, pass: null, store: memStore({ [PASS_KEY]: '1' }), now: () => T0, config: DEFAULT_CONFIG });
+    await m.ready;
+    expect(m.passOwned()).toBe(false);
+  });
+
   it('works with no ad / purchase SDK at all (web build)', async () => {
     const m = createMonetization({ ads: null, pass: null, store: memStore(), now: () => LATER, config: DEFAULT_CONFIG });
     await m.ready;

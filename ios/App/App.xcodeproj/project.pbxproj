@@ -84,6 +84,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 504EC3161FED79650016851F /* Build configuration list for PBXNativeTarget "App" */;
 			buildPhases = (
+				9A7E5C0D2E10A00100C0FFEE /* Check AdMob app id */,
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
@@ -152,6 +153,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		9A7E5C0D2E10A00100C0FFEE /* Check AdMob app id */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Check AdMob app id";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Family app release guard (security review M2): never ship Google's AdMob test app id.\nif [ \"$CONFIGURATION\" = \"Release\" ] && [ \"${ALLOW_TEST_ADS:-}\" != \"YES\" ]; then\n  case \"$ADMOB_APP_ID\" in\n    \"\"|ca-app-pub-3940256099942544*)\n      echo \"error: Release build uses the AdMob TEST app id. Pass ADMOB_APP_ID=<production id> (ALLOW_TEST_ADS=YES only for an internal test build).\"\n      exit 1 ;;\n  esac\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		504EC3001FED79650016851F /* Sources */ = {

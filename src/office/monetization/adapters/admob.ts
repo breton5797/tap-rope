@@ -4,7 +4,7 @@
  * SDK starts and ads are requested only when `canRequestAds`. The reward counts only when the SDK's reward callback settles the show.
  * Ad unit ids come from the build env; without them Google's public test units are used (and marked testing).
  */
-import { AdMob, AdmobConsentStatus, MaxAdContentRating } from '@capacitor-community/admob';
+import { AdMob, AdmobConsentStatus, MaxAdContentRating, RewardAdPluginEvents } from '@capacitor-community/admob';
 import { rewardOutcome } from './reward-outcome';
 import type { AdAdapter } from './types';
 
@@ -23,6 +23,7 @@ export function rewardedUnit(platform: 'ios' | 'android', env: Partial<AdmobUnit
 
 export function createAdmobAdapter(platform: 'ios' | 'android', env: Partial<AdmobUnits>): AdAdapter {
   const unit = rewardedUnit(platform, env);
+  let closed: Promise<void> = Promise.resolve();
   return {
     async init() {
       // UMP first; the Mobile Ads SDK starts only when consent allows requests (Google UMP guidance)
@@ -45,11 +46,20 @@ export function createAdmobAdapter(platform: 'ios' | 'android', env: Partial<Adm
       await AdMob.prepareRewardVideoAd({ adId: unit.id, isTesting: unit.testing });
     },
     // resolves on the SDK's reward callback; REWARDED_AD_CANCELLED = closed before it (verified on Android 2026-11-18)
-    show: () =>
-      AdMob.showRewardVideoAd().then(
+    // (the ad can still be on screen when the reward resolves: whenClosed waits for its Dismissed event)
+    async show() {
+      let gone: () => void = () => undefined;
+      const handle = await AdMob.addListener(RewardAdPluginEvents.Dismissed, () => gone());
+      closed = new Promise<void>((r) => { gone = r; }).finally(() => void handle.remove());
+      return AdMob.showRewardVideoAd().then(
         () => rewardOutcome({ ok: true }),
-        (error: unknown) => rewardOutcome({ ok: false, error }),
-      ),
+        (error: unknown) => {
+          gone();
+          return rewardOutcome({ ok: false, error });
+        },
+      );
+    },
+    whenClosed: () => closed,
     privacyOptions: () => AdMob.showPrivacyOptionsForm(),
   };
 }

@@ -145,4 +145,20 @@ describe('AdService (rewarded lifecycle)', () => {
     await svc.privacyOptions();
     expect(svc.canRequestAds).toBe(false);
   });
+
+  it('keeps the lock until the ad is closed, even though the reward came first', async () => {
+    let close: () => void = () => undefined;
+    const a = { ...fake({}), whenClosed: () => new Promise<void>((r) => { close = r; }) };
+    const svc = new AdService(a, { sleep: noSleep, now: () => 0 });
+    expect(await svc.showRewarded()).toBe('rewarded');
+    expect(svc.showing).toBe(true);
+    let idle = false;
+    void svc.idle().then(() => { idle = true; });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(idle).toBe(false);
+    close();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(svc.showing).toBe(false);
+    expect(idle).toBe(true);
+  });
 });

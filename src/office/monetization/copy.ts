@@ -26,6 +26,9 @@ export const MON_COPY = {
   passRestored: '칼퇴 패스를 복원했어요',
   passNotFound: '이 계정에서 칼퇴 패스 구매 기록을 찾지 못했어요',
   privacy: '광고 개인정보 설정',
+  noticeText: '광고를 보면 광고를 보여 주기 위해 기기 정보(IP 주소, 기기·앱 정보 등)가 Google(미국)에 전달돼요. 만 14세 미만은 보호자와 함께 확인해 주세요.',
+  noticeOk: '광고 보기',
+  noticeCancel: '취소',
 } as const;
 
 export function fillMon(s: string, vars: Readonly<Record<string, string | number>>): string {

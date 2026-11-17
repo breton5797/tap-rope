@@ -9,6 +9,8 @@ export interface AdAdapter {
   show(): Promise<boolean>;
   /** re-open the consent / privacy choices */
   privacyOptions(): Promise<void>;
+  /** after show(): settles when the ad is off the screen (the reward can come while it is still up) */
+  whenClosed?(): Promise<void>;
 }
 
 export type BuyResult = 'bought' | 'cancelled' | 'pending' | 'failed';

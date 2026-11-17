@@ -40,6 +40,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+        <!-- Family app: the Mobile Ads SDK must not start at process launch. Its auto-init provider is removed;
+             the SDK starts from MobileAds.initialize when the player first taps a rewarded bonus. -->
+        <provider
+            android:name="com.google.android.gms.ads.MobileAdsInitProvider"
+            android:authorities="${applicationId}.mobileadsinitprovider"
+            tools:node="remove" />
     </application>
 
     <!-- Permissions -->

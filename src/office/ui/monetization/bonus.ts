@@ -12,6 +12,23 @@ import { monetization } from '../../monetization/runtime';
 
 const haptics = createHaptics();
 
+/** the one-time notice before the first ad (security review N2): kept on the device only */
+const NOTICE_KEY = 'officeescape.adnotice.v1';
+const noticeSeen = (): boolean => {
+  try {
+    return globalThis.localStorage?.getItem(NOTICE_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+const markNotice = (): void => {
+  try {
+    globalThis.localStorage?.setItem(NOTICE_KEY, '1');
+  } catch {
+    /* asks again next time */
+  }
+};
+
 function label(o: Offer, placement: 'daily' | 'stage'): string {
   const key = o.kind === 'pass' ? (placement === 'daily' ? 'passDaily' : 'passStage') : placement === 'daily' ? 'adDaily' : 'adStage';
   return fillMon(MON_COPY[key], { points: o.points });
@@ -25,6 +42,8 @@ export function adBonus(ctx: Ctx, r: ResultInfo, m: Monetization = monetization(
   const note = h('p', { cls: 'ad-bonus__note', attrs: { role: 'status', 'aria-live': 'polite' } });
   let busy = false;
   let done = false;
+  /** the first-ad notice is on screen */
+  let asking = false;
 
   const render = (): void => {
     const o = m.offer(placement, date);
@@ -39,10 +58,27 @@ export function adBonus(ctx: Ctx, r: ResultInfo, m: Monetization = monetization(
       box.replaceChildren(note);
       return;
     }
+    if (asking) {
+      box.replaceChildren(
+        h('p', { cls: 'ad-bonus__notice', text: MON_COPY.noticeText }),
+        button({ label: MON_COPY.noticeOk, variant: 'mint', size: 'sm', cls: 'ad-bonus__ok', onPress: ctx.tap(() => { asking = false; markNotice(); void run(); }) }),
+        button({ label: MON_COPY.noticeCancel, variant: 'glass', size: 'sm', cls: 'ad-bonus__cancel', onPress: ctx.tap(() => { asking = false; render(); }) }),
+      );
+      return;
+    }
     const count = placement === 'stage' ? h('span', { cls: 'ad-bonus__count mono', text: fillMon(MON_COPY.todayCount, { used: o.used, limit: o.limit }) }) : null;
-    const b = button({ label: busy ? MON_COPY.loading : label(o, placement), variant: 'mint', size: 'sm', cls: 'ad-bonus__btn', onPress: ctx.tap(() => void run()) });
+    const b = button({ label: busy ? MON_COPY.loading : label(o, placement), variant: 'mint', size: 'sm', cls: 'ad-bonus__btn', onPress: ctx.tap(() => void start(o.kind === 'ad')) });
     if (busy) b.setAttribute('disabled', '');
     box.replaceChildren(b, ...(count ? [count] : []), note);
+  };
+
+  const start = (withAd: boolean): void => {
+    if (withAd && !noticeSeen()) {
+      asking = true;
+      render();
+      return;
+    }
+    void run();
   };
 
   const run = async (): Promise<void> => {
@@ -57,8 +93,11 @@ export function adBonus(ctx: Ctx, r: ResultInfo, m: Monetization = monetization(
       if (saved) {
         note.textContent = fillMon(MON_COPY.granted, { points: res.points });
         done = true;
-        haptics.vibrate([18, 40, 28]);
-        ctx.cb.onUiSfx?.('powerup');
+        // the reward can come while the ad is still up: the celebration waits until it is closed
+        void m.afterAd().then(() => {
+          haptics.vibrate([18, 40, 28]);
+          ctx.cb.onUiSfx?.('powerup');
+        });
       } else {
         // the points were not written: give the grant back so it can be earned again
         res.undo();

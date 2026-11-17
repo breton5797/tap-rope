@@ -42,6 +42,8 @@ export interface Monetization {
   refreshPass(): Promise<void>;
   /** the consent SDK asks for a way back into the privacy choices (known once ads were started) */
   privacyOptionsRequired(): boolean;
+  /** settles when no ad is on the screen (reward effects wait for it) */
+  afterAd(): Promise<void>;
   privacyOptions(): Promise<void>;
   setConfig(config: MonetizationConfig): void;
 }
@@ -85,20 +87,26 @@ export function createMonetization(d: MonetizationDeps): Monetization {
   let config = d.config;
   let save = loadMon(d.store, d.now());
   if (read(d.store, MON_KEY) === null) write(d.store, MON_KEY, JSON.stringify(save));
-  let pass = read(d.store, PASS_KEY) === '1';
+  // a build without a store sells no pass: a stored flag there means nothing (review N5)
+  let pass = d.pass ? read(d.store, PASS_KEY) === '1' : false;
+  /** bumped by a purchase / restore: a store check started before it must not overwrite it */
+  let passGen = 0;
   let price: string | null = null;
   const ads = d.ads ? new AdService(d.ads, { sleep: d.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))), now: d.now }) : null;
 
-  const setPass = (owned: boolean): void => {
+  const setPass = (owned: boolean, bump = false): void => {
+    if (bump) passGen += 1;
     pass = owned;
     write(d.store, PASS_KEY, owned ? '1' : '0');
   };
 
   const refreshPass = async (): Promise<void> => {
     if (!d.pass) return;
+    const gen = passGen;
     const [owned, p] = await Promise.all([d.pass.owned().catch(() => null), d.pass.price().catch(() => null)]);
-    // the store could not be asked: keep what we knew (an offline launch never takes the pass away)
-    if (owned !== null) setPass(owned);
+    // the store could not be asked: keep what we knew (an offline launch never takes the pass away);
+    // a purchase / restore that finished meanwhile wins over this older answer
+    if (owned !== null && gen === passGen) setPass(owned);
     if (p !== null) price = p;
   };
 
@@ -159,17 +167,18 @@ export function createMonetization(d: MonetizationDeps): Monetization {
     buyPass: async () => {
       if (!d.pass) return 'failed';
       const r = await d.pass.buy().catch((): BuyResult => 'failed');
-      if (r === 'bought') setPass(true);
+      if (r === 'bought') setPass(true, true);
       return r;
     },
     restorePass: async () => {
       if (!d.pass) return false;
       const found = await d.pass.restore().catch(() => null);
-      if (found) setPass(true);
+      if (found) setPass(true, true);
       return found;
     },
     refreshPass,
     privacyOptionsRequired: () => ads?.privacyOptionsRequired ?? false,
+    afterAd: () => ads?.idle() ?? Promise.resolve(),
     privacyOptions: () => ads?.privacyOptions() ?? Promise.resolve(),
     setConfig: (c) => {
       config = c;

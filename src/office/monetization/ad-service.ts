@@ -15,6 +15,8 @@ export const STALE_MS = 55 * 60 * 1000;
 /** extra load attempts after the first failure (preload only) */
 const RETRIES = 2;
 const BACKOFF_MS = [2000, 6000] as const;
+/** longest wait for an ad to close after its reward (a lost dismiss event must not lock ads for the session) */
+const CLOSE_WAIT_MS = 120_000;
 
 export interface AdServiceDeps {
   readonly sleep: (ms: number) => Promise<void>;
@@ -36,6 +38,7 @@ export class AdService {
   private starting: Promise<boolean> | null = null;
   /** a claim is between its tap and the ad closing (loading or showing) */
   private busy = false;
+  private closed: Promise<void> = Promise.resolve();
 
   constructor(private readonly adapter: AdAdapter, private readonly deps: AdServiceDeps = realDeps) {}
 
@@ -60,7 +63,10 @@ export class AdService {
         this.canRequest = r.canRequestAds;
         this.privacyRequired = r.privacyOptionsRequired === true;
       } catch {
-        this.canRequest = false;
+        // could not start (offline, SDK error): no ads now, but the next tap may try again
+        this.canRequest = null;
+        this.starting = null;
+        return false;
       }
       return this.canRequest === true;
     })();
@@ -101,10 +107,18 @@ export class AdService {
     return this.deps.now() - this.loadedAt > STALE_MS;
   }
 
+  /** settles once no ad is on the screen (the reward can arrive while the ad is still up) */
+  idle(): Promise<void> {
+    return this.closed;
+  }
+
   /** show a rewarded ad the player chose to watch (starts the SDK on first use) */
   async showRewarded(): Promise<ShowResult> {
     if (this.showing) return 'unavailable';
     this.busy = true;
+    let release: () => void = () => undefined;
+    this.closed = new Promise<void>((r) => { release = r; });
+    let holdUntilClosed = false;
     try {
       if (!(await this.init())) return 'unavailable';
       if (this.inflight) await this.inflight;
@@ -117,14 +131,28 @@ export class AdService {
       }
       this.state = 'showing';
       try {
-        return (await this.adapter.show()) ? 'rewarded' : 'skipped';
+        const rewarded = await this.adapter.show();
+        if (rewarded && this.adapter.whenClosed) {
+          // the reward came first; the lock stays until the ad is gone (at most CLOSE_WAIT_MS)
+          holdUntilClosed = true;
+          const done = (): void => {
+            this.state = 'closed';
+            this.busy = false;
+            release();
+          };
+          void Promise.race([this.adapter.whenClosed().catch(() => undefined), new Promise<void>((r) => setTimeout(r, CLOSE_WAIT_MS))]).then(done);
+        }
+        return rewarded ? 'rewarded' : 'skipped';
       } catch {
         return 'unavailable';
       } finally {
-        this.state = 'closed';
+        if (!holdUntilClosed) this.state = 'closed';
       }
     } finally {
-      this.busy = false;
+      if (!holdUntilClosed) {
+        this.busy = false;
+        release();
+      }
     }
   }
 
