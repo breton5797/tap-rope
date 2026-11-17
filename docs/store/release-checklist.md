@@ -37,6 +37,7 @@
 - [ ] Google은 TFCD 태그를 **폐지 예정(deprecated)**으로 표시하고 `ageRestrictedTreatment`(iOS) / `setAgeRestrictedTreatment()`(Android) 값 `child`로 대체 안내 [S19]. 확인 결과(2026-11-18): 플러그인 8.4.2는 `setRequestConfiguration`으로 TFCD·TFUA·G등급을 `MobileAds.initialize`보다 먼저 적용(현재도 동작). 플러그인이 새 API를 내면 교체.
 - [x] 광고 SDK는 이용자가 광고 버튼을 처음 누를 때만 시작(앱 실행 시 AdMob 로그 0줄, Android 에뮬레이터 2026-11-18). 칼퇴 패스 보유자는 SDK를 시작하지 않음.
   - Android `MobileAdsInitProvider`(앱 시작 시 SDK 자동 시작)를 매니페스트에서 제거(병합 매니페스트 0건 확인). 제거 후에도 동의→로드→표시→보상→닫힘 정상(에뮬레이터 2026-11-18).
+  - [ ] provider 제거는 Google 문서에 없는 설정: **play-services-ads(현재 25.4.0 고정)를 올릴 때마다**, 그리고 출시 전 **실기기 release 빌드**로 동의→로드→표시→보상→닫힘을 다시 확인.
 - [ ] **[QA] 실기기 네트워크 캡처**(Charles/mitmproxy, 새 설치 상태): 광고 버튼을 누르기 전 `*.doubleclick.net`, `googleads.g.doubleclick.net`, `*.googlesyndication.com` 요청이 없는지 iOS·Android 각각 확인해 기록. 에뮬레이터 콘솔 캡처는 이 환경에서 동작하지 않아 아직 미확인. 요청이 보이면 처리방침 2-1 문구를 다시 고칠 것.
 - [ ] **[법무] 만 14세 미만 · Google 제3자 제공·국외 이전 동의**: 지금은 첫 광고 전 1회 안내("Google(미국)에 전달 · 만 14세 미만은 보호자와 함께") + 보기/취소 선택 + 처리방침 고지. 개인정보보호법 제17조·제22조의2·제28조의8 기준으로 이것으로 충분한지(법정대리인 동의 절차가 필요한지) 출시 전 확인. 통신판매업 신고·사업자 정보 표시 필요 여부도 함께.
 - [ ] 보상은 정식 보상 콜백에서만 1회 지급, 닫힘 이벤트로 지급 안 함 (설계 1장).
