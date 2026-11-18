@@ -212,12 +212,12 @@ PLEASE NOTE
 |---|---|
 | 개인정보처리방침 URL | `https://breton5797.github.io/tap-rope/office/privacy.html` (이번에 앱 섹션 추가) |
 | 지원 URL (iOS 필수) | 같은 사이트의 문의 안내 페이지 또는 privacy.html 1장(연락처) — 대표님 결정 |
-| 마케팅 URL (iOS) / 웹사이트 (Play) | **app-ads.txt를 올릴 도메인**과 같아야 함 (release-checklist.md 1.6). 예: `https://breton5797.github.io` |
+| 마케팅 URL (iOS) / 웹사이트 (Play) | `https://breton5797.github.io/tap-rope/office/` (app-ads.txt가 있는 `breton5797.github.io` 도메인) |
 | 저작권 (iOS) | `2026 <개발자 법인명>` — 대표님 입력 |
 | 인앱 구매 표시 이름 | ko "칼퇴 패스" / en "Clock-Out Pass" |
 | 인앱 구매 설명 (≤45자 권장) | ko "광고 없이 같은 보상 받기 + 전용 도장 1종" / en "Ad rewards without ads + 1 exclusive stamp" |
 
-## 6. 영어 이름 제안 (대표님 결정 필요 — 상표 판단 아님)
+## 6. 영어 이름 — "Clock-Out Dash: Office Runner" 확정 (2026-11-18, 상표 검색은 출시 전 별도)
 
 2026-11-18 웹 검색 결과 (근거 링크는 `policy-sources.md` 6장):
 
