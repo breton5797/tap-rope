@@ -17,9 +17,16 @@
 - 인앱 구매 심사용(App Store `kaltoe.pass`): `iap-review-pass-card.jpg` (복지몰 패스 카드)
 - 다시 만들기: `npm run build:office-app && node scripts/store/screenshots.mjs <출력폴더> dist-ios` (로고: `scripts/store/feature-logo.mjs`)
 
+## App Store Connect 진행 상태 (2026-11-18)
+
+- [x] 유료 앱 계약·은행 계좌·세금 양식: 모두 **활성화됨** (기존 계정)
+- [x] 앱 레코드 생성: **칼퇴근 대작전** · Apple ID **6836248385** · 번들 `com.heesookyang.taprope` · 기본 언어 한국어 · SKU `kaltoe-office` · iOS 1.0 "제출 준비 중"
+- [ ] **대표님: "계약 업데이트 승인"** — 앱 내 구입 화면을 열면 Apple의 개정 계약 동의창이 뜸(계정 소유자만, 법적 동의라 대행 불가). 승인 후 인앱 구매 `kaltoe.pass`(비소모성, ₩3,300) 생성 가능
+- [ ] 이름 중복 확인: `studio/reports/naming/office.md` (웹 검색 기준 중복 없음 · KIPRIS/USPTO 공식 조회는 대표님)
+
 ## 0. 먼저 정할 것 (대표님 결정)
 
-- [x] **영어 이름**: "Clock-Out Dash: Office Runner" 확정(2026-11-18, jev 판단). 남은 일: 출시 전 상표 검색(KIPRIS·USPTO) 결과를 `studio/reports/naming/`에 기록.
+- [x] **영어 이름**: "Clock-Out Dash: Office Runner" 확정(2026-11-18). 웹 검색 결과 `studio/reports/naming/office.md`(중복 없음); 공식 상표 DB 조회는 남음.
 - [x] **칼퇴 패스 가격**: ₩3,300 확정(2026-11-18). App Store 가격 포인트에 없으면 가장 가까운 포인트로 (questionnaires.md 7장).
 - [x] **개발자 웹사이트 도메인**: `breton5797.github.io`. 저장소와 `https://breton5797.github.io/app-ads.txt`(`google.com, pub-7181131934411179, DIRECT, f08c47fec0942fa0`)가 **이미 게시돼 있음**(2026-11-18 확인, 같은 AdMob 계정이라 칼퇴근 대작전에도 적용). 스토어 웹사이트·마케팅 URL은 `https://breton5797.github.io/tap-rope/office/`(같은 도메인).
 - [x] **연령 설문 2칸**: 9단계 컷신의 캔을 우유·주스·물로 다시 그림(2026-11-18) → 알코올 "없음". 폭력은 "없음"(슬랩스틱, 아무도 다치지 않음)으로 답함.
