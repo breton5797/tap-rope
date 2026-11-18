@@ -9,10 +9,10 @@
 
 ## 0. 먼저 정할 것 (대표님 결정)
 
-- [ ] **영어 이름**: 추천 "Clock-Out Dash: Office Runner" (listing.md 6장). 또는 한국어만 등록. 상표 검색(KIPRIS·USPTO) 후 `studio/reports/naming/`에 기록.
-- [ ] **칼퇴 패스 가격**: 설계 제안 ₩3,300 → App Store 가격 포인트 확인 후 확정 (questionnaires.md 7장).
-- [ ] **개발자 웹사이트 도메인** (app-ads.txt 위치): `breton5797.github.io` 루트(별도 저장소 `breton5797.github.io` 필요) 또는 회사 도메인.
-- [ ] **연령 설문의 확인 필요 2칸**(폭력·알코올, questionnaires.md 1·2장): 9단계 컷신 캔·병을 음료로 바꿀지 결정.
+- [x] **영어 이름**: "Clock-Out Dash: Office Runner" 확정(2026-11-18, jev 판단). 남은 일: 출시 전 상표 검색(KIPRIS·USPTO) 결과를 `studio/reports/naming/`에 기록.
+- [x] **칼퇴 패스 가격**: ₩3,300 확정(2026-11-18). App Store 가격 포인트에 없으면 가장 가까운 포인트로 (questionnaires.md 7장).
+- [x] **개발자 웹사이트 도메인**: `breton5797.github.io`. 저장소와 `https://breton5797.github.io/app-ads.txt`(`google.com, pub-7181131934411179, DIRECT, f08c47fec0942fa0`)가 **이미 게시돼 있음**(2026-11-18 확인, 같은 AdMob 계정이라 칼퇴근 대작전에도 적용). 스토어 웹사이트·마케팅 URL은 `https://breton5797.github.io/tap-rope/office/`(같은 도메인).
+- [x] **연령 설문 2칸**: 9단계 컷신의 캔을 우유·주스·물로 다시 그림(2026-11-18) → 알코올 "없음". 폭력은 "없음"(슬랩스틱, 아무도 다치지 않음)으로 답함.
 - [ ] **이용약관 갱신 담당 지정**: `public-office/terms.html`이 아직 "유료 결제나 광고가 없어요"라고 씀 → 앱 출시 전 수정 필요(이 작업 범위 밖).
 
 ## 1. Google AdMob (광고) [S18][S19][S7]
@@ -43,7 +43,7 @@ npx cap sync ios   # Xcode Archive: ADMOB_APP_ID=ca-app-pub-7181131934411179~425
    - Android: `npx cap sync android && cd android && ./gradlew bundleRelease -PADMOB_APP_ID=<Android 앱 ID>` — 테스트 앱 ID면 **빌드 실패**(내부 테스트용만 `-PALLOW_TEST_ADS=true`).
    - iOS: `npx cap sync ios` 후 Xcode Archive 시 `ADMOB_APP_ID=<iOS 앱 ID>`를 넘김(`xcodebuild ... archive ADMOB_APP_ID=...` 또는 Release 빌드 설정 값). Release에 테스트 앱 ID가 남아 있으면 빌드 단계 "Check AdMob app id"가 **빌드를 실패**시킴. 사내 기기 설치용 Release 빌드만 `ALLOW_TEST_ADS=YES`.
 6. [ ] **개인정보 및 메시지 › UMP 동의 메시지**: GDPR(유럽) 메시지 생성·게시 (필요 지역에서만 표시). 미국 주 법 메시지는 필요 여부 확인. iOS ATT 안내 메시지(IDFA 설명)는 **만들지 않음**(ATT 안 씀).
-7. [ ] **app-ads.txt**: AdMob이 주는 한 줄(`google.com, pub-…, DIRECT, f08c47fec0942fa0`)을 개발자 웹사이트 **도메인 루트** `/app-ads.txt`에 게시 → 두 스토어 등록정보의 웹사이트(Play "웹사이트", iOS "마케팅 URL")에 같은 도메인 입력 → AdMob app-ads.txt 탭에서 확인(Play 최대 24시간, iOS는 며칠 걸릴 수 있음). `breton5797.github.io/tap-rope/` 같은 하위 경로에는 둘 수 없어요.
+7. [x] **app-ads.txt** (이미 게시됨 — 위 0장): AdMob이 주는 한 줄(`google.com, pub-…, DIRECT, f08c47fec0942fa0`)을 개발자 웹사이트 **도메인 루트** `/app-ads.txt`에 게시 → 두 스토어 등록정보의 웹사이트(Play "웹사이트", iOS "마케팅 URL")에 같은 도메인 입력 → AdMob app-ads.txt 탭에서 확인(Play 최대 24시간, iOS는 며칠 걸릴 수 있음). `breton5797.github.io/tap-rope/` 같은 하위 경로에는 둘 수 없어요.
 8. [ ] 출시 후: AdMob에서 각 앱을 스토어 앱과 연결(app-ads.txt 확인·광고 게재에 필요).
 9. [ ] 테스트 기기 등록(AdMob › 설정 › 테스트 기기)으로 운영 ID에서도 실수 클릭 방지.
 
