@@ -7,6 +7,16 @@
 
 ---
 
+## 스토어 이미지 (준비 완료, 2026-11-18)
+
+`docs/store/assets/` — 앱 빌드(`dist-ios`, 로그인 없음) 화면 그대로 캡처, JPEG(알파 없음):
+- iPhone 6.9" 1320×2868: `iphone69-1-title` · `2-run`(3단계) · `3-run`(7단계 보스) · `4-weekcard` · `5-mall`
+- iPad 13" 2064×2752: `ipad13-*` (같은 5장)
+- Play 휴대전화 1080×2400: `play-phone-*` (같은 5장)
+- Play 그래픽 이미지 1024×500: `play-feature-1024x500.png` (게임 로고 + 타이틀 일러스트)
+- 인앱 구매 심사용(App Store `kaltoe.pass`): `iap-review-pass-card.jpg` (복지몰 패스 카드)
+- 다시 만들기: `npm run build:office-app && node scripts/store/screenshots.mjs <출력폴더> dist-ios` (로고: `scripts/store/feature-logo.mjs`)
+
 ## 0. 먼저 정할 것 (대표님 결정)
 
 - [x] **영어 이름**: "Clock-Out Dash: Office Runner" 확정(2026-11-18, jev 판단). 남은 일: 출시 전 상표 검색(KIPRIS·USPTO) 결과를 `studio/reports/naming/`에 기록.
