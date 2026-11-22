@@ -55,6 +55,9 @@ const STATIC_FPS = 15;
 const ART_WAIT_MS = 8000;
 /** `?autoplay=1` lets the bot play real runs (QA / demo recordings). */
 const AUTOPLAY = new URLSearchParams(window.location.search).has('autoplay');
+/** App Review recording build (VITE_REVIEW_DEMO=1, never a release): the bot times jumps/slides inside runs while
+ * every menu, reward and purchase is a real touch; runs count normally, unlike `?autoplay=1`. */
+const REVIEW_DEMO = import.meta.env.VITE_REVIEW_DEMO === '1';
 
 function todayIso(): string {
   const d = new Date();
@@ -574,7 +577,7 @@ export function startApp(): void {
 
   const tickPlay = (dt: number): void => {
     const wasFever = session.score.feverTime > 0;
-    if (AUTOPLAY) pendingInput = [...pendingInput, ...botInput(botAction(session))];
+    if (AUTOPLAY || REVIEW_DEMO) pendingInput = [...pendingInput, ...botInput(botAction(session))];
     // frozen tutorial: only the taught input gets through (applied at the frozen time, so it replays exactly)
     const queued = tutorial.frozen ? tutorial.filter(pendingInput, performance.now()) : pendingInput;
     pendingInput = [];

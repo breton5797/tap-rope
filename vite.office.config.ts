@@ -46,6 +46,7 @@ const ADMOB_TEST_PUB = 'ca-app-pub-3940256099942544';
 /** a release app build (VITE_RELEASE=1) must carry production rewarded units for both stores (review M7) */
 export function releaseAdCheck(env: Readonly<Record<string, string | undefined>>): void {
   if (env.VITE_RELEASE !== '1') return;
+  if (env.VITE_REVIEW_DEMO === '1') throw new Error('office app release: VITE_REVIEW_DEMO is for App Review recording builds only');
   for (const key of ['VITE_ADMOB_REWARDED_IOS', 'VITE_ADMOB_REWARDED_ANDROID'] as const) {
     const v = env[key] ?? '';
     if (!v.startsWith('ca-app-pub-')) throw new Error(`office app release: set ${key} to the production AdMob rewarded unit`);

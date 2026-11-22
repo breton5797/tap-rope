@@ -41,6 +41,8 @@ describe('office app build (iPad)', () => {
     expect(() => releaseAdCheck({ VITE_RELEASE: '1' })).toThrow(/VITE_ADMOB_REWARDED_IOS/);
     expect(() => releaseAdCheck({ VITE_RELEASE: '1', VITE_ADMOB_REWARDED_IOS: prodIos, VITE_ADMOB_REWARDED_ANDROID: 'ca-app-pub-3940256099942544/5224354917' })).toThrow(/test/);
     expect(() => releaseAdCheck({ VITE_RELEASE: '1', VITE_ADMOB_REWARDED_IOS: prodIos, VITE_ADMOB_REWARDED_ANDROID: prodAnd })).not.toThrow();
+    // the App Review recording build (bot-assisted runs) can never be a release
+    expect(() => releaseAdCheck({ VITE_RELEASE: '1', VITE_ADMOB_REWARDED_IOS: prodIos, VITE_ADMOB_REWARDED_ANDROID: prodAnd, VITE_REVIEW_DEMO: '1' })).toThrow(/VITE_REVIEW_DEMO/);
   });
 
   it('app swaps keep every export of the module they replace', () => {
