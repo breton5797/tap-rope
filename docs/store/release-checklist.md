@@ -142,9 +142,9 @@ Ads are requested as child-directed, content rating G, non-personalized. The app
 New players get no ad button for the first 3 minutes of play (grace period); please play stage 1 first.
 
 In-app purchase "칼퇴 패스" (Clock-Out Pass, non-consumable, product ID kaltoe.pass):
-- Where: Settings (설정) > "칼퇴 패스" card, or the bottom of the staff shop (복지몰).
+- Where: the bottom of the staff shop (사원 복지몰) > "칼퇴 패스" card.
 - Content: the same rewards as the rewarded ads without watching ads (same daily limit) + one exclusive cosmetic stamp ("칼퇴 패스 도장").
-- Restore: Settings > "구매 복원" (Restore Purchases).
+- Restore: "구매 복원" (Restore Purchases) on the same card.
 No random rewards or loot boxes exist in the app. The app is in Korean.
 
 Native features: haptic feedback (stage clear, rewards), StoreKit in-app purchase, AdMob rewarded ads, full offline play, local save.

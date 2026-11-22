@@ -1,0 +1,301 @@
+{
+ "bundleId": "com.heesookyang.taprope",
+ "steps": [
+  {
+   "do": "home"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "launch",
+   "mark": "launch"
+  },
+  {
+   "do": "waitText",
+   "text": "퇴근 시작!",
+   "timeout": 30,
+   "mark": "title"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": "퇴근 시작!",
+   "mark": "open-map"
+  },
+  {
+   "do": "tapText",
+   "text": "퇴근길 1단계",
+   "timeout": 10,
+   "mark": "stage1"
+  },
+  {
+   "do": "tapText",
+   "text": "칼퇴준으로 출근!",
+   "timeout": 10,
+   "mark": "pick-hero"
+  },
+  {
+   "do": "tapText",
+   "text": "확인",
+   "exact": true,
+   "timeout": 10,
+   "mark": "controls-card"
+  },
+  {
+   "do": "waitText",
+   "text": "다음 층으로",
+   "timeout": 200,
+   "mark": "stage1-clear"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "tapText",
+   "text": "층별 안내도",
+   "exact": true,
+   "timeout": 10,
+   "mark": "map"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": "뒤로",
+   "exact": true,
+   "timeout": 10,
+   "mark": "back-title"
+  },
+  {
+   "do": "tapText",
+   "text": "오늘의 미션",
+   "timeout": 10,
+   "mark": "daily-mission"
+  },
+  {
+   "do": "waitText",
+   "text": "타이틀로",
+   "timeout": 200,
+   "mark": "daily-clear"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "tapText",
+   "text": "타이틀로",
+   "exact": true,
+   "timeout": 10,
+   "mark": "title-again"
+  },
+  {
+   "do": "tapText",
+   "text": "퇴근 시작!",
+   "timeout": 10
+  },
+  {
+   "do": "tapText",
+   "text": "퇴근길 2단계",
+   "timeout": 10,
+   "mark": "stage2"
+  },
+  {
+   "do": "waitText",
+   "text": "광고 보고",
+   "timeout": 240,
+   "mark": "stage2-clear-ad-offer"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": "광고 보고",
+   "timeout": 10,
+   "mark": "rewarded-ad-tap"
+  },
+  {
+   "do": "waitText",
+   "text": "만 14세 미만",
+   "timeout": 10,
+   "mark": "ad-notice"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": "광고 보기",
+   "exact": true,
+   "timeout": 10,
+   "mark": "ad-playing"
+  },
+  {
+   "do": "tapText",
+   "text": "Close",
+   "exact": true,
+   "timeout": 60,
+   "mark": "ad-close"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "tapText",
+   "text": "Close",
+   "exact": true,
+   "timeout": 8,
+   "optional": true,
+   "mark": "ad-endcard-close"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  },
+  {
+   "do": "tapText",
+   "text": "Close",
+   "exact": true,
+   "timeout": 4,
+   "optional": true
+  },
+  {
+   "do": "waitText",
+   "text": "받았어요",
+   "timeout": 15,
+   "mark": "ad-reward-granted"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": "층별 안내도",
+   "exact": true,
+   "timeout": 10
+  },
+  {
+   "do": "tapText",
+   "text": "뒤로",
+   "exact": true,
+   "timeout": 10
+  },
+  {
+   "do": "tapText",
+   "text": "사원 복지몰",
+   "timeout": 10,
+   "mark": "shop"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "swipe",
+   "dir": "up",
+   "x": 0.5,
+   "y": 0.75
+  },
+  {
+   "do": "swipe",
+   "dir": "up",
+   "x": 0.5,
+   "y": 0.75
+  },
+  {
+   "do": "swipe",
+   "dir": "up",
+   "x": 0.5,
+   "y": 0.75
+  },
+  {
+   "do": "waitText",
+   "text": "칼퇴 패스",
+   "timeout": 10,
+   "mark": "pass-card"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": ".+ 구매",
+   "re": true,
+   "timeout": 10,
+   "mark": "buy-tap"
+  },
+  {
+   "do": "tapSystem",
+   "text": "구입",
+   "timeout": 20,
+   "optional": true,
+   "mark": "storekit-sheet-buy"
+  },
+  {
+   "do": "waitText",
+   "text": "칼퇴 패스를 사용할 수 있어요",
+   "timeout": 20,
+   "optional": true,
+   "mark": "pass-owned"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": "구매 복원",
+   "exact": true,
+   "timeout": 10,
+   "mark": "restore-tap"
+  },
+  {
+   "do": "waitText",
+   "text": "복원했어요",
+   "timeout": 30,
+   "optional": true,
+   "mark": "restored"
+  },
+  {
+   "do": "wait",
+   "s": 2
+  },
+  {
+   "do": "tapText",
+   "text": "뒤로",
+   "exact": true,
+   "timeout": 10
+  },
+  {
+   "do": "tapText",
+   "text": "설정",
+   "exact": true,
+   "timeout": 10,
+   "mark": "settings"
+  },
+  {
+   "do": "waitText",
+   "text": "개인정보처리방침",
+   "timeout": 10,
+   "mark": "privacy-links"
+  },
+  {
+   "do": "wait",
+   "s": 3
+  }
+ ]
+}

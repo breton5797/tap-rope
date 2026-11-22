@@ -20,6 +20,8 @@
 
 ## 녹화 가이드 (순서대로, 끊지 말고 한 번에)
 
+> 2026-11-23부터 자동: `docs/store/review-scenario.json` + studio-harness `tools/app-review/review-video.ts`가 아래 흐름을 실기기에서 녹화한다.
+
 1. 홈 화면에서 앱 아이콘을 눌러 **실행하는 장면부터** 시작 (제어 센터 › 화면 기록, 마이크 끔).
 2. 첫 실행 → 타이틀 → 지도 → **1단계** 시작, 탭(점프)·아래로 스와이프(슬라이드)로 스테이지 한 판 클리어.
 3. 결과 화면(도장·점수) → 지도 → 다른 스테이지 하나 잠깐 플레이 (실패해도 됨, 재시도 장면 포함).
@@ -27,7 +29,7 @@
 5. **복지몰** 열어 꾸미기 아이템 둘러보기(포인트로 교환, 무작위 없음).
 6. **보상형 광고**: 결과 화면의 "광고 보고 +₵30 더 받기" → 한 번 보고 포인트가 1회 들어오는 장면. (첫 3분 유예 때문에 버튼이 안 보이면 3분 넘게 플레이 후 촬영)
    - 버튼 첫 탭 시 나오는 안내(14세 미만·Google 고지) 화면도 그대로 녹화.
-7. **유료 기능**: 설정 › "칼퇴 패스" 카드 → 구매 버튼 → Apple 결제 시트(샌드박스) 표시 → 구매 완료 또는 취소. 이어서 설정 › **구매 복원** 탭.
+7. **유료 기능**: 사원 복지몰 맨 아래 "칼퇴 패스" 카드 → 구매 버튼 → Apple 결제 시트(샌드박스) 표시 → 구매 완료. 이어서 같은 카드의 **구매 복원** 탭. (2026-11-23 코드 확인: 패스 카드는 설정이 아니라 복지몰에만 있음)
 8. 설정 화면의 개인정보처리방침·이용약관 링크까지 보여 주고 종료.
 
 (로그인·계정 생성·사용자 생성 콘텐츠가 없으므로 계정 삭제·신고/차단 흐름은 녹화 대상 아님 — 메모에 명시.)
@@ -50,7 +52,7 @@ The app has NO account registration, NO login and NO user-generated content, so 
 - Daily mission: title screen > "오늘의 미션".
 - Cosmetic shop: "복지몰" (fixed-price exchange with in-game points; no random rewards, no loot boxes).
 - Optional rewarded ad (Google AdMob): on a result screen tap "광고 보고 +₵30 더 받기". After the ad finishes the points are added once; closing early gives no reward. New players see no ad button during the first 3 minutes of play. There are no interstitial or banner ads.
-- In-app purchase "칼퇴 패스" (Clock-Out Pass, non-consumable, kaltoe.pass): Settings (설정) > "칼퇴 패스" card, or the bottom of the shop. It gives the ad rewards without watching ads (same daily limit) plus one exclusive cosmetic stamp. Restore: Settings > "구매 복원".
+- In-app purchase "칼퇴 패스" (Clock-Out Pass, non-consumable, kaltoe.pass): title screen > "사원 복지몰" (staff shop) > scroll to the bottom > "칼퇴 패스" card > "<price> 구매". It gives the ad rewards without watching ads (same daily limit) plus one exclusive cosmetic stamp. Restore: "구매 복원" on the same card.
 
 4. External services used
 - Google AdMob (Google Mobile Ads SDK): optional rewarded ads only, requested as child-directed, max content rating G, non-personalized. No ATT prompt, IDFA is not used.

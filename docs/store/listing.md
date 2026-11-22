@@ -192,7 +192,7 @@ ADS AND IN-APP PURCHASE
 - In-app purchase "Clock-Out Pass" (one-time, permanent)
   1. Get the same ad rewards instantly without watching ads, within the same daily limit
   2. One pass-only cosmetic stamp, "Clock-Out Pass Stamp"
-  No random items. You can restore the purchase from Settings.
+  No random items. You can restore the purchase from the Clock-Out Pass card in the staff shop.
 
 PLEASE NOTE
 - The game is currently available in Korean only.
